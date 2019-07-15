@@ -4,6 +4,7 @@ from tensorflow.keras import layers
 from tensorflow.keras import optimizers
 from tensorflow.keras.utils import to_categorical
 import data.generate as dg
+import utils.save_load as disk
 
 
 def __make_iter__(a):
@@ -135,9 +136,10 @@ class VariationalNetwork:
             y = self.data['y_train']
         if not self.params['trained'] or force:
             self.nets['main'].fit(x=x, y=y, *args, **kw)
+            self.data['intermediate_outputs'] = None
+
         self.params['trained'] = True
         
-        self.data['intermediate_outputs'] = None
 
     def calculated_intermediate_outputs(self):
         """ return wether the intermediate output have been calculated """
@@ -147,12 +149,15 @@ class VariationalNetwork:
         """ calculate intermeidate outputs if they are not caclulated yet or if force is True"""
 
         self.fit()
+        print('The intermediate layers are{} computed'.
+              format('' if self.calculated_intermediate_outputs() else ' not'))
         main_net = self.nets['main']
         ts = self.params['decoded_layers']
         
         if not self.calculated_intermediate_outputs() or force:
             self.data['intermediate_outputs'] = []
             for t in ts:
+                print('getting output layer {}'.format(t))
                 intermediate_layer_model = Model(inputs=main_net.input,
                                                  outputs=main_net.layers[t].output)
                 output = intermediate_layer_model.predict(self.data['x_train'])
@@ -160,61 +165,84 @@ class VariationalNetwork:
 
             self.params['var_trained'] = False
 
-    def var_fit(self, y=None, var_epochs=50, *arg, **kw):
+
+    def var_fit(self, force=False, y=None, var_epochs=50, *arg, **kw):
         """ trains auxiliary networks """
         
         self.get_intermediate_outputs()
 
-        var_decs = self.nets['var_decoders']
-        sizes = self.params['layer_sizes']
-        inputs = self.data['intermediate_outputs']
-        ts = self.params['decoded_layers']
+        if not self.params['var_trained'] or force:
         
-        if y is None:
-            y = self.data['y_train']
+            var_decs = self.nets['var_decoders']
+            sizes = self.params['layer_sizes']
+            inputs = self.data['intermediate_outputs']
+            ts = self.params['decoded_layers']
         
-        for i, t in enumerate(ts):
-            vad = var_decs[i]
-            print('Training variational decoder number {}, input of dim {}'.format(i, sizes[t]))
+            if y is None:
+                y = self.data['y_train']
+        
+            for i, t in enumerate(ts):
+                vad = var_decs[i]
+                print('Training variational decoder number {}, input of dim {}'.format(i, sizes[t]))
 
-            vad.fit(x=inputs[i], y=y,
-                    epochs=var_epochs, *arg, **kw)
+                vad.fit(x=inputs[i], y=y,
+                        epochs=var_epochs, *arg, **kw)
 
         self.params['var_trained'] = True
 
-    def save_data(dir_name):
-	"""Save the data to the file """
-	directory = '{0}/{1}{2}/'.format(os.getcwd(), parent_dir, self.params['directory'])
 
-		data = {'information': self.information,
-		        'test_error': self.test_error, 'train_error': self.train_error, 'var_grad_val': self.grads,
-		        'loss_test': self.loss_test, 'loss_train': self.loss_train, 'params': self.params
-			, 'l1_norms': self.l1_norms, 'weights': self.weights, 'ws': self.ws}
+    def save_to_directory(self, dir_name):
 
-		if not os.path.exists(directory):
-			os.makedirs(directory)
-		self.dir_saved = directory
-		with open(self.dir_saved + file_to_save, 'wb') as f:
-			cPickle.dump(data, f, protocol=2)
+        disk.save_net(self.nets['main'], dir_name, 'main.h5')
+        for i, v in enumerate(self.nets['var_decoders']):
+            disk.save_net(v, dir_name, 'var{:02d}.h5'.format(i))
 
+        disk.save_object(var_net.params, dir_name, 'params.pickle')
+        disk.save_object(var_net.data, dir_name, 'data.pickle')
         
-
         
+        return None
+
+    @classmethod
+    def load_from_directory(cls, dir_name):
+
+        var_net = cls()
+        var_net.params = disk.load_object(dir_name, 'params.pickle')
+        var_net.data = disk.load_object(dir_name, 'data.pickle')
+
+        var_net.nets['main'] = disk.load_net(dir_name, 'main.h5')
+
+        var_net.nets['var_decoders'] = []
+        intermediate_layers = var_net.params['decoded_layers']
+        for i, t in enumerate(intermediate_layers):
+            v = disk.load_net(dir_name, 'var{:02d}.h5'.format(i))
+            var_net.nets['var_decoders'].append(v)
+
+        return var_net
+        
+    
 if __name__ == '__main__':
 
-    var_net = VariationalNetwork()
-    
-    layer_sizes = [64, 16]
-    
-    test_data, test_labels = var_net.get_data(source='mnist')
+    dir_name = '/tmp/var-net'
 
-    var_net.build_model(layer_sizes)
-    var_net.build_var_dec()    
+    try:
+        var_net = VariationalNetwork.load_from_directory(dir_name)
+    except(Error):
+        var_net = VariationalNetwork()
+        layer_sizes = [64, 16]
+        test_data, test_labels = var_net.get_data(source='mnist')
+        var_net.build_model(layer_sizes)
+        var_net.build_var_dec()    
 
     epochs = 50
-    var_net.fit(epochs=epochs, batch_size=512,
+
+    refit = False
+    refit = True
+
+    var_net.fit(epochs=epochs, batch_size=512, force = refit,
                 validation_data=(test_data, test_labels)) 
-
-    var_net.get_intermediate_outputs()
-
     var_net.var_fit(var_epochs=50)
+#    """
+
+    var_net.save_to_directory(dir_name)
+

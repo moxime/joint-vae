@@ -1,7 +1,6 @@
 from tensorflow.keras import models
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras import layers
-from layers import Lambda, Input, Dense
 from tensorflow.keras import optimizers
 # from tensorflow.keras.utils import to_categorical
 import data.generate as dg
@@ -19,12 +18,11 @@ def __make_iter__(a):
 DEFAULT_ACTIVATION='relu'
 
 
-class VariationalNetwork(Model):
+class VariationalNetwork:
 
-    def __init__(input_dim, layers, num_labels):
+    def __init__(self):
 
-        
-        
+
         self.nets = {'main': Sequential()}
 
         self.params = {'built_model': False}

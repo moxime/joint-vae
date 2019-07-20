@@ -2,8 +2,7 @@ from tensorflow.keras import datasets
 from tensorflow.keras.utils import to_categorical
 import numpy as np
 mnist = datasets.mnist
-
-
+from keras import backend as K
 
 
 def sampling(args):

@@ -21,7 +21,7 @@ DEFAULT_ACTIVATION='relu'
 
 class VariationalNetwork(Model):
 
-    def __init__(input_dim, layers, num_labels):
+    def __init__(self, input_dim, layers, num_labels):
 
         
         

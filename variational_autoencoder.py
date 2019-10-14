@@ -22,7 +22,7 @@ def __make_iter__(a):
 DEFAULT_ACTIVATION = 'relu'
 
 
-class VariationalNetwork(Model):
+class ClassificationVariationalNetwork(Model):
 
     def __init__(self, *args, **kw):
 
@@ -153,7 +153,7 @@ if __name__ == '__main__':
         except(NameError):
             rebuild = True
     if rebuild:
-        vae = VariationalNetwork.build_model(28**2, [512, 200], 20,
+        vae = ClassificationVariationalNetwork.build_model(28**2, [512, 200], 20,
                                              [200, 512], 10, beta=beta) 
         vae.plot_model()
 

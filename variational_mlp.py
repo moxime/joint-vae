@@ -224,6 +224,7 @@ class VariationalNetwork(Model):
         self.params['var_trained'] = True
 
 
+        
     def save_to_directory(self, dir_name):
 
         disk.save_net(self.nets['main'], dir_name, 'main.h5')

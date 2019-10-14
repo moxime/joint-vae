@@ -106,7 +106,7 @@ class VariationalNetwork(Model):
         def loss(x, x_):
       
             reconstruction_loss = mse(x, x_)
-            """
+            
             kl_loss = 1 + self.t_log_var - K.square(self.t_mean) - K.exp(self.t_log_var)
             kl_loss = K.sum(kl_loss, axis=-1)
             kl_loss *= -0.5
@@ -114,7 +114,8 @@ class VariationalNetwork(Model):
 
             """
             vae_loss = K.mean(reconstruction_loss)
-
+            """
+            
             return vae_loss
         
         if beta==0:
@@ -144,7 +145,7 @@ class VariationalNetwork(Model):
 if __name__ == '__main__':
 
     rebuild = False or True
-    beta = 0
+    beta = 1
     
     if not rebuild:
         try:
@@ -152,8 +153,8 @@ if __name__ == '__main__':
         except(NameError):
             rebuild = True
     if rebuild:
-        vae = VariationalNetwork.build_model(28**2, [50], 10,
-                                             [50], 10, beta=beta) 
+        vae = VariationalNetwork.build_model(28**2, [512, 200], 20,
+                                             [200, 512], 10, beta=beta) 
         vae.plot_model()
 
     (x_train, y_train, x_test, y_test) = dg.get_mnist() 
@@ -184,7 +185,7 @@ if __name__ == '__main__':
 
     
 
-    m0_enc = t_enc_[0]
+    mu0_enc = t_enc_[0]
 
     y_dec = vae.decoder.predict(t_enc)
 

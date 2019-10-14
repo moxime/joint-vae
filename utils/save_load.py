@@ -4,10 +4,10 @@ import json
 from tensorflow.keras.models import load_model
 
 
-def get_path(dir_name, file_name, creat_dir=True):
+def get_path(dir_name, file_name, create_dir=True):
 
     dir_path = os.path.realpath(dir_name)
-    if not os.path.exists(dir_path) and creat_dir:
+    if not os.path.exists(dir_path) and create_dir:
         os.makedirs(dir_path)
 
     return full_path(dir_name, file_name)

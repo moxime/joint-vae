@@ -12,12 +12,14 @@ import utils.mutual_information as mi
 import numpy as np
 import tensorflow.keras.backend as K
 
+
 def __make_iter__(a):
     try:
         _ = [e for e in a]
     except TypeError:
         return [a]
     return a
+
 
 DEFAULT_ACTIVATION = 'relu'
 
@@ -82,11 +84,13 @@ class ClassificationVariationalNetwork(Model):
         vae.t_mean = t_mean
         vae.t_log_var = t_log_var
 
-        vae.beta = beta
-        
-        vae.trained = False
-
         the_optimizer = optimizers.RMSprop(lr=0.001)
+
+        vae.trained = False
+        vae.beta = beta
+        vae.activation = activation
+        vae._sizes_of_layers = [input_shape, encoder_layer_sizes,
+                                latent_dim, decoder_layer_sizes]
         
         vae.compile(optimizer=the_optimizer,
                     loss = mse,
@@ -141,6 +145,23 @@ class ClassificationVariationalNetwork(Model):
         _plot(self)
         _plot(self.encoder)
         _plot(self.decoder)
+
+
+    def save(self, dir_name):
+
+        param_dict = {'layer_sizes': self._sizes_of_layers,
+                      'trained': self.trained,
+                      'beta': beta,
+                      'activation': activation
+                      }
+
+        save_load.save_json(param_dict, dir_name, 'params.json')
+
+        w_p = save_load.get_path(dir_name, 'weights.h5')
+        if self.trained:
+            self.save_weights(w_p)
+        
+        
         
 if __name__ == '__main__':
 
@@ -159,7 +180,7 @@ if __name__ == '__main__':
 
     (x_train, y_train, x_test, y_test) = dg.get_mnist() 
 
-    epochs = 20
+    epochs = 2
     
     refit = False
     # refit = True

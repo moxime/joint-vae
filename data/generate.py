@@ -28,7 +28,7 @@ def sampling(args):
 def get_mnist():
     
     (train_images, train_labels), (test_images, test_labels) = \
-        mnist.load_data()
+        mnist.load_data()       
     
     num_train = len(train_labels)
     num_test = len(test_labels)

@@ -22,7 +22,6 @@ def __make_iter__(a):
 DEFAULT_ACTIVATION = 'relu'
 
 
-
 class VariationalNetwork(Model):
 
     def __init__(self, *args, **kw):

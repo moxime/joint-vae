@@ -7,7 +7,7 @@ from tensorflow.keras.utils import plot_model
 from tensorflow.keras.losses import mse, binary_crossentropy, categorical_crossentropy
 # from tensorflow.keras.utils import to_categorical
 import data.generate as dg
-import utils.save_load as disk
+from utils import save_load 
 import utils.mutual_information as mi
 import numpy as np
 import tensorflow.keras.backend as K
@@ -90,7 +90,7 @@ class ClassificationVariationalNetwork(Model):
         vae.beta = beta
         vae.activation = activation
         vae._sizes_of_layers = [input_shape, encoder_layer_sizes,
-                                latent_dim, decoder_layer_sizes]
+                                latent_dim, decoder_layer_sizes, num_labels]
         
         vae.compile(optimizer=the_optimizer,
                     loss = mse,
@@ -133,8 +133,7 @@ class ClassificationVariationalNetwork(Model):
         if not self.trained or force:
             super().fit(*args, **kw)
 
-        self.trained = True
-            
+        self.trained = True            
 
     def plot_model(self, suffix='.png', show_shapes=True, show_layer_names=True):
 
@@ -146,13 +145,12 @@ class ClassificationVariationalNetwork(Model):
         _plot(self.encoder)
         _plot(self.decoder)
 
-
     def save(self, dir_name):
 
         param_dict = {'layer_sizes': self._sizes_of_layers,
                       'trained': self.trained,
-                      'beta': beta,
-                      'activation': activation
+                      'beta': self.beta,
+                      'activation': self.activation
                       }
 
         save_load.save_json(param_dict, dir_name, 'params.json')
@@ -160,27 +158,49 @@ class ClassificationVariationalNetwork(Model):
         w_p = save_load.get_path(dir_name, 'weights.h5')
         if self.trained:
             self.save_weights(w_p)
+
+    @classmethod        
+    def load(cls, dir_name):
+
+        p_dict = save_load.load_json(dir_name, 'params.json')
+
         
+        ls = p_dict['layer_sizes']
+
+        vae = cls.build_model(ls[0], ls[1], ls[2], ls[3], ls[4],
+                              activation=p_dict['activation'],
+                              beta=p_dict['beta'])
+
+        vae.trained = p_dict['trained']
+
+        if vae.trained:
+            vae.load_weights(save_load.get_path(dir_name, 'weights.h5'))
         
+        return vae
         
 if __name__ == '__main__':
 
-    rebuild = False or True
-    beta = 1
+    load_dir = None
+    load_dir = './jobs/vae-mnist'
+                  
+    rebuild = False
     
     if not rebuild:
         try:
-            vae.trained
-        except(NameError):
+            vae = ClassificationVariationalNetwork.load(load_dir)
+            print('Is loaded. Is trained:', vae.trained)
+        except(FileNotFoundError, NameError):
+            print('Not loaded, rebuilding')
             rebuild = True
     if rebuild:
+        beta = 1
         vae = ClassificationVariationalNetwork.build_model(28**2, [512, 200], 20,
-                                             [200, 512], 10, beta=beta) 
-        vae.plot_model()
+                                                           [200, 512], 10, beta=beta) 
+        # vae.plot_model()
 
     (x_train, y_train, x_test, y_test) = dg.get_mnist() 
 
-    epochs = 2
+    epochs = 1
     
     refit = False
     # refit = True
@@ -209,5 +229,3 @@ if __name__ == '__main__':
     mu0_enc = t_enc_[0]
 
     y_dec = vae.decoder.predict(t_enc)
-
-    

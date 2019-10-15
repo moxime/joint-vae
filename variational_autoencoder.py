@@ -139,10 +139,10 @@ class ClassificationVariationalNetwork(Model):
                 x = true
                 x_ = pred 
                 
-            reconstruction_loss = mse(x, x_)
+            reconstruction_loss = mse(self.x_inputs, self.x_outputs)
 
             if self.x_y:
-                prediction_loss = x_entropy(y, y_)
+                prediction_loss = x_entropy(self.y_inputs, self.y_outputs)
             
             kl_loss = (K.square(self.t_mean)
                        + K.exp(self.t_log_var)

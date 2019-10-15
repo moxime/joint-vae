@@ -38,7 +38,7 @@ net.summary()
 
 
 
-def my_loss(net, type='mix'):
+def my_loss(net, type='mix', beta=1):
 
     def loss(in_, out_):
         x = in_[0]
@@ -48,7 +48,7 @@ def my_loss(net, type='mix'):
         y_ = out_[1]
 
         if type is 'mix':
-            return K.mean(mse(x, x_) + binary_crossentropy(y, y_))
+            return K.mean(mse(x, x_) + beta*binary_crossentropy(y, y_))
 
         elif type is 'bin':
             return K.mean(binary_crossentropy(y, y_))
@@ -60,8 +60,8 @@ def my_loss(net, type='mix'):
 
     return loss
     
-
-if False:
+def_u = False or True
+if def_u:
     u = np.random.rand(M)
 
 
@@ -74,11 +74,12 @@ y_train = y[N//5:]
 x_test = x[:N//5]
 y_test = y[:N//5]
 
+epochs = 40
+
+net.compile(optimizer='Adam', loss=my_loss(net, 'bin', beta=1e-8))
+net.fit([x_train, y_train], [x_train, y_train],
+        validation_data = ([x_test, y_test], [x_test, y_test]),
+        epochs=epochs)
 
 
-
-
-net.compile(optimizer='Adam', loss=my_loss(net, 'bin'))
-net.fit([x_train, y_train], [x_train, y_train], epochs=30)
-
-
+[x_, y_] = net.predict([x_test, y_test])

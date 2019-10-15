@@ -13,25 +13,27 @@ import numpy as np
 import tensorflow.keras.backend as K
 
 
-
-
 N = 10000
 C = 2
+M1 = 10
 M = 20
-T = 2
+T = 11
 
+def f(x1, A):
+
+    return np.dot(x1, np.random.rand(M1, M))
 
 x_input = Input(shape=M)
 y_input = Input(shape=C)
 
-log_y = Activation('softmax')(y_input)
+# log_y = Activation('softmax')(y_input)
 
-x_y = Concatenate()([x_input, log_y])
+x_y = Concatenate()([x_input, y_input])
 
 z = Dense(T)(x_y)
 
 x_output = Dense(M)(z)
-y_output = Dense(C)(z)
+y_output = Dense(C, activation='sigmoid')(z)
 
 net = Model([x_input, y_input], [x_output, y_output])
 net.summary()
@@ -65,7 +67,7 @@ if def_u:
     u = np.random.rand(M)
 
 
-x = np.random.randn(N, M)
+x = f(np.random.randn(N, M1), A=np.random.rand(M, M1))
 y = to_categorical(np.dot(x, u) > 0)
 
 
@@ -76,10 +78,14 @@ y_test = y[:N//5]
 
 epochs = 40
 
-net.compile(optimizer='Adam', loss=my_loss(net, 'bin', beta=1e-8))
+net.compile(optimizer='Adam', loss=my_loss(net, 'bin', beta=1))
 net.fit([x_train, y_train], [x_train, y_train],
         validation_data = ([x_test, y_test], [x_test, y_test]),
         epochs=epochs)
 
 
 [x_, y_] = net.predict([x_test, y_test])
+
+print('mmse: ', mse(x_, x_test).numpy().mean())
+print('mxe: ', binary_crossentropy(y_test, y_).numpy().mean())
+

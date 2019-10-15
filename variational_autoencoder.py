@@ -1,10 +1,11 @@
 import tensorflow as tf
 from tensorflow.keras.models import Sequential, Model
 # from tensorflow.keras import layers
-from tensorflow.keras.layers import Lambda, Input, Dense
+from tensorflow.keras.layers import Lambda, Input, Dense, Activation, Concatenate
 from tensorflow.keras import optimizers
 from tensorflow.keras.utils import plot_model
-from tensorflow.keras.losses import mse, binary_crossentropy, categorical_crossentropy
+from tensorflow.keras.losses import mse
+from tensorflow.keras.losses import categorical_crossentropy as x_entropy
 # from tensorflow.keras.utils import to_categorical
 import data.generate as dg
 from utils import save_load 
@@ -38,14 +39,19 @@ class ClassificationVariationalNetwork(Model):
         if np.ndim(input_shape) == 0:
             input_shape = (input_shape,)
 
+        x_y = num_labels is not None
+
         # build encoder
         x_inputs = Input(shape=input_shape, name='encoder_input')
-        if num_labels is not None:
+        if x_y:
             y_inputs = Input(shape=(num_labels,), name='y_true')
+            y_logits = Activation('softmax')(y_inputs) 
             inputs = [x_inputs, y_inputs]
         else: 
-            xy_inputs = [x_inputs]
-        x = x_inputs
+            inputs = x_inputs
+
+        x = Concatenate()([x_inputs, y_logits]) if x_y else x_inputs
+        
         for i, l in enumerate(encoder_layer_sizes):
             x = Dense(l, activation=activation, name='enc_layer_' + str(i))(x)
 
@@ -57,7 +63,7 @@ class ClassificationVariationalNetwork(Model):
                    name='latent')([t_mean, t_log_var])
 
         # instantiate encoder
-        encoder = Model(x_inputs, [t_mean, t_log_var, t], name='encoder')
+        encoder = Model(inputs, [t_mean, t_log_var, t], name='encoder')
 
         # build decoder
         latent_inputs = Input(shape=(latent_dim,), name='t_sampling')
@@ -68,21 +74,32 @@ class ClassificationVariationalNetwork(Model):
                 x = Dense(l, activation=activation, name='dec_layer_'+str(i))(x)
 
         x_outputs = Dense(np.prod(input_shape), activation='linear')(x)
-
+        if x_y:
+            y_outputs = Dense(num_labels, activation='softmax', name='y_pred')(x)
+            outputs = [x_outputs, y_outputs]
+        else: 
+            outputs = x_outputs
+        
+        
                           
         # instantiate decoder model
-        decoder = Model(latent_inputs, x_outputs, name='decoder')
+        decoder = Model(latent_inputs, outputs, name='decoder')
 
         # instantiate VAE model
-        connected_outputs = decoder(encoder(x_inputs)[2])
-        vae = cls(x_inputs, connected_outputs, name='vae_mlp')
+        connected_outputs = decoder(encoder(inputs)[2])
+        vae = cls(inputs, connected_outputs, name='vae_mlp')
 
         vae.dim = np.prod(input_shape)
         vae.encoder = encoder
         vae.decoder = decoder
         vae.x_inputs = x_inputs
-        # vae.y_inputs = y_inputs
-        # vae.y_outputs = outputs
+        vae.x_outputs = x_outputs
+
+        vae.x_y = x_y
+        if x_y:
+            vae.y_inputs = y_inputs
+            vae.y_outputs = y_outputs
+ 
         vae.t_mean = t_mean
         vae.t_log_var = t_log_var
 
@@ -94,41 +111,53 @@ class ClassificationVariationalNetwork(Model):
         vae._sizes_of_layers = [input_shape, encoder_layer_sizes,
                                 latent_dim, decoder_layer_sizes, num_labels]
 
-        print('*'*10+' beta=', beta,'*'*10)
         vae.compile(optimizer=the_optimizer,
-                    loss = mse,
+                    # loss = mse,
                     # loss='categorical_crossentropy',
-                    # loss = vae.loss_function(),
+                    loss = vae.loss_function(),
                     metrics=['mae'])
 
         vae.built_model = True
 
         return vae
-
-
     
     def loss_function(self, beta=None):
 
         if beta is None:
             beta = self.beta
             
-        def loss(x, x_):
-      
-            reconstruction_loss = mse(x, x_)
-            
-            kl_loss = 1 + self.t_log_var - K.square(self.t_mean) - K.exp(self.t_log_var)
-            kl_loss = K.sum(kl_loss, axis=-1)
-            kl_loss *= -0.5
-            vae_loss = K.mean(reconstruction_loss + beta*kl_loss)
+        def loss(true, pred):
 
-            """
-            vae_loss = K.mean(reconstruction_loss)
-            """
+            # print('\n'*20, '*'*80, true, pred, '\n'*20, '*'*80)
+
+            if self.x_y:
+                x = true[0]
+                x_ = pred[0]
+                y = true[1]
+                y_ = pred[1]
+            else:
+                x = true
+                x_ = pred 
+                
+            reconstruction_loss = mse(x, x_)
+
+            if self.x_y:
+                prediction_loss = x_entropy(y, y_)
+            
+            kl_loss = (K.square(self.t_mean)
+                       + K.exp(self.t_log_var)
+                       - self.t_log_var) 
+            kl_loss = K.sum(kl_loss, axis=-1)
+
+            if self.x_y:
+                vae_loss = K.mean(prediction_loss 
+                                  + reconstruction_loss 
+                                  + beta*kl_loss)
+            else:
+                vae_loss = K.mean(reconstruction_loss
+                                  + beta*kl_loss)
             
             return vae_loss
-        
-        if beta==0:
-            return mse
 
         return loss
     
@@ -189,6 +218,10 @@ if __name__ == '__main__':
     # load_dir = './jobs/vae-mnist'
                   
     rebuild = load_dir is None
+
+    e_ = []
+    d_ = e_.copy()
+    d_.reverse()
     
     if not rebuild:
         try:
@@ -198,22 +231,29 @@ if __name__ == '__main__':
             print('Not loaded, rebuilding')
             rebuild = True
     if rebuild:
+        print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
         beta = 1
-        vae = ClassificationVariationalNetwork.build_model(28**2, [512, 200], 20,
-                                                           [200, 512], 10, beta=beta) 
+        vae = ClassificationVariationalNetwork.build_model(28**2, e_, 2,
+                                                           d_, 10, beta=beta) 
         # vae.plot_model()
-
+        vae.summary()
+        vae.encoder.summary()
+        vae.decoder.summary()
+        print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     (x_train, y_train, x_test, y_test) = dg.get_mnist() 
 
     epochs = 1
     
     refit = False
     # refit = True
-    
-    vae.fit(force=refit, x=x_train, y=x_train, epochs=epochs,
-            validation_data=(x_test, x_test))
 
-    
+    vae.fit(force=refit,
+            x=[x_train, y_train],
+            y=[x_train, y_train],
+            epochs=epochs,
+            # validation_data=(x_test, x_test)
+            )
+
     x0 = np.atleast_2d(x_test[0])
     
     t0_ = vae.encoder.predict(x0)
@@ -229,8 +269,7 @@ if __name__ == '__main__':
     t_enc = t_enc_[2]
     ls_enc = t_enc_[1]
 
-    
-
     mu0_enc = t_enc_[0]
 
     y_dec = vae.decoder.predict(t_enc)
+    

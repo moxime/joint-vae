@@ -40,9 +40,11 @@ class ClassificationVariationalNetwork(Model):
 
         # build encoder
         x_inputs = Input(shape=input_shape, name='encoder_input')
-        # y_inputs = Input(shape=(num_labels,), name='y_true')
-        # xy_inputs = [x_inputs, y_inputs]
-        
+        if num_labels is not None:
+            y_inputs = Input(shape=(num_labels,), name='y_true')
+            inputs = [x_inputs, y_inputs]
+        else: 
+            xy_inputs = [x_inputs]
         x = x_inputs
         for i, l in enumerate(encoder_layer_sizes):
             x = Dense(l, activation=activation, name='enc_layer_' + str(i))(x)
@@ -91,7 +93,8 @@ class ClassificationVariationalNetwork(Model):
         vae.activation = activation
         vae._sizes_of_layers = [input_shape, encoder_layer_sizes,
                                 latent_dim, decoder_layer_sizes, num_labels]
-        
+
+        print('*'*10+' beta=', beta,'*'*10)
         vae.compile(optimizer=the_optimizer,
                     loss = mse,
                     # loss='categorical_crossentropy',
@@ -102,6 +105,8 @@ class ClassificationVariationalNetwork(Model):
 
         return vae
 
+
+    
     def loss_function(self, beta=None):
 
         if beta is None:
@@ -181,9 +186,9 @@ class ClassificationVariationalNetwork(Model):
 if __name__ == '__main__':
 
     load_dir = None
-    load_dir = './jobs/vae-mnist'
+    # load_dir = './jobs/vae-mnist'
                   
-    rebuild = False
+    rebuild = load_dir is None
     
     if not rebuild:
         try:

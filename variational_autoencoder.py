@@ -168,10 +168,14 @@ class ClassificationVariationalNetwork(Model):
 
         self.trained = True            
 
-    def plot_model(self, suffix='.png', show_shapes=True, show_layer_names=True):
+    def plot_model(self, dir='.', suffix='.png', show_shapes=True, show_layer_names=True):
 
+        if dir is None:
+            dir = '.'
+        
         def _plot(net):
-            plot_model(net, to_file=net.name+suffix, show_shapes=show_shapes,
+            f_p = save_load.get_path(dir, net.name+suffix)
+            plot_model(net, to_file=f_p, show_shapes=show_shapes,
                        show_layer_names=show_layer_names)
 
         _plot(self)
@@ -214,10 +218,11 @@ class ClassificationVariationalNetwork(Model):
 if __name__ == '__main__':
 
     load_dir = None
-    # load_dir = './jobs/vae-mnist'
+    load_dir = './jobs/vae-mnist/191016'
                   
-    rebuild = load_dir is None
-
+    # rebuild = load_dir is None
+    rebuild = True
+    
     e_ = []
     d_ = e_.copy()
     d_.reverse()
@@ -234,11 +239,12 @@ if __name__ == '__main__':
         beta = 1
         vae = ClassificationVariationalNetwork.build_model(28**2, e_, 2,
                                                            d_, 10, beta=beta) 
-        # vae.plot_model()
+        # vae.plot_model(dir=load_dir)
         vae.summary()
         vae.encoder.summary()
         vae.decoder.summary()
         print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
+
     (x_train, y_train, x_test, y_test) = dg.get_mnist() 
 
     epochs = 1

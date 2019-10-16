@@ -248,7 +248,7 @@ if __name__ == '__main__':
     (x_train, y_train, x_test, y_test) = dg.get_mnist() 
 
     
-    epochs = 1
+    epochs = 2
     
     refit = False
     # refit = True

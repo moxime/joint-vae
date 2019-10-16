@@ -78,7 +78,7 @@ y_test = y[:N//5]
 
 epochs = 40
 
-net.compile(optimizer='Adam', loss=my_loss(net, 'bin', beta=1))
+net.compile(optimizer='Adam', loss=my_loss(net, 'mse', beta=1))
 net.fit([x_train, y_train], [x_train, y_train],
         validation_data = ([x_test, y_test], [x_test, y_test]),
         epochs=epochs)

@@ -45,12 +45,11 @@ class ClassificationVariationalNetwork(Model):
         x_inputs = Input(shape=input_shape, name='encoder_input')
         if x_y:
             y_inputs = Input(shape=(num_labels,), name='y_true')
-            y_logits = Activation('softmax')(y_inputs) 
             inputs = [x_inputs, y_inputs]
         else: 
             inputs = x_inputs
 
-        x = Concatenate()([x_inputs, y_logits]) if x_y else x_inputs
+        x = Concatenate()(inputs) if x_y else x_inputs
         
         for i, l in enumerate(encoder_layer_sizes):
             x = Dense(l, activation=activation, name='enc_layer_' + str(i))(x)

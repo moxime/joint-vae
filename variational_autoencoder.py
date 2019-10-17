@@ -124,41 +124,44 @@ class ClassificationVariationalNetwork(Model):
 
         if beta is None:
             beta = self.beta
-            
-        def loss(true, pred):
 
-            # print('\n'*20, '*'*80, true, pred, '\n'*20, '*'*80)
+        def loss_vae(true, pred):
+    
+            x = true
+            x_ = pred
 
-            if self.x_y:
-                x = true[0]
-                x_ = pred[0]
-                y = true[1]
-                y_ = pred[1]
-            else:
-                x = true
-                x_ = pred 
-                
-            reconstruction_loss = mse(self.x_inputs, self.x_outputs)
+            l2_loss = mse(x, x_)
+            kl_loss = K.sum(K.square(self.t_mean)
+                            + K.exp(self.t_log_var)
+                            - self.t_log_var) 
 
-            if self.x_y:
-                prediction_loss = x_entropy(self.y_inputs, self.y_outputs)
-            
-            kl_loss = (K.square(self.t_mean)
-                       + K.exp(self.t_log_var)
-                       - self.t_log_var) 
-            kl_loss = K.sum(kl_loss, axis=-1)
+            loss = K.mean(l2_loss
+                              + beta*kl_loss)
 
-            if self.x_y:
-                vae_loss = K.mean(prediction_loss 
-                                  + reconstruction_loss 
-                                  + beta*kl_loss)
-            else:
-                vae_loss = K.mean(reconstruction_loss
-                                  + beta*kl_loss)
-            
-            return vae_loss
+            return loss
 
-        return loss
+        def loss_xy(true, pred):
+
+            x = true[0]
+            x_ = pred[0]
+            y = true[1]
+            y_ = pred[1]
+    
+            l2_loss = mse(x, x_)
+
+            y_loss = x_entropy(y, y_)
+
+            kl_loss = K.sum(K.square(self.t_mean)
+                            + K.exp(self.t_log_var)
+                            - self.t_log_var) 
+
+            loss = K.mean(y_loss 
+                          + l2_loss 
+                          + beta*kl_loss)
+
+            return loss
+
+        return loss_xy if self.x_y else loss_vae
     
     def fit(self, force=False, *args, **kw):
 
@@ -261,16 +264,17 @@ if __name__ == '__main__':
             )
 
     x0 = np.atleast_2d(x_test[0])
+    y0 = np.atleast_2d(y_test[0])
     
-    t0_ = vae.encoder.predict(x0)
+    t0_ = vae.encoder.predict([x0, y0])
     mu0 = t0_[0]
     logsig0 = t0_[1]
     sig0 = np.exp(logsig0)
     t0 = t0_[2]
     # print(' -- '.join(str(i) for i in [sig0.min(), sig0.mean(), sig0.max()]))
 
-    y_pred = vae.predict(x_test)
-    t_enc_ = vae.encoder.predict(x_test)
+    y_pred = vae.predict([x_test, y_test])
+    t_enc_ = vae.encoder.predict([x_test, y_test])
 
     t_enc = t_enc_[2]
     ls_enc = t_enc_[1]

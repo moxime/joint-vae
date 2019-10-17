@@ -30,7 +30,9 @@ y_input = Input(shape=C)
 
 x_y = Concatenate()([x_input, y_input])
 
-z = Dense(T)(x_y)
+z_mu = Dense(T, name='z_mu')(x_y)
+z_log_var = Dense(T, name='z_lv')(x_y)
+z = Lambda(dg.sampling, output_shape=(T,), name='z_sampling')([z_mu, z_log_var])
 
 x_output = Dense(M)(z)
 y_output = Dense(C, activation='sigmoid')(z)
@@ -55,6 +57,13 @@ def my_loss(net, type='mix', beta=1):
         elif type is 'bin':
             return K.mean(binary_crossentropy(y, y_))
 
+        elif type is 'vae':
+            return K.mean(mse(x, x_) 
+                          + beta*binary_crossentropy(y, y_)
+                          + beta*K.sum(K.exp(z_log_var)
+                                       + K.square(z_mu)
+                                       - z_log_var))
+        
         else:
             return K.mean(mse(x, x_))
         
@@ -78,7 +87,7 @@ y_test = y[:N//5]
 
 epochs = 40
 
-net.compile(optimizer='Adam', loss=my_loss(net, 'mse', beta=1))
+net.compile(optimizer='Adam', loss=my_loss(net, 'vae', beta=1))
 net.fit([x_train, y_train], [x_train, y_train],
         validation_data = ([x_test, y_test], [x_test, y_test]),
         epochs=epochs)

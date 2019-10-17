@@ -40,6 +40,7 @@ y_output = Dense(C, activation='sigmoid')(z)
 net = Model([x_input, y_input], [x_output, y_output])
 net.summary()
 
+# https://www.tensorflow.org/guide/keras/custom_layers_and_models#putting_it_all_together_an_end-to-end_example
 
 
 def my_loss(net, type='mix', beta=1):

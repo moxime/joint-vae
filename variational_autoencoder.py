@@ -146,7 +146,7 @@ class ClassificationVariationalNetwork(Model):
             x_ = pred[0]
             y = true[1]
             y_ = pred[1]
-    
+
             l2_loss = mse(x, x_)
 
             y_loss = x_entropy(y, y_)

@@ -12,7 +12,7 @@ from utils import save_load
 import utils.mutual_information as mi
 import numpy as np
 import tensorflow.keras.backend as K
-
+from vae_layers import *
 
 def __make_iter__(a):
     try:
@@ -25,151 +25,69 @@ def __make_iter__(a):
 DEFAULT_ACTIVATION = 'relu'
 
 
+
+
 class ClassificationVariationalNetwork(Model):
 
-    def __init__(self, *args, **kw):
+    def __init__(self,
+                 input_shape,
+                 num_labels=None,
+                 encoder_layer_sizes=[36],
+                 latent_dim=4,
+                 decoder_layer_sizes=[36],
+                 name = 'xy-vae',
+                 activation=DEFAULT_ACTIVATION,
+                 beta=1,
+                 *args, **kw):
 
-        super().__init__(*args, **kw)
+        super().__init__(name=name, *args, **kw)
 
-    @classmethod
-    def build_model(cls, input_shape, encoder_layer_sizes, latent_dim,
-                    decoder_layer_sizes, num_labels=None,
-                    activation=DEFAULT_ACTIVATION, beta=0.01):
+        self.input_dim = input_shape
 
-        if np.ndim(input_shape) == 0:
-            input_shape = (input_shape,)
+        self.encoder = Encoder(latent_dim, encoder_layer_sizes)
+        self.decoder = Decoder(input_shape, num_labels, decoder_layer_sizes)
 
-        x_y = num_labels is not None
+        self.x_y = num_labels is not None
+        self.beta = beta
+            
+        self._sizes_of_layers = [input_shape, num_labels,
+                                 encoder_layer_sizes, latent_dim,
+                                 decoder_layer_sizes]
 
-        # build encoder
-        x_inputs = Input(shape=input_shape, name='encoder_input')
-        if x_y:
-            y_inputs = Input(shape=(num_labels,), name='y_true')
-            inputs = [x_inputs, y_inputs]
-        else: 
-            inputs = x_inputs
-
-        x = Concatenate()(inputs) if x_y else x_inputs
-        
-        for i, l in enumerate(encoder_layer_sizes):
-            x = Dense(l, activation=activation, name='enc_layer_' + str(i))(x)
-
-        t_mean = Dense(latent_dim, name = 'latent_mean')(x)
-        t_log_var = Dense(latent_dim, name = 'latent_log_var')(x)
-
-        t = Lambda(dg.sampling,
-                   output_shape=(latent_dim,),
-                   name='latent')([t_mean, t_log_var])
-
-        # instantiate encoder
-        encoder = Model(inputs, [t_mean, t_log_var, t], name='encoder')
-
-        # build decoder
-        latent_inputs = Input(shape=(latent_dim,), name='t_sampling')
-
-        x = latent_inputs
-        if len(decoder_layer_sizes) > 0:
-            for i, l in enumerate(decoder_layer_sizes):
-                x = Dense(l, activation=activation, name='dec_layer_'+str(i))(x)
-
-        x_outputs = Dense(np.prod(input_shape), activation='linear')(x)
-        if x_y:
-            y_outputs = Dense(num_labels, activation='softmax', name='y_pred')(x)
-            outputs = [x_outputs, y_outputs]
-        else: 
-            outputs = x_outputs
-        
-        
-                          
-        # instantiate decoder model
-        decoder = Model(latent_inputs, outputs, name='decoder')
-
-        # instantiate VAE model
-        connected_outputs = decoder(encoder(inputs)[2])
-        vae = cls(inputs, connected_outputs, name='vae_mlp')
-
-        vae.dim = np.prod(input_shape)
-        vae.encoder = encoder
-        vae.decoder = decoder
-        vae.x_inputs = x_inputs
-        vae.x_outputs = x_outputs
-
-        vae.x_y = x_y
-        if x_y:
-            vae.y_inputs = y_inputs
-            vae.y_outputs = y_outputs
- 
-        vae.t_mean = t_mean
-        vae.t_log_var = t_log_var
-
-        the_optimizer = optimizers.RMSprop(lr=0.001)
-
-        vae.trained = False
-        vae.beta = beta
-        vae.activation = activation
-        vae._sizes_of_layers = [input_shape, encoder_layer_sizes,
-                                latent_dim, decoder_layer_sizes, num_labels]
-
-        vae.compile(optimizer=the_optimizer,
+        self.compile(optimizer='Adam')
                     # loss = mse,
                     # loss='categorical_crossentropy',
-                    loss = vae.loss_function(),
-                    metrics=['mae'])
+                    # loss = vae.loss_function(),
+                    # metrics=['mae']
+        
 
-        vae.built_model = True
+    def call(self, inputs):
 
-        return vae
-    
-    def loss_function(self, beta=None):
+        z_mean, z_log_var, z = self.encoder(inputs)
+        reconstructed = self.decoder(z)
 
-        if beta is None:
-            beta = self.beta
+        if self.x_y:
+            [x_input, y_input] = inputs
+            [x_output, y_ouput] = outputs
 
-        def loss_vae(true, pred):
-    
-            x = true
-            x_ = pred
+        else:
+            x_input = inputs
+            x_output = reconstructed
 
-            l2_loss = mse(x, x_)
-            kl_loss = K.sum(K.square(self.t_mean)
-                            + K.exp(self.t_log_var)
-                            - self.t_log_var) 
+        mse_loss = mse(x_input, x_output)
+        self.add_loss(mse_loss)
+                
+        # Add KL divergence regularization loss.
+        kl_loss = - 0.5 * tf.reduce_mean(
+            z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
+        if not beta == 0:
+            self.add_loss(beta*kl_loss)
 
-            loss = K.mean(l2_loss
-                              + beta*kl_loss)
-
-            return loss
-
-        def loss_xy(true, pred):
-
-            x = true[0]
-            x_ = pred[0]
-            y = true[1]
-            y_ = pred[1]
-
-            l2_loss = mse(x, x_)
-
-            y_loss = x_entropy(y, y_)
-
-            kl_loss = K.sum(K.square(self.t_mean)
-                            + K.exp(self.t_log_var)
-                            - self.t_log_var) 
-
-            loss = K.mean(y_loss 
-                          + l2_loss 
-                          + beta*kl_loss)
-
-            return loss
-
-        return loss_xy if self.x_y else loss_vae
-    
-    def fit(self, force=False, *args, **kw):
-
-        print('*'*100+'\n'+' '*20+'LETS FIT\n'+'*'*100)
-        if not self.trained or force:
-            super().fit(*args, **kw)
-
-        self.trained = True            
+        if self.x_y and not beta == 0:
+            x_loss = x_entropy(y_input, y_output)
+            self.add_loss(beta*x_loss)
+            
+        return reconstructed
 
     def plot_model(self, dir='.', suffix='.png', show_shapes=True, show_layer_names=True):
 
@@ -204,12 +122,11 @@ class ClassificationVariationalNetwork(Model):
 
         p_dict = save_load.load_json(dir_name, 'params.json')
 
-        
         ls = p_dict['layer_sizes']
 
-        vae = cls.build_model(ls[0], ls[1], ls[2], ls[3], ls[4],
-                              activation=p_dict['activation'],
-                              beta=p_dict['beta'])
+        vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4],
+                  activation=p_dict['activation'],
+                  beta=p_dict['beta'])
 
         vae.trained = p_dict['trained']
 
@@ -217,7 +134,8 @@ class ClassificationVariationalNetwork(Model):
             vae.load_weights(save_load.get_path(dir_name, 'weights.h5'))
         
         return vae
-        
+
+    
 if __name__ == '__main__':
 
     load_dir = None
@@ -240,9 +158,10 @@ if __name__ == '__main__':
     if rebuild:
         print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
         beta = 1
-        vae = ClassificationVariationalNetwork.build_model(28**2, e_, 2,
-                                                           d_, 10, beta=beta) 
+        vae = ClassificationVariationalNetwork(28**2, 10, e_, 2,  # 
+                                               d_, beta=beta) 
         # vae.plot_model(dir=load_dir)
+        vae.build(input_shape=(vae.input_dim,))
         vae.summary()
         vae.encoder.summary()
         vae.decoder.summary()
@@ -250,14 +169,12 @@ if __name__ == '__main__':
 
     (x_train, y_train, x_test, y_test) = dg.get_mnist() 
 
-    
     epochs = 2
     
     refit = False
     # refit = True
 
-    vae.fit(force=refit,
-            x=[x_train, y_train],
+    vae.fit(x=[x_train, y_train],
             y=[x_train, y_train],
             epochs=epochs,
             # validation_data=(x_test, x_test)

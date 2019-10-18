@@ -84,5 +84,6 @@ class Decoder(Layer):
         x = inputs
         print('decoder inputs', inputs.shape)
         for l in self.dense_projs:
+            print('l:', l)
             x = l(x)
         return self.dense_output(x)

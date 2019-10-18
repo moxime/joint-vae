@@ -42,12 +42,13 @@ class ClassificationVariationalNetwork(Model):
 
         super().__init__(name=name, *args, **kw)
 
-        self.input_dim = input_shape
-
+        self.joint_layer = JointLayer(input_shape, num_labels)
         self.encoder = Encoder(latent_dim, encoder_layer_sizes)
         self.decoder = Decoder(input_shape, num_labels, decoder_layer_sizes)
 
         self.x_y = num_labels is not None
+        self.input_dims = [input_shape]
+        self.input_dims.append(num_labels if self.x_y else 0)
         self.beta = beta
             
         self._sizes_of_layers = [input_shape, num_labels,
@@ -60,15 +61,18 @@ class ClassificationVariationalNetwork(Model):
                     # loss = vae.loss_function(),
                     # metrics=['mae']
         
-
     def call(self, inputs):
 
-        z_mean, z_log_var, z = self.encoder(inputs)
+        joint_input = self.joint_layer(inputs)
+        print('joint_input shape', joint_input.shape)
+        z_mean, z_log_var, z = self.encoder(joint_input)
+        for l in [z_mean, z_log_var, z]:
+            print ('z:', l.shape)
         reconstructed = self.decoder(z)
 
         if self.x_y:
             [x_input, y_input] = inputs
-            [x_output, y_ouput] = outputs
+            [x_output, y_output] = reconstructed
 
         else:
             x_input = inputs
@@ -78,14 +82,14 @@ class ClassificationVariationalNetwork(Model):
         self.add_loss(mse_loss)
                 
         # Add KL divergence regularization loss.
-        kl_loss = - 0.5 * tf.reduce_mean(
-            z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
         if not beta == 0:
+            kl_loss = - 0.5 * tf.reduce_mean(
+                z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
             self.add_loss(beta*kl_loss)
 
-        if self.x_y and not beta == 0:
-            x_loss = x_entropy(y_input, y_output)
-            self.add_loss(beta*x_loss)
+            if self.x_y:
+                x_loss = x_entropy(y_input, y_output)
+                self.add_loss(beta*x_loss)
             
         return reconstructed
 
@@ -139,15 +143,17 @@ class ClassificationVariationalNetwork(Model):
 if __name__ == '__main__':
 
     load_dir = None
-    load_dir = './jobs/vae-mnist/191016'
+    # load_dir = './jobs/vae-mnist/191016'
                   
     # rebuild = load_dir is None
     rebuild = True
     
-    e_ = []
+    e_ = [36]
     d_ = e_.copy()
     d_.reverse()
     
+    (x_train, y_train, x_test, y_test) = dg.get_mnist() 
+
     if not rebuild:
         try:
             vae = ClassificationVariationalNetwork.load(load_dir)
@@ -161,13 +167,13 @@ if __name__ == '__main__':
         vae = ClassificationVariationalNetwork(28**2, 10, e_, 2,  # 
                                                d_, beta=beta) 
         # vae.plot_model(dir=load_dir)
-        vae.build(input_shape=(vae.input_dim,))
+        
+        vae.call([x_train, y_train])
         vae.summary()
         vae.encoder.summary()
         vae.decoder.summary()
         print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
 
-    (x_train, y_train, x_test, y_test) = dg.get_mnist() 
 
     epochs = 2
     

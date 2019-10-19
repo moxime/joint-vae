@@ -42,7 +42,6 @@ class ClassificationVariationalNetwork(Model):
 
         super().__init__(name=name, *args, **kw)
 
-        self.joint_layer = JointLayer(input_shape, num_labels)
         self.encoder = Encoder(latent_dim, encoder_layer_sizes)
         self.decoder = Decoder(input_shape, num_labels, decoder_layer_sizes)
 
@@ -63,7 +62,10 @@ class ClassificationVariationalNetwork(Model):
         
     def call(self, inputs):
 
-        joint_input = self.joint_layer(inputs)
+        if self.x_y:
+            joint_input = Concatenate()(inputs)
+        else:
+            joint_input = inputs
         print('joint_input shape', joint_input.shape)
         z_mean, z_log_var, z = self.encoder(joint_input)
         for l in [z_mean, z_log_var, z]:

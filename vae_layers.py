@@ -25,7 +25,7 @@ class JointLayer(Layer):
 
         self.input_dims = [input_dim, num_labels]
         
-        super(Layer, self).__init__(name=name, **kw)
+        super(JointLayer, self).__init__(name=name, **kw)
 
     def call(self, inputs):
         # print(self.name+' is called')
@@ -42,7 +42,7 @@ class Encoder(Layer):
                  intermediate_dims=[64],
                  name='encoder',
                  **kwargs):
-        super(Layer, self).__init__(name=name, **kwargs)
+        super(Encoder, self).__init__(name=name, **kwargs)
         self.dense_projs = [Dense(u, activation='relu') for u in intermediate_dims]
         self.dense_mean = Dense(latent_dim)
         self.dense_log_var = Dense(latent_dim)
@@ -67,18 +67,15 @@ class Decoder(Layer):
                  name='decoder',
                  activation='relu',
                  **kwargs):
-        super(Layer, self).__init__(name=name, **kwargs)
+        super(Decoder, self).__init__(name=name, **kwargs)
 
         self.dense_projs = [Dense(u, activation=activation) for u in intermediate_dims]
 
-        x_output = Dense(original_dim)
+        self.x_output = Dense(original_dim)
 
-        x_y = num_labels is not None
-        if x_y:
-            y_output = Dense(num_labels, activation='softmax')
-            self.dense_output = [x_output, y_output]
-        else:
-            self.dense_output = x_output 
+        self.x_y = num_labels is not None
+        if self.x_y:
+            self.y_output = Dense(num_labels, activation='softmax')
       
     def call(self, inputs):
         x = inputs
@@ -86,4 +83,8 @@ class Decoder(Layer):
         for l in self.dense_projs:
             print('l:', l)
             x = l(x)
-        return self.dense_output(x)
+        if self.x_y:
+            return [self.x_output(x), self.y_output(x)]
+
+        return self.x_output(x)
+            

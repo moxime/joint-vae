@@ -55,7 +55,7 @@ class ClassificationVariationalNetwork(Model):
                                  encoder_layer_sizes, latent_dim,
                                  decoder_layer_sizes]
 
-    def vae_loss(beta=self.beta):
+    def vae_loss(self, beta=self.beta):
 
         def x_loss(x_true, x_pred):
 

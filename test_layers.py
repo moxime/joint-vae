@@ -63,7 +63,7 @@ class Khi(Model):
     
         
 M_ = [100, 200, 50, 300]
-N = 1000
+N = int(1e5)
 
 x_ = []
 
@@ -73,4 +73,7 @@ for M in M_:
 print('\n'*40)
 net = Khi(M_)
 net.compile(optimizer='Adam')
-net.fit(x_, epochs=10, batch_size=1)
+net.fit(x_, epochs=30, batch_size=100)
+
+for loss in net.losses:
+    print(loss)

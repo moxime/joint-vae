@@ -41,13 +41,15 @@ class Encoder(Layer):
                  latent_dim=32,
                  intermediate_dims=[64],
                  name='encoder',
+                 beta=0,
                  **kwargs):
         super(Encoder, self).__init__(name=name, **kwargs)
         self.dense_projs = [Dense(u, activation='relu') for u in intermediate_dims]
         self.dense_mean = Dense(latent_dim)
         self.dense_log_var = Dense(latent_dim)
         self.sampling = Sampling()
-
+        self.beta=beta
+        
     def call(self, inputs):
         x = inputs 
         for l in self.dense_projs:
@@ -55,6 +57,11 @@ class Encoder(Layer):
         z_mean = self.dense_mean(x)
         z_log_var = self.dense_log_var(x)
         z = self.sampling((z_mean, z_log_var))
+        if not self.beta == 0:
+            kl_loss = - 0.5 * tf.reduce_mean(
+                z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
+            self.add_loss(beta*kl_loss)
+
         return z_mean, z_log_var, z
 
           

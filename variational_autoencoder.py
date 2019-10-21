@@ -12,7 +12,7 @@ from utils import save_load
 import utils.mutual_information as mi
 import numpy as np
 import tensorflow.keras.backend as K
-from vae_layers import *
+from vae_layers import Encoder, Decoder, Sampling
 
 def __make_iter__(a):
     try:
@@ -23,8 +23,6 @@ def __make_iter__(a):
 
 
 DEFAULT_ACTIVATION = 'relu'
-
-
 
 
 class ClassificationVariationalNetwork(Model):
@@ -42,10 +40,13 @@ class ClassificationVariationalNetwork(Model):
 
         super().__init__(name=name, *args, **kw)
 
-        self.encoder = Encoder(latent_dim, encoder_layer_sizes)
+        # if beta=0 in Encoder(...) loss is not computed by layer
+        self.encoder = Encoder(latent_dim, encoder_layer_sizes, beta=0)
         self.decoder = Decoder(input_shape, num_labels, decoder_layer_sizes)
 
         self.x_y = num_labels is not None
+        if self.x_y:
+            self.joint = Concatenate()
         self.input_dims = [input_shape]
         self.input_dims.append(num_labels if self.x_y else 0)
         self.beta = beta
@@ -54,46 +55,43 @@ class ClassificationVariationalNetwork(Model):
                                  encoder_layer_sizes, latent_dim,
                                  decoder_layer_sizes]
 
-        self.compile(optimizer='Adam')
-                    # loss = mse,
-                    # loss='categorical_crossentropy',
-                    # loss = vae.loss_function(),
-                    # metrics=['mae']
+    def vae_loss(beta=self.beta):
+
+        def x_loss(x_true, x_pred):
+
+            return mse(x_true, x_pred)
+
+        def y_loss(y_true, y_pred):
+
+            return x_entropy(y_pred, y_true)
+        
+        def x_y_loss(trues, preds):
+
+            x_true = trues[0]
+            y_true = trues[1]
+
+            x_pred = preds[0]
+            y_pred = preds[1]
+        
+        return x_y_loss if self.x_y else x_loss    
         
     def call(self, inputs):
 
+        beta = self.beta
         if self.x_y:
-            joint_input = Concatenate()(inputs)
+            joint_input = self.joint(inputs)
         else:
             joint_input = inputs
-        print('joint_input shape', joint_input.shape)
+        # print('joint_input shape', joint_input.shape)
         z_mean, z_log_var, z = self.encoder(joint_input)
-        for l in [z_mean, z_log_var, z]:
-            print ('z:', l.shape)
+        """ for l in [z_mean, z_log_var, z]:
+                print ('z:', l.shape)
+        """
         reconstructed = self.decoder(z)
 
-        if self.x_y:
-            [x_input, y_input] = inputs
-            [x_output, y_output] = reconstructed
-
-        else:
-            x_input = inputs
-            x_output = reconstructed
-
-        mse_loss = mse(x_input, x_output)
-        self.add_loss(mse_loss)
-                
-        # Add KL divergence regularization loss.
-        if not beta == 0:
-            kl_loss = - 0.5 * tf.reduce_mean(
-                z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
-            self.add_loss(beta*kl_loss)
-
-            if self.x_y:
-                x_loss = x_entropy(y_input, y_output)
-                self.add_loss(beta*x_loss)
-            
         return reconstructed
+
+    
 
     def plot_model(self, dir='.', suffix='.png', show_shapes=True, show_layer_names=True):
 
@@ -103,11 +101,12 @@ class ClassificationVariationalNetwork(Model):
         def _plot(net):
             f_p = save_load.get_path(dir, net.name+suffix)
             plot_model(net, to_file=f_p, show_shapes=show_shapes,
-                       show_layer_names=show_layer_names)
+                       show_layer_names=show_layer_names,
+                       expand_nested=True)
 
         _plot(self)
-        _plot(self.encoder)
-        _plot(self.decoder)
+        # _plot(self.encoder)
+        # _plot(self.decoder)
 
     def save(self, dir_name):
 
@@ -153,6 +152,8 @@ if __name__ == '__main__':
     e_ = [36]
     d_ = e_.copy()
     d_.reverse()
+
+    latent_dim = 4
     
     (x_train, y_train, x_test, y_test) = dg.get_mnist() 
 
@@ -166,16 +167,16 @@ if __name__ == '__main__':
     if rebuild:
         print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
         beta = 1
-        vae = ClassificationVariationalNetwork(28**2, 10, e_, 2,  # 
+        vae = ClassificationVariationalNetwork(28**2, 10, e_, latent_dim,  # 
                                                d_, beta=beta) 
         # vae.plot_model(dir=load_dir)
-        
-        vae.call([x_train, y_train])
-        vae.summary()
+
+        vae.compile(optimizer='Adam')
+        """        vae.summary()
         vae.encoder.summary()
         vae.decoder.summary()
         print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
-
+        """
 
     epochs = 2
     
@@ -183,8 +184,8 @@ if __name__ == '__main__':
     # refit = True
 
     vae.fit(x=[x_train, y_train],
-            y=[x_train, y_train],
             epochs=epochs,
+            batch_size=2
             # validation_data=(x_test, x_test)
             )
 

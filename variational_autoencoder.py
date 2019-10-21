@@ -64,6 +64,10 @@ class ClassificationVariationalNetwork(Model):
         def y_loss(y_true, y_pred):
 
             return x_entropy(y_pred, y_true)
+
+        def z_loss():
+
+            return 0
         
         def x_y_loss(trues, preds):
 
@@ -72,7 +76,9 @@ class ClassificationVariationalNetwork(Model):
 
             x_pred = preds[0]
             y_pred = preds[1]
-        
+
+            return 
+            
         return x_y_loss if self.x_y else x_loss    
         
     def call(self, inputs):

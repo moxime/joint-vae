@@ -89,7 +89,7 @@ class Decoder(Model):
         x = inputs
         print('decoder inputs', inputs.shape)
         for l in self.dense_projs:
-            print('l:', l)
+            # print('l:', l)
             x = l(x)
         if self.x_y:
             return [self.x_output(x), self.y_output(x)]

@@ -62,12 +62,24 @@ class ClassificationVariationalNetwork(Model):
     def call(self, inputs):
         
         if self.x_y:
-            joint_input = self.joint(inputs)
+            num_labels = self.input_dims[-1]
             x_input = inputs[0]
             y_input = inputs[1]
+
+            """ A REVOIR 
+            if isinstance(y_input, int):
+                y_input = tf.keras.utils.to_categorical(y_input, num_labels)
+            if y_input.ndim==1:
+                if len(y_input) == x_input.shape[0]:
+                    y_input = tf.keras.utils.to_categorical(y_input, num_labels)
+                else:
+                    assert(len(y_input) == num_labels and
+                           ((y_input == 0) + (y_input == 1)).all())
+            """
+            joint_input = self.joint([x_input, y_input])
         else:
             joint_input = inputs
-            x_input = inputs
+            x_input = np.atleast_2d(inputs)
 
         z_mean, z_log_var, z = self.encoder(joint_input)
 
@@ -82,7 +94,7 @@ class ClassificationVariationalNetwork(Model):
         self.add_loss(tf.reduce_mean(mse(x_input, x_output)))
 
         if self.x_y and self.beta>0:
-            self.add_loss(2*beta*tf.reduce_mean(x_entropy(y_input, y_output)))
+            self.add_loss(2*self.beta*tf.reduce_mean(x_entropy(y_input, y_output)))
         
         return reconstructed
 
@@ -121,9 +133,10 @@ class ClassificationVariationalNetwork(Model):
         save_load.save_json(param_dict, dir_name, 'params.json')
 
         if self.trained:
-            for net, name in zip([vae, vae.encoder, vae.decoder], ['net', 'encoder', 'decoder']):
+            for net, name in zip([self, self.encoder, self.decoder],
+                                 ['net', 'encoder', 'decoder']):
                 w_p = save_load.get_path(dir_name, name+'-weights.h5')
-                self.save_weights(w_p)
+                net.save_weights(w_p)
 
     @classmethod        
     def load(cls, dir_name):
@@ -140,19 +153,29 @@ class ClassificationVariationalNetwork(Model):
         vae.trained = p_dict['trained']
 
         _input = np.ndarray((1, ls[0]))
+
+        # call the network once to instantiate it
         if ls[1] is not None:
             _input = [_input, np.ndarray((1, ls[1]))]
         _ = vae(_input)
         vae.summary()
 
         if vae.trained:
-            vae.load_weights(save_load.get_path(dir_name, 'weights.h5'))
-        
+            for net, name in zip([vae, vae.encoder, vae.decoder],
+                                 ['net', 'encoder', 'decoder']):
+                w_p = save_load.get_path(dir_name, name+'-weights.h5')
+                net.load_weights(w_p)
+
         return vae
 
 
-def naive_predict(xy_vae, x, num_labels):
+def naive_predict(xy_vae, x):
 
+    x = np.atleast_2d(x)
+    assert x.shape[0] == 1
+    assert len(xy_vae.input_dims) > 1
+    num_labels = xy_vae.input_dims[-1]
+    
     y_ = np.eye(num_labels)
 
     loss_ = np.inf
@@ -165,15 +188,34 @@ def naive_predict(xy_vae, x, num_labels):
             i_ = i
             loss_ = loss
 
-    return i_, loss_ 
+    return i_, loss_
+
+
+def naive_call(xy_vae, x):
+
+    x = np.atleast_2d(x)
+    assert len(xy_vae.input_dims) > 1
+    assert x.shape[0] == 1
+    num_labels = xy_vae.input_dims[-1]
     
+    y = np.eye(num_labels)
+    x = np.vstack([x]*num_labels)
+
+    _, y_ = xy_vae([x, y])
+
+    return y_.numpy()
+
+
 if __name__ == '__main__':
 
     load_dir = None
-    # load_dir = './jobs/vae-mnist/191016'
+    load_dir = './jobs/mnist/job2'
+
+    save_dir = './jobs/mnist/job2'
+    save_dir = None
                   
-    # rebuild = load_dir is None
-    rebuild = True
+    rebuild = load_dir is None
+    # rebuild = True
     
     e_ = [200, 100]
     d_ = e_.copy()
@@ -217,14 +259,15 @@ if __name__ == '__main__':
     vae.decoder.summary()
     print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     
-    epochs = 20
+    epochs = 2
     
     refit = False
     # refit = True
 
-    vae.fit(x=[x_train, y_train],
-            epochs=epochs,
-            batch_size=2)
+    if not vae.trained or refit:
+        vae.fit(x=[x_train, y_train],
+                epochs=epochs,
+                batch_size=2)
 
     x0 = np.atleast_2d(x_test[0])
     y0 = np.atleast_2d(y_test[0])
@@ -250,4 +293,6 @@ if __name__ == '__main__':
     mu_enc = t_enc_[0]
 
     [x_dec, y_dec] = vae.decoder(t_enc)
-    
+
+    if save_dir is not None:
+        vae.save(save_dir)

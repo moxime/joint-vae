@@ -1,7 +1,7 @@
 import tensorflow as tf
-from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.models import Model
 # from tensorflow.keras import layers
-from tensorflow.keras.layers import Lambda, Input, Dense, Activation, Concatenate
+from tensorflow.keras.layers import Concatenate
 from tensorflow.keras import optimizers
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.losses import mse
@@ -9,10 +9,9 @@ from tensorflow.keras.losses import categorical_crossentropy as x_entropy
 # from tensorflow.keras.utils import to_categorical
 import data.generate as dg
 from utils import save_load 
-import utils.mutual_information as mi
 import numpy as np
-import tensorflow.keras.backend as K
-from vae_layers import Encoder, Decoder, Sampling
+from vae_layers import Encoder, Decoder
+
 
 def __make_iter__(a):
     try:
@@ -41,8 +40,10 @@ class ClassificationVariationalNetwork(Model):
         super().__init__(name=name, *args, **kw)
 
         # if beta=0 in Encoder(...) loss is not computed by layer
-        self.encoder = Encoder(latent_dim, encoder_layer_sizes, beta=0)
-        self.decoder = Decoder(input_shape, num_labels, decoder_layer_sizes)
+        self.encoder = Encoder(latent_dim, encoder_layer_sizes,
+                               beta=beta, activation=activation)
+        self.decoder = Decoder(input_shape, num_labels,
+                               decoder_layer_sizes, activation=activation)
 
         self.x_y = num_labels is not None
         if self.x_y:
@@ -55,49 +56,35 @@ class ClassificationVariationalNetwork(Model):
                                  encoder_layer_sizes, latent_dim,
                                  decoder_layer_sizes]
 
-    def vae_loss(self, beta=self.beta):
+        self.trained = False
+        self.activation=activation
 
-        def x_loss(x_true, x_pred):
-
-            return mse(x_true, x_pred)
-
-        def y_loss(y_true, y_pred):
-
-            return x_entropy(y_pred, y_true)
-
-        def z_loss():
-
-            return 0
-        
-        def x_y_loss(trues, preds):
-
-            x_true = trues[0]
-            y_true = trues[1]
-
-            x_pred = preds[0]
-            y_pred = preds[1]
-
-            return 
-            
-        return x_y_loss if self.x_y else x_loss    
-        
     def call(self, inputs):
-
-        beta = self.beta
+        
         if self.x_y:
             joint_input = self.joint(inputs)
+            x_input = inputs[0]
+            y_input = inputs[1]
         else:
             joint_input = inputs
-        # print('joint_input shape', joint_input.shape)
+            x_input = inputs
+
         z_mean, z_log_var, z = self.encoder(joint_input)
-        """ for l in [z_mean, z_log_var, z]:
-                print ('z:', l.shape)
-        """
+
         reconstructed = self.decoder(z)
 
-        return reconstructed
+        if self.x_y:
+            x_output = reconstructed[0]
+            y_output = reconstructed[1]
+        else:
+            x_output = reconstructed
 
-    
+        self.add_loss(tf.reduce_mean(mse(x_input, x_output)))
+
+        if self.x_y and self.beta>0:
+            self.add_loss(2*beta*tf.reduce_mean(x_entropy(y_input, y_output)))
+        
+        return reconstructed
 
     def plot_model(self, dir='.', suffix='.png', show_shapes=True, show_layer_names=True):
 
@@ -111,10 +98,19 @@ class ClassificationVariationalNetwork(Model):
                        expand_nested=True)
 
         _plot(self)
-        # _plot(self.encoder)
-        # _plot(self.decoder)
+        _plot(self.encoder)
+        _plot(self.decoder)
 
-    def save(self, dir_name):
+    def save(self, dir_name=None):
+
+        ls = vae._sizes_of_layers
+        
+        if dir_name is None:
+            dir_name = ('./jobs/' + str(ls[0]) + '-' + str(ls[1])
+                        + '-[' + ','.join([str(_) for _ in ls[2]])
+                        + ']-' + str(ls[3]) + '-['
+                        + ','.join([str(_) for _ in ls[4]])
+                        + ']')
 
         param_dict = {'layer_sizes': self._sizes_of_layers,
                       'trained': self.trained,
@@ -124,9 +120,10 @@ class ClassificationVariationalNetwork(Model):
 
         save_load.save_json(param_dict, dir_name, 'params.json')
 
-        w_p = save_load.get_path(dir_name, 'weights.h5')
         if self.trained:
-            self.save_weights(w_p)
+            for net, name in zip([vae, vae.encoder, vae.decoder], ['net', 'encoder', 'decoder']):
+                w_p = save_load.get_path(dir_name, name+'-weights.h5')
+                self.save_weights(w_p)
 
     @classmethod        
     def load(cls, dir_name):
@@ -134,18 +131,41 @@ class ClassificationVariationalNetwork(Model):
         p_dict = save_load.load_json(dir_name, 'params.json')
 
         ls = p_dict['layer_sizes']
-
+        print(ls)
+        
         vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4],
                   activation=p_dict['activation'],
                   beta=p_dict['beta'])
 
         vae.trained = p_dict['trained']
 
+        _input = np.ndarray((1, ls[0]))
+        if ls[1] is not None:
+            _input = [_input, np.ndarray((1, ls[1]))]
+        _ = vae(_input)
+        vae.summary()
+
         if vae.trained:
             vae.load_weights(save_load.get_path(dir_name, 'weights.h5'))
         
         return vae
 
+
+def naive_predict(xy_vae, x, num_labels):
+
+    y_ = np.eye(num_labels)
+
+    loss_ = np.inf
+    
+    for i in range(num_labels):
+
+        y = np.atleast_2d(y_[:,i])
+        loss = vae.evaluate([x, y])
+        if loss < loss_:
+            i_ = i
+            loss_ = loss
+
+    return i_, loss_ 
     
 if __name__ == '__main__':
 
@@ -155,14 +175,21 @@ if __name__ == '__main__':
     # rebuild = load_dir is None
     rebuild = True
     
-    e_ = [36]
+    e_ = [200, 100]
     d_ = e_.copy()
     d_.reverse()
 
-    latent_dim = 4
-    
-    (x_train, y_train, x_test, y_test) = dg.get_mnist() 
+    latent_dim = 12
 
+    try:
+        data_loaded
+    except(NameError):
+        data_loaded = False
+    
+    if not data_loaded:
+        (x_train, y_train, x_test, y_test) = dg.get_mnist()
+        data_loaded = True
+        
     if not rebuild:
         try:
             vae = ClassificationVariationalNetwork.load(load_dir)
@@ -170,48 +197,57 @@ if __name__ == '__main__':
         except(FileNotFoundError, NameError):
             print('Not loaded, rebuilding')
             rebuild = True
+
     if rebuild:
         print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
-        beta = 1
+        beta = 0.1
         vae = ClassificationVariationalNetwork(28**2, 10, e_, latent_dim,  # 
                                                d_, beta=beta) 
         # vae.plot_model(dir=load_dir)
 
-        vae.compile(optimizer='Adam')
-        """        vae.summary()
-        vae.encoder.summary()
-        vae.decoder.summary()
-        print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
-        """
+    [x_, y_] = vae([x_train[0:3], y_train[0:3]])
+        
+    vae.compile(
+        # loss = [mse, x_entropy],
+        # loss_weights = [1, 2*vae.beta],
+        optimizer='Adam')
 
-    epochs = 2
+    vae.summary()
+    vae.encoder.summary()
+    vae.decoder.summary()
+    print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
+    
+    epochs = 20
     
     refit = False
     # refit = True
 
     vae.fit(x=[x_train, y_train],
             epochs=epochs,
-            batch_size=2
-            # validation_data=(x_test, x_test)
-            )
+            batch_size=2)
 
     x0 = np.atleast_2d(x_test[0])
     y0 = np.atleast_2d(y_test[0])
-    
-    t0_ = vae.encoder.predict([x0, y0])
+
+    x1 = np.atleast_2d(x_test[1])
+    y1 = np.atleast_2d(y_test[1])
+
+    t0_ = vae.encoder(vae.joint([x0, y0]))
     mu0 = t0_[0]
     logsig0 = t0_[1]
     sig0 = np.exp(logsig0)
     t0 = t0_[2]
     # print(' -- '.join(str(i) for i in [sig0.min(), sig0.mean(), sig0.max()]))
 
-    y_pred = vae.predict([x_test, y_test])
-    t_enc_ = vae.encoder.predict([x_test, y_test])
+    x_pred, y_pred = vae.predict([x_test, y_test])
+
+    x_y_test = np.concatenate([x_test, y_test], axis=-1)
+    t_enc_ = vae.encoder(x_y_test)
 
     t_enc = t_enc_[2]
-    ls_enc = t_enc_[1]
+    logsig_enc = t_enc_[1]
+    sig_enc = np.exp(logsig_enc)   
+    mu_enc = t_enc_[0]
 
-    mu0_enc = t_enc_[0]
-
-    y_dec = vae.decoder.predict(t_enc)
+    [x_dec, y_dec] = vae.decoder(t_enc)
     

@@ -73,7 +73,7 @@ for M in M_:
 print('\n'*40)
 net = Khi(M_)
 net.compile(optimizer='Adam')
-net.fit(x_, epochs=30, batch_size=100)
+net.fit(x_, epochs=5, batch_size=100)
 
 for loss in net.losses:
     print(loss)

@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense, Concatenate, Input
-
+from tensorflow.keras.models import Model
 
 class Sampling(Layer):
     """Uses (z_mean, z_log_var) to sample z, the latent vector."""
@@ -35,16 +35,17 @@ class JointLayer(Layer):
         
         return inputs
 
-class Encoder(Layer):
+class Encoder(Model):
 
     def __init__(self,
                  latent_dim=32,
                  intermediate_dims=[64],
                  name='encoder',
                  beta=0,
+                 activation='relu',
                  **kwargs):
         super(Encoder, self).__init__(name=name, **kwargs)
-        self.dense_projs = [Dense(u, activation='relu') for u in intermediate_dims]
+        self.dense_projs = [Dense(u, activation=activation) for u in intermediate_dims]
         self.dense_mean = Dense(latent_dim)
         self.dense_log_var = Dense(latent_dim)
         self.sampling = Sampling()
@@ -60,12 +61,12 @@ class Encoder(Layer):
         if not self.beta == 0:
             kl_loss = - 0.5 * tf.reduce_mean(
                 z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
-            self.add_loss(beta*kl_loss)
+            self.add_loss(self.beta*kl_loss)
 
         return z_mean, z_log_var, z
 
           
-class Decoder(Layer):
+class Decoder(Model):
 
     def __init__(self,
                  original_dim,

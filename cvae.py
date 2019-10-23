@@ -59,6 +59,15 @@ class ClassificationVariationalNetwork(Model):
         self.trained = False
         self.activation=activation
 
+    @property
+    def beta(self):
+        return self._beta
+
+    @beta.setter
+    def beta(self, value):
+        self._beta = value
+        self.encoder.beta = value
+
     def call(self, inputs):
         
         if self.x_y:
@@ -98,6 +107,11 @@ class ClassificationVariationalNetwork(Model):
         
         return reconstructed
 
+    def fit(self, *args, **kwargs):
+
+        super().fit(*args, **kwargs)
+        self.trained = True
+    
     def plot_model(self, dir='.', suffix='.png', show_shapes=True, show_layer_names=True):
 
         if dir is None:
@@ -112,7 +126,7 @@ class ClassificationVariationalNetwork(Model):
         _plot(self)
         _plot(self.encoder)
         _plot(self.decoder)
-
+        
     def save(self, dir_name=None):
 
         ls = vae._sizes_of_layers
@@ -168,60 +182,60 @@ class ClassificationVariationalNetwork(Model):
 
         return vae
 
+    def naive_predict(xy_vae, x):
 
-def naive_predict(xy_vae, x):
+        x = np.atleast_2d(x)
+        assert x.shape[0] == 1
+        assert len(xy_vae.input_dims) > 1
+        num_labels = xy_vae.input_dims[-1]
 
-    x = np.atleast_2d(x)
-    assert x.shape[0] == 1
-    assert len(xy_vae.input_dims) > 1
-    num_labels = xy_vae.input_dims[-1]
-    
-    y_ = np.eye(num_labels)
+        y_ = np.eye(num_labels)
 
-    loss_ = np.inf
-    
-    for i in range(num_labels):
+        loss_ = np.inf
 
-        y = np.atleast_2d(y_[:,i])
-        loss = vae.evaluate([x, y])
-        if loss < loss_:
-            i_ = i
-            loss_ = loss
+        for i in range(num_labels):
 
-    return i_, loss_
+            y = np.atleast_2d(y_[:,i])
+            loss = vae.evaluate([x, y])
+            if loss < loss_:
+                i_ = i
+                loss_ = loss
+
+        return i_, loss_
 
 
-def naive_call(xy_vae, x):
+    def naive_call(xy_vae, x):
 
-    x = np.atleast_2d(x)
-    assert len(xy_vae.input_dims) > 1
-    assert x.shape[0] == 1
-    num_labels = xy_vae.input_dims[-1]
-    
-    y = np.eye(num_labels)
-    x = np.vstack([x]*num_labels)
+        x = np.atleast_2d(x)
+        assert len(xy_vae.input_dims) > 1
+        assert x.shape[0] == 1
+        num_labels = xy_vae.input_dims[-1]
 
-    _, y_ = xy_vae([x, y])
+        y = np.eye(num_labels)
+        x = np.vstack([x]*num_labels)
 
-    return y_.numpy()
+        _, y_ = xy_vae([x, y])
+
+        return y_
 
 
 if __name__ == '__main__':
 
     load_dir = None
-    load_dir = './jobs/mnist/job2'
+    # load_dir = './jobs/mnist/job2'
 
-    save_dir = './jobs/mnist/job2'
+    save_dir = './jobs/mnist/job4'
     save_dir = None
                   
     rebuild = load_dir is None
     # rebuild = True
     
-    e_ = [200, 100]
+    e_ = [1024, 1024]
     d_ = e_.copy()
     d_.reverse()
 
-    latent_dim = 12
+    beta = 3
+    latent_dim = 512
 
     try:
         data_loaded
@@ -242,7 +256,6 @@ if __name__ == '__main__':
 
     if rebuild:
         print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
-        beta = 0.1
         vae = ClassificationVariationalNetwork(28**2, 10, e_, latent_dim,  # 
                                                d_, beta=beta) 
         # vae.plot_model(dir=load_dir)
@@ -259,7 +272,7 @@ if __name__ == '__main__':
     vae.decoder.summary()
     print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     
-    epochs = 2
+    epochs = 40
     
     refit = False
     # refit = True
@@ -267,7 +280,7 @@ if __name__ == '__main__':
     if not vae.trained or refit:
         vae.fit(x=[x_train, y_train],
                 epochs=epochs,
-                batch_size=2)
+                batch_size=10)
 
     x0 = np.atleast_2d(x_test[0])
     y0 = np.atleast_2d(y_test[0])

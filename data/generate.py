@@ -1,9 +1,13 @@
+import tensorflow as tf
 from tensorflow.keras import datasets
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.layers import Layer, Dense, Concatenate, Input
+from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 import numpy as np
-mnist = datasets.mnist
+import matplotlib.pyplot as plt
 
+mnist = datasets.mnist
 
 
 def get_mnist():
@@ -137,19 +141,70 @@ def generate_gaussian_mixture(dim, sizes, mean_vectors, covariance_matrices=None
 
 
 
+
+def data_generator(input_dim, output_dim, layer_dims, output_var=0., activation='relu'):
+    """ creates a network that will take a gaussian random variable z=N(0, I)
+    as an input and generate x = N(f(z), \sigma^2 I) as aan output
+    """
+
+    input = Input(shape=(input_dim,))
+    x = input
+    
+    for i, d in enumerate(layer_dims):
+        x = Dense(d, activation=activation, name=f'intermediate-{i}',
+                  bias_initializer='random_uniform',
+                  kernel_initializer='random_uniform')(x)
+
+    x = Dense(output_dim, name='mean')(x)
+    
+    class SamplingLayer(Layer):
+
+        def __init__(self, var=0., *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.var = var
+            
+        def call(self, input):
+            z_mean = input
+            batch = tf.shape(z_mean)[0]
+            dim = tf.shape(z_mean)[1]
+            # print(z_log_var, batch, dim)
+            epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
+            return z_mean + self.var * epsilon
+
+        
+    s = SamplingLayer(var=output_var)(x)
+
+    return Model(inputs=input, outputs=s)
+
+
+
+
 if __name__ == '__main__':
 
-    dim = 2
-    sizes = [3, 2]
-    m1 = np.zeros(dim)
-    m2 = 10*np.ones(dim)
+    def test_gen_net(net=None, layers=None):
 
-    s1 = np.eye(dim)
-    
-    means = [m1, m2]
-    covars = [s1, s1] 
+        P = 10
+        N, T, M = 1000000, 5, P*2
+        if layers is None:
+            layers = np.random.randint(4, 12, 2)
+        if net is None:
+            net = data_generator(T, M, layers, output_var=0.001)
+        z = np.random.randn(N, T)
 
-    X = generate_gaussian_mixture(dim, sizes, means)
-    y = generate_labels(sizes, [1, 0])    
-    print('done')
+        x = net(z)
 
+        for p in range(P):
+            plt.scatter(x[:,2*p], x[:,2*p+1], marker='.', s=4, alpha=10000/N)
+
+        m = x.numpy().mean(axis=0)
+        std = x.numpy().std(axis=0)
+        
+        print(f'layers are {layers}\nx is of mean {m} and std {std}')
+        
+        plt.show()
+
+        return x, z, net, layers
+
+        pass
+
+    x, z, net, layers = test_gen_net()

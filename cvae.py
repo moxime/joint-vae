@@ -109,8 +109,10 @@ class ClassificationVariationalNetwork(Model):
 
     def fit(self, *args, **kwargs):
 
-        super().fit(*args, **kwargs)
+        h = super().fit(*args, **kwargs)
         self.trained = True
+
+        return h
     
     def plot_model(self, dir='.', suffix='.png', show_shapes=True, show_layer_names=True):
 
@@ -147,10 +149,8 @@ class ClassificationVariationalNetwork(Model):
         save_load.save_json(param_dict, dir_name, 'params.json')
 
         if self.trained:
-            for net, name in zip([self, self.encoder, self.decoder],
-                                 ['net', 'encoder', 'decoder']):
-                w_p = save_load.get_path(dir_name, name+'-weights.h5')
-                net.save_weights(w_p)
+            w_p = save_load.get_path(dir_name, 'weights.h5')
+            self.save_weights(w_p)
 
     @classmethod        
     def load(cls, dir_name):
@@ -175,10 +175,8 @@ class ClassificationVariationalNetwork(Model):
         vae.summary()
 
         if vae.trained:
-            for net, name in zip([vae, vae.encoder, vae.decoder],
-                                 ['net', 'encoder', 'decoder']):
-                w_p = save_load.get_path(dir_name, name+'-weights.h5')
-                net.load_weights(w_p)
+            w_p = save_load.get_path(dir_name, 'weights.h5')
+            vae.load_weights(w_p)
 
         return vae
 
@@ -224,8 +222,8 @@ if __name__ == '__main__':
     load_dir = None
     # load_dir = './jobs/mnist/job2'
 
-    save_dir = './jobs/mnist/job4'
-    save_dir = None
+    save_dir = './jobs/mnist/job5'
+    # save_dir = None
                   
     rebuild = load_dir is None
     # rebuild = True
@@ -234,8 +232,8 @@ if __name__ == '__main__':
     d_ = e_.copy()
     d_.reverse()
 
-    beta = 3
-    latent_dim = 512
+    beta = 0.005
+    latent_dim = 256
 
     try:
         data_loaded
@@ -272,13 +270,13 @@ if __name__ == '__main__':
     vae.decoder.summary()
     print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     
-    epochs = 40
+    epochs = 50
     
     refit = False
     # refit = True
 
     if not vae.trained or refit:
-        vae.fit(x=[x_train, y_train],
+        history = vae.fit(x=[x_train, y_train],
                 epochs=epochs,
                 batch_size=10)
 

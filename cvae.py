@@ -180,7 +180,7 @@ class ClassificationVariationalNetwork(Model):
 
         return vae
 
-    def naive_predict(xy_vae, x):
+    def naive_predict(xy_vae, x,  verbose=1):
 
         x = np.atleast_2d(x)
         assert x.shape[0] == 1
@@ -194,7 +194,7 @@ class ClassificationVariationalNetwork(Model):
         for i in range(num_labels):
 
             y = np.atleast_2d(y_[:,i])
-            loss = vae.evaluate([x, y])
+            loss = vae.evaluate([x, y], verbose=verbose)
             if loss < loss_:
                 i_ = i
                 loss_ = loss
@@ -216,14 +216,30 @@ class ClassificationVariationalNetwork(Model):
 
         return y_
 
+    def blind_predict(self, x):
 
+        num_labels = self.input_dims[-1]
+        y = np.ones((x.shape[0], num_labels)) / num_labels
+        [x_, y_] = super().predict([x, y])
+
+        return y_
+
+    def accuracy(self, x_test, y_test):
+
+        y_pred = self.blind_predict(x_test).argmax(axis=-1)
+        y_test_ = y_test.argmax(axis=-1)
+
+        n = len(y_test_)
+
+        return sum(y_test_ == y_pred)/n
+        
 if __name__ == '__main__':
 
     load_dir = None
-    # load_dir = './jobs/mnist/job2'
+    load_dir = './jobs/mnist/job5'
 
-    save_dir = './jobs/mnist/job5'
-    # save_dir = None
+    # save_dir = './jobs/mnist/job5'
+    save_dir = None
                   
     rebuild = load_dir is None
     # rebuild = True

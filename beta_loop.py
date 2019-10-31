@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from data import generate as dg
 
-DEFAULT_ACTIVATION = 'relu'
+
 
 (x_train, y_train, x_test, y_test) = dg.get_mnist()
 

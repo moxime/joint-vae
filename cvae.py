@@ -34,7 +34,8 @@ class ClassificationVariationalNetwork(Model):
                  decoder_layer_sizes=[36],
                  name = 'xy-vae',
                  activation=DEFAULT_ACTIVATION,
-                 beta=1,
+                 beta=1e-3,
+                 verbose=1,
                  *args, **kw):
 
         super().__init__(name=name, *args, **kw)
@@ -114,7 +115,8 @@ class ClassificationVariationalNetwork(Model):
 
         return h
     
-    def plot_model(self, dir='.', suffix='.png', show_shapes=True, show_layer_names=True):
+    def plot_model(self, dir='.', suffix='.png', show_shapes=True,
+                   show_layer_names=True):
 
         if dir is None:
             dir = '.'
@@ -131,7 +133,7 @@ class ClassificationVariationalNetwork(Model):
         
     def save(self, dir_name=None):
 
-        ls = vae._sizes_of_layers
+        ls = self._sizes_of_layers
         
         if dir_name is None:
             dir_name = ('./jobs/' + str(ls[0]) + '-' + str(ls[1])
@@ -153,7 +155,7 @@ class ClassificationVariationalNetwork(Model):
             self.save_weights(w_p)
 
     @classmethod        
-    def load(cls, dir_name):
+    def load(cls, dir_name, verbose=1):
 
         p_dict = save_load.load_json(dir_name, 'params.json')
 
@@ -162,7 +164,7 @@ class ClassificationVariationalNetwork(Model):
         
         vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4],
                   activation=p_dict['activation'],
-                  beta=p_dict['beta'])
+                  beta=p_dict['beta'], verbose=verbose)
 
         vae.trained = p_dict['trained']
 
@@ -180,12 +182,12 @@ class ClassificationVariationalNetwork(Model):
 
         return vae
 
-    def naive_predict(xy_vae, x,  verbose=1):
+    def naive_predict(self, x,  verbose=1):
 
         x = np.atleast_2d(x)
         assert x.shape[0] == 1
-        assert len(xy_vae.input_dims) > 1
-        num_labels = xy_vae.input_dims[-1]
+        assert len(self.input_dims) > 1
+        num_labels = self.input_dims[-1]
 
         y_ = np.eye(num_labels)
 
@@ -194,7 +196,7 @@ class ClassificationVariationalNetwork(Model):
         for i in range(num_labels):
 
             y = np.atleast_2d(y_[:,i])
-            loss = vae.evaluate([x, y], verbose=verbose)
+            loss = self.evaluate([x, y], verbose=verbose)
             if loss < loss_:
                 i_ = i
                 loss_ = loss
@@ -202,6 +204,20 @@ class ClassificationVariationalNetwork(Model):
         return i_, loss_
 
 
+    def naive_evaluate(self, x):
+
+        num_labels = self.input_dims[-1]
+        y_ = np.eye(num_labels)
+
+        losses = []
+
+        for y in y_:
+
+            losses.append(self.evaluate([np.atleast_2d(x), np.atleast_2d(y)]))
+
+        return losses
+        
+    
     def naive_call(xy_vae, x):
 
         x = np.atleast_2d(x)
@@ -212,9 +228,9 @@ class ClassificationVariationalNetwork(Model):
         y = np.eye(num_labels)
         x = np.vstack([x]*num_labels)
 
-        _, y_ = xy_vae([x, y])
+        x_, y_ = xy_vae([x, y])
 
-        return y_
+        return x_, y_
 
     def blind_predict(self, x):
 
@@ -236,7 +252,7 @@ class ClassificationVariationalNetwork(Model):
 if __name__ == '__main__':
 
     load_dir = None
-    load_dir = './jobs/mnist/job5'
+    # load_dir = './jobs/mnist/job5'
 
     # save_dir = './jobs/mnist/job5'
     save_dir = None
@@ -286,7 +302,7 @@ if __name__ == '__main__':
     vae.decoder.summary()
     print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     
-    epochs = 50
+    epochs = 2
     
     refit = False
     # refit = True

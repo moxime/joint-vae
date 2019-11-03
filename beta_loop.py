@@ -15,7 +15,7 @@ e_ = [1024, 1024]
 d_ = e_.copy()
 d_.reverse()
 
-beta_ = np.logspace(-3.9, -2, 20)
+beta_ = np.logspace(-6.2, -8, 10)
 
 latent_dim = 256
 
@@ -72,15 +72,21 @@ def plot_results(save_dir, x_test, y_test):
     for (b, a) in zip(beta_, acc_):
         print(f'{b:.2e}: {a}\n')
 
-    plt.semilogx(beta_, acc_, 'o')
+    beta_sorted = np.sort(beta_)
+    i = np.argsort(beta_)
+    acc_sorted = [acc_[_] for _ in i]
+      
+    plt.semilogx(beta_sorted, acc_sorted)
 
     plt.show()
     
-    return beta_, acc_
+    return beta_sorted, acc_sorted
     
     
     
                     
 if __name__ == '__main__':
     
-    plot_results(save_dir, x_test, y_test)
+    b_, a_ = plot_results(save_dir, x_test, y_test)
+
+    

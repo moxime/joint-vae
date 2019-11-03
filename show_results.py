@@ -41,28 +41,28 @@ def show_x_y(vae, x, title=''):
     x_, y_ = vae.naive_call(x)
     l_ = vae.naive_evaluate(x)
 
-    plt.figure()
-    plt.imshow(x.reshape(28, 28))
-    plt.title(f'original ({title})')
+    f, axes = plt.subplots(3, 4)
+
+    axes = axes.reshape(12)
     
+    axes[0].imshow(x.reshape(28, 28))
+    axes[0].set_title(f'original ({title})')
+
+    ax_i = 1
     for i, x in enumerate(x_):
 
-        plt.figure()
-        plt.imshow(x.numpy().reshape(28, 28))
+        axes[ax_i].imshow(x.numpy().reshape(28, 28))
         # plt.show()
-        plt.title(f'y={i} loss = {l_[i]}')
-
-
+        axes[ax_i].set_title(f'y={i} loss = {l_[i]}')
+        ax_i += 1
+        
     logits = np.log(y_ / (1 - y_))
 
-    plt.imshow(logits)
-    plt.xlabel('p(y) output')
-    plt.ylabel('y input')
-    
-    plt.show()
+    axes[-1].imshow(logits)
 
-    pass
+    axes[-1].set(xlabel='p(y) output', ylabel='y input')
 
+    return f
 
     
 def load_vae(dir_, i):
@@ -108,11 +108,13 @@ if __name__ == '__main__':
     param = param_[i]
 
     i_test = np.random.randint(0, 10000)
-    show_x_y(vae, x_test[i_test], title=f'y_true={y_test[i_test]}')
-
-    i_test_ = np.random.randint(0, 10000, 10)
+    f0 = show_x_y(vae, x_test[i_test], title=f'y_true={y_test[i_test]}')
+    f0.show()
+    
+    i_test_ = np.random.randint(0, 10000, 2)
     y_true = y_test[i_test_].mean(axis=0)
     x_true = x_test[i_test_].mean(axis=0)
     x_true /= x_true.mean()
-    show_x_y(vae, x_true, title=f'y_true={y_true}')
+    f1 = show_x_y(vae, x_true, title=f'y_true={y_true}')
+    f1.show()
     

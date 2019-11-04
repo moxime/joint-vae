@@ -9,22 +9,25 @@ from data import generate as dg
 (x_train, y_train, x_test, y_test) = dg.get_mnist()
 
     
-save_dir = './jobs/mnist/job-betas/'
+save_dir = './jobs/mnist/sampling=1000/betas/'
 
 e_ = [1024, 1024]
 d_ = e_.copy()
 d_.reverse()
 
-beta_ = np.logspace(-6.2, -8, 10)
+beta_ = np.logspace(-4, -3, 6)
 
-latent_dim = 256
+# beta_ = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2]
 
-epochs = 30
+latent_dim = 100
 
+epochs = 20
+
+latent_sampling = 1000
 
 def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
                   decoder_layers, x_train, y_train, x_test, y_test, betas,
-                  dir=dir, epochs=30, batch_size=10):
+                  dir=dir, epochs=30, latent_sampling=100, batch_size=10):
 
 
     for beta in betas:
@@ -35,6 +38,7 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
                                                encoder_layers,
                                                latent_dim,
                                                decoder_layers,
+                                               latent_sampling=latent_sampling,
                                                beta=beta) 
 
         vae.compile(optimizer='Adam')
@@ -46,13 +50,23 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
         acc = vae.accuracy(x_test, y_test)
         print('\n'+'='*80 + '\n'+f'{beta:.2e}: {acc}\n')
 
-        vae.save(dir + f'{beta:.5e}')
+        dir_beta_ = os.path.join(dir, f'{beta:.5e}')
+        dir_beta = dir_beta_
+        i = -1
+        while os.path.exists(dir_beta):
+            i += 1
+            dir_beta = f'{dir_beta_}-{i}'
+            
+        vae.save(dir_beta)
 
-                
+    pass
+
+
 def gogo():
     
-     training_loop(28**2, 10, e_, latent_dim, d_, x_train, y_train,
-                   x_test, y_test, beta_, dir=save_dir, epochs=epochs) 
+    training_loop(28**2, 10, e_, latent_dim, d_, x_train, y_train,
+                  x_test, y_test, beta_, dir=save_dir,
+                  latent_sampling=latent_sampling, epochs=epochs) 
 
                 
 def plot_results(save_dir, x_test, y_test):
@@ -87,6 +101,6 @@ def plot_results(save_dir, x_test, y_test):
                     
 if __name__ == '__main__':
     
-    b_, a_ = plot_results(save_dir, x_test, y_test)
+    # b_, a_ = plot_results(save_dir, x_test, y_test)
 
     

@@ -8,7 +8,7 @@ class Sampling(Layer):
     def __init__(self, sampling_size=1, *args, **kwargs):
 
         self.sampling_size = sampling_size
-        super().__init(*args, **kwargs)
+        super().__init__(*args, **kwargs)
     
     def call(self, inputs):
         sampling_size = self.sampling_size
@@ -17,6 +17,7 @@ class Sampling(Layer):
         dim = tf.shape(z_mean)[1]
         epsilon = tf.keras.backend.random_normal(
             shape=(sampling_size, batch, dim))
+
         return tf.reduce_mean(z_mean + tf.exp(0.5 * z_log_var) *
                               epsilon, axis=0)
 

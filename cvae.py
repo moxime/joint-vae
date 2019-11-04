@@ -22,7 +22,7 @@ def __make_iter__(a):
 
 
 DEFAULT_ACTIVATION = 'relu'
-
+DEFAULT_LATENT_SAMPLING = 1000
 
 class ClassificationVariationalNetwork(Model):
 
@@ -34,6 +34,7 @@ class ClassificationVariationalNetwork(Model):
                  decoder_layer_sizes=[36],
                  name = 'xy-vae',
                  activation=DEFAULT_ACTIVATION,
+                 latent_sampling=DEFAULT_LATENT_SAMPLING,
                  beta=1e-3,
                  verbose=1,
                  *args, **kw):
@@ -42,7 +43,8 @@ class ClassificationVariationalNetwork(Model):
 
         # if beta=0 in Encoder(...) loss is not computed by layer
         self.encoder = Encoder(latent_dim, encoder_layer_sizes,
-                               beta=beta, activation=activation)
+                               beta=beta, sampling_size=latent_sampling,
+                               activation=activation)
         self.decoder = Decoder(input_shape, num_labels,
                                decoder_layer_sizes, activation=activation)
 
@@ -58,7 +60,9 @@ class ClassificationVariationalNetwork(Model):
                                  decoder_layer_sizes]
 
         self.trained = False
-        self.activation=activation
+
+        self.latent_sampling = latent_sampling
+        self.activation = activation
 
     @property
     def beta(self):
@@ -145,6 +149,7 @@ class ClassificationVariationalNetwork(Model):
         param_dict = {'layer_sizes': self._sizes_of_layers,
                       'trained': self.trained,
                       'beta': self.beta,
+                      'latent_sampling': self.latent_sampling,
                       'activation': self.activation
                       }
 
@@ -161,8 +166,14 @@ class ClassificationVariationalNetwork(Model):
 
         ls = p_dict['layer_sizes']
         print(ls)
+
+        if 'latent_sampling' in p_dict.keys():
+            latent_sampling = p_dict['latent_sampling']
+        else:
+            sapling_size = 1
         
         vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4],
+                  latent_sampling=latent_sampling,
                   activation=p_dict['activation'],
                   beta=p_dict['beta'], verbose=verbose)
 
@@ -265,7 +276,8 @@ if __name__ == '__main__':
     d_.reverse()
 
     beta = 0.005
-    latent_dim = 256
+    latent_dim = 40
+    latent_sampling = int(1e4)
 
     try:
         data_loaded
@@ -286,8 +298,10 @@ if __name__ == '__main__':
 
     if rebuild:
         print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
-        vae = ClassificationVariationalNetwork(28**2, 10, e_, latent_dim,  # 
-                                               d_, beta=beta) 
+        vae = ClassificationVariationalNetwork(28**2, 10, e_,
+                                               latent_dim, # d_,
+                                               latent_sampling=latent_sampling,
+                                               beta=beta) 
         # vae.plot_model(dir=load_dir)
 
     [x_, y_] = vae([x_train[0:3], y_train[0:3]])
@@ -302,7 +316,7 @@ if __name__ == '__main__':
     vae.decoder.summary()
     print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     
-    epochs = 2
+    epochs = 20
     
     refit = False
     # refit = True
@@ -337,5 +351,8 @@ if __name__ == '__main__':
 
     [x_dec, y_dec] = vae.decoder(t_enc)
 
+    acc = vae.accuracy(x_test, y_test)
+    print(f'test accuracy: {acc}\n')
+    
     if save_dir is not None:
         vae.save(save_dir)

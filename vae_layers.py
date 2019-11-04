@@ -5,12 +5,20 @@ from tensorflow.keras.models import Model
 class Sampling(Layer):
     """Uses (z_mean, z_log_var) to sample z, the latent vector."""
 
+    def __init__(self, sampling_size=1, *args, **kwargs):
+
+        self.sampling_size = sampling_size
+        super().__init(*args, **kwargs)
+    
     def call(self, inputs):
+        sampling_size = self.sampling_size
         z_mean, z_log_var = inputs
         batch = tf.shape(z_mean)[0]
         dim = tf.shape(z_mean)[1]
-        epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
-        return z_mean + tf.exp(0.5 * z_log_var) * epsilon
+        epsilon = tf.keras.backend.random_normal(
+            shape=(sampling_size, batch, dim))
+        return tf.reduce_mean(z_mean + tf.exp(0.5 * z_log_var) *
+                              epsilon, axis=0)
 
 
 class JointLayer(Layer):
@@ -43,12 +51,13 @@ class Encoder(Model):
                  name='encoder',
                  beta=0,
                  activation='relu',
+                 sampling_size=10,
                  **kwargs):
         super(Encoder, self).__init__(name=name, **kwargs)
         self.dense_projs = [Dense(u, activation=activation) for u in intermediate_dims]
         self.dense_mean = Dense(latent_dim)
         self.dense_log_var = Dense(latent_dim)
-        self.sampling = Sampling()
+        self.sampling = Sampling(sampling_size=sampling_size)
         self.beta=beta
         
     def call(self, inputs):

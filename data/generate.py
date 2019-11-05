@@ -8,12 +8,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 mnist = datasets.mnist
+fashion_mnist = datasets.fashion_mnist
 
+
+def get_fashion_mnist():
+
+    return get_image_dataset(fashion_mnist)
 
 def get_mnist():
+
+    return get_image_dataset(mnist)
+
+def get_image_dataset(dataset=mnist):
     
     (train_images, train_labels), (test_images, test_labels) = \
-        mnist.load_data()       
+        dataset.load_data()       
     
     num_train = len(train_labels)
     num_test = len(test_labels)

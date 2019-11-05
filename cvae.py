@@ -275,9 +275,9 @@ if __name__ == '__main__':
     d_ = e_.copy()
     d_.reverse()
 
-    beta = 0.005
-    latent_dim = 40
-    latent_sampling = int(1e4)
+    beta = 0.001
+    latent_dim = 100
+    latent_sampling = int(1e3)
 
     try:
         data_loaded
@@ -285,7 +285,7 @@ if __name__ == '__main__':
         data_loaded = False
     
     if not data_loaded:
-        (x_train, y_train, x_test, y_test) = dg.get_mnist()
+        (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
         data_loaded = True
         
     if not rebuild:

@@ -1,2 +1,6 @@
 *.png
 */__pycache__
+__pycache__
+.dir-locals.el
+tests
+*_data/

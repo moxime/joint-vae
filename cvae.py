@@ -271,13 +271,13 @@ if __name__ == '__main__':
     rebuild = load_dir is None
     # rebuild = True
     
-    e_ = [1024, 1024]
+    e_ = [1024, 1024, 512, 256]
     d_ = e_.copy()
     d_.reverse()
 
     beta = 0.001
-    latent_dim = 100
-    latent_sampling = int(1e3)
+    latent_dim = 20
+    latent_sampling = int(500)
 
     try:
         data_loaded
@@ -316,7 +316,7 @@ if __name__ == '__main__':
     vae.decoder.summary()
     print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     
-    epochs = 20
+    epochs = 2
     
     refit = False
     # refit = True

@@ -68,13 +68,17 @@ class ClassificationVariationalNetwork(Model):
     def beta(self):
         return self._beta
 
-    @beta.setter
+    @beta.setter # decorator to change beta in the decoder if changed
+                 # in the vae.
     def beta(self, value):
         self._beta = value
         self.encoder.beta = value
 
     def call(self, inputs):
-        
+        """
+        inputs: [x, y] where x, and y are tensors sharing first dim.
+        the loss is computed during call (no loss function is defined) 
+        """
         if self.x_y:
             num_labels = self.input_dims[-1]
             x_input = inputs[0]
@@ -108,11 +112,14 @@ class ClassificationVariationalNetwork(Model):
         self.add_loss(tf.reduce_mean(mse(x_input, x_output)))
 
         if self.x_y and self.beta>0:
-            self.add_loss(2*self.beta*tf.reduce_mean(x_entropy(y_input, y_output)))
+            self.add_loss(2*self.beta*tf.reduce_mean(x_entropy(y_input,
+                                                               y_output)))
         
         return reconstructed
 
     def fit(self, *args, **kwargs):
+        """ Just the super().fit() 
+        """
 
         h = super().fit(*args, **kwargs)
         self.trained = True
@@ -136,6 +143,10 @@ class ClassificationVariationalNetwork(Model):
         _plot(self.decoder)
         
     def save(self, dir_name=None):
+        """Save the params in params.json file in the directroy dir_name and,
+        if trained, the weights inweights.h5.
+
+        """
 
         ls = self._sizes_of_layers
         
@@ -159,9 +170,14 @@ class ClassificationVariationalNetwork(Model):
             w_p = save_load.get_path(dir_name, 'weights.h5')
             self.save_weights(w_p)
 
+        pass
+
     @classmethod        
     def load(cls, dir_name, verbose=1):
+        """dir_name : where params.json is (and weigths.h5 if applicable)
 
+        """
+        
         p_dict = save_load.load_json(dir_name, 'params.json')
 
         ls = p_dict['layer_sizes']
@@ -194,7 +210,11 @@ class ClassificationVariationalNetwork(Model):
         return vae
 
     def naive_predict(self, x,  verbose=1):
+        """for x a single input find y for which log P(x, y) is maximum
+        (actually the ELBO < log P(x,y) is maximum)
 
+        """
+        
         x = np.atleast_2d(x)
         assert x.shape[0] == 1
         assert len(self.input_dims) > 1
@@ -214,9 +234,11 @@ class ClassificationVariationalNetwork(Model):
 
         return i_, loss_
 
-
     def naive_evaluate(self, x):
+        """for x an input or a tensor or an array of inputs computes the
+        losses (and returns as a list) for each possible y.
 
+        """
         num_labels = self.input_dims[-1]
         y_ = np.eye(num_labels)
 
@@ -228,8 +250,11 @@ class ClassificationVariationalNetwork(Model):
 
         return losses
         
-    
     def naive_call(xy_vae, x):
+        """for a single input x returns [x_, y_] estimated by the network ofr
+        every possible input [x, y]
+
+        """
 
         x = np.atleast_2d(x)
         assert len(xy_vae.input_dims) > 1

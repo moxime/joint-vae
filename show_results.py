@@ -88,39 +88,38 @@ def find_beta(dir_, beta):
     return i_b
 
 
-set = 'fashion'
-# set = 'mnist'
-
-if set == 'fashion':
-    (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
-    load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3'
-    (_, _, x_ood, y_ood) = dg.get_mnist()
-        
-if set == 'mnist':
-    (x_train, y_train, x_test, y_test) = dg.get_mnist()
-    load_dir = './jobs/mnist/sampling=1000/betas/'
-    x_ood_ = x_test[None] # expand dims
-    y_ood_ = y_test[None]
-    perms = [np.random.permutation(x_test.shape[0]) for i in range(4)]
-
-    x_ood = np.vstack([x_ood_[:, p, :] for p in perms]).mean(axis=0)
-    y_ood = np.vstack([y_ood_[:, p, :] for p in perms]).mean(axis=0)
-
-    
-dir_ = [os.path.join(load_dir, o) for o in os.listdir(load_dir) if
-        os.path.isdir(os.path.join(load_dir, o))]
-
-# print(dir_)
-
-param_ = [load_json(d, 'params.json') for d in dir_]
-
-beta_ = [p['beta'] for p in param_]
-i_ = np.array(beta_).argsort()
-
-
 if __name__ == '__main__':
 
-    beta = 5e-6
+    set = 'fashion'
+    # set = 'mnist'
+
+    if set == 'fashion':
+        (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
+        load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3'
+        (_, _, x_ood, y_ood) = dg.get_mnist()
+
+    if set == 'mnist':
+        (x_train, y_train, x_test, y_test) = dg.get_mnist()
+        load_dir = './jobs/mnist/sampling=1000/betas/'
+        x_ood_ = x_test[None] # expand dims
+        y_ood_ = y_test[None]
+        perms = [np.random.permutation(x_test.shape[0]) for i in range(4)]
+
+        x_ood = np.vstack([x_ood_[:, p, :] for p in perms]).mean(axis=0)
+        y_ood = np.vstack([y_ood_[:, p, :] for p in perms]).mean(axis=0)
+
+
+    dir_ = [os.path.join(load_dir, o) for o in os.listdir(load_dir) if
+            os.path.isdir(os.path.join(load_dir, o))]
+
+    # print(dir_)
+
+    param_ = [load_json(d, 'params.json') for d in dir_]
+
+    beta_ = [p['beta'] for p in param_]
+    i_ = np.array(beta_).argsort()
+
+    beta = 2e-4
     i = find_beta(dir_, beta)    
     
     vae = ClassificationVariationalNetwork.load(dir_[i])
@@ -130,23 +129,26 @@ if __name__ == '__main__':
     
     param = param_[i]
 
-    i_test = np.random.randint(0, x_test.shape[0])
+    for example in range(10):
+        i_test = np.random.randint(0, x_test.shape[0])
     
-    f0 = show_x_y(vae, x_test[i_test], title=f'y_true={y_test[i_test]}')
-    f0.show()
+        f0 = show_x_y(vae, x_test[i_test], title=f'y_true={y_test[i_test]}')
+        f0.show()
     
-    i_ood = np.random.randint(0, x_ood.shape[0])
-    y_true = y_ood[i_ood]
-    x_true = x_ood[i_ood]
-    # x_true /= x_true.mean()
-    f1 = show_x_y(vae, x_true, title=f'y_true={y_true}')
-    f1.show()
+        i_ood = np.random.randint(0, x_ood.shape[0])
+        y_true = y_ood[i_ood]
+        x_true = x_ood[i_ood]
+        # x_true /= x_true.mean()
+        f1 = show_x_y(vae, x_true, title=f'y_true={y_true}')
+        f1.show()
 
-    t1 = time.time()
-    l = vae.evaluate([np.atleast_2d(x_test[0]), np.atleast_2d(y_test[0])])
-    t2 = time.time()
-    print(t2 - t1)
-                   
-    
-#    input()
-    
+        acc, i_miss_ = vae.accuracy(x_test, y_test, return_mismatched=True)
+
+        i_miss = i_miss_[np.random.randint(0, len(i_miss_))]
+        x_miss, y_miss = x_test[i_miss], y_test[i_miss]
+        f2 = show_x_y(vae, x_miss, title=f'y_missed={y_miss}')
+        f2.show()
+        
+        char = input()
+        if char != '':
+            plt.close('all')

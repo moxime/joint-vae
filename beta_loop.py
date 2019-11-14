@@ -5,22 +5,19 @@ import matplotlib.pyplot as plt
 from data import generate as dg
 
 
-
-(x_train, y_train, x_test, y_test) = dg.get_mnist()
-
-    
+(x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
 
 
 e_ = [1024, 1024]
 d_ = e_.copy()
 d_.reverse()
 
-e_ = [1024, 1024, 512, 256]
+e_ = [1024, 1024, 512]
 d_ = e_.copy()
 d_.reverse()
 
 
-latent_dim = 20
+latent_dim = 100
 latent_sampling = int(500)
 
 save_dir = (f'./jobs/fashion-mnist/latent-dim=' + 
@@ -28,19 +25,17 @@ save_dir = (f'./jobs/fashion-mnist/latent-dim=' +
             f'-encoder-layers={len(e_)}')
 
 
-# beta_ = np.logspace(-4, -5, 5)
-# beta_ = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2]
-beta_ = [1e-5, 5e-5, 1e-4]
-# digits = [i for i in range (1,10)]
-# beta_ = ([i*1e-6 for i in digits] + [i*1e-3 for i in digits])
-# beta_ = [2e-3, 3e-3]*2
-# beta_ = [1e-3 + i*1e-4 for i in digits] * 3
+beta_pseudo_log = np.array([1, 2, 5])
+beta_log = np.logspace(-3, -5, 3)
+beta_lin = np.linspace(1e-4, 5e-4, 5)
+
+
+# beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-5, -3, 3)])
+
+# beta_ = beta_lin
+beta_ = np.hstack([beta_lin]*3)
 
 epochs = 20
-
-
-
-
 
 
 def read_float_list(path):
@@ -106,6 +101,12 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
             print(dir_beta, os.path.exists(dir_beta))
         vae.save(dir_beta)
 
+        results_path_file = os.path.join(dir_beta, 'test_accuracy') 
+        with open(results_path_file, 'w+') as f:
+            f.write(str(acc) + '\n')
+
+
+        
         betas = read_float_list(betas_file)
         if len(betas) > 0:
             betas.pop(0)
@@ -149,7 +150,6 @@ def plot_results(save_dir, x_test, y_test):
                 
         acc_.append(acc)
 
-
     beta_sorted = np.sort(beta_)
     i = np.argsort(beta_)
     acc_sorted = [acc_[_] for _ in i]
@@ -172,15 +172,37 @@ def plot_results(save_dir, x_test, y_test):
 
     input()
 
-    plt.close(fig='all')
+    # plt.close(fig='all')
     
     return beta_sorted, acc_sorted
-    
     
     
                     
 if __name__ == '__main__':
     
-    b_, a_ = plot_results(save_dir, x_test, y_test)
+
+    set = 'fashion'
+
+    set = 'mnist'
+
+    if set == 'fashion':
+        (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
+        load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3'
+        (_, _, x_ood, y_ood) = dg.get_mnist()
+
+    if set == 'mnist':
+        (x_train, y_train, x_test, y_test) = dg.get_mnist()
+        load_dir = './jobs/mnist/sampling=1000/betas/'
+        x_ood_ = x_test[None] # expand dims
+        y_ood_ = y_test[None]
+        perms = [np.random.permutation(x_test.shape[0]) for i in range(4)]
+
+        x_ood = np.vstack([x_ood_[:, p, :] for p in perms]).mean(axis=0)
+        y_ood = np.vstack([y_ood_[:, p, :] for p in perms]).mean(axis=0)
+
+
+
+
+    b_, a_ = plot_results(load_dir, x_test, y_test)
 
     

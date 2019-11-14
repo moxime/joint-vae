@@ -24,6 +24,7 @@ def __make_iter__(a):
 DEFAULT_ACTIVATION = 'relu'
 DEFAULT_LATENT_SAMPLING = 1000
 
+
 class ClassificationVariationalNetwork(Model):
 
     def __init__(self,
@@ -141,7 +142,26 @@ class ClassificationVariationalNetwork(Model):
         _plot(self)
         _plot(self.encoder)
         _plot(self.decoder)
-        
+
+    def has_same_architecture(self, other_net):
+
+        out = True
+
+        out = out and sef.activation == other_net.activation
+
+        out = out and self._sizes_of_layers == other_net._sizes_of_layers
+
+        return out
+
+    def print_architecture(self):
+
+        s  = f'activation={self.activation}-'
+        s += f'laten-dim={self.latent_dim}-'
+        s += f'sampling={self.latent_sampling}-'
+        s += f'encoder-layers={len(self.encoder_layer_sizes)}'
+
+        return s
+
     def save(self, dir_name=None):
         """Save the params in params.json file in the directroy dir_name and,
         if trained, the weights inweights.h5.
@@ -276,14 +296,24 @@ class ClassificationVariationalNetwork(Model):
 
         return y_
 
-    def accuracy(self, x_test, y_test):
+    def accuracy(self, x_test, y_test, return_mismatched=False):
+        """return detection rate. If return_mismatched is True, indices of
+        mismatched are also retuned.
+
+        """
 
         y_pred = self.blind_predict(x_test).argmax(axis=-1)
         y_test_ = y_test.argmax(axis=-1)
 
         n = len(y_test_)
 
-        return sum(y_test_ == y_pred)/n
+        mismatched = np.argwhere(y_test_ != y_pred)
+        acc = 1 - len(mismatched)/n
+
+        if return_mismatched:
+            return acc, mismatched
+
+        return acc
         
 if __name__ == '__main__':
 

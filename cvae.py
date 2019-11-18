@@ -98,7 +98,7 @@ class ClassificationVariationalNetwork(Model):
             joint_input = self.joint([x_input, y_input])
         else:
             joint_input = inputs
-            x_input = np.atleast_2d(inputs)
+            x_input = inputs
 
         z_mean, z_log_var, z = self.encoder(joint_input)
 
@@ -110,12 +110,6 @@ class ClassificationVariationalNetwork(Model):
         else:
             x_output = reconstructed
 
-        self.add_loss(tf.reduce_mean(mse(x_input, x_output)))
-
-        if self.x_y and self.beta>0:
-            self.add_loss(2*self.beta*tf.reduce_mean(x_entropy(y_input,
-                                                               y_output)))
-        
         return reconstructed
 
     def variation_loss(self, x_input, y_input, x_output=None, y_output=None, mean=True):

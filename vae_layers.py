@@ -18,8 +18,7 @@ class Sampling(Layer):
         epsilon = tf.keras.backend.random_normal(
             shape=(sampling_size, batch, dim))
 
-        return tf.reduce_mean(z_mean + tf.exp(0.5 * z_log_var) *
-                              epsilon, axis=0)
+        return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 
 class JointLayer(Layer):

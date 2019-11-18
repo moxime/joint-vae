@@ -5,7 +5,7 @@ from tensorflow.keras.models import Model
 class Sampling(Layer):
     """Uses (z_mean, z_log_var) to sample z, the latent vector."""
 
-    def __init__(self, sampling_size=1, *args, **kwargs):
+    def __init__(self, *args, sampling_size=1, **kwargs):
 
         self.sampling_size = sampling_size
         super().__init__(*args, **kwargs)

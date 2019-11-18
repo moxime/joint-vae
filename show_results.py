@@ -3,7 +3,7 @@ from cvae import ClassificationVariationalNetwork
 import os
 import matplotlib.pyplot as plt
 from data import generate as dg
-from utils.save_load import load_json
+from utils.save_load import load_json, save_object
 import time
 
 
@@ -64,10 +64,11 @@ def show_x_y(vae, x, title=''):
     axes[-1].imshow(logits, cmap='gray')
 
     axes[-1].set(xlabel='p(y) output', ylabel='y input')
+    axes[-1].set_title(f'y_pred={np.round(100*y)}')
 
     return f
 
-    
+
 def load_vae(dir_, i):
 
     return ClassificationVariationalNetwork.load(dir_[i])
@@ -86,6 +87,63 @@ def find_beta(dir_, beta):
             i_b = i
 
     return i_b
+
+
+def compute_losses(vae, x_test, x_ood, num_labels, save_dir=None):
+
+    C = num_labels
+
+    N_test = x_test.shape[0]
+    losses_test = np.ndarray((N_test, C))
+    N = N_test
+    
+    ood = x_ood is not None
+    if ood:
+        N_ood = x_ood.shape[0]
+        losses_ood = np.ndarray((N_ood, C))
+        N = min(N_test, N_ood)
+    
+    for i in range(N):
+
+        l_ = np.array(vae.naive_evaluate(x_test[i], verbose=0))
+        losses_test[i, :] = l_
+        
+        if ood:
+            l_ = np.array(vae.naive_evaluate(x_ood[i], verbose=0))
+            losses_ood[i, :] = l_
+
+        if i%100 == 10:
+            losses_ = [losses_test]
+            if ood:
+                losses_.append(losses_ood)
+
+            for losses in losses_:
+                print(f'===*=*=* i = {i} *=*=*====\n')
+                mu = losses[:i].mean()
+                s = losses[:i].std()
+                mini = losses[:i].min()
+                maxi = losses[:i].max()
+                K = int((maxi - mu) / s)
+                q = [mini] + [mu  + k * s for k in range(-1, K)] + [maxi]
+
+                n = [(losses[:i] < q[k]).sum() for k in range(len(q))]
+
+                n = np.array(n) / losses[:i].size
+
+                f = n[1:] - n[:-1]
+
+                str_ = ''
+                for k in range(len(q) - 1):
+                    str_ = str_ + f'{q[k]:.1e} [{100*f[k]:.1f}] '
+                str_ +=  f'{q[-1]:.1e}\n'
+                print(str_)
+
+
+    if save_dir is not None:
+        save_object(losses_test, save_dir, 'losses_test')
+        if ood:
+            save_object(losses_ood, save_dir, 'losses_ood')
+
 
 
 if __name__ == '__main__':
@@ -129,20 +187,29 @@ if __name__ == '__main__':
     
     param = param_[i]
 
+    y_pred = vae.blind_predict(x_test)
+    y_pred_ = y_pred.argmax(axis=-1)
+    y_test_ = y_test.argmax(axis=-1)
+
+    i_pred_ = np.argwhere(y_test_ == y_pred_)
+    i_miss_ = np.argwhere(y_test_ != y_pred_)
+
+    acc = len(i_pred_) / len(x_test)
+
     for example in range(10):
+        
         i_test = np.random.randint(0, x_test.shape[0])
-    
-        f0 = show_x_y(vae, x_test[i_test], title=f'y_true={y_test[i_test]}')
+        i_pred = i_pred_[np.random.randint(0, len(i_pred_))]
+        
+        f0 = show_x_y(vae, x_test[i_pred], title=f'y_true={y_test[i_pred]}')
         f0.show()
     
         i_ood = np.random.randint(0, x_ood.shape[0])
         y_true = y_ood[i_ood]
         x_true = x_ood[i_ood]
         # x_true /= x_true.mean()
-        f1 = show_x_y(vae, x_true, title=f'y_true={y_true}')
+        f1 = show_x_y(vae, x_true, title=f'y ood')
         f1.show()
-
-        acc, i_miss_ = vae.accuracy(x_test, y_test, return_mismatched=True)
 
         i_miss = i_miss_[np.random.randint(0, len(i_miss_))]
         x_miss, y_miss = x_test[i_miss], y_test[i_miss]

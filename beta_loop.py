@@ -180,17 +180,15 @@ def plot_results(save_dir, x_test, y_test):
                     
 if __name__ == '__main__':
     
+    dataset = 'fashion'
+    # dataset = 'mnist'
 
-    set = 'fashion'
-
-    set = 'mnist'
-
-    if set == 'fashion':
+    if dataset == 'fashion':
         (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
         load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3'
         (_, _, x_ood, y_ood) = dg.get_mnist()
 
-    if set == 'mnist':
+    if dataset == 'mnist':
         (x_train, y_train, x_test, y_test) = dg.get_mnist()
         load_dir = './jobs/mnist/sampling=1000/betas/'
         x_ood_ = x_test[None] # expand dims

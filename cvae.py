@@ -118,6 +118,14 @@ class ClassificationVariationalNetwork(Model):
         
         return reconstructed
 
+    def variation_loss(self, x_input, y_input, x_output=None, y_output=None, mean=True):
+
+        if x_output is None or y_output is None
+        x_output, y_output = self([x_input, y_input]) 
+        l = mse(x_input, x_output)
+        if self.beta:
+            l += 2 * self.beta * x_entropy(y_input, y_output)
+    
     def fit(self, *args, **kwargs):
         """ Just the super().fit() 
         """
@@ -142,7 +150,7 @@ class ClassificationVariationalNetwork(Model):
         _plot(self)
         _plot(self.encoder)
         _plot(self.decoder)
-
+        
     def has_same_architecture(self, other_net):
 
         out = True
@@ -247,14 +255,18 @@ class ClassificationVariationalNetwork(Model):
         for i in range(num_labels):
 
             y = np.atleast_2d(y_[:,i])
-            loss = self.evaluate([x, y], verbose=verbose)
+            loss = super.evaluate([x, y], verbose=verbose)
             if loss < loss_:
                 i_ = i
                 loss_ = loss
 
         return i_, loss_
 
-    def naive_evaluate(self, x):
+    def evaluate(self, x, verbose=0):
+
+        num_labels = self.input_dims[-1]
+
+    def naive_evaluate(self, x, verbose=0):
         """for x an input or a tensor or an array of inputs computes the
         losses (and returns as a list) for each possible y.
 
@@ -266,7 +278,8 @@ class ClassificationVariationalNetwork(Model):
 
         for y in y_:
 
-            losses.append(self.evaluate([np.atleast_2d(x), np.atleast_2d(y)]))
+            losses.append(super().evaluate([np.atleast_2d(x),
+                                          np.atleast_2d(y)], verbose=verbose))
 
         return losses
         
@@ -315,11 +328,12 @@ class ClassificationVariationalNetwork(Model):
 
         return acc
         
+
 if __name__ == '__main__':
 
     load_dir = None
     # load_dir = './jobs/mnist/job5'
-
+    load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3/beta=2.00000e-04'
     # save_dir = './jobs/mnist/job5'
     save_dir = None
                   
@@ -342,7 +356,10 @@ if __name__ == '__main__':
     if not data_loaded:
         (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
         data_loaded = True
-        
+
+    N = x_test.shape[0]
+    C = y_test.shape[1]
+    
     if not rebuild:
         try:
             vae = ClassificationVariationalNetwork.load(load_dir)
@@ -380,13 +397,14 @@ if __name__ == '__main__':
         history = vae.fit(x=[x_train, y_train],
                 epochs=epochs,
                 batch_size=10)
-
+    
     x0 = np.atleast_2d(x_test[0])
     y0 = np.atleast_2d(y_test[0])
 
     x1 = np.atleast_2d(x_test[1])
     y1 = np.atleast_2d(y_test[1])
 
+    """
     t0_ = vae.encoder(vae.joint([x0, y0]))
     mu0 = t0_[0]
     logsig0 = t0_[1]
@@ -405,9 +423,13 @@ if __name__ == '__main__':
     mu_enc = t_enc_[0]
 
     [x_dec, y_dec] = vae.decoder(t_enc)
-
+    """
+    
     acc = vae.accuracy(x_test, y_test)
     print(f'test accuracy: {acc}\n')
     
     if save_dir is not None:
         vae.save(save_dir)
+
+        
+            

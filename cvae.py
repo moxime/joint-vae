@@ -81,20 +81,8 @@ class ClassificationVariationalNetwork(Model):
         the loss is computed during call (no loss function is defined) 
         """
         if self.x_y:
-            num_labels = self.input_dims[-1]
             x_input = inputs[0]
             y_input = inputs[1]
-
-            """ A REVOIR 
-            if isinstance(y_input, int):
-                y_input = tf.keras.utils.to_categorical(y_input, num_labels)
-            if y_input.ndim==1:
-                if len(y_input) == x_input.shape[0]:
-                    y_input = tf.keras.utils.to_categorical(y_input, num_labels)
-                else:
-                    assert(len(y_input) == num_labels and
-                           ((y_input == 0) + (y_input == 1)).all())
-            """
             joint_input = self.joint([x_input, y_input])
         else:
             joint_input = inputs
@@ -110,15 +98,14 @@ class ClassificationVariationalNetwork(Model):
         else:
             x_output = reconstructed
 
-        return reconstructed
+        self.add_loss(mse(x_input, x_output))
+        x_output = tf.reduce_mean(x_output, 0)
 
-    def variation_loss(self, x_input, y_input, x_output=None, y_output=None, mean=True):
-
-        if x_output is None or y_output is None
-        x_output, y_output = self([x_input, y_input]) 
-        l = mse(x_input, x_output)
-        if self.beta:
-            l += 2 * self.beta * x_entropy(y_input, y_output)
+        if self.x_y and self.beta>0:
+            self.add_loss(2 * self.beta * x_entropy(y_input, y_output))
+            y_output = tf.reduce_mean(y_output, 0)
+            
+        return [x_output, y_output] if self.x_y else x_output
     
     def fit(self, *args, **kwargs):
         """ Just the super().fit() 
@@ -256,10 +243,6 @@ class ClassificationVariationalNetwork(Model):
 
         return i_, loss_
 
-    def evaluate(self, x, verbose=0):
-
-        num_labels = self.input_dims[-1]
-
     def naive_evaluate(self, x, verbose=0):
         """for x an input or a tensor or an array of inputs computes the
         losses (and returns as a list) for each possible y.
@@ -270,10 +253,12 @@ class ClassificationVariationalNetwork(Model):
 
         losses = []
 
+        x2d = np.atleast_2d(x)
+        
         for y in y_:
-
-            losses.append(super().evaluate([np.atleast_2d(x),
-                                          np.atleast_2d(y)], verbose=verbose))
+            y2d = np.atleast_2d(y)
+            loss = super().evaluate([x2d, y2d], verbose=verbose).mean(axis=0)
+            losses.append(loss)
 
         return losses
         
@@ -327,7 +312,7 @@ if __name__ == '__main__':
 
     load_dir = None
     # load_dir = './jobs/mnist/job5'
-    load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3/beta=2.00000e-04'
+    # load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3/beta=2.00000e-04'
     # save_dir = './jobs/mnist/job5'
     save_dir = None
                   

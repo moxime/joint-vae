@@ -44,12 +44,21 @@ def show_x_y(vae, x, title=''):
     print(y_)
     l_ = vae.naive_evaluate(x)
 
+    beta2pi = vae.beta * 2 * np.pi
+
+    d = x.size
+
+    log_pxy = [- l  / (2 * vae.beta) - d / 2 * np.log(d * beta2pi) for l in l_]
+    print(log_pxy)
+    
+    log_px = np.log(np.sum(np.exp(log_pxy)))
+    
     f, axes = plt.subplots(3, 4)
 
     axes = axes.reshape(12)
     
     axes[0].imshow(x.reshape(28, 28), cmap='gray')
-    axes[0].set_title(f'original ({title})')
+    axes[0].set_title(f'original ({title}) log_px={log_px}')
 
     ax_i = 1
     for i, x in enumerate(x_):
@@ -153,7 +162,7 @@ if __name__ == '__main__':
 
     if set == 'fashion':
         (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
-        load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3'
+        load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=20-encoder-layers=3'
         (_, _, x_ood, y_ood) = dg.get_mnist()
 
     if set == 'mnist':
@@ -177,7 +186,7 @@ if __name__ == '__main__':
     beta_ = [p['beta'] for p in param_]
     i_ = np.array(beta_).argsort()
 
-    beta = 2e-4
+    beta = 1e-4
     i = find_beta(dir_, beta)    
     
     vae = ClassificationVariationalNetwork.load(dir_[i])

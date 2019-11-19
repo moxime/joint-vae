@@ -98,11 +98,15 @@ class ClassificationVariationalNetwork(Model):
         else:
             x_output = reconstructed
 
-        self.add_loss(mse(x_input, x_output))
+        """The loss is computed with a mean with respect to the sampled Z.
+
+        """
+        self.add_loss(tf.reduce_mean(mse(x_input, x_output), axis=0))
         x_output = tf.reduce_mean(x_output, 0)
 
         if self.x_y and self.beta>0:
-            self.add_loss(2 * self.beta * x_entropy(y_input, y_output))
+            self.add_loss(2 * self.beta *
+                          tf.reduce_mean(x_entropy(y_input, y_output), axis=0))
             y_output = tf.reduce_mean(y_output, 0)
             
         return [x_output, y_output] if self.x_y else x_output
@@ -257,7 +261,7 @@ class ClassificationVariationalNetwork(Model):
         
         for y in y_:
             y2d = np.atleast_2d(y)
-            loss = super().evaluate([x2d, y2d], verbose=verbose).mean(axis=0)
+            loss = super().evaluate([x2d, y2d], verbose=verbose)
             losses.append(loss)
 
         return losses
@@ -310,9 +314,10 @@ class ClassificationVariationalNetwork(Model):
 
 if __name__ == '__main__':
 
-    load_dir = None
     # load_dir = './jobs/mnist/job5'
-    # load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3/beta=2.00000e-04'
+    load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3/beta=2.00000e-04'
+    load_dir = None
+    
     # save_dir = './jobs/mnist/job5'
     save_dir = None
                   
@@ -325,7 +330,7 @@ if __name__ == '__main__':
 
     beta = 0.001
     latent_dim = 20
-    latent_sampling = int(500)
+    latent_sampling = int(20)
 
     try:
         data_loaded

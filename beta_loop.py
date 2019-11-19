@@ -18,7 +18,7 @@ d_.reverse()
 
 
 latent_dim = 100
-latent_sampling = int(500)
+latent_sampling = int(50)
 
 save_dir = (f'./jobs/fashion-mnist/latent-dim=' + 
             f'{latent_dim}-sampling={latent_sampling}' +
@@ -31,9 +31,10 @@ beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 
 # beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-5, -3, 3)])
+beta_ = np.hstack([beta_pseudo_log * 1e-4] * 3)
 
 # beta_ = beta_lin
-beta_ = np.hstack([beta_lin]*3)
+# beta_ = np.hstack([beta_lin]*3)
 
 epochs = 20
 
@@ -185,7 +186,7 @@ if __name__ == '__main__':
 
     if dataset == 'fashion':
         (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
-        load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3'
+        load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=20-encoder-layers=3'
         (_, _, x_ood, y_ood) = dg.get_mnist()
 
     if dataset == 'mnist':

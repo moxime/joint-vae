@@ -1,11 +1,9 @@
 import numpy as np
-from cvae import ClassificationVariationalNetwork
 import os
 import matplotlib.pyplot as plt
 from data import generate as dg
-from utils.save_load import load_json, save_object
-import time
-
+from utils.save_load import load_json, save_object, collect_networks
+import argparse
 
 
 def show_y_matrix(vae, x):
@@ -78,25 +76,6 @@ def show_x_y(vae, x, title=''):
     return f
 
 
-def load_vae(dir_, i):
-
-    return ClassificationVariationalNetwork.load(dir_[i])
-
-
-def find_beta(dir_, beta):
-
-    param_ = [load_json(d, 'params.json') for d in dir_]
-    beta_ = [p['beta'] for p in param_]
-    i_ = np.array(beta_).argsort()
-
-    i_b = i_[0]
-    for i in i_:
-
-        if beta_[i] <= beta:
-            i_b = i
-
-    return i_b
-
 
 def compute_losses(vae, x_test, x_ood, num_labels, save_dir=None):
 
@@ -147,54 +126,13 @@ def compute_losses(vae, x_test, x_ood, num_labels, save_dir=None):
                 str_ +=  f'{q[-1]:.1e}\n'
                 print(str_)
 
-
     if save_dir is not None:
         save_object(losses_test, save_dir, 'losses_test')
         if ood:
             save_object(losses_ood, save_dir, 'losses_ood')
 
-
-
-if __name__ == '__main__':
-
-    set = 'fashion'
-    # set = 'mnist'
-
-    if set == 'fashion':
-        (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
-        load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=20-encoder-layers=3'
-        (_, _, x_ood, y_ood) = dg.get_mnist()
-
-    if set == 'mnist':
-        (x_train, y_train, x_test, y_test) = dg.get_mnist()
-        load_dir = './jobs/mnist/sampling=1000/betas/'
-        x_ood_ = x_test[None] # expand dims
-        y_ood_ = y_test[None]
-        perms = [np.random.permutation(x_test.shape[0]) for i in range(4)]
-
-        x_ood = np.vstack([x_ood_[:, p, :] for p in perms]).mean(axis=0)
-        y_ood = np.vstack([y_ood_[:, p, :] for p in perms]).mean(axis=0)
-
-
-    dir_ = [os.path.join(load_dir, o) for o in os.listdir(load_dir) if
-            os.path.isdir(os.path.join(load_dir, o))]
-
-    # print(dir_)
-
-    param_ = [load_json(d, 'params.json') for d in dir_]
-
-    beta_ = [p['beta'] for p in param_]
-    i_ = np.array(beta_).argsort()
-
-    beta = 1e-4
-    i = find_beta(dir_, beta)    
-    
-    vae = ClassificationVariationalNetwork.load(dir_[i])
-    vae.compile()
-
-    print(f'beta = {vae.beta}\n')
-    
-    param = param_[i]
+            
+def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10):
 
     y_pred = vae.blind_predict(x_test)
     y_pred_ = y_pred.argmax(axis=-1)
@@ -204,8 +142,8 @@ if __name__ == '__main__':
     i_miss_ = np.argwhere(y_test_ != y_pred_)
 
     acc = len(i_pred_) / len(x_test)
-
-    for example in range(10):
+       
+    for example in range(num_of_examples):
         
         i_test = np.random.randint(0, x_test.shape[0])
         i_pred = i_pred_[np.random.randint(0, len(i_pred_))]
@@ -228,3 +166,90 @@ if __name__ == '__main__':
         char = input()
         if char != '':
             plt.close('all')
+
+            
+def plot_results(list_of_vae, ax_lin, ax_log):
+
+    beta_ = []
+    acc_ = []
+
+    for vae_dict in list_of_vae:
+        acc = vae_dict['acc']
+        if acc is not None:
+            beta_.append(vae_dict['net'].beta)
+            acc_.append(acc)
+
+    beta_sorted = np.sort(beta_)
+    i = np.argsort(beta_)
+    acc_sorted = [acc_[_] for _ in i]
+      
+    for (b, a) in zip(beta_sorted, acc_sorted):
+        print(f'{b:.2e}: {100-100*a:4.1f} %\n')
+
+    legend = vae_dict['net'].print_architecture()
+    ax_log.semilogx(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
+    
+    ax_lin.plot(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
+    
+    return beta_sorted, acc_sorted
+    
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(
+        description="show results of networks in directory")
+    parser.add_argument('--dataset', default='fashion',
+                        choices=['fashion', 'mnist'])
+    parser.add_argument('directories',
+                        help='where to find the networks',
+                        nargs='*', default=None)
+
+    args = parser.parse_args()
+
+    dataset = args.dataset
+    directories = args.directories
+
+    if directories is None:
+        directories = ['./jobs/fashion-mnist']
+    print(directories)
+
+    # set = 'fashion'
+    # set = 'mnist'
+
+    if dataset == 'fashion':
+        (x_train, y_train, x_test, y_test, x_ood, y_ood) = \
+            dg.get_fashion_mnist(ood='mnist')
+
+    if dataset == 'mnist':
+        (x_train, y_train, x_test, y_test, x_ood, y_ood) = \
+             dg.get_mnist(ood='mean')
+
+    # print(dir_)
+
+    list_of_lists_of_vae = []
+    for directory in directories:
+        collect_networks(directory, list_of_lists_of_vae)
+    
+    num_of_nets = sum([len(_) for _ in list_of_lists_of_vae])
+
+    if num_of_nets == 0:
+
+        print('NOTHING TO SEE HERE\n')
+
+    if num_of_nets == 1:
+        vae = list_of_lists_of_vae[0][0]['net']
+        vae.compile()
+        show_examples(vae, x_test, y_test, x_ood, y_ood)
+
+    if num_of_nets > 1:
+        f_lin, ax_lin = plt.subplots()
+        f_log, ax_log = plt.subplots()
+        
+        for list_of_nets in list_of_lists_of_vae:
+            plot_results(list_of_nets, ax_lin, ax_log)
+
+        ax_log.legend()
+        # f_lin.show()
+        f_log.show()
+        input()

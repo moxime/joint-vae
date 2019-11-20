@@ -18,7 +18,7 @@ d_.reverse()
 
 
 latent_dim = 100
-latent_sampling = int(50)
+latent_sampling = int(50) # next 200
 
 save_dir = (f'./jobs/fashion-mnist/latent-dim=' + 
             f'{latent_dim}-sampling={latent_sampling}' +
@@ -31,7 +31,9 @@ beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 
 # beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-5, -3, 3)])
-beta_ = np.hstack([beta_pseudo_log * 1e-4] * 3)
+# beta_ = np.hstack([beta_pseudo_log * 1e-4] * 3)
+
+beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)
 
 # beta_ = beta_lin
 # beta_ = np.hstack([beta_lin]*3)
@@ -177,31 +179,8 @@ def plot_results(save_dir, x_test, y_test):
     
     return beta_sorted, acc_sorted
     
-    
-                    
+                        
 if __name__ == '__main__':
     
-    dataset = 'fashion'
-    # dataset = 'mnist'
-
-    if dataset == 'fashion':
-        (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
-        load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=20-encoder-layers=3'
-        (_, _, x_ood, y_ood) = dg.get_mnist()
-
-    if dataset == 'mnist':
-        (x_train, y_train, x_test, y_test) = dg.get_mnist()
-        load_dir = './jobs/mnist/sampling=1000/betas/'
-        x_ood_ = x_test[None] # expand dims
-        y_ood_ = y_test[None]
-        perms = [np.random.permutation(x_test.shape[0]) for i in range(4)]
-
-        x_ood = np.vstack([x_ood_[:, p, :] for p in perms]).mean(axis=0)
-        y_ood = np.vstack([y_ood_[:, p, :] for p in perms]).mean(axis=0)
-
-
-
-
-    b_, a_ = plot_results(load_dir, x_test, y_test)
-
+    gogo()
     

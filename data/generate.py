@@ -11,15 +11,15 @@ mnist = datasets.mnist
 fashion_mnist = datasets.fashion_mnist
 
 
-def get_fashion_mnist():
+def get_fashion_mnist(**kwargs):
 
-    return get_image_dataset(fashion_mnist)
+    return get_image_dataset(fashion_mnist, **kwargs)
 
-def get_mnist():
+def get_mnist(**kwargs):
 
-    return get_image_dataset(mnist)
+    return get_image_dataset(dataset=mnist, **kwargs)
 
-def get_image_dataset(dataset=mnist):
+def get_image_dataset(dataset=mnist, ood=None):
     
     (train_images, train_labels), (test_images, test_labels) = \
         dataset.load_data()       
@@ -36,7 +36,20 @@ def get_image_dataset(dataset=mnist):
     test_images = test_images.reshape((num_test, 28 * 28))
     test_images = test_images.astype('float32') / 255
 
-    return train_images, one_hot_train_labels, test_images, one_hot_test_labels
+    if ood is None:
+        return train_images, one_hot_train_labels, test_images, one_hot_test_labels
+    elif ood=='mnist':
+        _, _, x_ood, y_ood = get_image_dataset(mnist)
+    else:
+        x_ood_ = test_images[None] # expand dims
+        y_ood_ = one_hot_test_labels[None]
+        perms = [np.random.permutation(test_images.shape[0]) for i in range(3)]
+
+        x_ood = np.vstack([x_ood_[:, p, :] for p in perms]).mean(axis=0)
+        y_ood = np.vstack([y_ood_[:, p, :] for p in perms]).mean(axis=0)
+
+    return (train_images, one_hot_train_labels, test_images,
+            one_hot_test_labels, x_ood, y_ood)
 
 
 def gaussian_ball(N, mean, covar=1):

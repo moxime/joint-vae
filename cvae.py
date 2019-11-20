@@ -62,7 +62,9 @@ class ClassificationVariationalNetwork(Model):
 
         self.trained = False
 
+        self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
+        self.encoder_layer_sizes = encoder_layer_sizes
         self.activation = activation
 
     @property
@@ -140,16 +142,16 @@ class ClassificationVariationalNetwork(Model):
 
         out = True
 
-        out = out and sef.activation == other_net.activation
-
+        out = out and self.activation == other_net.activation
         out = out and self._sizes_of_layers == other_net._sizes_of_layers
-
+        out = out and self.latent_sampling == other_net.latent_sampling
+        
         return out
 
     def print_architecture(self):
 
         s  = f'activation={self.activation}-'
-        s += f'laten-dim={self.latent_dim}-'
+        s += f'latent-dim={self.latent_dim}-'
         s += f'sampling={self.latent_sampling}-'
         s += f'encoder-layers={len(self.encoder_layer_sizes)}'
 
@@ -199,7 +201,7 @@ class ClassificationVariationalNetwork(Model):
         if 'latent_sampling' in p_dict.keys():
             latent_sampling = p_dict['latent_sampling']
         else:
-            sapling_size = 1
+            latent_sampling = 1
         
         vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4],
                   latent_sampling=latent_sampling,

@@ -39,17 +39,23 @@ def show_x_y(vae, x, title=''):
     x_, y_ = vae.naive_call(x)
     y = vae.blind_predict(np.atleast_2d(x))
     y_ = np.vstack([y_, y, y_.numpy().mean(axis=0)])
-    print(y_)
+    # print(y_)
     l_ = vae.naive_evaluate(x)
 
     beta2pi = vae.beta * 2 * np.pi
 
     d = x.size
 
+    """
     log_pxy = [- l  / (2 * vae.beta) - d / 2 * np.log(d * beta2pi) for l in l_]
-    print(log_pxy)
+    print(f'log_pxy = {log_pxy}\n')
     
     log_px = np.log(np.sum(np.exp(log_pxy)))
+    print(f'log_px = {log_px}\n')
+    """
+
+    log_px = vae.log_px(x)
+    print(f'{title} : log_px = {log_px}\n')
     
     f, axes = plt.subplots(3, 4)
 
@@ -76,70 +82,14 @@ def show_x_y(vae, x, title=''):
     return f
 
 
-
-def compute_losses(vae, x_test, x_ood, num_labels, save_dir=None):
-
-    C = num_labels
-
-    N_test = x_test.shape[0]
-    losses_test = np.ndarray((N_test, C))
-    N = N_test
-    
-    ood = x_ood is not None
-    if ood:
-        N_ood = x_ood.shape[0]
-        losses_ood = np.ndarray((N_ood, C))
-        N = min(N_test, N_ood)
-    
-    for i in range(N):
-
-        l_ = np.array(vae.naive_evaluate(x_test[i], verbose=0))
-        losses_test[i, :] = l_
-        
-        if ood:
-            l_ = np.array(vae.naive_evaluate(x_ood[i], verbose=0))
-            losses_ood[i, :] = l_
-
-        if i%100 == 10:
-            losses_ = [losses_test]
-            if ood:
-                losses_.append(losses_ood)
-
-            for losses in losses_:
-                print(f'===*=*=* i = {i} *=*=*====\n')
-                mu = losses[:i].mean()
-                s = losses[:i].std()
-                mini = losses[:i].min()
-                maxi = losses[:i].max()
-                K = int((maxi - mu) / s)
-                q = [mini] + [mu  + k * s for k in range(-1, K)] + [maxi]
-
-                n = [(losses[:i] < q[k]).sum() for k in range(len(q))]
-
-                n = np.array(n) / losses[:i].size
-
-                f = n[1:] - n[:-1]
-
-                str_ = ''
-                for k in range(len(q) - 1):
-                    str_ = str_ + f'{q[k]:.1e} [{100*f[k]:.1f}] '
-                str_ +=  f'{q[-1]:.1e}\n'
-                print(str_)
-
-    if save_dir is not None:
-        save_object(losses_test, save_dir, 'losses_test')
-        if ood:
-            save_object(losses_ood, save_dir, 'losses_ood')
-
-            
-def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10):
+def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=100):
 
     y_pred = vae.blind_predict(x_test)
     y_pred_ = y_pred.argmax(axis=-1)
     y_test_ = y_test.argmax(axis=-1)
 
-    i_pred_ = np.argwhere(y_test_ == y_pred_)
-    i_miss_ = np.argwhere(y_test_ != y_pred_)
+    i_pred_ = np.argwhere(y_test_ == y_pred_).squeeze()
+    i_miss_ = np.argwhere(y_test_ != y_pred_).squeeze()
 
     acc = len(i_pred_) / len(x_test)
        
@@ -162,6 +112,23 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10):
         x_miss, y_miss = x_test[i_miss], y_test[i_miss]
         f2 = show_x_y(vae, x_miss, title=f'y_missed={y_miss}')
         f2.show()
+
+        i_pred = i_pred_[np.random.randint(0, len(i_pred_), stats)]
+        # print(f'\n\nipred={i_pred.shape}\n\n')
+        i_miss = i_miss_[np.random.randint(0, len(i_miss_), stats)]
+        i_ood = np.random.randint(0, x_ood.shape[0], stats)
+
+        log_px_pred = vae.log_px(x_test[i_pred], verbose=0)
+        log_px_pred.sort()
+        log_px_miss = vae.log_px(x_test[i_miss], verbose=0)
+        log_px_miss.sort()
+        log_px_ood = vae.log_px(x_ood[i_ood], verbose=0)
+        log_px_ood.sort()
+
+        print(f'pred:\n{log_px_pred}\n')
+        print(f'miss:\n{log_px_miss}\n')
+        print(f'ood:\n{log_px_ood}\n')
+        
         
         char = input()
         if char != '':
@@ -194,9 +161,9 @@ def plot_results(list_of_vae, ax_lin, ax_log):
     return beta_sorted, acc_sorted
     
 
-
 if __name__ == '__main__':
 
+    default_directory = './jobs/fashion-mnist/latent-dim=100-sampling=50-encoder-layers=30-encoder-layers=3/beta=2.00000e-05'
     parser = argparse.ArgumentParser(
         description="show results of networks in directory")
     parser.add_argument('--dataset', default='fashion',
@@ -209,9 +176,9 @@ if __name__ == '__main__':
 
     dataset = args.dataset
     directories = args.directories
-
-    if directories is None:
-        directories = ['./jobs/fashion-mnist']
+    print(directories)
+    if len(directories) == 0:
+        directories = [default_directory]
     print(directories)
 
     # set = 'fashion'

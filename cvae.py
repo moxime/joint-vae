@@ -267,6 +267,37 @@ class ClassificationVariationalNetwork(Model):
             losses.append(loss)
 
         return losses
+
+    def evaluate(self, x, batch_size=None, **kw):
+        """for x an array of n inputs (first dim of the array) returns a n*num_labels
+        array of losses
+
+        """
+        assert self.x_y
+        c = self.input_dims[-1] # num of classes
+        n, d = np.atleast_2d(x).shape # num of inputs, dim of input
+        x_ = np.vstack([x[None]] * c).reshape(n * c, d)
+
+        i_c = np.eye(c)
+        y_ = np.concatenate([np.expand_dims(i_c, axis=1)] * n,
+                            axis=1).reshape( n * c, c)
+        
+        # print(f'n: {n} x_:{x_.shape}, y_:{y_.shape}\n')
+        if batch_size is None:
+            new_batch_size = c * n
+        else:
+            new_batch_size = c * batch_size
+        losses = super().evaluate([x_, y_], batch_size=new_batch_size, **kw)
+        return losses.reshape(-1, c, order='F').squeeze()
+
+    def log_px(self, x):
+
+        beta2pi = self.beta * 2 * np.pi
+        d = x.shape[-1]
+        losses = self.evaluate(x)
+        log_pxy = - losses  / (2 * self.beta) - d / 2 * np.log(d * beta2pi)
+
+        return np.log(np.sum(np.exp(log_pxy), axis=-1))
         
     def naive_call(xy_vae, x):
         """for a single input x returns [x_, y_] estimated by the network ofr
@@ -290,6 +321,7 @@ class ClassificationVariationalNetwork(Model):
 
         num_labels = self.input_dims[-1]
         y = np.ones((x.shape[0], num_labels)) / num_labels
+        # print('Y SHAPE=', y.shape)
         [x_, y_] = super().predict([x, y])
 
         return y_

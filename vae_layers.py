@@ -9,14 +9,21 @@ class Sampling(Layer):
 
         self.sampling_size = sampling_size
         super().__init__(*args, **kwargs)
-    
+
     def call(self, inputs):
         sampling_size = self.sampling_size
         z_mean, z_log_var = inputs
+
         batch = tf.shape(z_mean)[0]
-        dim = tf.shape(z_mean)[1]
-        epsilon = tf.keras.backend.random_normal(
-            shape=(sampling_size, batch, dim))
+        dim = tf.shape(z_mean)[-1]
+        raw_shape = (sampling_size, batch, dim)
+        # raw_shape = (sampling_size, *batch, dim)
+        z_shape = z_mean.shape
+        while z_shape[0] is None:
+            z_shape = z_shape[1:]
+        epsilon_shape = (sampling_size,) + z_shape 
+        
+        epsilon = tf.keras.backend.random_normal(shape=raw_shape) #
 
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 

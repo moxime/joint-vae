@@ -66,6 +66,31 @@ def full_path(dir_name, file_name):
     return os.path.join(os.path.realpath(dir_name), file_name)
 
 
+def get_path_from_input(dir_path=os.getcwd()):
+
+    rel_paths = os.listdir(dir_path)
+    abs_path = [os.path.join(dir_path, d) for d in rel_paths]
+    sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_path) if os.path.isdir(d)]
+    print(f' 0: choose {dir_path}')
+    for i, d in enumerate(sub_dirs_rel_paths):
+        print(f'{i+1:2d}: enter  {d}')
+
+    try:
+        i = int(input('Your choice: '))
+    except ValueError:
+        path = os.path.join(dir_path, os.pardir)
+        path = os.path.abspath(path)
+        return get_path_from_input(path)
+    if i == 0:
+        return dir_path
+    elif 0 < i < len(sub_dirs_rel_paths) + 1:
+        return get_path_from_input(dir_path=os.path.join(dir_path,
+                                                         sub_dirs_rel_paths[i-1]))
+    else:
+        return get_path_from_input(dir_path)
+
+
+
 def collect_networks(directory,
                      list_of_vae_by_architectures,
                      only_trained=True,

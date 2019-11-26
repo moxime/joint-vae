@@ -2,7 +2,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from data import generate as dg
-from utils.save_load import load_json, save_object, collect_networks
+from utils.save_load import load_json, save_object, collect_networks, get_path_from_input
 import argparse
 
 
@@ -82,6 +82,20 @@ def show_x_y(vae, x, title=''):
     return f
 
 
+def roc_curves(likelihood_h0, likelihood_h1):
+
+    n_h0 = likelihood_h0.size
+    n_h1 = likelihood_h1.size
+
+    lh0_sorted = np.sort(likelihood_h0)
+    p_fa = np.ndarray(n_h0)
+    p_d = np.ndarray(n_h0)
+    for i, lh in enumerate(lh0_sorted):
+        p_fa[i] = i / n_h0
+        p_d[i] = sum(likelihood_h1 < lh) / n_h1
+
+    return p_d, p_fa
+        
 def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=100):
 
     y_pred = vae.blind_predict(x_test)
@@ -118,17 +132,53 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=1
         i_miss = i_miss_[np.random.randint(0, len(i_miss_), stats)]
         i_ood = np.random.randint(0, x_ood.shape[0], stats)
 
-        log_px_pred = vae.log_px(x_test[i_pred], verbose=0)
+        log_px_pred = vae.log_px(x_test[i_pred], verbose=0)  # 
         log_px_pred.sort()
         log_px_miss = vae.log_px(x_test[i_miss], verbose=0)
         log_px_miss.sort()
         log_px_ood = vae.log_px(x_ood[i_ood], verbose=0)
         log_px_ood.sort()
 
-        print(f'pred:\n{log_px_pred}\n')
-        print(f'miss:\n{log_px_miss}\n')
-        print(f'ood:\n{log_px_ood}\n')
+        with np.printoptions(precision=0):
+            print(f'pred:\n{log_px_pred}\n')
+            print(f'miss:\n{log_px_miss}\n')
+            print(f'ood:\n{log_px_ood}\n')
         
+
+        f, a = plt.subplots(2, sharex=True)
+
+        bins = stats // 10
+        a[0].hist(log_px_pred, bins, histtype='step', label='pred')
+        a[0].hist(log_px_miss, bins, histtype='step', label='miss')
+        a[1].hist(log_px_pred, bins, histtype='step', label='pred')
+        a[1].hist(log_px_ood, bins, histtype='step', label='ood')
+        a[0].legend()
+        a[1].legend()
+        f.show()
+
+        f, (a1, a2) = plt.subplots(1, 2)
+        p_d, p_fa = roc_curves(log_px_pred, log_px_ood)
+        a1.plot(100*p_fa, 100*p_d)
+        a1.plot(100*p_fa, 100*p_fa, 'r--')
+        a1.set_xlabel('false positive of ood')
+        a1.set_ylabel('true positive of ood')
+
+        
+        p_d, p_fa = roc_curves(log_px_pred, log_px_miss)
+        a2.plot(100*p_fa, 100*p_d)
+        a2.plot(100*p_fa, 100*p_fa, 'r--')
+        a2.set_xlabel('false positive of miss')
+        a2.set_ylabel('true positive of miss')
+
+        for a in [a1, a2]:
+            a.set_xticks(np.linspace(0, 100, 101), minor=True)
+            a.set_yticks(np.linspace(0, 100, 101), minor=True)
+            a.set_xticks(np.linspace(0, 100, 21))
+            a.set_yticks(np.linspace(0, 100, 21))
+            
+            a.grid(which='both')
+            
+        f.show()
         
         char = input()
         if char != '':
@@ -154,7 +204,7 @@ def plot_results(list_of_vae, ax_lin, ax_log):
         print(f'{b:.2e}: {100-100*a:4.1f} %\n')
 
     legend = vae_dict['net'].print_architecture()
-    ax_log.semilogx(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
+    ax_log.semilogx(beta_sorted, [1 - _ for _ in acc_sorted], 'o', label=legend)
     
     ax_lin.plot(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
     
@@ -163,7 +213,7 @@ def plot_results(list_of_vae, ax_lin, ax_log):
 
 if __name__ == '__main__':
 
-    default_directory = './jobs/fashion-mnist/latent-dim=100-sampling=50-encoder-layers=30-encoder-layers=3/beta=2.00000e-05'
+
     parser = argparse.ArgumentParser(
         description="show results of networks in directory")
     parser.add_argument('--dataset', default='fashion',
@@ -171,14 +221,20 @@ if __name__ == '__main__':
     parser.add_argument('directories',
                         help='where to find the networks',
                         nargs='*', default=None)
+    parser.add_argument('-s', '--stats', type=int, default=200) 
+
+    parser.add_argument('-x', '--export', default=None, help='directory to export results')
+
 
     args = parser.parse_args()
 
+    to_file = args.export
+    stats = args.stats
     dataset = args.dataset
     directories = args.directories
     print(directories)
     if len(directories) == 0:
-        directories = [default_directory]
+        directories = [get_path_from_input()]
     print(directories)
 
     # set = 'fashion'
@@ -207,15 +263,25 @@ if __name__ == '__main__':
     if num_of_nets == 1:
         vae = list_of_lists_of_vae[0][0]['net']
         vae.compile()
-        show_examples(vae, x_test, y_test, x_ood, y_ood)
+        show_examples(vae, x_test, y_test, x_ood, y_ood, stats=stats)
 
     if num_of_nets > 1:
         f_lin, ax_lin = plt.subplots()
         f_log, ax_log = plt.subplots()
         
         for list_of_nets in list_of_lists_of_vae:
-            plot_results(list_of_nets, ax_lin, ax_log)
+            
+            beta_, acc_ = plot_results(list_of_nets, ax_lin, ax_log)
 
+            if to_file is not None:
+                file_path = os.path.join(to_file,
+                                         list_of_nets[0]['net'].print_architecture()
+                                         + '.tab')
+                with open(file_path, 'w+') as f:
+                    for b, a in zip(beta_, acc_):
+                        f.write(f'{b:.2e} {a:6.4f}\n')
+        
+        
         ax_log.legend()
         # f_lin.show()
         f_log.show()

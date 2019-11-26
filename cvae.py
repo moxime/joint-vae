@@ -273,6 +273,7 @@ class ClassificationVariationalNetwork(Model):
         array of losses
 
         """
+        # print(f'x.shape={x.shape}')
         assert self.x_y
         c = self.input_dims[-1] # num of classes
         n, d = np.atleast_2d(x).shape # num of inputs, dim of input
@@ -290,14 +291,57 @@ class ClassificationVariationalNetwork(Model):
         losses = super().evaluate([x_, y_], batch_size=new_batch_size, **kw)
         return losses.reshape(-1, c, order='F').squeeze()
 
-    def log_px(self, x):
+
+    def log_pxy(self, x, normalize=True, **kw):
 
         beta2pi = self.beta * 2 * np.pi
         d = x.shape[-1]
-        losses = self.evaluate(x)
-        log_pxy = - losses  / (2 * self.beta) - d / 2 * np.log(d * beta2pi)
+        losses = self.evaluate(x, **kw)
 
-        return np.log(np.sum(np.exp(log_pxy), axis=-1))
+        c = losses.shape[-1]
+        log_pxy = - losses  / (2 * self.beta)
+
+        if normalize:
+            return log_pxy
+
+        return log_pxy - d / 2 * np.log(d * beta2pi)
+
+    
+    def log_px(self, x, normalize=True, method='sum', **kw):
+        """computes a lower bound on log(p(x)) with the loss which is an
+        upper bound on log(p(x, y)).  - normalize = True forgets a
+        constant (2pi sigma^2)^(-d/2) - method ='sum' computes p(x) as
+        the sum of p(x, y), method='max' computes p(x) as the max_y of
+        p(x, y)
+
+        """
+        
+        beta2pi = self.beta * 2 * np.pi
+        d = x.shape[-1]
+        losses = self.evaluate(x, **kw)
+
+        c = losses.shape[-1]
+        log_pxy = - losses  / (2 * self.beta)
+
+        m_log_pxy = log_pxy.max(axis=-1)
+        mat_log_pxy = np.hstack([np.atleast_1d(m_log_pxy)[:, None]] * c)
+        d_log_pxy = log_pxy - mat_log_pxy
+
+        # p_xy = d_p_xy * m_pxy 
+        d_pxy = np.exp(d_log_pxy)
+        if method == 'sum':
+            d_px = d_pxy.sum(axis=-1)
+        elif method == 'max':
+            d_px = d_pxy.max(axis=-1)
+        else: # mean
+            p_y = self.blind_predict(x)
+            d_px = (d_pxy * p_y).sum(axis=-1)
+            
+        if normalize:
+            return np.squeeze(np.log(d_px) + m_log_pxy)
+        else:
+            return np.squeeze(np.log(d_px) + m_log_pxy
+                              - d / 2 * np.log(d * beta2pi))
         
     def naive_call(xy_vae, x):
         """for a single input x returns [x_, y_] estimated by the network ofr
@@ -319,10 +363,11 @@ class ClassificationVariationalNetwork(Model):
 
     def blind_predict(self, x):
 
+        x_n = np.atleast_2d(x)
         num_labels = self.input_dims[-1]
-        y = np.ones((x.shape[0], num_labels)) / num_labels
+        y = np.ones((x_n.shape[0], num_labels)) / num_labels
         # print('Y SHAPE=', y.shape)
-        [x_, y_] = super().predict([x, y])
+        [x_, y_] = super().predict([x_n, y])
 
         return y_
 
@@ -349,8 +394,8 @@ class ClassificationVariationalNetwork(Model):
 if __name__ == '__main__':
 
     # load_dir = './jobs/mnist/job5'
-    load_dir = './jobs/fashion-mnist/latent-dim=100-sampling=500-encoder-layers=3/beta=2.00000e-04'
-    load_dir = None
+    load_dir = './jobs/fashion-mnist/latent-dim=5-sampling=100-encoder-layers=3/beta=5.00000e-06'
+    # load_dir = None
     
     # save_dir = './jobs/mnist/job5'
     save_dir = None

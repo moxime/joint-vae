@@ -67,6 +67,10 @@ class ClassificationVariationalNetwork(Model):
         self.encoder_layer_sizes = encoder_layer_sizes
         self.activation = activation
 
+        self.mse_loss_weight = 1
+
+        self.z_output = False
+
     @property
     def beta(self):
         return self._beta
@@ -76,6 +80,17 @@ class ClassificationVariationalNetwork(Model):
     def beta(self, value):
         self._beta = value
         self.encoder.beta = value
+        self.kl_loss_weight = 2 * value
+        self.x_entropy_loss = 2 * value
+
+    @property
+    def kl_loss_weight(self):
+        return self._kl_loss_weight
+
+    @kl_loss_weight.setter
+    def kl_loss_weight(self, value):
+        self._kl_loss_weight = value
+        self.encoder.kl_loss_weight = value
 
     def call(self, inputs):
         """
@@ -103,15 +118,25 @@ class ClassificationVariationalNetwork(Model):
         """The loss is computed with a mean with respect to the sampled Z.
 
         """
-        self.add_loss(tf.reduce_mean(mse(x_input, x_output), axis=0))
+        if self.mse_loss_weight > 0:
+            self.add_loss(self.mse_loss_weight *
+                          tf.reduce_mean(mse(x_input, x_output), axis=0))
         x_output = tf.reduce_mean(x_output, 0)
 
-        if self.x_y and self.beta>0:
-            self.add_loss(2 * self.beta *
+        if self.x_y and self.x_entropy_loss > 0:
+            self.add_loss(self.x_entropy_loss *
                           tf.reduce_mean(x_entropy(y_input, y_output), axis=0))
             y_output = tf.reduce_mean(y_output, 0)
-            
-        return [x_output, y_output] if self.x_y else x_output
+
+        if self.z_output:
+            out = [z, x_output]
+            if self.x_y:
+                out += [y_output]
+        else:
+            out = [x_output, y_output] if self.x_y else x_output
+
+        return out
+
     
     def fit(self, *args, **kwargs):
         """ Just the super().fit() 
@@ -291,7 +316,6 @@ class ClassificationVariationalNetwork(Model):
         losses = super().evaluate([x_, y_], batch_size=new_batch_size, **kw)
         return losses.reshape(-1, c, order='F').squeeze()
 
-
     def log_pxy(self, x, normalize=True, **kw):
 
         beta2pi = self.beta * 2 * np.pi
@@ -305,7 +329,6 @@ class ClassificationVariationalNetwork(Model):
             return log_pxy
 
         return log_pxy - d / 2 * np.log(d * beta2pi)
-
     
     def log_px(self, x, normalize=True, method='sum', **kw):
         """computes a lower bound on log(p(x)) with the loss which is an

@@ -12,13 +12,13 @@ e_ = [1024, 1024]
 d_ = e_.copy()
 d_.reverse()
 
-e_ = [1024, 1024, 512]
+e_ = [1024, 1024, 512] # add 256
 d_ = e_.copy()
 d_.reverse()
 
 
 latent_dim = 100
-latent_sampling = int(50) # next 200
+latent_sampling = 100 
 
 save_dir = (f'./jobs/fashion-mnist/latent-dim=' + 
             f'{latent_dim}-sampling={latent_sampling}' +
@@ -30,15 +30,15 @@ beta_log = np.logspace(-3, -5, 3)
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 
-# beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-5, -3, 3)])
-# beta_ = np.hstack([beta_pseudo_log * 1e-4] * 3)
-
-beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)
+beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-6, -4, 3)] * 4)
+# beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
+ 
+# beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)
 
 # beta_ = beta_lin
 # beta_ = np.hstack([beta_lin]*3)
 
-epochs = 20
+epochs = 40
 
 
 def read_float_list(path):
@@ -51,10 +51,10 @@ def read_float_list(path):
     return list
 
 
-def write_list(list, path):
+def write_float_list(list, path):
     with open(path, 'w+') as f:
         for _ in list:
-            f.write(str(_) + '\n')
+            f.write(f'{_:.3e}' + '\n')
 
             
 def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
@@ -73,7 +73,7 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
 
     while len(betas) > 0:
 
-        write_list(betas, betas_file)
+        write_float_list(betas, betas_file)
         beta = betas[0]
             
         print(f'\n\nbeta={beta:.5e}\n\n')
@@ -87,6 +87,9 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
 
         vae.compile(optimizer='Adam')
 
+        print(vae.print_architecture(), '\n', vae._sizes_of_layers)
+        print(f'beta={vae.beta}')
+        
         history = vae.fit(x=[x_train, y_train],
                           epochs=epochs,
                           batch_size=batch_size)

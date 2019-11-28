@@ -40,19 +40,11 @@ def show_x_y(vae, x, title=''):
     y = vae.blind_predict(np.atleast_2d(x))
     y_ = np.vstack([y_, y, y_.numpy().mean(axis=0)])
     # print(y_)
-    l_ = vae.naive_evaluate(x)
+    l_ = vae.naive_evaluate(x, verbose=0)
 
     beta2pi = vae.beta * 2 * np.pi
 
     d = x.size
-
-    """
-    log_pxy = [- l  / (2 * vae.beta) - d / 2 * np.log(d * beta2pi) for l in l_]
-    print(f'log_pxy = {log_pxy}\n')
-    
-    log_px = np.log(np.sum(np.exp(log_pxy)))
-    print(f'log_px = {log_px}\n')
-    """
 
     log_px = vae.log_px(x)
     print(f'{title} : log_px = {log_px}\n')
@@ -106,8 +98,12 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=1
     i_miss_ = np.argwhere(y_test_ != y_pred_).squeeze()
 
     acc = len(i_pred_) / len(x_test)
-       
-    for example in range(num_of_examples):
+
+    print('*' * 80 + f'\naccurary {acc}\n' + '*' * 80 + '\n') 
+
+    example = 0
+    continue = True
+    while example < num_of_examples and continue:
         
         i_test = np.random.randint(0, x_test.shape[0])
         i_pred = i_pred_[np.random.randint(0, len(i_pred_))]
@@ -183,7 +179,8 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=1
         char = input()
         if char != '':
             plt.close('all')
-
+        if char.lower() == 'q':
+            continue = False
             
 def plot_results(list_of_vae, ax_lin, ax_log):
 
@@ -234,7 +231,10 @@ if __name__ == '__main__':
     directories = args.directories
     print(directories)
     if len(directories) == 0:
-        directories = [get_path_from_input()]
+        jobs = os.path.join(os.getcwd(), 'jobs')
+        if not os.path.exists(jobs):
+            jobs = os.getcwd()
+        directories = [get_path_from_input(jobs)]
     print(directories)
 
     # set = 'fashion'
@@ -277,7 +277,7 @@ if __name__ == '__main__':
                 file_path = os.path.join(to_file,
                                          list_of_nets[0]['net'].print_architecture()
                                          + '.tab')
-                with open(file_path, 'w+') as f:
+                with open(fi=le_path, 'w+') as f:
                     for b, a in zip(beta_, acc_):
                         f.write(f'{b:.2e} {a:6.4f}\n')
         

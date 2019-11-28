@@ -66,6 +66,7 @@ class Encoder(Model):
         self.dense_log_var = Dense(latent_dim)
         self.sampling = Sampling(sampling_size=sampling_size)
         self.beta=beta
+        self.kl_loss_weight = 2 * beta
         
     def call(self, inputs):
         x = inputs 
@@ -77,7 +78,7 @@ class Encoder(Model):
         if not self.beta == 0:
             kl_loss = - 0.5 * tf.reduce_sum(
                 z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, -1)
-            self.add_loss(2 * self.beta * kl_loss)
+            self.add_loss(self.kl_loss_weight * kl_loss)
 
         
         return z_mean, z_log_var, z
@@ -109,7 +110,7 @@ class Decoder(Model):
             # print('l:', l)
             x = l(x)
         if self.x_y:
-            return [self.x_output(x), self.y_output(x)]
+            return [self.x_output(x), self.y_output(inputs)]
 
         return self.x_output(x)
             

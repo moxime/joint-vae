@@ -15,25 +15,25 @@ d_.reverse()
 e_ = [1024, 1024, 512] # add 256
 d_ = e_.copy()
 d_.reverse()
-c_ = [2]
+c_ = [50]
 
 
 latent_dim = 100
 latent_sampling = 100 
 
 job_dirs = './jobs'
-useless_vae = ClassificationVariationalNetwork(input_dim,
-                                       num_labels,
-                                       encoder_layers,
-                                       latent_dim,
-                                       decoder_layers,
-                                       latent_sampling=latent_sampling,
-                                       beta=beta) 
+useless_vae = ClassificationVariationalNetwork(x_train.shape[-1],
+                                               y_train.shape[-1],
+                                               e_,
+                                               latent_dim,
+                                               d_,
+                                               c_,
+                                               latent_sampling=latent_sampling)
 
 save_dir = os.path.join(job_dirs, useless_vae.print_architecture())
 
 beta_pseudo_log = np.array([1, 2, 5])
-beta_log = np.logspace(-3, -5, 3)
+
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 
@@ -44,7 +44,7 @@ beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-6, -6, 1)] * 1)
 # beta_ = beta_lin
 # beta_ = np.hstack([beta_lin]*3)
 
-epochs = 40
+epochs = 30
 
 
 def read_float_list(path):
@@ -64,8 +64,9 @@ def write_float_list(list, path):
 
             
 def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
-                  decoder_layers, x_train, y_train, x_test, y_test, betas,
-                  directory='./jobs', epochs=30, latent_sampling=100, batch_size=10):
+                  decoder_layers, classifier_layers, x_train, y_train,
+                  x_test, y_test, betas, directory='./jobs',
+                  epochs=30, latent_sampling=100, batch_size=10):
 
 
     if not os.path.exists(directory):
@@ -88,6 +89,7 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
                                                encoder_layers,
                                                latent_dim,
                                                decoder_layers,
+                                               classifier_layers,
                                                latent_sampling=latent_sampling,
                                                beta=beta) 
 
@@ -131,7 +133,7 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
 
 def gogo():
     
-    training_loop(28**2, 10, e_, latent_dim, d_, x_train, y_train,
+    training_loop(28**2, 10, e_, latent_dim, d_, c_, x_train, y_train,
                   x_test, y_test, beta_, directory=save_dir,
                   latent_sampling=latent_sampling, epochs=epochs) 
 

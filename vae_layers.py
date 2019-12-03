@@ -88,29 +88,43 @@ class Decoder(Model):
 
     def __init__(self,
                  original_dim,
-                 num_labels=None,
                  intermediate_dims=[64],
                  name='decoder',
                  activation='relu',
                  **kwargs):
         super(Decoder, self).__init__(name=name, **kwargs)
 
-        self.dense_projs = [Dense(u, activation=activation) for u in intermediate_dims]
+        self.dense_layers = [Dense(u, activation=activation) for u in
+                             intermediate_dims]
 
         self.x_output = Dense(original_dim)
-
-        self.x_y = num_labels is not None
-        if self.x_y:
-            self.y_output = Dense(num_labels, activation='softmax')
       
     def call(self, inputs):
         x = inputs
         # print('decoder inputs', inputs.shape)
-        for l in self.dense_projs:
+        for l in self.dense_layers:
             # print('l:', l)
             x = l(x)
-        if self.x_y:
-            return [self.x_output(x), self.y_output(inputs)]
-
         return self.x_output(x)
             
+
+class Classifier(Model):
+
+    def __init__(self,
+                 num_labels,
+                 intermediate_dims=[],
+                 name='classifier',
+                 activation='relu',
+                 **kwargs):
+
+        super().__init__(name=name, **kwargs)
+
+        self.dense_layers = [Dense(u, activation=activation) for u in
+                             intermediate_dims]
+        self.y_output = Dense(num_labels, activation='softmax')
+
+    def call(self, inputs):
+        x = inputs
+        for l in self.dense_layers:
+            x = l(x)
+        return self.y_output(x)

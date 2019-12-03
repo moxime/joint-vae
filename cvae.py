@@ -10,7 +10,7 @@ from tensorflow.keras.losses import categorical_crossentropy as x_entropy
 import data.generate as dg
 from utils import save_load 
 import numpy as np
-from vae_layers import Encoder, Decoder
+from vae_layers import Encoder, Decoder, Classifier
 
 
 def __make_iter__(a):
@@ -29,10 +29,11 @@ class ClassificationVariationalNetwork(Model):
 
     def __init__(self,
                  input_shape,
-                 num_labels=None,
+                 num_labels,
                  encoder_layer_sizes=[36],
                  latent_dim=4,
                  decoder_layer_sizes=[36],
+                 classifier_layer_sizes=[36],
                  name = 'xy-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
@@ -46,25 +47,28 @@ class ClassificationVariationalNetwork(Model):
         self.encoder = Encoder(latent_dim, encoder_layer_sizes,
                                beta=beta, sampling_size=latent_sampling,
                                activation=activation)
-        self.decoder = Decoder(input_shape, num_labels,
-                               decoder_layer_sizes, activation=activation)
-
-        self.x_y = num_labels is not None
-        if self.x_y:
-            self.joint = Concatenate()
+        self.decoder = Decoder(input_shape, decoder_layer_sizes,
+                               activation=activation)
+    
+        self.joint = Concatenate()
+        self.classifier = Classifier(num_labels,
+                                     classifier_layer_sizes,
+                                     activation=activation)
         self.input_dims = [input_shape]
-        self.input_dims.append(num_labels if self.x_y else 0)
+        self.input_dims.append(num_labels)
         self.beta = beta
             
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder_layer_sizes, latent_dim,
-                                 decoder_layer_sizes]
+                                 decoder_layer_sizes, classifier_layer_sizes]
 
         self.trained = False
 
         self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
         self.encoder_layer_sizes = encoder_layer_sizes
+        self.decoder_layer_sizes = decoder_layer_sizes
+        self.classifier_layer_sizes = classifier_layer_sizes
         self.activation = activation
 
         self.mse_loss_weight = 1
@@ -97,23 +101,15 @@ class ClassificationVariationalNetwork(Model):
         inputs: [x, y] where x, and y are tensors sharing first dim.
         the loss is computed during call (no loss function is defined) 
         """
-        if self.x_y:
-            x_input = inputs[0]
-            y_input = inputs[1]
-            joint_input = self.joint([x_input, y_input])
-        else:
-            joint_input = inputs
-            x_input = inputs
 
+        x_input, y_input = inputs
+        joint_input = self.joint(inputs)
+        
         z_mean, z_log_var, z = self.encoder(joint_input)
 
-        reconstructed = self.decoder(z)
+        x_output = self.decoder(z)
 
-        if self.x_y:
-            x_output = reconstructed[0]
-            y_output = reconstructed[1]
-        else:
-            x_output = reconstructed
+        y_output = self.classifier(z)
 
         """The loss is computed with a mean with respect to the sampled Z.
 
@@ -124,24 +120,18 @@ class ClassificationVariationalNetwork(Model):
         if not self.z_output:
             x_output = tf.reduce_mean(x_output, 0)
 
-        if self.x_y:
-            if self.x_entropy_loss_weight > 0:
-                self.add_loss(self.x_entropy_loss_weight *
-                              tf.reduce_mean(x_entropy(y_input, y_output), axis=0))
-            if not self.z_output:
-                y_output = tf.reduce_mean(y_output, 0)
+        if self.x_entropy_loss_weight > 0:
+            self.add_loss(self.x_entropy_loss_weight *
+                          tf.reduce_mean(x_entropy(y_input, y_output), axis=0))
+        if not self.z_output:
+            y_output = tf.reduce_mean(y_output, 0)
 
+        out = [x_output, y_output]
         if self.z_output:
-            out = [x_output]
-            if self.x_y:
-                out += [y_output]
             out += [z]
-        else:
-            out = [x_output, y_output] if self.x_y else x_output
-
+ 
         return out
 
-    
     def fit(self, *args, **kwargs):
         """ Just the super().fit() 
         """
@@ -166,6 +156,7 @@ class ClassificationVariationalNetwork(Model):
         _plot(self)
         _plot(self.encoder)
         _plot(self.decoder)
+        _plot(self.classifier)
         
     def has_same_architecture(self, other_net):
 
@@ -179,11 +170,20 @@ class ClassificationVariationalNetwork(Model):
 
     def print_architecture(self):
 
-        s  = f'activation={self.activation}-'
-        s += f'latent-dim={self.latent_dim}-'
-        s += f'sampling={self.latent_sampling}-'
-        s += f'encoder-layers={len(self.encoder_layer_sizes)}'
+        def _l2s(l, c='-', empty='.'):
+            if len(l) == 0:
+                return empty
+            return c.join(str(_) for _ in l)
+        
+        s  = f'activation={self.activation}--'
+        s += f'latent-dim={self.latent_dim}--'
+        s += f'sampling={self.latent_sampling}--'
 
+
+        s += f'encoder-layers={_l2s(self.encoder_layer_sizes)}--'
+        s += f'decoder-layers={_l2s(self.decoder_layer_sizes)}--'
+        s += f'classifier-layers={_l2s(self.classifier_layer_sizes)}'
+        
         return s
 
     def save(self, dir_name=None):
@@ -195,12 +195,8 @@ class ClassificationVariationalNetwork(Model):
         ls = self._sizes_of_layers
         
         if dir_name is None:
-            dir_name = ('./jobs/' + str(ls[0]) + '-' + str(ls[1])
-                        + '-[' + ','.join([str(_) for _ in ls[2]])
-                        + ']-' + str(ls[3]) + '-['
-                        + ','.join([str(_) for _ in ls[4]])
-                        + ']')
-
+            dir_name = './jobs/' + self.print_architecture()
+            
         param_dict = {'layer_sizes': self._sizes_of_layers,
                       'trained': self.trained,
                       'beta': self.beta,
@@ -213,8 +209,6 @@ class ClassificationVariationalNetwork(Model):
         if self.trained:
             w_p = save_load.get_path(dir_name, 'weights.h5')
             self.save_weights(w_p)
-
-        pass
 
     @classmethod        
     def load(cls, dir_name, verbose=1):
@@ -232,7 +226,7 @@ class ClassificationVariationalNetwork(Model):
         else:
             latent_sampling = 1
         
-        vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4],
+        vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4], ls[5],
                   latent_sampling=latent_sampling,
                   activation=p_dict['activation'],
                   beta=p_dict['beta'], verbose=verbose)
@@ -303,7 +297,7 @@ class ClassificationVariationalNetwork(Model):
 
         """
         # print(f'x.shape={x.shape}')
-        assert self.x_y
+        
         c = self.input_dims[-1] # num of classes
         n, d = np.atleast_2d(x).shape # num of inputs, dim of input
         x_ = np.vstack([x[None]] * c).reshape(n * c, d)
@@ -421,18 +415,19 @@ class ClassificationVariationalNetwork(Model):
 if __name__ == '__main__':
 
     # load_dir = './jobs/mnist/job5'
-    load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
-    # load_dir = None
+    # load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
+    load_dir = None
     
     # save_dir = './jobs/mnist/job5'
     save_dir = None
                   
     rebuild = load_dir is None
-    # rebuild = True
+    rebuild = True
     
     e_ = [1024, 1024, 512, 256]
     d_ = e_.copy()
     d_.reverse()
+    c_ = [2]
 
     beta = 0.001
     latent_dim = 20
@@ -444,7 +439,8 @@ if __name__ == '__main__':
         data_loaded = False
     
     if not data_loaded:
-        (x_train, y_train, x_test, y_test, x_ood, y_ood) = dg.get_fashion_mnist(ood='mnist')
+        (x_train, y_train, x_test, y_test, x_ood, y_ood) = \
+            dg.get_fashion_mnist(ood='mnist')
         data_loaded = True
 
     N = x_test.shape[0]
@@ -461,7 +457,7 @@ if __name__ == '__main__':
     if rebuild:
         print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
         vae = ClassificationVariationalNetwork(28**2, 10, e_,
-                                               latent_dim, # d_,
+                                               latent_dim, d_, c_,
                                                latent_sampling=latent_sampling,
                                                beta=beta) 
         # vae.plot_model(dir=load_dir)
@@ -476,6 +472,8 @@ if __name__ == '__main__':
     vae.summary()
     vae.encoder.summary()
     vae.decoder.summary()
+    vae.classifier.summary()
+    
     print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     
     epochs = 2

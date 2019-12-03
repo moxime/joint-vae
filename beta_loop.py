@@ -15,26 +15,32 @@ d_.reverse()
 e_ = [1024, 1024, 512] # add 256
 d_ = e_.copy()
 d_.reverse()
+c_ = [2]
 
 
 latent_dim = 100
 latent_sampling = 100 
 
-save_dir = (f'./jobs/fashion-mnist/latent-dim=' + 
-            f'{latent_dim}-sampling={latent_sampling}' +
-            f'-encoder-layers={len(e_)}')
+job_dirs = './jobs'
+useless_vae = ClassificationVariationalNetwork(input_dim,
+                                       num_labels,
+                                       encoder_layers,
+                                       latent_dim,
+                                       decoder_layers,
+                                       latent_sampling=latent_sampling,
+                                       beta=beta) 
 
+save_dir = os.path.join(job_dirs, useless_vae.print_architecture())
 
 beta_pseudo_log = np.array([1, 2, 5])
 beta_log = np.logspace(-3, -5, 3)
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 
-beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-7, -7, 1)] * 3)
-# beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
+beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-6, -6, 1)] * 1)
  
+# beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
 # beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)
-
 # beta_ = beta_lin
 # beta_ = np.hstack([beta_lin]*3)
 

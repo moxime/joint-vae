@@ -87,7 +87,8 @@ def roc_curves(likelihood_h0, likelihood_h1):
         p_d[i] = sum(likelihood_h1 < lh) / n_h1
 
     return p_d, p_fa
-        
+
+
 def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=100):
 
     y_pred = vae.blind_predict(x_test)
@@ -102,8 +103,8 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=1
     print('*' * 80 + f'\naccurary {acc}\n' + '*' * 80 + '\n') 
 
     example = 0
-    continue = True
-    while example < num_of_examples and continue:
+    continued = True
+    while example < num_of_examples and continued:
         
         i_test = np.random.randint(0, x_test.shape[0])
         i_pred = i_pred_[np.random.randint(0, len(i_pred_))]
@@ -180,7 +181,7 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=1
         if char != '':
             plt.close('all')
         if char.lower() == 'q':
-            continue = False
+            continued = False
             
 def plot_results(list_of_vae, ax_lin, ax_log):
 
@@ -221,7 +222,6 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--stats', type=int, default=200) 
 
     parser.add_argument('-x', '--export', default=None, help='directory to export results')
-
 
     args = parser.parse_args()
 
@@ -277,7 +277,7 @@ if __name__ == '__main__':
                 file_path = os.path.join(to_file,
                                          list_of_nets[0]['net'].print_architecture()
                                          + '.tab')
-                with open(fi=le_path, 'w+') as f:
+                with open(file_path, 'w+') as f:
                     for b, a in zip(beta_, acc_):
                         f.write(f'{b:.2e} {a:6.4f}\n')
         

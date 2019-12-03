@@ -30,7 +30,7 @@ beta_log = np.logspace(-3, -5, 3)
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 
-beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-6, -4, 3)] * 4)
+beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-7, -7, 1)] * 3)
 # beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
  
 # beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)

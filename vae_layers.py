@@ -75,11 +75,11 @@ class Encoder(Model):
         z_mean = self.dense_mean(x)
         z_log_var = self.dense_log_var(x)
         z = self.sampling((z_mean, z_log_var))
-        if not self.beta == 0:
-            kl_loss = - 0.5 * tf.reduce_sum(
-                z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, -1)
-            self.add_loss(self.kl_loss_weight * kl_loss)
-
+        # if self.kl_loss_weight > -1:
+        kl_loss = 0.5 * tf.reduce_sum(tf.exp(z_log_var) - 1 -
+                                      z_log_var +
+                                      tf.square(z_mean), -1)
+        self.add_loss(self.kl_loss_weight * kl_loss)
         
         return z_mean, z_log_var, z
 

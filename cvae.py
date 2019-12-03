@@ -81,7 +81,7 @@ class ClassificationVariationalNetwork(Model):
         self._beta = value
         self.encoder.beta = value
         self.kl_loss_weight = 2 * value
-        self.x_entropy_loss = 2 * value
+        self.x_entropy_loss_weight = 2 * value
 
     @property
     def kl_loss_weight(self):
@@ -121,17 +121,21 @@ class ClassificationVariationalNetwork(Model):
         if self.mse_loss_weight > 0:
             self.add_loss(self.mse_loss_weight *
                           tf.reduce_mean(mse(x_input, x_output), axis=0))
-        x_output = tf.reduce_mean(x_output, 0)
+        if not self.z_output:
+            x_output = tf.reduce_mean(x_output, 0)
 
-        if self.x_y and self.x_entropy_loss > 0:
-            self.add_loss(self.x_entropy_loss *
-                          tf.reduce_mean(x_entropy(y_input, y_output), axis=0))
-            y_output = tf.reduce_mean(y_output, 0)
+        if self.x_y:
+            if self.x_entropy_loss_weight > 0:
+                self.add_loss(self.x_entropy_loss_weight *
+                              tf.reduce_mean(x_entropy(y_input, y_output), axis=0))
+            if not self.z_output:
+                y_output = tf.reduce_mean(y_output, 0)
 
         if self.z_output:
-            out = [z, x_output]
+            out = [x_output]
             if self.x_y:
                 out += [y_output]
+            out += [z]
         else:
             out = [x_output, y_output] if self.x_y else x_output
 
@@ -417,7 +421,7 @@ class ClassificationVariationalNetwork(Model):
 if __name__ == '__main__':
 
     # load_dir = './jobs/mnist/job5'
-    load_dir = './jobs/fashion-mnist/latent-dim=5-sampling=100-encoder-layers=3/beta=5.00000e-06'
+    load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
     # load_dir = None
     
     # save_dir = './jobs/mnist/job5'
@@ -440,7 +444,7 @@ if __name__ == '__main__':
         data_loaded = False
     
     if not data_loaded:
-        (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
+        (x_train, y_train, x_test, y_test, x_ood, y_ood) = dg.get_fashion_mnist(ood='mnist')
         data_loaded = True
 
     N = x_test.shape[0]
@@ -462,7 +466,7 @@ if __name__ == '__main__':
                                                beta=beta) 
         # vae.plot_model(dir=load_dir)
 
-    [x_, y_] = vae([x_train[0:3], y_train[0:3]])
+    [x_n, y_n] = vae([x_train[0:3], y_train[0:3]])
         
     vae.compile(
         # loss = [mse, x_entropy],
@@ -510,12 +514,64 @@ if __name__ == '__main__':
 
     [x_dec, y_dec] = vae.decoder(t_enc)
     """
-    
+
+    """
     acc = vae.accuracy(x_test, y_test)
     print(f'test accuracy: {acc}\n')
+    """
     
     if save_dir is not None:
         vae.save(save_dir)
 
+    beta = vae.beta
+    
+    loss = vae.evaluate(x0)
+
+    vae.kl_loss_weight = 1e-60
+    vae.mse_loss_weight = 0
+    vae.x_entropy_loss_weight = 1
+    vae.compile()
+    x_loss = vae.evaluate(x0)
+
+    # vae = ClassificationVariationalNetwork.load(tmp_dir)
+    vae.kl_loss_weight = 1
+    vae.mse_loss_weight = 0
+    vae.x_entropy_loss_weight = 1e-60
+
+    vae.compile()
+    kl_loss = vae.evaluate(x0) 
+
+    vae.kl_loss_weight = 1e-60
+    vae.mse_loss_weight = 1
+    vae.x_entropy_loss_weight = 0
+
+    vae.compile()
+    mse_loss = vae.evaluate(x0)
+
+
+    loss_ = mse_loss + 2*beta*kl_loss + 2*beta*x_loss
+
+
+    b = vae.beta
+    vae.kl_loss_weight = 2 * b
+    vae.mse_loss_weight = 1
+    vae.x_entropy_loss_weight = 2 * b
+
+    vae.z_output = True
+    vae.compile()
+    
+    [x_, y_, z] = vae([x0, y0])
         
-            
+    from tensorflow.keras.losses import mse, categorical_crossentropy as x_entropy
+
+    mse_ = mse(x0, x_)
+    xent_ = x_entropy(y0, y_)
+
+    mse_mean = mse_.numpy().mean(axis=0)
+    xent_mean = xent_.numpy().mean(axis=0)
+
+    """
+
+    """
+
+    

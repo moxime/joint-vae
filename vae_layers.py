@@ -97,7 +97,7 @@ class Decoder(Model):
         self.dense_layers = [Dense(u, activation=activation) for u in
                              intermediate_dims]
 
-        self.x_output = Dense(original_dim)
+        self.x_output = Dense(original_dim, activation='sigmoid')
       
     def call(self, inputs):
         x = inputs

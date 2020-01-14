@@ -89,7 +89,8 @@ def roc_curves(likelihood_h0, likelihood_h1):
     return p_d, p_fa
 
 
-def show_examples(vae, x_test, y_test, x_ood, y_ood, num_of_examples=10, stats=100):
+def show_examples(vae, x_test, y_test, x_ood, y_ood,
+                  num_of_examples=10, stats=100, export=False, export_dir='/tmp'):
 
     y_pred = vae.blind_predict(x_test)
     y_pred_ = y_pred.argmax(axis=-1)
@@ -211,7 +212,6 @@ def plot_results(list_of_vae, ax_lin, ax_log):
 
 if __name__ == '__main__':
 
-
     parser = argparse.ArgumentParser(
         description="show results of networks in directory")
     parser.add_argument('--dataset', default='fashion',
@@ -219,13 +219,19 @@ if __name__ == '__main__':
     parser.add_argument('directories',
                         help='where to find the networks',
                         nargs='*', default=None)
-    parser.add_argument('-s', '--stats', type=int, default=200) 
+    parser.add_argument('-s', '--stats', type=int, default=200)
+    
+    parser.add_argument('-x', '--export', action='store_true')
 
-    parser.add_argument('-x', '--export', default=None, help='directory to export results')
-
+    parser.add_argument('-d', '--export_dir', default=None,
+                        help='directory to export results')
+    
     args = parser.parse_args()
 
-    to_file = args.export
+    export_dir = args.export_dir
+
+    export = args.export or export_dir is not None
+
     stats = args.stats
     dataset = args.dataset
     directories = args.directories
@@ -261,7 +267,9 @@ if __name__ == '__main__':
         print('NOTHING TO SEE HERE\n')
 
     if num_of_nets == 1:
-        vae = list_of_lists_of_vae[0][0]['net']
+        vae_dict = list_of_lists_of_vae[0][0]
+        vae = vae_dict['net']
+        directory = vae_dict['dir']
         vae.compile()
         show_examples(vae, x_test, y_test, x_ood, y_ood, stats=stats)
 
@@ -273,14 +281,13 @@ if __name__ == '__main__':
             
             beta_, acc_ = plot_results(list_of_nets, ax_lin, ax_log)
 
-            if to_file is not None:
-                file_path = os.path.join(to_file,
+            if export_dir is not None:
+                file_path = os.path.join(export_dir,
                                          list_of_nets[0]['net'].print_architecture()
                                          + '.tab')
                 with open(file_path, 'w+') as f:
                     for b, a in zip(beta_, acc_):
                         f.write(f'{b:.2e} {a:6.4f}\n')
-        
         
         ax_log.legend()
         # f_lin.show()

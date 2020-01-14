@@ -168,7 +168,7 @@ class ClassificationVariationalNetwork(Model):
         
         return out
 
-    def print_architecture(self):
+    def print_architecture(self, beta=False):
 
         def _l2s(l, c='-', empty='.'):
             if len(l) == 0:
@@ -183,6 +183,9 @@ class ClassificationVariationalNetwork(Model):
         s += f'encoder-layers={_l2s(self.encoder_layer_sizes)}--'
         s += f'decoder-layers={_l2s(self.decoder_layer_sizes)}--'
         s += f'classifier-layers={_l2s(self.classifier_layer_sizes)}'
+
+        if beta:
+            s += f'--beta={beta:1.3e}'
         
         return s
 

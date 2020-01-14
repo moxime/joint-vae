@@ -119,6 +119,7 @@ def collect_networks(directory,
         vae = ClassificationVariationalNetwork.load(directory)
         vae_dict = {'net': vae}
         vae_dict['beta'] = vae.beta
+        vae_dict['dir'] = directory
         
         if vae.trained or not only_trained:
             append_by_architecture(vae_dict, list_of_vae_by_architectures)

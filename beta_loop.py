@@ -3,6 +3,7 @@ from cvae import ClassificationVariationalNetwork
 import os
 import matplotlib.pyplot as plt
 from data import generate as dg
+import argparse
 
 
 (x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
@@ -12,13 +13,14 @@ e_ = [1024, 1024]
 d_ = e_.copy()
 d_.reverse()
 
-e_ = [1024, 1024, 512] # add 256
-d_ = e_.copy()
-d_.reverse()
-c_ = [50]
+e_ = [512, 512, 256, 256, 128] # add 256
+latent_dim = 50
+# d_ = e_.copy()
+# d_.reverse()
+d_ = [128, 256, 512, 512]
+c_ = []
 
 
-latent_dim = 100
 latent_sampling = 100 
 
 job_dirs = './jobs'
@@ -37,7 +39,7 @@ beta_pseudo_log = np.array([1, 2, 5])
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 
-beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-6, -6, 1)] * 1)
+beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-7, -4, 4)] * 1)
  
 # beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
 # beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)
@@ -192,6 +194,15 @@ def plot_results(save_dir, x_test, y_test):
     
                         
 if __name__ == '__main__':
+
+
+    parser = argparse.ArgumentParser(
+        description="train a network with idfferent values of beta")
+    parser.add_argument('--dataset', default='fashion',
+                        choices=['fashion', 'mnist'])
+
     
     gogo()
+    
+
     

@@ -22,6 +22,7 @@ def __make_iter__(a):
 
 
 DEFAULT_ACTIVATION = 'relu'
+DEFAULT_OUTPUT_ACTIVATION = 'sigmoid'
 DEFAULT_LATENT_SAMPLING = 1000
 
 
@@ -37,6 +38,7 @@ class ClassificationVariationalNetwork(Model):
                  name = 'xy-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
+                 output_activation=DEFAULT_OUTPUT_ACTIVATION,
                  beta=1e-3,
                  verbose=1,
                  *args, **kw):
@@ -48,7 +50,8 @@ class ClassificationVariationalNetwork(Model):
                                beta=beta, sampling_size=latent_sampling,
                                activation=activation)
         self.decoder = Decoder(input_shape, decoder_layer_sizes,
-                               activation=activation)
+                               activation=activation,
+                               output_activation=output_activation)
     
         self.joint = Concatenate()
         self.classifier = Classifier(num_labels,
@@ -70,6 +73,7 @@ class ClassificationVariationalNetwork(Model):
         self.decoder_layer_sizes = decoder_layer_sizes
         self.classifier_layer_sizes = classifier_layer_sizes
         self.activation = activation
+        self.output_activation = output_activation
 
         self.mse_loss_weight = 1
 
@@ -174,8 +178,9 @@ class ClassificationVariationalNetwork(Model):
             if len(l) == 0:
                 return empty
             return c.join(str(_) for _ in l)
-        
-        s  = f'activation={self.activation}--'
+
+        s  = f'output-activation={self.output_activation}--' 
+        s += f'activation={self.activation}--'
         s += f'latent-dim={self.latent_dim}--'
         s += f'sampling={self.latent_sampling}--'
 
@@ -204,7 +209,8 @@ class ClassificationVariationalNetwork(Model):
                       'trained': self.trained,
                       'beta': self.beta,
                       'latent_sampling': self.latent_sampling,
-                      'activation': self.activation
+                      'activation': self.activation,
+                      'output_activation': self.output_activation
                       }
 
         save_load.save_json(param_dict, dir_name, 'params.json')
@@ -214,7 +220,10 @@ class ClassificationVariationalNetwork(Model):
             self.save_weights(w_p)
 
     @classmethod        
-    def load(cls, dir_name, verbose=1):
+    def load(cls,
+             dir_name,
+             verbose=1,
+             default_output_activation=DEFAULT_OUTPUT_ACTIVATION):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
@@ -224,15 +233,16 @@ class ClassificationVariationalNetwork(Model):
         ls = p_dict['layer_sizes']
         print(ls)
 
-        if 'latent_sampling' in p_dict.keys():
-            latent_sampling = p_dict['latent_sampling']
-        else:
-            latent_sampling = 1
+        latent_sampling = p_dict.get('latent_sampling', 1)
+        output_activation = p_dict.get('output_activation',
+                                       default_output_activation)
         
         vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4], ls[5],
                   latent_sampling=latent_sampling,
                   activation=p_dict['activation'],
-                  beta=p_dict['beta'], verbose=verbose)
+                  beta=p_dict['beta'],
+                  output_activation=output_activation,
+                  verbose=verbose)
 
         vae.trained = p_dict['trained']
 
@@ -420,6 +430,7 @@ if __name__ == '__main__':
     # load_dir = './jobs/mnist/job5'
     # load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
     load_dir = None
+    #load_dir = './jobs/output-activation=linear/activation=relu--latent-dim=10--sampling=100--encoder-layers=1024-1024-512-512-256--decoder-layers=256-512-512-1024-1024--classifier-layers=./beta=1.00000e-06'
     
     # save_dir = './jobs/mnist/job5'
     save_dir = None

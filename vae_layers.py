@@ -91,13 +91,14 @@ class Decoder(Model):
                  intermediate_dims=[64],
                  name='decoder',
                  activation='relu',
+                 output_activation='sigmoid',
                  **kwargs):
         super(Decoder, self).__init__(name=name, **kwargs)
 
         self.dense_layers = [Dense(u, activation=activation) for u in
                              intermediate_dims]
 
-        self.x_output = Dense(original_dim, activation='sigmoid')
+        self.x_output = Dense(original_dim, activation=output_activation)
       
     def call(self, inputs):
         x = inputs

@@ -2,7 +2,7 @@ import os
 import pickle
 import json
 from tensorflow.keras.models import load_model
-
+from cvae import ClassificationVariationalNetwork
 
 def get_path(dir_name, file_name, create_dir=True):
 
@@ -90,18 +90,18 @@ def get_path_from_input(dir_path=os.getcwd()):
         return get_path_from_input(dir_path)
 
 
-
 def collect_networks(directory,
                      list_of_vae_by_architectures,
                      only_trained=True,
                      x_test=None,
-                     y_test=None):
-
+                     y_test=None,
+                     **default_load_paramaters):
+    
     from cvae import ClassificationVariationalNetwork
     def append_by_architecture(net_dict, list_of_lists):
 
         net = net_dict['net']
-        
+
         added = False
         for list_of_nets in list_of_lists:
             if not added:
@@ -115,12 +115,11 @@ def collect_networks(directory,
         return added
 
     try:
-
-        vae = ClassificationVariationalNetwork.load(directory)
+        vae = ClassificationVariationalNetwork.load(directory,
+                                                    **default_load_paramaters)
         vae_dict = {'net': vae}
         vae_dict['beta'] = vae.beta
         vae_dict['dir'] = directory
-        
         if vae.trained or not only_trained:
             append_by_architecture(vae_dict, list_of_vae_by_architectures)
 
@@ -147,5 +146,30 @@ def collect_networks(directory,
     for d in sub_dirs:
         collect_networks(d,
                          list_of_vae_by_architectures,
-                         only_trained=only_trained)
+                         only_trained=only_trained,
+                         x_test=x_test,
+                         y_test=y_test,
+                         **default_load_paramaters)
 
+
+def load_and_save(directory, output_directory=None, **kw):
+    """ load the incomplete params (with default missing parameter
+    that can be specified in **kw and save them
+    """
+
+    list_of_vae = []
+
+    collect_networks(directory, list_of_vae, **kw)
+    
+    for l in list_of_vae:
+        for d in l:
+            # print(d['net'].print_architecture())
+            saved_dir = d['dir']
+            if output_directory is not None:
+                saved_dir = os.path.join(output_directory, saved_dir)
+                # print(saved_dir)
+            d['net'].save(saved_dir)
+            v = ClassificationVariationalNetwork.load(saved_dir)
+            print('L:', d['net'].print_architecture())
+            print('S:', v.print_architecture())
+    return list_of_vae

@@ -13,15 +13,18 @@ e_ = [1024, 1024]
 d_ = e_.copy()
 d_.reverse()
 
-e_ = [512, 512, 256, 256, 128] # add 256
+e_ = [1024, 1024, 512, 512, 256, 256] # add 256
 latent_dim = 50
 # d_ = e_.copy()
 # d_.reverse()
-d_ = [128, 256, 512, 512]
-c_ = []
+d_ = [256, 512]
+c_ = [10]
 
 
 latent_sampling = 100 
+
+
+
 
 job_dirs = './jobs'
 useless_vae = ClassificationVariationalNetwork(x_train.shape[-1],
@@ -39,7 +42,7 @@ beta_pseudo_log = np.array([1, 2, 5])
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 
-beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-7, -4, 4)] * 1)
+beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-8, -6, 3)] * 4)
  
 # beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
 # beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)
@@ -68,7 +71,7 @@ def write_float_list(list, path):
 def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
                   decoder_layers, classifier_layers, x_train, y_train,
                   x_test, y_test, betas, directory='./jobs',
-                  epochs=30, latent_sampling=100, batch_size=10):
+                  epochs=30, latent_sampling=100, batch_size=100):
 
 
     if not os.path.exists(directory):

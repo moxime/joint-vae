@@ -246,6 +246,7 @@ if __name__ == '__main__':
     # set = 'fashion'
     # set = 'mnist'
 
+    x_test, y_test = None, None
     if dataset == 'fashion':
         (x_train, y_train, x_test, y_test, x_ood, y_ood) = \
             dg.get_fashion_mnist(ood='mnist')
@@ -258,7 +259,8 @@ if __name__ == '__main__':
 
     list_of_lists_of_vae = []
     for directory in directories:
-        collect_networks(directory, list_of_lists_of_vae)
+        collect_networks(directory, list_of_lists_of_vae,
+                         x_test=x_test, y_test=y_test)
     
     num_of_nets = sum([len(_) for _ in list_of_lists_of_vae])
 

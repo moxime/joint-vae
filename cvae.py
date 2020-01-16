@@ -340,10 +340,26 @@ class ClassificationVariationalNetwork(Model):
             return log_pxy
 
         return log_pxy - d / 2 * np.log(d * beta2pi)
+
+    def elbo_xy_pred(self, x, normalize=True, pred_method='blind', **kw):
+
+        """computes the elbo for x, y0 with y0 the predicted
+
+        """
+
+        elbo_xy = self.log_pxy(x, normalize=normalize, **kw)
+
+        if pred_method=='max':
+            return elbo_xy.max(axis=-1)
+
+        if pred_method=='blind':
+            y = self.blind_predict(x).argmax(axis=-1)
+            return np.hstack([elbo_xy[i, y0] for (i, y0) in enumerate(y)])
+            
     
     def log_px(self, x, normalize=True, method='sum', **kw):
         """computes a lower bound on log(p(x)) with the loss which is an
-        upper bound on log(p(x, y)).  - normalize = True forgets a
+        upper bound on -log(p(x, y)).  - normalize = True forgets a
         constant (2pi sigma^2)^(-d/2) - method ='sum' computes p(x) as
         the sum of p(x, y), method='max' computes p(x) as the max_y of
         p(x, y)
@@ -430,13 +446,19 @@ if __name__ == '__main__':
     # load_dir = './jobs/mnist/job5'
     # load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
     load_dir = None
-    #load_dir = './jobs/output-activation=linear/activation=relu--latent-dim=10--sampling=100--encoder-layers=1024-1024-512-512-256--decoder-layers=256-512-512-1024-1024--classifier-layers=./beta=1.00000e-06'
+    load_dir = ('./jobs/output-activation=sigmoid' +
+                '/activation=relu--latent-dim=50' +
+                '--sampling=100' +
+                '--encoder-layers=1024-1024-512-512-256-256' +
+                '--decoder-layers=256-512' +
+                '--classifier-layers=10' +
+                '/beta=1.00000e-06-1')
     
     # save_dir = './jobs/mnist/job5'
     save_dir = None
                   
     rebuild = load_dir is None
-    rebuild = True
+    # rebuild = True
     
     e_ = [1024, 1024, 512, 256]
     d_ = e_.copy()
@@ -500,13 +522,14 @@ if __name__ == '__main__':
                 epochs=epochs,
                 batch_size=10)
     
-    x0 = np.atleast_2d(x_test[0])
-    y0 = np.atleast_2d(y_test[0])
+    x0 = np.atleast_2d(x_test[0:3])
+    y0 = np.atleast_2d(y_test[0:3])
 
+    """
     x1 = np.atleast_2d(x_test[1])
     y1 = np.atleast_2d(y_test[1])
 
-    """
+   
     t0_ = vae.encoder(vae.joint([x0, y0]))
     mu0 = t0_[0]
     logsig0 = t0_[1]
@@ -538,6 +561,9 @@ if __name__ == '__main__':
     beta = vae.beta
     
     loss = vae.evaluate(x0)
+    elbo_xy0 = vae.elbo_xy_pred(x0)
+    elbo_xy = vae.log_pxy(x0)
+    log_px = vae.log_px(x0)
 
     vae.kl_loss_weight = 1e-60
     vae.mse_loss_weight = 0
@@ -552,17 +578,21 @@ if __name__ == '__main__':
 
     vae.compile()
     kl_loss = vae.evaluate(x0) 
-
     vae.kl_loss_weight = 1e-60
     vae.mse_loss_weight = 1
     vae.x_entropy_loss_weight = 0
 
     vae.compile()
     mse_loss = vae.evaluate(x0)
-
+    
 
     loss_ = mse_loss + 2*beta*kl_loss + 2*beta*x_loss
 
+    # input()
+    print(f'mse_loss = {mse_loss}')
+    print(f'x_loss = {x_loss}')
+    print(f'kl_loss = {kl_loss}')
+    print(f'loss_ = {loss_}')
 
     b = vae.beta
     vae.kl_loss_weight = 2 * b
@@ -585,5 +615,10 @@ if __name__ == '__main__':
     """
 
     """
+    print('elbo_xy:')
+    print(elbo_xy)
+    
+    print('elbo_xy0:\n', elbo_xy0)
+    print('log_px:\n',log_px)
 
     

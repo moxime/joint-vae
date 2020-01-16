@@ -125,18 +125,25 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood,
         f2 = show_x_y(vae, x_miss, title=f'y_missed={y_miss}')
         f2.show()
 
+        i_test = np.random.randint(0, x_test.shape[0], stats)
         i_pred = i_pred_[np.random.randint(0, len(i_pred_), stats)]
         # print(f'\n\nipred={i_pred.shape}\n\n')
         i_miss = i_miss_[np.random.randint(0, len(i_miss_), stats)]
         i_ood = np.random.randint(0, x_ood.shape[0], stats)
 
-        log_px_pred = vae.log_px(x_test[i_pred], verbose=0)  # 
+        log_px_pred = vae.log_px(x_test[i_pred], verbose=0)  #
+        # log_px_pred = vae.log_px(x_test[i_test], verbose=0)  # 
         log_px_pred.sort()
         log_px_miss = vae.log_px(x_test[i_miss], verbose=0)
         log_px_miss.sort()
         log_px_ood = vae.log_px(x_ood[i_ood], verbose=0)
         log_px_ood.sort()
 
+        elbo_x_pred = vae.elbo_xy_pred(x_test[i_pred], verbose=0)
+        elbo_x_pred.sort()
+        elbo_x_miss = vae.elbo_xy_pred(x_test[i_miss], verbose=0)
+        elbo_x_miss.sort()
+        
         with np.printoptions(precision=0):
             print(f'pred:\n{log_px_pred}\n')
             print(f'miss:\n{log_px_miss}\n')
@@ -146,8 +153,8 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood,
         f, a = plt.subplots(2, sharex=True)
 
         bins = stats // 10
-        a[0].hist(log_px_pred, bins, histtype='step', label='pred')
-        a[0].hist(log_px_miss, bins, histtype='step', label='miss')
+        a[0].hist(elbo_x_pred, bins, histtype='step', label='pred')
+        a[0].hist(elbo_x_miss, bins, histtype='step', label='miss')
         a[1].hist(log_px_pred, bins, histtype='step', label='pred')
         a[1].hist(log_px_ood, bins, histtype='step', label='ood')
         a[0].legend()
@@ -162,7 +169,7 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood,
         a1.set_ylabel('true positive of ood')
 
         
-        p_d, p_fa = roc_curves(log_px_pred, log_px_miss)
+        p_d, p_fa = roc_curves(elbo_x_pred, elbo_x_miss)
         a2.plot(100*p_fa, 100*p_d)
         a2.plot(100*p_fa, 100*p_fa, 'r--')
         a2.set_xlabel('false positive of miss')
@@ -256,6 +263,7 @@ if __name__ == '__main__':
              dg.get_mnist(ood='mean')
 
     # print(dir_)
+
 
     list_of_lists_of_vae = []
     for directory in directories:

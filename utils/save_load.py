@@ -2,7 +2,7 @@ import os
 import pickle
 import json
 from tensorflow.keras.models import load_model
-from cvae import ClassificationVariationalNetwork
+# from cvae import ClassificationVariationalNetwork
 
 def get_path(dir_name, file_name, create_dir=True):
 

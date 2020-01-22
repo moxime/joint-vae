@@ -75,7 +75,9 @@ def show_x_y(vae, x, title=''):
 
 
 def roc_curves(likelihood_h0, likelihood_h1):
-
+    """
+    returns p_fa, p_d (false detextion of H1, true detection of H1) 
+    """
     n_h0 = likelihood_h0.size
     n_h1 = likelihood_h1.size
 
@@ -83,12 +85,68 @@ def roc_curves(likelihood_h0, likelihood_h1):
     p_fa = np.ndarray(n_h0)
     p_d = np.ndarray(n_h0)
     for i, lh in enumerate(lh0_sorted):
-        p_fa[i] = i / n_h0
-        p_d[i] = sum(likelihood_h1 < lh) / n_h1
+        p_fa[i] = sum(likelihood_h0 > lh) / n_h0
+        p_d[i] = sum(likelihood_h1 > lh) / n_h1
 
-    return p_d, p_fa
+    return p_fa, p_d
 
 
+def ood_roc(vae, x_test, y_test, x_ood, y_ood,
+            method='px',
+            i_test=None, losses=None,
+            stats=100, **kw):
+
+    stats = min(stats, x_test.shape[0], x_ood.shape[0])
+    
+    if losses is None or i_test is None:
+        i_test = np.random.permutation(x_test.shape[0])[:stats]
+        losses = None
+        
+    if losses is None:
+        losses = vae.evaluate(x_test[i_test], **kw)
+    
+    i_ood = np.random.permutation(x_ood.shape[0])[:stats]
+
+    if method == 'px':
+        log_px_test = vae.log_px(x_test[i_test], losses=losses, **kw)
+        log_px_ood = vae.log_px(x_ood[i_ood], **kw)
+
+        return log_px_test, log_px_ood
+
+
+def miss_roc(vae, x_test, y_test, y_pred=None, stats=100, method='output', **kw):
+
+    if y_pred is None:
+        y_pred = vae.blind_predict(x_test)
+
+    y_pred_ = y_pred.argmax(axis=-1)
+    y_test_ = y_test.argmax(axis=-1)
+
+    i_pred_ = np.argwhere(y_test_ == y_pred_).squeeze()
+    n_pred = len(i_pred_)
+    i_pred = i_pred_[np.random.permutation(n_pred)[:min(stats, n_pred)]]
+    i_miss_ = np.argwhere(y_test_ != y_pred_).squeeze()
+    n_miss = len(i_miss_)
+    i_miss = i_miss_[np.random.permutation(n_miss)[:min(stats, n_miss)]]
+    
+    if method == 'loss':
+        log_py_x_pred = vae.log_py_x(x_test[i_pred], **kw)
+        log_py_x_miss = vae.log_py_x(x_test[i_miss], **kw)
+
+        HY_x_pred = -(np.exp(log_py_x_pred) * log_py_x_pred).sum(axis=-1)
+        HY_x_miss = -(np.exp(log_py_x_miss) * log_py_x_miss).sum(axis=-1)
+
+        return HY_x_pred, HY_x_miss
+
+    if method == 'output':
+        
+        H_pred = (-y_pred[i_pred] * np.log(y_pred[i_pred])).sum(axis=-1)
+        H_miss = (-y_pred[i_miss] * np.log(y_pred[i_miss])).sum(axis=-1)
+
+        return H_pred, H_miss
+    
+    
+        
 def show_examples(vae, x_test, y_test, x_ood, y_ood,
                   num_of_examples=10, stats=100, export=False, export_dir='/tmp'):
 
@@ -125,51 +183,45 @@ def show_examples(vae, x_test, y_test, x_ood, y_ood,
         f2 = show_x_y(vae, x_miss, title=f'y_missed={y_miss}')
         f2.show()
 
-        i_test = np.random.randint(0, x_test.shape[0], stats)
-        i_pred = i_pred_[np.random.randint(0, len(i_pred_), stats)]
-        # print(f'\n\nipred={i_pred.shape}\n\n')
-        i_miss = i_miss_[np.random.randint(0, len(i_miss_), stats)]
-        i_ood = np.random.randint(0, x_ood.shape[0], stats)
+        log_px_test, log_px_ood = ood_roc(vae, x_test, y_test,
+                                          x_ood, y_ood,
+                                          stats=stats,
+                                          verbose=0)
 
-        log_px_pred = vae.log_px(x_test[i_pred], verbose=0)  #
-        # log_px_pred = vae.log_px(x_test[i_test], verbose=0)  # 
-        log_px_pred.sort()
-        log_px_miss = vae.log_px(x_test[i_miss], verbose=0)
-        log_px_miss.sort()
-        log_px_ood = vae.log_px(x_ood[i_ood], verbose=0)
-        log_px_ood.sort()
+        HY_x_pred, HY_x_miss = miss_roc(vae, x_test, y_test,
+                                        stats=stats,
+                                        verbose=0)
 
-        elbo_x_pred = vae.elbo_xy_pred(x_test[i_pred], verbose=0)
-        elbo_x_pred.sort()
-        elbo_x_miss = vae.elbo_xy_pred(x_test[i_miss], verbose=0)
-        elbo_x_miss.sort()
+        [_.sort() for _ in [log_px_test, log_px_ood, HY_x_miss, HY_x_pred]]
         
         with np.printoptions(precision=0):
-            print(f'pred:\n{log_px_pred}\n')
-            print(f'miss:\n{log_px_miss}\n')
+            print(f'test:\n{log_px_test}\n')
             print(f'ood:\n{log_px_ood}\n')
-        
 
-        f, a = plt.subplots(2, sharex=True)
+        with np.printoptions(precision=0):
+            print(f'pred:\n{np.exp(HY_x_pred)}\n')
+            print(f'miss:\n{np.exp(HY_x_miss)}\n')
+
+        f, a = plt.subplots(2)
 
         bins = stats // 10
-        a[0].hist(elbo_x_pred, bins, histtype='step', label='pred')
-        a[0].hist(elbo_x_miss, bins, histtype='step', label='miss')
-        a[1].hist(log_px_pred, bins, histtype='step', label='pred')
+        a[0].hist((HY_x_pred), bins, histtype='step', label='pred')
+        a[0].hist((HY_x_miss), bins, histtype='step', label='miss')
+        a[1].hist(log_px_test, bins, histtype='step', label='test')
         a[1].hist(log_px_ood, bins, histtype='step', label='ood')
         a[0].legend()
         a[1].legend()
         f.show()
 
         f, (a1, a2) = plt.subplots(1, 2)
-        p_d, p_fa = roc_curves(log_px_pred, log_px_ood)
+        p_fa, p_d = roc_curves(-log_px_test, -log_px_ood)
         a1.plot(100*p_fa, 100*p_d)
         a1.plot(100*p_fa, 100*p_fa, 'r--')
         a1.set_xlabel('false positive of ood')
         a1.set_ylabel('true positive of ood')
 
         
-        p_d, p_fa = roc_curves(elbo_x_pred, elbo_x_miss)
+        p_fa, p_d = roc_curves(np.exp(HY_x_pred), np.exp(HY_x_miss))
         a2.plot(100*p_fa, 100*p_d)
         a2.plot(100*p_fa, 100*p_fa, 'r--')
         a2.set_xlabel('false positive of miss')

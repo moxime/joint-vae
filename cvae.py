@@ -327,11 +327,13 @@ class ClassificationVariationalNetwork(Model):
         losses = super().evaluate([x_, y_], batch_size=new_batch_size, **kw)
         return losses.reshape(-1, c, order='F').squeeze()
 
-    def log_pxy(self, x, normalize=True, **kw):
+    def log_pxy(self, x, normalize=True, losses=None, **kw):
 
         beta2pi = self.beta * 2 * np.pi
         d = x.shape[-1]
-        losses = self.evaluate(x, **kw)
+
+        if losses is None:
+            losses = self.evaluate(x, **kw)
 
         c = losses.shape[-1]
         log_pxy = - losses  / (2 * self.beta)
@@ -347,7 +349,7 @@ class ClassificationVariationalNetwork(Model):
 
         """
 
-        elbo_xy = self.log_pxy(x, normalize=normalize, **kw)
+        elbo_xy = self.log_pxy(np.atleast_2d(x), normalize=normalize, **kw)
 
         if pred_method=='max':
             return elbo_xy.max(axis=-1)
@@ -357,7 +359,7 @@ class ClassificationVariationalNetwork(Model):
             return np.hstack([elbo_xy[i, y0] for (i, y0) in enumerate(y)])
             
     
-    def log_px(self, x, normalize=True, method='sum', **kw):
+    def log_px(self, x, normalize=True, method='sum', losses=None, **kw):
         """computes a lower bound on log(p(x)) with the loss which is an
         upper bound on -log(p(x, y)).  - normalize = True forgets a
         constant (2pi sigma^2)^(-d/2) - method ='sum' computes p(x) as
@@ -368,7 +370,8 @@ class ClassificationVariationalNetwork(Model):
         
         beta2pi = self.beta * 2 * np.pi
         d = x.shape[-1]
-        losses = self.evaluate(x, **kw)
+        if losses is None:
+            losses = self.evaluate(x, **kw)
 
         c = losses.shape[-1]
         log_pxy = - losses  / (2 * self.beta)
@@ -392,6 +395,38 @@ class ClassificationVariationalNetwork(Model):
         else:
             return np.squeeze(np.log(d_px) + m_log_pxy
                               - d / 2 * np.log(d * beta2pi))
+        
+    def log_py_x(self, x, losses=None, **kw):
+
+        d = x.shape[-1]
+        if losses is None:
+            losses = self.evaluate(x, **kw)
+
+        c = losses.shape[-1]
+        log_pxy = - losses  / (2 * self.beta)
+
+        m_log_pxy = log_pxy.max(axis=-1)
+        mat_log_pxy = np.hstack([np.atleast_1d(m_log_pxy)[:, None]] * c)
+        d_log_pxy = log_pxy - mat_log_pxy
+
+        d_pxy = np.exp(d_log_pxy)
+        d_log_px = np.log(d_pxy.sum(axis=-1))
+
+        log_py_x = d_log_pxy - np.hstack([np.atleast_1d(d_log_px)[:, None]]
+                                         * c)
+
+        return log_py_x
+
+    def HY_x(self, x, method='pred', y_pred=None, losses=None, **kw):
+
+        if method=='pred':
+            if y_pred is None:
+                y_pred = self.blind_predict(x)
+            return -(np.log(y_pred) * y_pred).sum(axis=-1)
+        
+        log_p = self.log_py_x(x, losses=losses, **kw)
+        return -(np.exp(log_p) * log_p).sum(axis=-1)
+        
         
     def naive_call(xy_vae, x):
         """for a single input x returns [x_, y_] estimated by the network ofr
@@ -521,9 +556,11 @@ if __name__ == '__main__':
         history = vae.fit(x=[x_train, y_train],
                 epochs=epochs,
                 batch_size=10)
-    
-    x0 = np.atleast_2d(x_test[0:3])
-    y0 = np.atleast_2d(y_test[0:3])
+
+    n = 1
+    n_ = np.random.permutation(x_test.shape[0])[:n]
+    x0 = np.atleast_2d(x_test[n_])
+    y0 = np.atleast_2d(y_test[n_])
 
     """
     x1 = np.atleast_2d(x_test[1])
@@ -560,11 +597,12 @@ if __name__ == '__main__':
 
     beta = vae.beta
     
-    loss = vae.evaluate(x0)
-    elbo_xy0 = vae.elbo_xy_pred(x0)
-    elbo_xy = vae.log_pxy(x0)
-    log_px = vae.log_px(x0)
-
+    loss = np.atleast_2d(vae.evaluate(x0, verbose=0))
+    elbo_xy0 = vae.elbo_xy_pred(x0, losses=loss)
+    elbo_xy = vae.log_pxy(x0, losses=loss)
+    log_px = vae.log_px(x0, losses=loss)
+    HY_x  = vae.HY_x(x0, losses=loss)
+    
     vae.kl_loss_weight = 1e-60
     vae.mse_loss_weight = 0
     vae.x_entropy_loss_weight = 1
@@ -619,6 +657,6 @@ if __name__ == '__main__':
     print(elbo_xy)
     
     print('elbo_xy0:\n', elbo_xy0)
-    print('log_px:\n',log_px)
+    print('log_px:\n', log_px)
 
-    
+    print('H(Y|x):\n', HY_x)

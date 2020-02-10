@@ -21,10 +21,23 @@ d_ = [256, 512]
 c_ = [10]
 
 
+
+# XIAO SETTINGS
+e_ = []
+latent_dim = 100
+c_ = [10]
+
+d_ = []
+
 latent_sampling = 100 
 
 
-
+e_ = [1024, 512, 512]
+latent_sampling = 100
+latent_dim = 100
+d_ = e_.copy()
+d_.reverse()
+c_ = [20, 20]
 
 job_dirs = './jobs'
 useless_vae = ClassificationVariationalNetwork(x_train.shape[-1],

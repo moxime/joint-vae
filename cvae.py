@@ -1,24 +1,16 @@
-import tensorflow as tf
-from tensorflow.keras.models import Model
-# from tensorflow.keras import layers
-from tensorflow.keras.layers import Concatenate
-from tensorflow.keras import optimizers
-from tensorflow.keras.utils import plot_model
-from tensorflow.keras.losses import mse
-from tensorflow.keras.losses import categorical_crossentropy as x_entropy
-# from tensorflow.keras.utils import to_categorical
+from __future__ import print_function
+import argparse
+import torch
+import torch.utils.data
+from torch import nn, optim
+from torch.nn import functional as F
+from torchvision import datasets, transforms
+from torchvision.utils import save_image
+from vae_layers import Encoder, Decoder, Classifier
+
 import data.generate as dg
 from utils import save_load 
 import numpy as np
-from vae_layers import Encoder, Decoder, Classifier
-
-
-def __make_iter__(a):
-    try:
-        _ = [e for e in a]
-    except TypeError:
-        return [a]
-    return a
 
 
 DEFAULT_ACTIVATION = 'relu'
@@ -26,7 +18,7 @@ DEFAULT_OUTPUT_ACTIVATION = 'sigmoid'
 DEFAULT_LATENT_SAMPLING = 1000
 
 
-class ClassificationVariationalNetwork(Model):
+class ClassificationVariationalNetwork(nn.Module):
 
     def __init__(self,
                  input_shape,
@@ -35,30 +27,35 @@ class ClassificationVariationalNetwork(Model):
                  latent_dim=4,
                  decoder_layer_sizes=[36],
                  classifier_layer_sizes=[36],
-                 name = 'xy-vae',
+                 name = 'joint-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
-                 beta=1e-3,
+                 beta=1e-6,
                  verbose=1,
                  *args, **kw):
 
-        super().__init__(name=name, *args, **kw)
+        super().__init__(*args, **kw)
+        self.name = name
 
         # if beta=0 in Encoder(...) loss is not computed by layer
-        self.encoder = Encoder(latent_dim, encoder_layer_sizes,
+        self.encoder = Encoder(input_shape, num_labels, latent_dim,
+                               encoder_layer_sizes,
                                beta=beta, sampling_size=latent_sampling,
                                activation=activation)
-        self.decoder = Decoder(input_shape, decoder_layer_sizes,
+
+        self.decoder = Decoder(input_shape, latent_dim,
+                               decoder_layer_sizes,
                                activation=activation,
                                output_activation=output_activation)
     
-        self.joint = Concatenate()
-        self.classifier = Classifier(num_labels,
+        self.classifier = Classifier(num_labels, latent_dim,
                                      classifier_layer_sizes,
                                      activation=activation)
+
         self.input_dims = [input_shape]
         self.input_dims.append(num_labels)
+
         self.beta = beta
             
         self._sizes_of_layers = [input_shape, num_labels,

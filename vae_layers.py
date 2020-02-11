@@ -1,6 +1,5 @@
-import tensorflow as tf
-from tensorflow.keras.layers import Layer, Dense, Concatenate, Input
-from tensorflow.keras.models import Model
+import torch
+from torch import nn, optim
 
 class Sampling(Layer):
     """Uses (z_mean, z_log_var) to sample z, the latent vector."""
@@ -50,7 +49,7 @@ class JointLayer(Layer):
         
         return inputs
 
-class Encoder(Model):
+class Encoder(nn.Module):
 
     def __init__(self, input_shape, num_labels,
                  latent_dim=32,
@@ -85,7 +84,7 @@ class Encoder(Model):
         return z_mean, z_log_var, z
 
           
-class Decoder(Model):           # 
+class Decoder(nn.Module):           # 
 
     def __init__(self, 
                  latent_dim, reconstructed_dim,
@@ -112,7 +111,7 @@ class Decoder(Model):           #
         return self.x_output(x)
             
 
-class Classifier(Model):
+class Classifier(nn.Module):
 
     def __init__(self, latent_dim,
                  num_labels,

@@ -24,7 +24,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  input_shape,
                  num_labels,
                  encoder_layer_sizes=[36],
-                 latent_dim=4,
+                 latent_dim=32,
                  decoder_layer_sizes=[36],
                  classifier_layer_sizes=[36],
                  name = 'joint-vae',
@@ -44,12 +44,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                beta=beta, sampling_size=latent_sampling,
                                activation=activation)
 
-        self.decoder = Decoder(input_shape, latent_dim,
+        self.decoder = Decoder(latent_dim, input_shape,
                                decoder_layer_sizes,
                                activation=activation,
                                output_activation=output_activation)
     
-        self.classifier = Classifier(num_labels, latent_dim,
+        self.classifier = Classifier(latent_dim, num_labels,
                                      classifier_layer_sizes,
                                      activation=activation)
 

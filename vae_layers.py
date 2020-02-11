@@ -52,7 +52,7 @@ class JointLayer(Layer):
 
 class Encoder(Model):
 
-    def __init__(self,
+    def __init__(self, input_shape, num_labels,
                  latent_dim=32,
                  intermediate_dims=[64],
                  name='encoder',
@@ -60,7 +60,8 @@ class Encoder(Model):
                  activation='relu',
                  sampling_size=10,
                  **kwargs):
-        super(Encoder, self).__init__(name=name, **kwargs)
+        super(Encoder, self).__init__(**kwargs)
+        self.name = name
         self.dense_projs = [Dense(u, activation=activation) for u in intermediate_dims]
         self.dense_mean = Dense(latent_dim)
         self.dense_log_var = Dense(latent_dim)
@@ -84,21 +85,23 @@ class Encoder(Model):
         return z_mean, z_log_var, z
 
           
-class Decoder(Model):
+class Decoder(Model):           # 
 
-    def __init__(self,
-                 original_dim,
+    def __init__(self, 
+                 latent_dim, reconstructed_dim,
                  intermediate_dims=[64],
                  name='decoder',
                  activation='relu',
                  output_activation='sigmoid',
                  **kwargs):
-        super(Decoder, self).__init__(name=name, **kwargs)
 
+        super(Decoder, self).__init__(**kwargs)
+        self.name = name
+        
         self.dense_layers = [Dense(u, activation=activation) for u in
                              intermediate_dims]
 
-        self.x_output = Dense(original_dim, activation=output_activation)
+        self.x_output = Dense(reconstructed_dim, activation=output_activation)
       
     def call(self, inputs):
         x = inputs
@@ -111,15 +114,16 @@ class Decoder(Model):
 
 class Classifier(Model):
 
-    def __init__(self,
+    def __init__(self, latent_dim,
                  num_labels,
                  intermediate_dims=[],
                  name='classifier',
                  activation='relu',
                  **kwargs):
 
-        super().__init__(name=name, **kwargs)
-
+        super().__init__(**kwargs)
+        self.name = name
+        
         self.dense_layers = [Dense(u, activation=activation) for u in
                              intermediate_dims]
         self.y_output = Dense(num_labels, activation='softmax')

@@ -1,54 +1,23 @@
 import torch
 from torch import nn, optim
+import numpy as np
 
-class Sampling(Layer):
+class Sampling(nn.Module):
     """Uses (z_mean, z_log_var) to sample z, the latent vector."""
 
-    def __init__(self, *args, sampling_size=1, **kwargs):
+    def __init__(self, latent_dim, sampling_size=1, **kwargs):
 
         self.sampling_size = sampling_size
         super().__init__(*args, **kwargs)
 
-    def call(self, inputs):
+    def forward(self, z_mean, log_var):
+        
         sampling_size = self.sampling_size
-        z_mean, z_log_var = inputs
+        size = z_log_var.size() + (sampling_size,)
+        epsilon = torch.randn(size)
+        return z_mean + torch.exp(0.5 * z_log_var) * epsilon
 
-        batch = tf.shape(z_mean)[0]
-        dim = tf.shape(z_mean)[-1]
-        raw_shape = (sampling_size, batch, dim)
-        # raw_shape = (sampling_size, *batch, dim)
-        z_shape = z_mean.shape
-        while z_shape[0] is None:
-            z_shape = z_shape[1:]
-        epsilon_shape = (sampling_size,) + z_shape 
-        
-        epsilon = tf.keras.backend.random_normal(shape=raw_shape) #
-
-        return z_mean + tf.exp(0.5 * z_log_var) * epsilon
-
-
-class JointLayer(Layer):
-
-    def __init__(self, input_dim, num_labels=None, name='joint_input', **kw):
-
-        if num_labels is None:
-            num_labels=0
-            self.x_y = False
-        else:
-            self.x_y = True
-
-        self.input_dims = [input_dim, num_labels]
-        
-        super(JointLayer, self).__init__(name=name, **kw)
-
-    def call(self, inputs):
-        # print(self.name+' is called')
-        if self.x_y:
-            
-            return tf.concat(inputs, axis=-1)
-        
-        return inputs
-
+ 
 class Encoder(nn.Module):
 
     def __init__(self, input_shape, num_labels,
@@ -61,12 +30,22 @@ class Encoder(nn.Module):
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
-        self.dense_projs = [Dense(u, activation=activation) for u in intermediate_dims]
-        self.dense_mean = Dense(latent_dim)
-        self.dense_log_var = Dense(latent_dim)
-        self.sampling = Sampling(sampling_size=sampling_size)
-        self.beta=beta
+        self.beta = beta
         self.kl_loss_weight = 2 * beta
+
+        self.input_shape = input_shape
+
+        self.dense_projs = nn.ModuleList()
+        input_dim = np.prod(input_shape)
+        for d in intermediate_dims:
+            l_ = nn.Linear(input_dim, d)
+            self.dense_projs.append(l_)
+            input_dim = d
+
+        self.dense_mean = nn.Linear(input_dim, latent_dim)
+        self.dense_log_var = nn.Linear(input_dim, latent_dim)
+
+        self.sampling = Sampling(latent_dim, sampling_size)
         
     def call(self, inputs):
         x = inputs 

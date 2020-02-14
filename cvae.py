@@ -111,8 +111,12 @@ class ClassificationVariationalNetwork(nn.Module):
         return out
 
     def mse_loss(self, x_input, x_output, batch_mean=True):
-
-        return F.mse_loss(x_input, x_output)
+        """
+        x_input of size (N, D1, D2,..., DK) where N is batch size
+        x_output of size (L, N, D1, D2,..., DK) where L is sampling size, 
+        """
+        
+        return F.mse_loss(x_input_, x_output)
     
     def kl_loss(self, mu, log_var, batch_mean=True):
 
@@ -121,7 +125,8 @@ class ClassificationVariationalNetwork(nn.Module):
     def x_loss(self, y_input, y_output, batch_mean=True):
 
         print(f'*** y_input: {y_input.size()} out: {y_output.size()}') 
-        return F.cross_entropy(y_input, y_output)
+        return F.cross_entropy(y_output.log(), y_output,
+                               reduction='none' if not batch_mean )
 
     def loss(self, x, y,
              x_reconstructed, y_estimate,

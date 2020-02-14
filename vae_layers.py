@@ -52,6 +52,7 @@ class Encoder(nn.Module):
         self.sampling = Sampling(latent_dim, sampling_size)
         
     def forward(self, x, y):
+        """ x input 
         # print('*****', 'x:', x.shape, 'y:', y.shape)
         u = torch.cat((x, y), dim=-1)
         for l in self.dense_projs:

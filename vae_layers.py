@@ -8,7 +8,7 @@ class Sampling(nn.Module):
     def __init__(self, latent_dim, sampling_size=1, **kwargs):
 
         self.sampling_size = sampling_size
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     def forward(self, z_mean, z_log_var):
         
@@ -47,18 +47,13 @@ class Encoder(nn.Module):
 
         self.sampling = Sampling(latent_dim, sampling_size)
         
-    def call(self, inputs):
-        x = inputs 
+    def forward(self, x):
+
         for l in self.dense_projs:
             x = l(x)
         z_mean = self.dense_mean(x)
         z_log_var = self.dense_log_var(x)
         z = self.sampling((z_mean, z_log_var))
-        # if self.kl_loss_weight > -1:
-        kl_loss = 0.5 * tf.reduce_sum(tf.exp(z_log_var) - 1 -
-                                      z_log_var +
-                                      tf.square(z_mean), -1)
-        self.add_loss(self.kl_loss_weight * kl_loss)
         
         return z_mean, z_log_var, z
 
@@ -75,19 +70,23 @@ class Decoder(nn.Module):           #
 
         super(Decoder, self).__init__(**kwargs)
         self.name = name
-        
-        self.dense_layers = [Dense(u, activation=activation) for u in
-                             intermediate_dims]
 
-        self.x_output = Dense(reconstructed_dim, activation=output_activation)
+        self.dense_layers = nn.ModuleList()
+        input_dim = latent_dim
+        for d in intermediate_dims:
+            l_ = nn.Linear(input_dim, d)
+            self.dense_projs.append(l_)
+            input_dim = d
+
+        self.output_layer = Linear(input_dim, reconstructed_dim)
       
-    def call(self, inputs):
-        x = inputs
+    def forward(self, z):
+        x = z
         # print('decoder inputs', inputs.shape)
         for l in self.dense_layers:
             # print('l:', l)
             x = l(x)
-        return self.x_output(x)
+        return self.output_layer(x)
             
 
 class Classifier(nn.Module):
@@ -111,3 +110,19 @@ class Classifier(nn.Module):
         for l in self.dense_layers:
             x = l(x)
         return self.y_output(x)
+        self.dense_layers = nn.ModuleList()
+        input_dim = latent_dim
+        for d in intermediate_dims:
+            l_ = nn.Linear(input_dim, d)
+            self.dense_projs.append(l_)
+            input_dim = d
+
+        self.output_layer = Linear(input_dim, num_labels)
+      
+    def forward(self, z):
+        x = z
+        # print('decoder inputs', inputs.shape)
+        for l in self.dense_layers:
+            # print('l:', l)
+            x = l(x)
+        return self.output_layer(x)

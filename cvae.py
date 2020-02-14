@@ -4,9 +4,13 @@ import torch
 import torch.utils.data
 from torch import nn, optim
 from torch.nn import functional as F
+import torch.optim as optim
+
+import torchvision
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from vae_layers import Encoder, Decoder, Classifier
+
 
 import data.generate as dg
 from utils import save_load 
@@ -62,6 +66,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                  decoder_layer_sizes, classifier_layer_sizes]
 
         self.trained = False
+        self.optimizer = optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
 
         self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
@@ -75,7 +80,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.z_output = False
 
-    def forward(self, x, y=None):
+    def forward(self, x, y=None, z_output=True):
         """inputs: x, y where x, and y are tensors sharing first dim.
 
         """
@@ -99,9 +104,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.z_output:
             y_output = tf.reduce_mean(y_output, 0)
 
-        out = [x_output, y_output]
-        if self.z_output:
-            out += [z]
+        out = (x_output, y_output)
+        if z_output:
+            out += (z_mean, z_log_var, z)
  
         return out
 
@@ -130,8 +135,41 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return (mse_loss_weight * self.mse_loss(x, x_reconstructed, **kw) +
                 x_loss_weight * self.x_loss(y, y_estimate, **kw) +
-                kl_loss_weight * self.kl_loss(mu_z, var_log_z, **kw)        
-    
+                kl_loss_weight * self.kl_loss(mu_z, var_log_z, **kw))        
+
+    def train(self, trainset, optimizer=None, epochs=50, batch_size=64, verbose=1):
+        """
+
+        """
+        if optimizer is None: optimizer = self.optimizer
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
+                                                  shuffle=True, num_workers=2)
+        
+        for epoch in range(epochs):
+            running_loss = 0.0
+            for i, data in enumerate(trainloader, 0):
+                # get the inputs; data is a list of [inputs, labels]
+                x, y = data
+
+                # zero the parameter gradients
+                optimizer.zero_grad()
+
+                # forward + backward + optimize
+                x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
+                loss = self.loss(x, y, x_reco, y_est, mu_z, log_var_z) 
+                loss.backward()
+                optimizer.step()
+
+                # print statistics
+                running_loss += loss.item()
+                if i % 2000 == 1999:    # print every 2000 mini-batches
+                    print('[%d, %5d] loss: %.3f' %
+                          (epoch + 1, i + 1, running_loss / 2000))
+                    running_loss = 0.0
+
+        print('Finished Training')
+
+                
     def summary(self):
 
         print('SUMMARY FUNCTION NOT IMPLEMENTED')
@@ -491,7 +529,6 @@ if __name__ == '__main__':
 
     # load_dir = './jobs/mnist/job5'
     # load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
-    load_dir = None
     load_dir = ('./jobs/output-activation=sigmoid' +
                 '/activation=relu--latent-dim=50' +
                 '--sampling=100' +
@@ -500,6 +537,7 @@ if __name__ == '__main__':
                 '--classifier-layers=10' +
                 '/beta=1.00000e-06-1')
     
+    load_dir = None
     # save_dir = './jobs/mnist/job5'
     save_dir = None
                   
@@ -513,7 +551,7 @@ if __name__ == '__main__':
 
     beta = 0.001
     latent_dim = 20
-    latent_sampling = int(20)
+    latent_sampling = 40
 
     try:
         data_loaded
@@ -521,13 +559,13 @@ if __name__ == '__main__':
         data_loaded = False
     
     if not data_loaded:
-        (x_train, y_train, x_test, y_test, x_ood, y_ood) = \
-            dg.get_fashion_mnist(ood='mnist')
+        transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        trainset = torchvision.datasets.MNIST(root='./data', train=True,
+                                                download=True, transform=transform)
         data_loaded = True
 
-    N = x_test.shape[0]
-    C = y_test.shape[1]
-    
     if not rebuild:
         try:
             vae = ClassificationVariationalNetwork.load(load_dir)
@@ -538,136 +576,25 @@ if __name__ == '__main__':
 
     if rebuild:
         print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
-        vae = ClassificationVariationalNetwork(28**2, 10, e_,
+        jvae = ClassificationVariationalNetwork(28**2, 10, e_,
                                                latent_dim, d_, c_,
                                                latent_sampling=latent_sampling,
                                                beta=beta) 
         # vae.plot_model(dir=load_dir)
 
-    [x_n, y_n] = vae([x_train[0:3], y_train[0:3]])
         
-    vae.compile(
-        # loss = [mse, x_entropy],
-        # loss_weights = [1, 2*vae.beta],
-        optimizer='Adam')
-
-    vae.summary()
-    vae.encoder.summary()
-    vae.decoder.summary()
-    vae.classifier.summary()
     
     print('\n'*2+'*'*20+' BUILT   '+'*'*20+'\n'*2)
     
-    epochs = 2
+    epochs = 10
     
     refit = False
     # refit = True
 
-    if not vae.trained or refit:
-        history = vae.fit(x=[x_train, y_train],
-                epochs=epochs,
-                batch_size=10)
-
-    n = 1
-    n_ = np.random.permutation(x_test.shape[0])[:n]
-    x0 = np.atleast_2d(x_test[n_])
-    y0 = np.atleast_2d(y_test[n_])
-
-    """
-    x1 = np.atleast_2d(x_test[1])
-    y1 = np.atleast_2d(y_test[1])
-
-   
-    t0_ = vae.encoder(vae.joint([x0, y0]))
-    mu0 = t0_[0]
-    logsig0 = t0_[1]
-    sig0 = np.exp(logsig0)
-    t0 = t0_[2]
-    # print(' -- '.join(str(i) for i in [sig0.min(), sig0.mean(), sig0.max()]))
-
-    x_pred, y_pred = vae.predict([x_test, y_test])
-
-    x_y_test = np.concatenate([x_test, y_test], axis=-1)
-    t_enc_ = vae.encoder(x_y_test)
-
-    t_enc = t_enc_[2]
-    logsig_enc = t_enc_[1]
-    sig_enc = np.exp(logsig_enc)   
-    mu_enc = t_enc_[0]
-
-    [x_dec, y_dec] = vae.decoder(t_enc)
-    """
-
-    """
-    acc = vae.accuracy(x_test, y_test)
-    print(f'test accuracy: {acc}\n')
-    """
+    if not jvae.trained or refit:
+        jvae.train(trainset,
+                   epochs=epochs,
+                   batch_size=100)
     
     if save_dir is not None:
         vae.save(save_dir)
-
-    beta = vae.beta
-    
-    loss = np.atleast_2d(vae.evaluate(x0, verbose=0))
-    elbo_xy0 = vae.elbo_xy_pred(x0, losses=loss)
-    elbo_xy = vae.log_pxy(x0, losses=loss)
-    log_px = vae.log_px(x0, losses=loss)
-    HY_x  = vae.HY_x(x0, losses=loss)
-    
-    vae.kl_loss_weight = 1e-60
-    vae.mse_loss_weight = 0
-    vae.x_entropy_loss_weight = 1
-    vae.compile()
-    x_loss = vae.evaluate(x0)
-
-    # vae = ClassificationVariationalNetwork.load(tmp_dir)
-    vae.kl_loss_weight = 1
-    vae.mse_loss_weight = 0
-    vae.x_entropy_loss_weight = 1e-60
-
-    vae.compile()
-    kl_loss = vae.evaluate(x0) 
-    vae.kl_loss_weight = 1e-60
-    vae.mse_loss_weight = 1
-    vae.x_entropy_loss_weight = 0
-
-    vae.compile()
-    mse_loss = vae.evaluate(x0)
-    
-
-    loss_ = mse_loss + 2*beta*kl_loss + 2*beta*x_loss
-
-    # input()
-    print(f'mse_loss = {mse_loss}')
-    print(f'x_loss = {x_loss}')
-    print(f'kl_loss = {kl_loss}')
-    print(f'loss_ = {loss_}')
-
-    b = vae.beta
-    vae.kl_loss_weight = 2 * b
-    vae.mse_loss_weight = 1
-    vae.x_entropy_loss_weight = 2 * b
-
-    vae.z_output = True
-    vae.compile()
-    
-    [x_, y_, z] = vae([x0, y0])
-        
-    from tensorflow.keras.losses import mse, categorical_crossentropy as x_entropy
-
-    mse_ = mse(x0, x_)
-    xent_ = x_entropy(y0, y_)
-
-    mse_mean = mse_.numpy().mean(axis=0)
-    xent_mean = xent_.numpy().mean(axis=0)
-
-    """
-
-    """
-    print('elbo_xy:')
-    print(elbo_xy)
-    
-    print('elbo_xy0:\n', elbo_xy0)
-    print('log_px:\n', log_px)
-
-    print('H(Y|x):\n', HY_x)

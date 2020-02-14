@@ -4,7 +4,7 @@ import torch.utils.data.dataset
 import numpy as np
 import matplotlib.pyplot as plt
 
-
+mnist = None
 def get_fashion_mnist(**kwargs):
 
     return get_image_dataset(fashion_mnist, **kwargs)

@@ -78,7 +78,7 @@ class Decoder(nn.Module):           #
             self.dense_layers.append(l_)
             input_dim = d
 
-        self.output_layer = Linear(input_dim, reconstructed_dim)
+        self.output_layer = nn.Linear(input_dim, reconstructed_dim)
       
     def forward(self, z):
         x = z
@@ -108,7 +108,7 @@ class Classifier(nn.Module):
             self.dense_projs.append(l_)
             input_dim = d
 
-        self.output_layer = Linear(input_dim, num_labels)
+        self.output_layer = nn.Linear(input_dim, num_labels)
       
     def forward(self, z):
         x = z

@@ -75,7 +75,7 @@ class Decoder(nn.Module):           #
         input_dim = latent_dim
         for d in intermediate_dims:
             l_ = nn.Linear(input_dim, d)
-            self.dense_projs.append(l_)
+            self.dense_layers.append(l_)
             input_dim = d
 
         self.output_layer = Linear(input_dim, reconstructed_dim)
@@ -101,15 +101,6 @@ class Classifier(nn.Module):
         super().__init__(**kwargs)
         self.name = name
         
-        self.dense_layers = [Dense(u, activation=activation) for u in
-                             intermediate_dims]
-        self.y_output = Dense(num_labels, activation='softmax')
-
-    def call(self, inputs):
-        x = inputs
-        for l in self.dense_layers:
-            x = l(x)
-        return self.y_output(x)
         self.dense_layers = nn.ModuleList()
         input_dim = latent_dim
         for d in intermediate_dims:

@@ -1,14 +1,8 @@
-import tensorflow as tf
-from tensorflow.keras import datasets
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.layers import Layer, Dense, Concatenate, Input
-from tensorflow.keras.models import Model
-from tensorflow.keras import backend as K
+import torch
+import torch.utils.data.dataset
+
 import numpy as np
 import matplotlib.pyplot as plt
-
-mnist = datasets.mnist
-fashion_mnist = datasets.fashion_mnist
 
 
 def get_fashion_mnist(**kwargs):

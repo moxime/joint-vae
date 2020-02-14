@@ -105,21 +105,37 @@ class ClassificationVariationalNetwork(nn.Module):
  
         return out
 
-    def mse_loss(self, x_input, x_output, batch_sum=True):
+    def mse_loss(self, x_input, x_output, batch_mean=True):
 
         return F.mse_loss(x_input, x_output)
     
-    def kl_loss(self, mu, log_var, batch_sum=True):
+    def kl_loss(self, mu, log_var, batch_mean=True):
 
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    def x_loss(self, y_input, y_output, batch_sum=True):
+    def x_loss(self, y_input, y_output, batch_mean=True):
 
         return F.cross_entropy(y, y_output)
 
-    def loss(
+    def loss(self, x, y,
+             x_reconstructed, y_estimate,
+             mu_z, log_var_z,
+             mse_loss_weight=None,
+             x_loss_weight=None,
+             kl_loss_weight=None, **kw):
+
+        if mse_loss_weight is None: mse_loss_weight = self.mse_loss_weight
+        if x_loss_weight is None: x_loss_weight = self.x_entropy_loss_weight
+        if kl_loss_weight is None: kl_loss_weight = self.kl_loss_weight
+
+        return (mse_loss_weight * self.mse_loss(x, x_reconstructed, **kw) +
+                x_loss_weight * self.x_loss(y, y_estimate, **kw) +
+                kl_loss_weight * self.kl_loss(mu_z, var_log_z, **kw)        
     
-    
+    def summary(self):
+
+        print('SUMMARY FUNCTION NOT IMPLEMENTED')
+                
     @property
     def beta(self):
         return self._beta
@@ -148,6 +164,7 @@ class ClassificationVariationalNetwork(nn.Module):
             dir = '.'
         
         def _plot(net):
+            print(f'PLOT HAS TO BE IMPLEMENTED WITH TB')
             # f_p = save_load.get_path(dir, net.name+suffix)
             # plot_model(net, to_file=f_p, show_shapes=show_shapes,
             #            show_layer_names=show_layer_names,
@@ -212,8 +229,9 @@ class ClassificationVariationalNetwork(nn.Module):
         save_load.save_json(param_dict, dir_name, 'params.json')
 
         if self.trained:
-            w_p = save_load.get_path(dir_name, 'weights.h5')
-            self.save_weights(w_p)
+            w_p = save_load.get_path(dir_name, 'state.pth')
+            torch.save(self.state_dict(), w_p)
+
 
     @classmethod        
     def load(cls,
@@ -225,9 +243,6 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         
         p_dict = save_load.load_json(dir_name, 'params.json')
-
-        ls = p_dict['layer_sizes']
-        print(ls)
 
         latent_sampling = p_dict.get('latent_sampling', 1)
         output_activation = p_dict.get('output_activation',
@@ -252,7 +267,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if vae.trained:
             w_p = save_load.get_path(dir_name, 'weights.h5')
-            vae.load_weights(w_p)
+            vae.load_state_dict(torch.load(w_p))
 
         return vae
 

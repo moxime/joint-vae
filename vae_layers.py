@@ -10,7 +10,7 @@ class Sampling(nn.Module):
         self.sampling_size = sampling_size
         super().__init__(*args, **kwargs)
 
-    def forward(self, z_mean, log_var):
+    def forward(self, z_mean, z_log_var):
         
         sampling_size = self.sampling_size
         size = z_log_var.size() + (sampling_size,)

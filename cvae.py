@@ -53,8 +53,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                      classifier_layer_sizes,
                                      activation=activation)
 
-        self.input_dims = [input_shape]
-        self.input_dims.append(num_labels)
+        self.input_dims = (input_shape, num_labels)
 
         self.beta = beta
             
@@ -76,40 +75,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.z_output = False
 
-    @property
-    def beta(self):
-        return self._beta
+    def forward(self, x, y=None):
+        """inputs: x, y where x, and y are tensors sharing first dim.
 
-    @beta.setter # decorator to change beta in the decoder if changed
-                 # in the vae.
-    def beta(self, value):
-        self._beta = value
-        self.encoder.beta = value
-        self.kl_loss_weight = 2 * value
-        self.x_entropy_loss_weight = 2 * value
-
-    @property
-    def kl_loss_weight(self):
-        return self._kl_loss_weight
-
-    @kl_loss_weight.setter
-    def kl_loss_weight(self, value):
-        self._kl_loss_weight = value
-        self.encoder.kl_loss_weight = value
-
-    def call(self, inputs):
         """
-        inputs: [x, y] where x, and y are tensors sharing first dim.
-        the loss is computed during call (no loss function is defined) 
-        """
-
-        x_input, y_input = inputs
-        joint_input = self.joint(inputs)
         
-        z_mean, z_log_var, z = self.encoder(joint_input)
-
+        z_mean, z_log_var, z = self.encoder(x, y)
         x_output = self.decoder(z)
-
         y_output = self.classifier(z)
 
         """The loss is computed with a mean with respect to the sampled Z.
@@ -133,15 +105,42 @@ class ClassificationVariationalNetwork(nn.Module):
  
         return out
 
-    def fit(self, *args, **kwargs):
-        """ Just the super().fit() 
-        """
+    def mse_loss(self, x_input, x_output, batch_sum=True):
 
-        h = super().fit(*args, **kwargs)
-        self.trained = True
-
-        return h
+        return F.mse_loss(x_input, x_output)
     
+    def kl_loss(self, mu, log_var, batch_sum=True):
+
+        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
+    def x_loss(self, y_input, y_output, batch_sum=True):
+
+        return F.cross_entropy(y, y_output)
+
+    def loss(
+    
+    
+    @property
+    def beta(self):
+        return self._beta
+
+    @beta.setter # decorator to change beta in the decoder if changed
+                 # in the vae.
+    def beta(self, value):
+        self._beta = value
+        self.encoder.beta = value
+        self.kl_loss_weight = 2 * value
+        self.x_entropy_loss_weight = 2 * value
+
+    @property
+    def kl_loss_weight(self):
+        return self._kl_loss_weight
+
+    @kl_loss_weight.setter
+    def kl_loss_weight(self, value):
+        self._kl_loss_weight = value
+        self.encoder.kl_loss_weight = value
+
     def plot_model(self, dir='.', suffix='.png', show_shapes=True,
                    show_layer_names=True):
 
@@ -149,10 +148,10 @@ class ClassificationVariationalNetwork(nn.Module):
             dir = '.'
         
         def _plot(net):
-            f_p = save_load.get_path(dir, net.name+suffix)
-            plot_model(net, to_file=f_p, show_shapes=show_shapes,
-                       show_layer_names=show_layer_names,
-                       expand_nested=True)
+            # f_p = save_load.get_path(dir, net.name+suffix)
+            # plot_model(net, to_file=f_p, show_shapes=show_shapes,
+            #            show_layer_names=show_layer_names,
+            #            expand_nested=True)
 
         _plot(self)
         _plot(self.encoder)

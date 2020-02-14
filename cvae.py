@@ -57,6 +57,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                      classifier_layer_sizes,
                                      activation=activation)
 
+        self.input_shape = input_shape
+        self.num_labels = num_labels
         self.input_dims = (input_shape, num_labels)
 
         self.beta = beta
@@ -84,27 +86,25 @@ class ClassificationVariationalNetwork(nn.Module):
         """inputs: x, y where x, and y are tensors sharing first dim.
 
         """
+        shape = x.size()
+        x_ = x.reshape(-1, np.prod(self.input_shape))
+        batch_size = x_.size()[0]
+        # print('**** x_:', x_.size()) 
+        y_onehot = torch.FloatTensor(batch_size, self.num_labels)
+        # print('**** y_:', y_onehot.size(), ' y:', y.size()) 
+        y_onehot.zero_()
+        y_onehot.scatter_(1, y.reshape(batch_size, 1), 1)
         
-        z_mean, z_log_var, z = self.encoder(x, y)
+        z_mean, z_log_var, z = self.encoder(x_, y_onehot)
         x_output = self.decoder(z)
+        print('**** x_out:', x_output.size()) 
         y_output = self.classifier(z)
 
         """The loss is computed with a mean with respect to the sampled Z.
 
         """
-        if self.mse_loss_weight > 0:
-            self.add_loss(self.mse_loss_weight *
-                          tf.reduce_mean(mse(x_input, x_output), axis=0))
-        if not self.z_output:
-            x_output = tf.reduce_mean(x_output, 0)
-
-        if self.x_entropy_loss_weight > 0:
-            self.add_loss(self.x_entropy_loss_weight *
-                          tf.reduce_mean(x_entropy(y_input, y_output), axis=0))
-        if not self.z_output:
-            y_output = tf.reduce_mean(y_output, 0)
-
-        out = (x_output, y_output)
+        
+        out = (x_output.reshape((self.latent_sampling,)+shape), y_output)
         if z_output:
             out += (z_mean, z_log_var, z)
  
@@ -120,7 +120,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def x_loss(self, y_input, y_output, batch_mean=True):
 
-        return F.cross_entropy(y, y_output)
+        print(f'*** y_input: {y_input.size()} out: {y_output.size()}') 
+        return F.cross_entropy(y_input, y_output)
 
     def loss(self, x, y,
              x_reconstructed, y_estimate,
@@ -142,7 +143,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         if optimizer is None: optimizer = self.optimizer
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                                   shuffle=True, num_workers=2)
         
         for epoch in range(epochs):
@@ -150,12 +151,12 @@ class ClassificationVariationalNetwork(nn.Module):
             for i, data in enumerate(trainloader, 0):
                 # get the inputs; data is a list of [inputs, labels]
                 x, y = data
-
+                # print('*****', x.size())
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
                 # forward + backward + optimize
-                x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
+                x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y=y)
                 loss = self.loss(x, y, x_reco, y_est, mu_z, log_var_z) 
                 loss.backward()
                 optimizer.step()
@@ -557,11 +558,13 @@ if __name__ == '__main__':
         data_loaded
     except(NameError):
         data_loaded = False
-    
+    data_loaded = False
     if not data_loaded:
         transform = transforms.Compose(
             [transforms.ToTensor(),
-             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+             transforms.Normalize(0.5, 0.5)])
+        
+        transform = transforms.ToTensor()
         trainset = torchvision.datasets.MNIST(root='./data', train=True,
                                                 download=True, transform=transform)
         data_loaded = True
@@ -576,7 +579,7 @@ if __name__ == '__main__':
 
     if rebuild:
         print('\n'*2+'*'*20+' BUILDING '+'*'*20+'\n'*2)
-        jvae = ClassificationVariationalNetwork(28**2, 10, e_,
+        jvae = ClassificationVariationalNetwork((1, 28, 28), 10, e_,
                                                latent_dim, d_, c_,
                                                latent_sampling=latent_sampling,
                                                beta=beta) 

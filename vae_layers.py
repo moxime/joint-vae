@@ -13,8 +13,11 @@ class Sampling(nn.Module):
     def forward(self, z_mean, z_log_var):
         
         sampling_size = self.sampling_size
-        size = z_log_var.size() + (sampling_size,)
+        size = (sampling_size,) + z_log_var.size()  
         epsilon = torch.randn(size)
+        print((f'***** z_log_var: {z_log_var.size()} '+
+               f'z_mean: {z_mean.size()} ' +
+               f'epsilon: {epsilon.size()}'))
         return z_mean + torch.exp(0.5 * z_log_var) * epsilon
 
  
@@ -34,9 +37,10 @@ class Encoder(nn.Module):
         self.kl_loss_weight = 2 * beta
 
         self.input_shape = input_shape
+        self.num_labels = num_labels
 
         self.dense_projs = nn.ModuleList()
-        input_dim = np.prod(input_shape)
+        input_dim = np.prod(input_shape) + num_labels
         for d in intermediate_dims:
             l_ = nn.Linear(input_dim, d)
             self.dense_projs.append(l_)
@@ -47,13 +51,14 @@ class Encoder(nn.Module):
 
         self.sampling = Sampling(latent_dim, sampling_size)
         
-    def forward(self, x):
-
+    def forward(self, x, y):
+        # print('*****', 'x:', x.shape, 'y:', y.shape)
+        u = torch.cat((x, y), dim=-1)
         for l in self.dense_projs:
-            x = l(x)
-        z_mean = self.dense_mean(x)
-        z_log_var = self.dense_log_var(x)
-        z = self.sampling((z_mean, z_log_var))
+            u = l(u)
+        z_mean = self.dense_mean(u)
+        z_log_var = self.dense_log_var(u)
+        z = self.sampling(z_mean, z_log_var)
         
         return z_mean, z_log_var, z
 
@@ -78,7 +83,7 @@ class Decoder(nn.Module):           #
             self.dense_layers.append(l_)
             input_dim = d
 
-        self.output_layer = nn.Linear(input_dim, reconstructed_dim)
+        self.output_layer = nn.Linear(input_dim, np.prod(reconstructed_dim))
       
     def forward(self, z):
         x = z
@@ -105,7 +110,7 @@ class Classifier(nn.Module):
         input_dim = latent_dim
         for d in intermediate_dims:
             l_ = nn.Linear(input_dim, d)
-            self.dense_projs.append(l_)
+            self.dense_layers.append(l_)
             input_dim = d
 
         self.output_layer = nn.Linear(input_dim, num_labels)

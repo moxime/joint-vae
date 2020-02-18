@@ -35,9 +35,9 @@ class Sampling(nn.Module):
         sampling_size = self.sampling_size
         size = (sampling_size,) + z_log_var.size()  
         epsilon = torch.randn(size)
-        print((f'***** z_log_var: {z_log_var.size()} '+
-               f'z_mean: {z_mean.size()} ' +
-               f'epsilon: {epsilon.size()}'))
+        # print((f'***** z_log_var: {z_log_var.size()} '+
+        #        f'z_mean: {z_mean.size()} ' +
+        #        f'epsilon: {epsilon.size()}'))
         return z_mean + torch.exp(0.5 * z_log_var) * epsilon
 
  
@@ -175,8 +175,8 @@ class Classifier(nn.Module):
         # print('decoder inputs', inputs.shape)
         for l in self.dense_layers:
             # print('l:', l)
-            u = self(l(u))
-        return self.output_layer(x).softmax(dim=-1)
+            u = self.activation(l(u))
+        return self.output_layer(u).softmax(dim=-1)
 
     
 if __name__ == '__main__':
@@ -196,16 +196,12 @@ if __name__ == '__main__':
         return z
 
 
-    m = torch.Tensor([2, 0])
-    s = torch.Tensor([-100, np.log(3**2)])
-
-    z = test_sampling((2,), 10000, m, s)
 
     input_dims = (4, 3)
     num_labels = 10
     latent_dim = 7
-    sampling = 12
-    N_ = (2, 3)
+    sampling = 11
+    N_ = (13, 3)
     
     encoder = Encoder(input_dims, num_labels, latent_dim=latent_dim,
                       sampling_size=sampling)
@@ -219,7 +215,23 @@ if __name__ == '__main__':
     
     mu, ls, z = encoder(x_, y_onehot)
 
+    print('x: ', x.shape)
+    print('x_: ', x_.shape)
+    print('y: ', y.shape)
+    print('y_1: ', y_onehot.shape)
+      
+    print('mu: ', mu.shape)
+    print('var: ', ls.shape)
+    print('z: ', z.shape)
+    
+    decoder = Decoder(latent_dim, input_dims)
 
-    
+    x_reco = decoder(z)
             
+    print('x_reco: ', x_reco.shape)
     
+    classifier = Classifier(latent_dim, num_labels)
+
+    y_est = classifier(z)
+    
+    print('y_est: ', y_est.shape)

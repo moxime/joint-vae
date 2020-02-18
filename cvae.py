@@ -83,26 +83,28 @@ class ClassificationVariationalNetwork(nn.Module):
         self.z_output = False
 
     def forward(self, x, y=None, z_output=True):
-        """inputs: x, y where x, and y are tensors sharing first dim.
+        """inputs: x, y where x, and y are tensors sharing first dims.
+
+        - x is of size N1x...xNgxD1x..xDt
+        - y is of size N1x....xNg(x1)
 
         """
         shape = x.size()
-        x_ = x.reshape_(-1, np.prod(self.input_shape))
-        batch_size = x_.size()[0]
-        # print('**** x_:', x_.size()) 
-        y_onehot = torch.LongTensor(batch_size, self.num_labels)
-        # print('**** y_:', y_onehot.size(), ' y:', y.size()) 
-        y_onehot.zero_()
-        y_onehot.scatter_(1, y.reshape(batch_size, 1), 1)
+        shape_ = shape[:-len(self.input_shape)] + (-1,)
+        x_ = x.reshape(*shape_) # x_ of size N1x...xNgxD with D=D1*...Dt
+        
+        y_onehot = onehot_encoding(y, self.num_labels).type(torch.Tensor)
+        # y_onehot of size N1x...xNgxC with
         
         z_mean, z_log_var, z = self.encoder(x_, y_onehot)
+        # z_mean and z_log_var of size N1...NgxK
+        # z of size LxN1x...xKgxK
+        
         x_output = self.decoder(z)
-        print('**** x_out:', x_output.size()) 
+        # x_output of size LxN1x...xKgxD
+        
         y_output = self.classifier(z)
-
-        """The loss is computed with a mean with respect to the sampled Z.
-
-        """
+        # y_output of size LxN1x...xKgxC
         
         out = (x_output.reshape((self.latent_sampling,)+shape), y_output)
         if z_output:
@@ -112,19 +114,24 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def mse_loss(self, x_input, x_output, batch_mean=True):
         """
-        x_input of size (N, D1, D2,..., DK) where N is batch size
-        x_output of size (L, N, D1, D2,..., DK) where L is sampling size, 
+        x_input of size (N1, .. ,Ng, D1, D2,..., Dt) 
+        x_output of size (L, N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
         """
-        
-        return F.mse_loss(x_input_, x_output)
+        if batch_mean:
+            return F.mse_loss(x_input, x_output)
+
+        # else compute means on L samples and last dim 
+        loss =  F.mse_loss(x_input, x_output, reduction='none')
+        dims = (0,) + x_input.shape[-len(self.input_shape):]
+
+        return loss.mean(dims)
     
     def kl_loss(self, mu, log_var, batch_mean=True):
 
-        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        return -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
 
     def x_loss(self, y_input, y_output, batch_mean=True):
 
-        print(f'*** y_input: {y_input.size()} out: {y_output.size()}') 
         return F.cross_entropy(y_output.log(), y_output,
                                reduction='none' if not batch_mean else 'mean')
 

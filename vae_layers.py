@@ -1,9 +1,13 @@
 import torch
 from torch import nn, optim
 import numpy as np
+from torch.nn import functional as F
 
 class Sampling(nn.Module):
-    """Uses (z_mean, z_log_var) to sample z, the latent vector."""
+    """Uses (z_mean, z_log_var) to sample z, the latent vector.
+    - z_mean and a_log_var have the same dimensions NxK
+    - the output z has dimensions LxNxK where L is the samoling size. 
+    """
 
     def __init__(self, latent_dim, sampling_size=1, **kwargs):
 
@@ -36,6 +40,10 @@ class Encoder(nn.Module):
         self.beta = beta
         self.kl_loss_weight = 2 * beta
 
+        if activation == 'relu':
+            self.activation = F.relu
+        else raise ValueError(f'{activation} is not implemented in {self.__class__})')
+
         self.input_shape = input_shape
         self.num_labels = num_labels
 
@@ -52,11 +60,15 @@ class Encoder(nn.Module):
         self.sampling = Sampling(latent_dim, sampling_size)
         
     def forward(self, x, y):
-        """ x input 
+        """ 
+        - x input of size NxD 
+        - y of size Nx1
+        - output of size (NxK, NxK, LxNxK)
+        """
         # print('*****', 'x:', x.shape, 'y:', y.shape)
         u = torch.cat((x, y), dim=-1)
         for l in self.dense_projs:
-            u = l(u)
+            u = self.activation(l(u))
         z_mean = self.dense_mean(u)
         z_log_var = self.dense_log_var(u)
         z = self.sampling(z_mean, z_log_var)
@@ -65,7 +77,10 @@ class Encoder(nn.Module):
 
           
 class Decoder(nn.Module):           # 
-
+    """
+    - input: N1 x N2 x ... Ng x K
+    - output : N1 x... x Ng x D where D is product of dims of reconstructed dims)
+    """
     def __init__(self, 
                  latent_dim, reconstructed_dim,
                  intermediate_dims=[64],
@@ -77,6 +92,14 @@ class Decoder(nn.Module):           #
         super(Decoder, self).__init__(**kwargs)
         self.name = name
 
+        if activation == 'relu':
+            self.activation = F.relu
+        else raise ValueError(f'{activation} is not implemented in {self.__class__})')
+
+        if output_activation == 'sigmoid':
+            self.output_activation = F.sigmoid
+        else raise ValueError(f'{output_activation} is not implemented in {self.__class__})')
+
         self.dense_layers = nn.ModuleList()
         input_dim = latent_dim
         for d in intermediate_dims:
@@ -87,12 +110,12 @@ class Decoder(nn.Module):           #
         self.output_layer = nn.Linear(input_dim, np.prod(reconstructed_dim))
       
     def forward(self, z):
-        x = z
+        h = z
         # print('decoder inputs', inputs.shape)
         for l in self.dense_layers:
             # print('l:', l)
-            x = l(x)
-        return self.output_layer(x)
+            h = self.activation(l(h))
+        return self.output_activation(self.output_layer(h))
             
 
 class Classifier(nn.Module):
@@ -107,6 +130,10 @@ class Classifier(nn.Module):
         super().__init__(**kwargs)
         self.name = name
         
+        if activation == 'relu':
+            self.activation = F.relu
+        else raise ValueError(f'{output_activation} is not implemented in {self.__class__})')
+
         self.dense_layers = nn.ModuleList()
         input_dim = latent_dim
         for d in intermediate_dims:
@@ -117,9 +144,9 @@ class Classifier(nn.Module):
         self.output_layer = nn.Linear(input_dim, num_labels)
       
     def forward(self, z):
-        x = z
+        u = z
         # print('decoder inputs', inputs.shape)
         for l in self.dense_layers:
             # print('l:', l)
-            x = l(x)
-        return self.output_layer(x)
+            u = self(l(u))
+        return self.output_layer(x).softmax(dim=-1)

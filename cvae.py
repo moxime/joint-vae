@@ -126,7 +126,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         print(f'*** y_input: {y_input.size()} out: {y_output.size()}') 
         return F.cross_entropy(y_output.log(), y_output,
-                               reduction='none' if not batch_mean )
+                               reduction='none' if not batch_mean else 'mean')
 
     def loss(self, x, y,
              x_reconstructed, y_estimate,

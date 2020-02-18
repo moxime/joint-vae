@@ -3,10 +3,26 @@ from torch import nn, optim
 import numpy as np
 from torch.nn import functional as F
 
+
+def onehot_encoding(y, C):
+
+    s_y = y.size()
+    if s_y[-1] == 1:
+        s_y = s_y[:-1]
+    s_ = s_y + (1,)
+    s = s_y + (C,)
+        
+    y_onehot = torch.LongTensor(s)
+    y_onehot.zero_()
+    y_onehot.scatter_(-1, y.resize_(s_), 1)
+
+    return y_onehot
+
+
 class Sampling(nn.Module):
     """Uses (z_mean, z_log_var) to sample z, the latent vector.
-    - z_mean and a_log_var have the same dimensions NxK
-    - the output z has dimensions LxNxK where L is the samoling size. 
+    - z_mean and a_log_var have the same dimensions N1xN2x...xNgxK
+    - the output z has dimensions LxN1x...xNgxK where L is the samoling size. 
     """
 
     def __init__(self, latent_dim, sampling_size=1, **kwargs):
@@ -42,7 +58,8 @@ class Encoder(nn.Module):
 
         if activation == 'relu':
             self.activation = F.relu
-        else raise ValueError(f'{activation} is not implemented in {self.__class__})')
+        else:
+            raise ValueError(f'{activation} is not implemented in {self.__class__})')
 
         self.input_shape = input_shape
         self.num_labels = num_labels
@@ -61,9 +78,9 @@ class Encoder(nn.Module):
         
     def forward(self, x, y):
         """ 
-        - x input of size NxD 
-        - y of size Nx1
-        - output of size (NxK, NxK, LxNxK)
+        - x input of size N1xN2x...xNgxD 
+        - y of size N1xN2x...xNgx1
+        - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """
         # print('*****', 'x:', x.shape, 'y:', y.shape)
         u = torch.cat((x, y), dim=-1)
@@ -94,11 +111,13 @@ class Decoder(nn.Module):           #
 
         if activation == 'relu':
             self.activation = F.relu
-        else raise ValueError(f'{activation} is not implemented in {self.__class__})')
+        else:
+            raise ValueError(f'{activation} is not implemented in {self.__class__})')
 
         if output_activation == 'sigmoid':
             self.output_activation = F.sigmoid
-        else raise ValueError(f'{output_activation} is not implemented in {self.__class__})')
+        else:
+            raise ValueError(f'{output_activation} is not implemented in {self.__class__})')
 
         self.dense_layers = nn.ModuleList()
         input_dim = latent_dim
@@ -119,7 +138,14 @@ class Decoder(nn.Module):           #
             
 
 class Classifier(nn.Module):
+    """Classifer
 
+    - input: N1 x N2 x ... Ng x K
+
+    - output : N1 x... x Ng x C where C is the number of class
+
+    """
+ 
     def __init__(self, latent_dim,
                  num_labels,
                  intermediate_dims=[],
@@ -132,7 +158,8 @@ class Classifier(nn.Module):
         
         if activation == 'relu':
             self.activation = F.relu
-        else raise ValueError(f'{output_activation} is not implemented in {self.__class__})')
+        else:
+            raise ValueError(f'{output_activation} is not implemented in {self.__class__})')
 
         self.dense_layers = nn.ModuleList()
         input_dim = latent_dim
@@ -150,3 +177,49 @@ class Classifier(nn.Module):
             # print('l:', l)
             u = self(l(u))
         return self.output_layer(x).softmax(dim=-1)
+
+    
+if __name__ == '__main__':
+
+
+    def test_sampling(z_dims, latent_size, z_mean=None, z_log_var= None):
+
+        if z_mean is None:
+            z_mean = torch.randn(z_dims)
+        if z_log_var is None:
+            z_log_var = torch.randn(z_dims)
+
+        sampling_layer = Sampling(1, latent_size)
+
+        z = sampling_layer(z_mean, z_log_var)
+        print(f'z size: {z.size()}')
+        return z
+
+
+    m = torch.Tensor([2, 0])
+    s = torch.Tensor([-100, np.log(3**2)])
+
+    z = test_sampling((2,), 10000, m, s)
+
+    input_dims = (4, 3)
+    num_labels = 10
+    latent_dim = 7
+    sampling = 12
+    N_ = (2, 3)
+    
+    encoder = Encoder(input_dims, num_labels, latent_dim=latent_dim,
+                      sampling_size=sampling)
+
+    x = torch.randn(*N_, *input_dims)
+    s_ = x.shape[:-len(input_dims)] + (-1,)
+    x_ = x.reshape(*s_)
+    y = torch.randint(0, num_labels, N_)
+
+    y_onehot = onehot_encoding(y, num_labels).type(torch.Tensor)
+    
+    mu, ls, z = encoder(x_, y_onehot)
+
+
+    
+            
+    

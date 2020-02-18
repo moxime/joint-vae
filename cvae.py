@@ -9,7 +9,7 @@ import torch.optim as optim
 import torchvision
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-from vae_layers import Encoder, Decoder, Classifier
+from vae_layers import Encoder, Decoder, Classifier, onehot_encoding
 
 
 import data.generate as dg
@@ -87,10 +87,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         shape = x.size()
-        x_ = x.reshape(-1, np.prod(self.input_shape))
+        x_ = x.reshape_(-1, np.prod(self.input_shape))
         batch_size = x_.size()[0]
         # print('**** x_:', x_.size()) 
-        y_onehot = torch.FloatTensor(batch_size, self.num_labels)
+        y_onehot = torch.LongTensor(batch_size, self.num_labels)
         # print('**** y_:', y_onehot.size(), ' y:', y.size()) 
         y_onehot.zero_()
         y_onehot.scatter_(1, y.reshape(batch_size, 1), 1)

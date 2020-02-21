@@ -6,14 +6,13 @@ from torch.nn import functional as F
 
 def onehot_encoding(y, C):
 
-    s_y = y.size()
-    if s_y[-1] == 1:
-        s_y = s_y[:-1]
+    s_y = y.squeeze().size()
     s_ = s_y + (1,)
     s = s_y + (C,)
-        
-    y_onehot = torch.LongTensor(s)
-    y_onehot.zero_()
+
+    y_onehot = torch.zeros(s, device=y.device)
+    # y_onehot = torch.LongTensor(s)
+    # y_onehot.zero_()
     y_onehot.scatter_(-1, y.resize_(s_), 1)
 
     return y_onehot
@@ -34,7 +33,7 @@ class Sampling(nn.Module):
         
         sampling_size = self.sampling_size
         size = (sampling_size,) + z_log_var.size()  
-        epsilon = torch.randn(size)
+        epsilon = torch.randn(size, device=z_mean.device)
         # print((f'***** z_log_var: {z_log_var.size()} '+
         #        f'z_mean: {z_mean.size()} ' +
         #        f'epsilon: {epsilon.size()}'))
@@ -82,7 +81,7 @@ class Encoder(nn.Module):
         - y of size N1xN2x...xNgx1
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """
-        # print('*****', 'x:', x.shape, 'y:', y.shape)
+        # print('*****', 'x:', x.device, 'y:', y.device)
         u = torch.cat((x, y), dim=-1)
         for l in self.dense_projs:
             u = self.activation(l(u))

@@ -82,7 +82,18 @@ class Encoder(nn.Module):
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """
         # print('*****', 'x:', x.device, 'y:', y.device)
-        u = torch.cat((x, y), dim=-1)
+        # u = torch.cat((x, y), dim=-1)
+        # cat not working
+        D = x.shape[-1]
+        C = y.shape[-1]
+        s = x.shape[:-1] + (D + C, )
+        N = np.prod(s[:-1])
+        
+        u = torch.zeros(N, D + C, device=x.device)
+        u[:, :D] = x.reshape(N, D)
+        u[:, D:] = y.reshape(N, C)
+        u.resize_(s)
+        
         for l in self.dense_projs:
             u = self.activation(l(u))
         z_mean = self.dense_mean(u)
@@ -181,6 +192,8 @@ class Classifier(nn.Module):
 if __name__ == '__main__':
 
 
+    
+
     def test_sampling(z_dims, latent_size, z_mean=None, z_log_var= None):
 
         if z_mean is None:
@@ -195,7 +208,6 @@ if __name__ == '__main__':
         return z
 
 
-
     input_dims = (4, 3)
     num_labels = 10
     latent_dim = 7
@@ -204,7 +216,7 @@ if __name__ == '__main__':
     
     encoder = Encoder(input_dims, num_labels, latent_dim=latent_dim,
                       sampling_size=sampling)
-
+    
     x = torch.randn(*N_, *input_dims)
     s_ = x.shape[:-len(input_dims)] + (-1,)
     x_ = x.reshape(*s_)

@@ -3,9 +3,9 @@ import numpy as np
 
 
 def print_epoch(i, per_epoch, epoch, epochs, loss,
-                snake='=<', blinker='o ', line_length=70, info=''):
+                snake='=<', blinker='o ', line_length=60, info=''):
 
-    steps = i * line_length // per_epoch
+    steps = i * (line_length - len(info)) // per_epoch
     K = int(np.log10(epochs))+1
     Ki = int(np.log10(per_epoch))+1
 
@@ -17,7 +17,7 @@ def print_epoch(i, per_epoch, epoch, epochs, loss,
         print()
     else:
         pass
-        print(f' ({i:{Ki}d}/{per_epoch})', end='')
+        print(f' (batch {i:{Ki}d}/{per_epoch})', end='')
         # print(f' {blinker[i%len(blinker)]}', end='')
 
 if __name__ == '__main__':
@@ -31,7 +31,7 @@ if __name__ == '__main__':
         for i in range(per_epoch):
 
             l = np.random.randn()
-            time.sleep(0.5)
+            time.sleep(0.05)
             print_epoch(i, per_epoch, epoch, epochs, l)
 
 

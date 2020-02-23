@@ -69,8 +69,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                  decoder_layer_sizes, classifier_layer_sizes]
 
         self.trained = False
-        self.optimizer = optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
-
+        # self.optimizer = optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
+        self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
+        
         self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
         self.encoder_layer_sizes = encoder_layer_sizes
@@ -95,7 +96,7 @@ class ClassificationVariationalNetwork(nn.Module):
         x_ = x.reshape(*shape_) # x_ of size N1x...xNgxD with D=D1*...Dt
         
         y_onehot = onehot_encoding(y, self.num_labels).float()
-        print(f'*** y_onehot: {y_onehot.device} ***')
+        # print(f'*** y_onehot: {y_onehot.device} ***')
         # y_onehot of size N1x...xNgxC with
         
         z_mean, z_log_var, z = self.encoder(x_, y_onehot)
@@ -153,11 +154,11 @@ class ClassificationVariationalNetwork(nn.Module):
         out_perm_dims = (0,) + (-1,) + dims[1:-1] # from LxN1...xNgxC to LxCxN1...xNgxC
         
         if batch_mean:
-            return F.cross_entropy(y_output.permute(out_perm_dims).log(),
-                                   y_in_repeated)
+            return F.nll_loss(y_output.permute(out_perm_dims).log(),
+                              y_in_repeated)
 
-        loss = F.cross_entropy(y_output.permute(out_perm_dims).log(),
-                               y_in_repeated, reduction='none')
+        loss = F.nll_loss(y_output.permute(out_perm_dims).log(),
+                          y_in_repeated, reduction='none')
         
         return loss.mean(0)
 
@@ -186,18 +187,26 @@ class ClassificationVariationalNetwork(nn.Module):
             
         if optimizer is None: optimizer = self.optimizer
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                  shuffle=True, num_workers=8)
+                                                  shuffle=True, num_workers=1)
         dataset_size = trainset.data.shape[0]
         per_epoch = dataset_size // batch_size
         for epoch in range(epochs):
-            batch_loss = 0.0
+            data = next(iter(trainloader))
+            x, y = data[0].to(device), data[1].to(device)
+            x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
+            kl_loss = self.kl_loss(mu_z, log_var_z).item()
+            x_loss = self.x_loss(y, y_est).item()
+            mse_loss = self.mse_loss(x, x_reco).item()
+            print(f's: {mse_loss:.1e} kl: {kl_loss:.1e} x: {x_loss:.1e}')
+            batch_loss_f = 0.0            
             t_i = time.time()
             for i, data in enumerate(trainloader, 0):
                 t_per_i = time.time() - t_i
                 info = f'{1e6*t_per_i/batch_size:.0f} us per sample'
                 t_i = time.time()
+
                 print_epoch(i, per_epoch, epoch, epochs,
-                            batch_loss, info=info)
+                            batch_loss_f, info=info)
                 # get the inputs; data is a list of [inputs, labels]
                 x, y = data[0].to(device), data[1].to(device)
                 # zero the parameter gradients
@@ -209,6 +218,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_loss = self.loss(x, y, x_reco, y_est, mu_z, log_var_z) 
                 batch_loss.backward()
                 optimizer.step()
+                batch_loss_f = batch_loss.item()
 
                 # print statistics
                 # running_loss += loss.item()
@@ -218,6 +228,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 #     running_loss = 0.0
 
         print('Finished Training')
+        self.trained = True
 
                 
     def summary(self):
@@ -600,9 +611,9 @@ if __name__ == '__main__':
     d_.reverse()
     c_ = [2]
 
-    beta = 1e-4
+    beta = 1e-5
     latent_dim = 20
-    latent_sampling = 40
+    latent_sampling = 100
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
@@ -648,6 +659,8 @@ if __name__ == '__main__':
     refit = False
     # refit = True
 
+    jvae.to(device)
+    
     if not jvae.trained or refit:
         jvae.train(trainset,
                    epochs=epochs,
@@ -655,4 +668,4 @@ if __name__ == '__main__':
                    device=device)
     
     if save_dir is not None:
-        vae.save(save_dir)
+        jvae.save(save_dir)

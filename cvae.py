@@ -19,7 +19,8 @@ from utils.print_log import print_epoch
 import time
 
 DEFAULT_ACTIVATION = 'relu'
-DEFAULT_OUTPUT_ACTIVATION = 'sigmoid'
+# DEFAULT_OUTPUT_ACTIVATION = 'sigmoid'
+DEFAULT_OUTPUT_ACTIVATION = 'linear'
 DEFAULT_LATENT_SAMPLING = 1000
 
 
@@ -69,7 +70,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                  decoder_layer_sizes, classifier_layer_sizes]
 
         self.trained = False
-        # self.optimizer = optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
+        # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
         
         self.latent_dim = latent_dim
@@ -121,20 +122,33 @@ class ClassificationVariationalNetwork(nn.Module):
         x_output of size (L, N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
         """
 
+        assert (x_input.dim() + 1 == x_output.dim() or
+                (x_input.dim() == x_output.dim() and x_input.shape[0] == 1))
+
+        repeated_dims = (x_output.shape[0],)
+        for _ in x_output.shape[1:]:
+            repeated_dims += (1,)
+        
+        if x_input.dim() + 1 == x_output.dim():
+            x_input_repeated = x_input.reshape((1,) + x_input.shape).repeat(repeated_dims)
+        else:
+            x_input_repeated = x_input.repeat(repeated_dims)
+            
         if batch_mean:
-            return F.mse_loss(x_output, x_input)
+            return F.mse_loss(x_output, x_input_repeated)
 
         batch_ndim = x_input.dim()
         dims = tuple(_ for _ in batch_ndim)
-        mean_dims = dims[:-len(self.input_shape)]
+        mean_dims = (0,) + dims[:-len(self.input_shape)]
 
-        return F.mse_loss(x_input, x_output, reduction='none').mean(mean_dims)
+        return F.mse_loss(x_input_repeated, x_output, reduction='none').mean(mean_dims)
     
     def kl_loss(self, mu, log_var, batch_mean=True):
     
         loss = -0.5 * (1 + log_var - mu.pow(2) - log_var.exp()).sum(-1)
 
-        if batch_mean: return loss.mean()
+        if batch_mean:
+            return loss.mean()
 
         return loss
 
@@ -178,7 +192,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 kl_loss_weight * self.kl_loss(mu_z, log_var_z, **kw))        
 
     def train(self, trainset, optimizer=None, epochs=50,
-              batch_size=64, device=None, verbose=1):
+              batch_size=64, device=None, x_loss_weight=None,
+              kl_loss_weight=None , verbose=1):
         """
 
         """
@@ -187,26 +202,34 @@ class ClassificationVariationalNetwork(nn.Module):
             
         if optimizer is None: optimizer = self.optimizer
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                  shuffle=True, num_workers=1)
+                                                  shuffle=True, num_workers=0)
         dataset_size = trainset.data.shape[0]
         per_epoch = dataset_size // batch_size
         for epoch in range(epochs):
+            t_start_epoch = time.time()
+            epoch_total_loss = 0.0            
             data = next(iter(trainloader))
             x, y = data[0].to(device), data[1].to(device)
             x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
             kl_loss = self.kl_loss(mu_z, log_var_z).item()
             x_loss = self.x_loss(y, y_est).item()
             mse_loss = self.mse_loss(x, x_reco).item()
-            print(f's: {mse_loss:.1e} kl: {kl_loss:.1e} x: {x_loss:.1e}')
-            batch_loss_f = 0.0            
+            first_batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
+                                         log_var_z,
+                                         kl_loss_weight=kl_loss_weight,
+                                         x_loss_weight=x_loss_weight).item()
+            print(f'epoch {epoch + 1:2d}/{epochs} 1st batch ' +
+                  f'mse: {mse_loss:.2e} kl: {kl_loss:.2e} ' +
+                  f'x: {x_loss:.2e} L: {first_batch_loss:.2e}')
             t_i = time.time()
             for i, data in enumerate(trainloader, 0):
-                t_per_i = time.time() - t_i
-                info = f'{1e6*t_per_i/batch_size:.0f} us per sample'
-                t_i = time.time()
-
+                tick = time.time()
+                t_per_i = tick - t_i
+                t_epoch = tick - t_start_epoch
+                info = f'{1e6 * t_epoch/(i * batch_size + 1e-100):.0f} us per sample'
+                t_i = tick
                 print_epoch(i, per_epoch, epoch, epochs,
-                            batch_loss_f, info=info)
+                            epoch_total_loss / (i + 1e-100), info=info)
                 # get the inputs; data is a list of [inputs, labels]
                 x, y = data[0].to(device), data[1].to(device)
                 # zero the parameter gradients
@@ -215,10 +238,13 @@ class ClassificationVariationalNetwork(nn.Module):
                 # forward + backward + optimize
                 x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
 
-                batch_loss = self.loss(x, y, x_reco, y_est, mu_z, log_var_z) 
+                batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
+                                       log_var_z,
+                                       x_loss_weight=x_loss_weight,
+                                       kl_loss_weight=kl_loss_weight) 
                 batch_loss.backward()
                 optimizer.step()
-                batch_loss_f = batch_loss.item()
+                epoch_total_loss += batch_loss.item()
 
                 # print statistics
                 # running_loss += loss.item()
@@ -605,33 +631,43 @@ if __name__ == '__main__':
     rebuild = load_dir is None
     # rebuild = True
     
-    e_ = [1024, 1024, 512, 256]
+    e_ = [512, 512, 256]
     # e_ = []
     d_ = e_.copy()
     d_.reverse()
-    c_ = [2]
+    c_ = [20, 10]
 
-    beta = 1e-5
-    latent_dim = 20
+    beta = 1e-4
+    latent_dim = 40
     latent_sampling = 100
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
-    try:
-        data_loaded
-    except(NameError):
-        data_loaded = False
-    # data_loaded = False
+    # try:
+    #     data_loaded
+    # except(NameError):
+    #     data_loaded = False
+
+    
+    data_loaded = False
     if not data_loaded:
-        transform = transforms.Compose(
+        mnist_transform = transforms.Compose(
             [transforms.ToTensor(),
-             transforms.Normalize((0.5,), (0.5,))])
+             transforms.Normalize((0.1307,), (0.3081,))])
+        #
+        # mnist_transform = transforms.Compose(
+        #     [transforms.ToTensor(),
+        #      transforms.Lambda(lambda x: x / 255.0)])
+
+        
         
         # transform = transforms.ToTensor()
-        trainset = torchvision.datasets.MNIST(root='./data', train=True,
-                                                download=True, transform=transform)
+        trainset = torchvision.datasets.MNIST(root='./data',
+                                              train=True,
+                                              download=True,
+                                              transform=mnist_transform)
         data_loaded = True
-
+        
     if not rebuild:
         try:
             vae = ClassificationVariationalNetwork.load(load_dir)
@@ -651,10 +687,16 @@ if __name__ == '__main__':
 
         
     
-    print('*'*20 + f' BUILT in {(time.time() -t) * 1e6} us  ' + '*'*20)
+    print('*'*20 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*20)
     
-    epochs = 10
-    batch_size = 200
+    epochs = 30
+    batch_size = 500
+
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                      shuffle=True, num_workers=0)
+
+    batch = next(iter(trainloader))
+    x, y = batch[0].to(device), batch[1].to(device)
     
     refit = False
     # refit = True
@@ -665,7 +707,9 @@ if __name__ == '__main__':
         jvae.train(trainset,
                    epochs=epochs,
                    batch_size=batch_size,
-                   device=device)
+                   device=device,
+                   x_loss_weight=None,
+                   kl_loss_weight=None)
     
     if save_dir is not None:
         jvae.save(save_dir)

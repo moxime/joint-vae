@@ -17,6 +17,8 @@ def onehot_encoding(y, C):
 
     return y_onehot
 
+def _no_activation(a):
+    return a
 
 class Sampling(nn.Module):
     """Uses (z_mean, z_log_var) to sample z, the latent vector.
@@ -63,6 +65,7 @@ class Encoder(nn.Module):
         self.input_shape = input_shape
         self.num_labels = num_labels
 
+        
         self.dense_projs = nn.ModuleList()
         input_dim = np.prod(input_shape) + num_labels
         for d in intermediate_dims:
@@ -93,7 +96,7 @@ class Encoder(nn.Module):
         u[:, :D] = x.reshape(N, D)
         u[:, D:] = y.reshape(N, C)
         u.resize_(s)
-        
+
         for l in self.dense_projs:
             u = self.activation(l(u))
         z_mean = self.dense_mean(u)
@@ -125,7 +128,9 @@ class Decoder(nn.Module):           #
             raise ValueError(f'{activation} is not implemented in {self.__class__})')
 
         if output_activation == 'sigmoid':
-            self.output_activation = F.sigmoid
+            self.output_activation = torch.sigmoid
+        elif output_activation == 'linear':
+            self.output_activation = _no_activation
         else:
             raise ValueError(f'{output_activation} is not implemented in {self.__class__})')
 

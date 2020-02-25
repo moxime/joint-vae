@@ -175,7 +175,7 @@ class ClassificationVariationalNetwork(nn.Module):
                           y_in_repeated, reduction='none')
         
         return loss.mean(0)
-
+    
     def loss(self, x, y,
              x_reconstructed, y_estimate,
              mu_z, log_var_z,
@@ -218,8 +218,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                          log_var_z,
                                          kl_loss_weight=kl_loss_weight,
                                          x_loss_weight=x_loss_weight).item()
-            print(f'epoch {epoch + 1:2d}/{epochs} 1st batch ' +
-                  f'mse: {mse_loss:.2e} kl: {kl_loss:.2e} ' +
+            print(f'epoch {epoch + 1:2d}/{epochs} 1st batch ' + 
+                  f'mse: {mse_loss:.2e} kl: {kl_loss:.2e} ' + 
                   f'x: {x_loss:.2e} L: {first_batch_loss:.2e}')
             t_i = time.time()
             for i, data in enumerate(trainloader, 0):
@@ -440,28 +440,31 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return losses
 
-    def evaluate(self, x, batch_size=None, **kw):
-        """for x an array of n inputs (first dim of the array) returns a n*num_labels
-        array of losses
-
+    def evaluate(self, x, **kw):
         """
-        # print(f'x.shape={x.shape}')
-        
-        c = self.input_dims[-1] # num of classes
-        n, d = np.atleast_2d(x).shape # num of inputs, dim of input
-        x_ = np.vstack([x[None]] * c).reshape(n * c, d)
+        x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
+        x_output of size (L, N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
+        """
 
-        i_c = np.eye(c)
-        y_ = np.concatenate([np.expand_dims(i_c, axis=1)] * n,
-                            axis=1).reshape( n * c, c)
+        # build a C* N1* N2* Ng *D1 * Dt tensor of input X
+
+        C = self.num_labels
+        s_x = x.shape
+        if s_x[0] != 1:
+            s_x = (1, ) + s_x
+        s_x_ = (C, )  + s_x[1:] 
+
+        x_ = x.reshape(s_x).repeat(s_x_)
+
+        # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
+
+        s_y = s_x_[:-len(self.input_shape)]
         
-        # print(f'n: {n} x_:{x_.shape}, y_:{y_.shape}\n')
-        if batch_size is None:
-            new_batch_size = c * n
-        else:
-            new_batch_size = c * batch_size
-        losses = super().evaluate([x_, y_], batch_size=new_batch_size, **kw)
-        return losses.reshape(-1, c, order='F').squeeze()
+        y = torch.zeros(s_y)
+        for c in range(C):
+            y[c] = c # maybe a way to accelrate this ?
+
+        return self.forward(x_, y_)
 
     def log_pxy(self, x, normalize=True, losses=None, **kw):
 
@@ -689,7 +692,7 @@ if __name__ == '__main__':
     
     print('*'*20 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*20)
     
-    epochs = 30
+    epochs = 1
     batch_size = 500
 
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,

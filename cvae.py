@@ -116,42 +116,6 @@ class ClassificationVariationalNetwork(nn.Module):
  
         return out
 
-    def mse_loss(self, x_input, x_output, batch_mean=True):
-        """
-        x_input of size (N1, .. ,Ng, D1, D2,..., Dt) 
-        x_output of size (L, N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
-        """
-
-        assert (x_input.dim() + 1 == x_output.dim() or
-                (x_input.dim() == x_output.dim() and x_input.shape[0] == 1))
-
-        repeated_dims = (x_output.shape[0],)
-        for _ in x_output.shape[1:]:
-            repeated_dims += (1,)
-        
-        if x_input.dim() + 1 == x_output.dim():
-            x_input_repeated = x_input.reshape((1,) + x_input.shape).repeat(repeated_dims)
-        else:
-            x_input_repeated = x_input.repeat(repeated_dims)
-            
-        if batch_mean:
-            return F.mse_loss(x_output, x_input_repeated)
-
-        batch_ndim = x_input.dim()
-        dims = tuple(_ for _ in batch_ndim)
-        mean_dims = (0,) + dims[:-len(self.input_shape)]
-
-        return F.mse_loss(x_input_repeated, x_output, reduction='none').mean(mean_dims)
-    
-    def kl_loss(self, mu, log_var, batch_mean=True):
-    
-        loss = -0.5 * (1 + log_var - mu.pow(2) - log_var.exp()).sum(-1)
-
-        if batch_mean:
-            return loss.mean()
-
-        return loss
-
     def x_loss(self, y_input, y_output, batch_mean=True):
         """
 

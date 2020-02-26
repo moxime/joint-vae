@@ -60,7 +60,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                      classifier_layer_sizes,
                                      activation=activation)
 
-        self.input_shape = input_shape
+        self.input_shape = tuple(input_shape)
         self.num_labels = num_labels
         self.input_dims = (input_shape, num_labels)
 
@@ -93,7 +93,7 @@ class ClassificationVariationalNetwork(nn.Module):
         - y is of size N1x....xNg(x1)
 
         """
-        shape = x.size()
+        shape = x.shape
         shape_ = shape[:-len(self.input_shape)] + (-1,)
         x_ = x.reshape(*shape_) # x_ of size N1x...xNgxD with D=D1*...Dt
         
@@ -197,7 +197,6 @@ class ClassificationVariationalNetwork(nn.Module):
         print('Finished Training')
         self.trained = True
 
-                
     def summary(self):
 
         print('SUMMARY FUNCTION NOT IMPLEMENTED')
@@ -223,6 +222,15 @@ class ClassificationVariationalNetwork(nn.Module):
         self._kl_loss_weight = value
         self.encoder.kl_loss_weight = value
 
+    @property
+    def latent_sampling(self):
+        return self._latent_sampling
+
+    @latent_sampling.setter
+    def latent_sampling(self, v):
+        self._latent_sampling = v
+        self.encoder.sampling_size = v
+
     def plot_model(self, dir='.', suffix='.png', show_shapes=True,
                    show_layer_names=True):
 
@@ -246,9 +254,11 @@ class ClassificationVariationalNetwork(nn.Module):
         out = True
 
         out = out and self.activation == other_net.activation
+        print(out)
         out = out and self._sizes_of_layers == other_net._sizes_of_layers
+        print(out)
         out = out and self.latent_sampling == other_net.latent_sampling
-        
+        print(out)
         return out
 
     def print_architecture(self, beta=False):
@@ -313,7 +323,10 @@ class ClassificationVariationalNetwork(nn.Module):
         latent_sampling = p_dict.get('latent_sampling', 1)
         output_activation = p_dict.get('output_activation',
                                        default_output_activation)
-        
+
+        ls = p_dict['layer_sizes']
+        # print(ls)
+
         vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4], ls[5],
                   latent_sampling=latent_sampling,
                   activation=p_dict['activation'],
@@ -323,16 +336,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         vae.trained = p_dict['trained']
 
-        _input = np.ndarray((1, ls[0]))
-
-        # call the network once to instantiate it
-        if ls[1] is not None:
-            _input = [_input, np.ndarray((1, ls[1]))]
-        _ = vae(_input)
-        vae.summary()
-
         if vae.trained:
-            w_p = save_load.get_path(dir_name, 'weights.h5')
+            w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))
 
         return vae
@@ -384,7 +389,10 @@ class ClassificationVariationalNetwork(nn.Module):
     def evaluate(self, x, **kw):
         """
         x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
-        x_output of size (L, N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
+
+        creates a x of size C * N1, ..., D1, ...., Dt)
+        and a y of size C * N1 * ... * Ng
+
         """
 
         # build a C* N1* N2* Ng *D1 * Dt tensor of input X
@@ -393,19 +401,20 @@ class ClassificationVariationalNetwork(nn.Module):
         s_x = x.shape
         if s_x[0] != 1:
             s_x = (1, ) + s_x
-        s_x_ = (C, )  + s_x[1:] 
+        s_x_ = (C, )  + tuple([1 for _ in s_x[1:]]) 
 
         x_ = x.reshape(s_x).repeat(s_x_)
 
         # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
 
-        s_y = s_x_[:-len(self.input_shape)]
+        s_y = x_.shape[:-len(self.input_shape)]
         
-        y = torch.zeros(s_y)
+        y = torch.zeros(s_y, requires_grad=False, dtype=int)
         for c in range(C):
-            y[c] = c # maybe a way to accelrate this ?
+            y[c] = c # maybe a way to accelerate this ?
 
-        return self.forward(x_, y_)
+        # print('*** cva l. 407', x_.shape, x_.dtype, y.shape, s_y, y.dtype)
+        return self.forward(x_, y)
 
     def log_pxy(self, x, normalize=True, losses=None, **kw):
 
@@ -612,11 +621,14 @@ if __name__ == '__main__':
         data_loaded = True
         
     if not rebuild:
+        print('*** LOADING... ***')
         try:
-            vae = ClassificationVariationalNetwork.load(load_dir)
-            print('Is loaded. Is trained:', vae.trained)
-        except(FileNotFoundError, NameError):
-            print('Not loaded, rebuilding')
+            jvae = ClassificationVariationalNetwork.load(load_dir)
+            print(f'*** NETWORK LOADED',
+                  f'{"AND" if jvae.trained else "BUT NOT"}',
+                  'TRAINED ***')
+        except(FileNotFoundError, NameError) as err:
+            print(f'*** NETWORK NOT LOADED -- REBUILDING bc of {err} ***')
             rebuild = True
 
     if rebuild:
@@ -626,14 +638,11 @@ if __name__ == '__main__':
                                                 latent_dim, d_, c_,
                                                 latent_sampling=latent_sampling,
                                                 beta=beta) 
-        # vae.plot_model(dir=load_dir)
-        
-    
-    print('*'*4 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*4)
-    
+        print('*'*4 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*4)
+
     epochs = 30
     batch_size = 500
-
+    
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                               shuffle=True, num_workers=0)
 
@@ -655,3 +664,5 @@ if __name__ == '__main__':
     
     if save_dir is not None:
         jvae.save(save_dir)
+
+    x_, y_, mu, lv, z = jvae(x, y)

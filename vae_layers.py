@@ -65,6 +65,7 @@ class Encoder(nn.Module):
         self.input_shape = input_shape
         self.num_labels = num_labels
 
+        self._sampling_size = sampling_size
         
         self.dense_projs = nn.ModuleList()
         input_dim = np.prod(input_shape) + num_labels
@@ -77,21 +78,30 @@ class Encoder(nn.Module):
         self.dense_log_var = nn.Linear(input_dim, latent_dim)
 
         self.sampling = Sampling(latent_dim, sampling_size)
+
+    @property
+    def sampling_size(self):
+        return self._sampling_size
         
+    @sampling_size.setter
+    def sampling_size(self, v):
+        self._sampling_size = v
+        self.sampling.sampling_size = v
+
     def forward(self, x, y):
         """ 
         - x input of size N1xN2x...xNgxD 
-        - y of size N1xN2x...xNgx1
+        - y of size N1xN2x...xNgxC
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """
-        # print('*****', 'x:', x.device, 'y:', y.device)
+        # print('*****', 'x:', x.shape, 'y:', y.shape)
         # u = torch.cat((x, y), dim=-1)
         # cat not working
         D = x.shape[-1]
         C = y.shape[-1]
         s = x.shape[:-1] + (D + C, )
-        N = np.prod(s[:-1])
-        
+        N = int(np.prod(s[:-1]))
+        # print(N)
         u = torch.zeros(N, D + C, device=x.device)
         u[:, :D] = x.reshape(N, D)
         u[:, D:] = y.reshape(N, C)
@@ -147,7 +157,7 @@ class Decoder(nn.Module):           #
         h = z
         # print('decoder inputs', inputs.shape)
         for l in self.dense_layers:
-            # print('l:', l)
+            # print('decoder h:', h.shape)
             h = self.activation(l(h))
         return self.output_activation(self.output_layer(h))
             

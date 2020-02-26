@@ -560,17 +560,17 @@ if __name__ == '__main__':
 
     # load_dir = './jobs/mnist/job5'
     # load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
-    load_dir = ('./jobs/output-activation=sigmoid' +
-                '/activation=relu--latent-dim=50' +
-                '--sampling=100' +
-                '--encoder-layers=1024-1024-512-512-256-256' +
-                '--decoder-layers=256-512' +
-                '--classifier-layers=10' +
-                '/beta=1.00000e-06-1')
+    # load_dir = ('./jobs/output-activation=sigmoid' +
+    #             '/activation=relu--latent-dim=50' +
+    #             '--sampling=100' +
+    #             '--encoder-layers=1024-1024-512-512-256-256' +
+    #             '--decoder-layers=256-512' +
+    #             '--classifier-layers=10' +
+    #             '/beta=1.00000e-06-1')
     
-    load_dir = None
-    # save_dir = './jobs/mnist/job5'
-    save_dir = None
+    save_dir = './jobs/mnist/job-1'
+    load_dir = save_dir
+    # save_dir = None
                   
     rebuild = load_dir is None
     # rebuild = True
@@ -586,13 +586,13 @@ if __name__ == '__main__':
     latent_sampling = 100
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print('*** USED DEVICE', device, '***')
     # device = torch.device('cpu')
     # try:
     #     data_loaded
     # except(NameError):
     #     data_loaded = False
 
-    
     data_loaded = False
     if not data_loaded:
         mnist_transform = transforms.Compose(
@@ -603,9 +603,8 @@ if __name__ == '__main__':
         #     [transforms.ToTensor(),
         #      transforms.Lambda(lambda x: x / 255.0)])
 
-        
-        
         # transform = transforms.ToTensor()
+
         trainset = torchvision.datasets.MNIST(root='./data',
                                               train=True,
                                               download=True,
@@ -622,22 +621,21 @@ if __name__ == '__main__':
 
     if rebuild:
         t = time.time()
-        print('*'*20+' BUILDING '+'*'*20+'\n')
+        print('*'*4+' BUILDING '+'*'*4)
         jvae = ClassificationVariationalNetwork((1, 28, 28), 10, e_,
-                                               latent_dim, d_, c_,
-                                               latent_sampling=latent_sampling,
-                                               beta=beta) 
+                                                latent_dim, d_, c_,
+                                                latent_sampling=latent_sampling,
+                                                beta=beta) 
         # vae.plot_model(dir=load_dir)
-
         
     
-    print('*'*20 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*20)
+    print('*'*4 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*4)
     
-    epochs = 1
+    epochs = 30
     batch_size = 500
 
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                      shuffle=True, num_workers=0)
+                                              shuffle=True, num_workers=0)
 
     batch = next(iter(trainloader))
     x, y = batch[0].to(device), batch[1].to(device)

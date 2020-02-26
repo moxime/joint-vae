@@ -1,7 +1,7 @@
 import torch
 from torch.nn import functional as F
 import time
-
+import numpy as np
 
 def compare_dims(small_dim, large_dim):
     """compare dims of tensor sizes
@@ -69,14 +69,64 @@ def mse_loss(x_target, x_output, sampling_dims=1, ndim=0, batch_mean=True):
 
 def kl_loss(mu_z, log_var_z, batch_mean=True):
 
-    def kl_loss(self, mu, log_var, batch_mean=True):
-
     loss = -0.5 * (1 + log_var - mu.pow(2) - log_var.exp()).sum(-1)
 
     if batch_mean:
         return loss.mean()
 
     return loss
+
+
+def x_loss(y_target, y_output, sampling_dims=1, batch_mean=True):
+
+    """ Cross entropy
+
+    - y_target of dims N1 x....x Ng(x1)
+    - y_output of dims L1,.., Lf x N1 x...x Ng x C
+
+    """
+    C = y_output.shape[-1]
+    
+    sampling_dims_ = [_ for _ in range(sampling_dims)]    
+    output_log_probas = y_output.log().mean(sampling_dims_).reshape(-1, C)
+
+    if batch_mean:
+
+        return F.nll_loss(output_log_probas, y_target.reshape(-1))
+
+    shape = y_target.shape
+    return F.nll_loss(output_log_probas,
+                      y_target.reshape(-1),
+                      reduction='none').reshape(shape)
+
+    
+def x_loss_pushy(y_target, y_output, sampling_dims=1, batch_mean=True):
+    """
+
+    y_target of dims N1 x....x Ng(x1)
+    y_output of dims L1,.., Lf x N1 x...x Ng x C
+
+    """
+    L_ = y_output[:sampling_dims]
+    s_y = y_input.squeeze_().shape
+
+    one_dim = ()
+    L_1 = ()
+    for _ in s_y : one_dim += (1,)
+    for _ in L_: L_1 += (1,)
+    y_in_repeated = y_input.reshape(*L_1, *s_y).repeat(*L_, *one_dim)
+
+    dims = tuple(_ for _ in range(y_output.dim()))
+    out_perm_dims = (0,) + (-1,) + dims[1:-1] # from LxN1...xNgxC to LxCxN1...xNgxC
+
+    if batch_mean:
+        return F.nll_loss(y_output.permute(out_perm_dims).log(),
+                          y_in_repeated)
+
+    loss = F.nll_loss(y_output.permute(out_perm_dims).log(),
+                      y_in_repeated, reduction='none')
+
+    return loss.mean(0)
 
 #
 #
@@ -105,39 +155,54 @@ if __name__ == '__main__':
     has_cuda = torch.cuda.is_available and not force_cpu
     device = torch.device('cuda' if has_cuda else 'cpu')
 
+    test_mse = False
+    test_xent = True
+
     print(device)
     
-    L = (100, 10)
-    N = (200, 1, 3)
+    L = (3,)
+    N = (4,)
+    # N = (10, 200)
     # N = (200,)
     D = (1, 28, 28)
     # D = (784,)
+    C = 10
 
-    tick = time.time()
-    x_target = torch.randn(*N, *D, device=device, requires_grad=False)
-    x_output = torch.randn(*L, *N, *D, device=device)
+    if test_mse:
+        tick = time.time()
+        x_target = torch.randn(*N, *D, device=device, requires_grad=False)
+        x_output = torch.randn(*L, *N, *D, device=device)
 
-    print(f'tensors ready in {1e3 * (time.time() - tick):.0f} ms')
+        print(f'tensors ready in {1e3 * (time.time() - tick):.0f} ms')
+
+        tick = time.time()
+
+        tests = 1
+        for t in range(tests):
+            my_mse = mse_loss(x_target, x_output, ndim=len(D))
+
+        print(f'my: {1e6*(time.time() - tick)/tests:.0f} us')
+
+        tick = time.time()
+
+        for t in range(tests):
+            torch_mse = F.mse_loss(x_target, x_output)
+
+        print(f'torch: {1e6*(time.time() - tick)/tests:.0f} us')
+
+        print(my_mse.item(), torch_mse.item())
+
+        loss = mse_loss(x_target, x_output, sampling_dims=2, ndim=len(D), batch_mean=False)
+
+        print(loss.shape)
     
-    tick = time.time()
-
-    tests = 1
-    for t in range(tests):
-        my_mse = mse_loss(x_target, x_output, ndim=len(D))
-
-    print(f'my: {1e6*(time.time() - tick)/tests:.0f} us')
-
-    tick = time.time()
-
-    for t in range(tests):
-        torch_mse = F.mse_loss(x_target, x_output)
-
-    print(f'torch: {1e6*(time.time() - tick)/tests:.0f} us')
     
-    print(my_mse.item(), torch_mse.item())
+    if test_xent:
 
-    loss = mse_loss(x_target, x_output, sampling_dims=2, ndim=len(D), batch_mean=False)
+        y_target = torch.randint(C, N) 
+        y_output = (torch.rand(*L, *N, C) * 5).softmax(dim=-1)
 
-    print(loss.shape)
-    
-    
+        loss = x_loss(y_target, y_output)
+        print(loss)
+
+        loss_ = x_loss(y_target, y_output, batch_mean=False)

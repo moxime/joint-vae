@@ -3,7 +3,8 @@ import argparse
 import torch
 import torch.utils.data
 from torch import nn, optim
-from torch.nn import functional as F
+# from torch.nn import functional as F
+from utils.losses import x_loss, kl_loss, mse_loss
 
 import torchvision
 from torchvision import datasets, transforms
@@ -21,7 +22,7 @@ import time
 DEFAULT_ACTIVATION = 'relu'
 # DEFAULT_OUTPUT_ACTIVATION = 'sigmoid'
 DEFAULT_OUTPUT_ACTIVATION = 'linear'
-DEFAULT_LATENT_SAMPLING = 1000
+DEFAULT_LATENT_SAMPLING = 100
 
 
 class ClassificationVariationalNetwork(nn.Module):
@@ -97,7 +98,7 @@ class ClassificationVariationalNetwork(nn.Module):
         x_ = x.reshape(*shape_) # x_ of size N1x...xNgxD with D=D1*...Dt
         
         y_onehot = onehot_encoding(y, self.num_labels).float()
-        # print(f'*** y_onehot: {y_onehot.device} ***')
+
         # y_onehot of size N1x...xNgxC with
         
         z_mean, z_log_var, z = self.encoder(x_, y_onehot)
@@ -115,30 +116,6 @@ class ClassificationVariationalNetwork(nn.Module):
             out += (z_mean, z_log_var, z)
  
         return out
-
-    def x_loss(self, y_input, y_output, batch_mean=True):
-        """
-
-        y_input of dims N1 x....x Ng(x1)
-        y_output of dims L x N1 x...x Ng x C
-
-        """
-        s_y = y_input.squeeze_().shape
-        one_dim = ()
-        for _ in s_y : one_dim += (1,)
-        y_in_repeated = y_input.reshape((1,) + s_y).repeat(self.latent_sampling, *one_dim)
-
-        dims = tuple(_ for _ in range(y_output.dim()))
-        out_perm_dims = (0,) + (-1,) + dims[1:-1] # from LxN1...xNgxC to LxCxN1...xNgxC
-        
-        if batch_mean:
-            return F.nll_loss(y_output.permute(out_perm_dims).log(),
-                              y_in_repeated)
-
-        loss = F.nll_loss(y_output.permute(out_perm_dims).log(),
-                          y_in_repeated, reduction='none')
-        
-        return loss.mean(0)
     
     def loss(self, x, y,
              x_reconstructed, y_estimate,
@@ -151,9 +128,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if x_loss_weight is None: x_loss_weight = self.x_entropy_loss_weight
         if kl_loss_weight is None: kl_loss_weight = self.kl_loss_weight
 
-        return (mse_loss_weight * self.mse_loss(x, x_reconstructed, **kw) +
-                x_loss_weight * self.x_loss(y, y_estimate, **kw) +
-                kl_loss_weight * self.kl_loss(mu_z, log_var_z, **kw))        
+        return (mse_loss_weight * mse_loss(x, x_reconstructed, **kw) +
+                x_loss_weight * x_loss(y, y_estimate, **kw) +
+                kl_loss_weight * kl_loss(mu_z, log_var_z, **kw))        
 
     def train(self, trainset, optimizer=None, epochs=50,
               batch_size=64, device=None, x_loss_weight=None,
@@ -175,16 +152,16 @@ class ClassificationVariationalNetwork(nn.Module):
             data = next(iter(trainloader))
             x, y = data[0].to(device), data[1].to(device)
             x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
-            kl_loss = self.kl_loss(mu_z, log_var_z).item()
-            x_loss = self.x_loss(y, y_est).item()
-            mse_loss = self.mse_loss(x, x_reco).item()
+            batch_kl_loss = kl_loss(mu_z, log_var_z).item()
+            batch_x_loss = x_loss(y, y_est).item()
+            batch_mse_loss = mse_loss(x, x_reco).item()
             first_batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
                                          log_var_z,
                                          kl_loss_weight=kl_loss_weight,
                                          x_loss_weight=x_loss_weight).item()
             print(f'epoch {epoch + 1:2d}/{epochs} 1st batch ' + 
-                  f'mse: {mse_loss:.2e} kl: {kl_loss:.2e} ' + 
-                  f'x: {x_loss:.2e} L: {first_batch_loss:.2e}')
+                  f'mse: {batch_mse_loss:.2e} kl: {batch_kl_loss:.2e} ' + 
+                  f'x: {batch_x_loss:.2e} L: {first_batch_loss:.2e}')
             t_i = time.time()
             for i, data in enumerate(trainloader, 0):
                 tick = time.time()

@@ -96,9 +96,11 @@ class ClassificationVariationalNetwork(nn.Module):
         shape = x.shape
         shape_ = shape[:-len(self.input_shape)] + (-1,)
         x_ = x.reshape(*shape_) # x_ of size N1x...xNgxD with D=D1*...Dt
-        
-        y_onehot = onehot_encoding(y, self.num_labels).float()
 
+        # print('cvae l. 100 y', y.shape)
+        y_onehot = onehot_encoding(y, self.num_labels).float()
+        # print('cvae l. 102 y', y.shape)
+        
         # y_onehot of size N1x...xNgxC with
         
         z_mean, z_log_var, z = self.encoder(x_, y_onehot)
@@ -124,13 +126,30 @@ class ClassificationVariationalNetwork(nn.Module):
              x_loss_weight=None,
              kl_loss_weight=None, **kw):
 
-        if mse_loss_weight is None: mse_loss_weight = self.mse_loss_weight
-        if x_loss_weight is None: x_loss_weight = self.x_entropy_loss_weight
-        if kl_loss_weight is None: kl_loss_weight = self.kl_loss_weight
+        # print('cvae l. 137 | y', y.shape)
+        if mse_loss_weight is None:
+            mse_loss_weight = self.mse_loss_weight
+        if x_loss_weight is None:
+            x_loss_weight = self.x_entropy_loss_weight
+        if kl_loss_weight is None:
+            kl_loss_weight = self.kl_loss_weight
 
-        return (mse_loss_weight * mse_loss(x, x_reconstructed, **kw) +
-                x_loss_weight * x_loss(y, y_estimate, **kw) +
-                kl_loss_weight * kl_loss(mu_z, log_var_z, **kw))        
+        # print('cvae l. 134 | kl_loss_weight', kl_loss_weight)
+        # w_kl = kl_loss_weight * kl_loss(mu_z, log_var_z, **kw)
+        # print('cvae l. 136 | x', x.shape)
+        # print('cvae l. 138 | w*kl', w_kl.shape)
+        # print('cvae l. 139 | x_loss', x_loss(y, y_estimate, **kw).shape)
+        # print('cvae l. 140 | mse_loss',
+        # mse_loss(x, x_reconstructed,
+        #         ndim=len(self.input_shape), **kw).shape)
+
+        return (mse_loss_weight *
+                mse_loss(x, x_reconstructed,
+                         ndim=len(self.input_shape), **kw) +
+                x_loss_weight *
+                x_loss(y, y_estimate, **kw) +
+                kl_loss_weight *
+                kl_loss(mu_z, log_var_z, **kw))        
 
     def train(self, trainset, optimizer=None, epochs=50,
               batch_size=64, device=None, x_loss_weight=None,
@@ -408,13 +427,22 @@ class ClassificationVariationalNetwork(nn.Module):
         # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
 
         s_y = x_.shape[:-len(self.input_shape)]
-        
-        y = torch.zeros(s_y, requires_grad=False, dtype=int)
+
+        # print('cvae l. 428', 's_y', s_y)
+        y = torch.zeros(s_y, requires_grad=False, dtype=int, device=x.device)
+        # print('cvae l. 430', 'y', y.shape)
         for c in range(C):
             y[c] = c # maybe a way to accelerate this ?
 
-        # print('*** cva l. 407', x_.shape, x_.dtype, y.shape, s_y, y.dtype)
-        return self.forward(x_, y)
+        # print('cva l. 433', x_.shape, x_.dtype, y.shape, s_y, y.dtype)
+        x_reco, y_est, mu, log_var, z = self.forward(x_, y)
+
+        # print('cvae l. 436 x_', x_.shape, 'y', y.shape, '\nx_r', x_reco.shape,
+        #       'y_est', y_est.shape, 'mu', mu.shape, 'log_var',
+        #       log_var.shape, 'z', z.shape) 
+        batch_loss = self.loss(x_, y, x_reco, y_est, mu, log_var, batch_mean=False)
+
+        return x_reco.mean(0), y_est.mean(0), batch_loss
 
     def log_pxy(self, x, normalize=True, losses=None, **kw):
 
@@ -641,7 +669,7 @@ if __name__ == '__main__':
         print('*'*4 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*4)
 
     epochs = 30
-    batch_size = 500
+    batch_size = 200
     
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                               shuffle=True, num_workers=0)
@@ -666,3 +694,8 @@ if __name__ == '__main__':
         jvae.save(save_dir)
 
     x_, y_, mu, lv, z = jvae(x, y)
+
+    # jvae.latent_sampling = 20
+
+    x_reco, y_est, batch_losses = jvae.evaluate(x)
+    

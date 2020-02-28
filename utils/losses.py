@@ -47,7 +47,6 @@ def mse_loss(x_target, x_output, sampling_dims=1, ndim=0, batch_mean=True):
     else:
         mean_output_sampling = x_output.mean(sampling_dims_)
         var_output_sampling = x_output.var(sampling_dims_, unbiased=False)
-
         
     if batch_mean:
         return F.mse_loss(mean_output_sampling,
@@ -56,14 +55,16 @@ def mse_loss(x_target, x_output, sampling_dims=1, ndim=0, batch_mean=True):
     batch_ndim = x_target.dim()
     mean_dims = [_ for _ in range(batch_ndim - ndim, batch_ndim)]
 
-    # print('Shapes: ',
-    #       mean_output_sampling.shape,
-    #       x_output.shape,
-    #       var_output_sampling.shape)
-    
     mse = F.mse_loss(mean_output_sampling,
                      x_target, reduction='none').mean(mean_dims)
 
+    # print('Shapes: ',
+    #       mean_dims,
+    #       mean_output_sampling.shape,
+    #       x_output.shape,
+    #       mse.shape,
+    #       var_output_sampling.shape)
+    
     return mse + var_output_sampling.mean(mean_dims)
 
 
@@ -73,7 +74,7 @@ def kl_loss(mu_z, log_var_z, batch_mean=True):
 
     if batch_mean:
         return loss.mean()
-
+    # print('losses l.76 | kl_loss', loss.shape)
     return loss
 
 

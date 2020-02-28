@@ -605,20 +605,20 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    save_dir = './jobs/mnist/job-1'
+    save_dir = './jobs/mnist/job-4'
     load_dir = save_dir
     # save_dir = None
                   
     rebuild = load_dir is None
     # rebuild = True
     
-    e_ = [512, 512, 256]
+    e_ = [1024, 512, 512, 256]
     # e_ = []
     d_ = e_.copy()
     d_.reverse()
     c_ = [20, 10]
 
-    beta = 1e-4
+    beta = 1e-5
     latent_dim = 40
     latent_sampling = 100
 
@@ -646,6 +646,12 @@ if __name__ == '__main__':
                                               train=True,
                                               download=True,
                                               transform=mnist_transform)
+
+        testset = torchvision.datasets.MNIST(root='./data',
+                                              train=False,
+                                              download=True,
+                                              transform=mnist_transform)
+
         data_loaded = True
         
     if not rebuild:
@@ -674,8 +680,11 @@ if __name__ == '__main__':
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                               shuffle=True, num_workers=0)
 
-    batch = next(iter(trainloader))
-    x, y = batch[0].to(device), batch[1].to(device)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=100,
+                                             shuffle=True, num_workers=0)
+    
+    test_batch = next(iter(testloader))
+    x, y = test_batch[0].to(device), test_batch[1].to(device)
     
     refit = False
     # refit = True
@@ -697,5 +706,5 @@ if __name__ == '__main__':
 
     # jvae.latent_sampling = 20
 
-    x_reco, y_est, batch_losses = jvae.evaluate(x)
+    x_reco, y_out, batch_losses = jvae.evaluate(x)
     

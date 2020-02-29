@@ -632,13 +632,13 @@ if __name__ == '__main__':
 
     data_loaded = False
     if not data_loaded:
-        mnist_transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize((0.1307,), (0.3081,))])
-        #
         # mnist_transform = transforms.Compose(
         #     [transforms.ToTensor(),
-        #      transforms.Lambda(lambda x: x / 255.0)])
+        #      transforms.Normalize((0.1307,), (0.3081,))])
+        #
+        mnist_transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Lambda(lambda x: x / 255.0)])
 
         # transform = transforms.ToTensor()
 
@@ -648,9 +648,9 @@ if __name__ == '__main__':
                                               transform=mnist_transform)
 
         testset = torchvision.datasets.MNIST(root='./data',
-                                              train=False,
-                                              download=True,
-                                              transform=mnist_transform)
+                                             train=False,
+                                             download=True,
+                                             transform=mnist_transform)
 
         data_loaded = True
         
@@ -687,7 +687,7 @@ if __name__ == '__main__':
     x, y = test_batch[0].to(device), test_batch[1].to(device)
     
     refit = False
-    # refit = True
+    refit = True
 
     jvae.to(device)
     
@@ -705,6 +705,6 @@ if __name__ == '__main__':
     x_, y_, mu, lv, z = jvae(x, y)
 
     # jvae.latent_sampling = 20
-
+    print(f'latent_sampling: {jvae.latent_sampling}')
     x_reco, y_out, batch_losses = jvae.evaluate(x)
     

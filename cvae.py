@@ -605,26 +605,26 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    save_dir = './jobs/mnist/job-4'
+    save_dir = './jobs/mnist/job-9'
     load_dir = save_dir
     # save_dir = None
                   
     rebuild = load_dir is None
     # rebuild = True
     
-    e_ = [1024, 512, 512, 256]
+    e_ = [512, 256]
     # e_ = []
     d_ = e_.copy()
     d_.reverse()
     c_ = [20, 10]
 
     beta = 1e-5
-    latent_dim = 40
+    latent_dim = 100
     latent_sampling = 100
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print('*** USED DEVICE', device, '***')
     # device = torch.device('cpu')
+    print('*** USED DEVICE', device, '***')
     # try:
     #     data_loaded
     # except(NameError):
@@ -640,7 +640,7 @@ if __name__ == '__main__':
             [transforms.ToTensor(),
              transforms.Lambda(lambda x: x / 255.0)])
 
-        # transform = transforms.ToTensor()
+        transform = transforms.ToTensor()
 
         trainset = torchvision.datasets.MNIST(root='./data',
                                               train=True,
@@ -652,6 +652,7 @@ if __name__ == '__main__':
                                              download=True,
                                              transform=mnist_transform)
 
+        output_activation = 'sigmoid'
         data_loaded = True
         
     if not rebuild:
@@ -671,10 +672,12 @@ if __name__ == '__main__':
         jvae = ClassificationVariationalNetwork((1, 28, 28), 10, e_,
                                                 latent_dim, d_, c_,
                                                 latent_sampling=latent_sampling,
-                                                beta=beta) 
+                                                beta=beta,
+                                                output_activation=output_activation) 
         print('*'*4 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*4)
 
-    epochs = 30
+    print(jvae.print_architecture())
+    epochs = 50
     batch_size = 200
     
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,

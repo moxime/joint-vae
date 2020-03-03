@@ -190,6 +190,7 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_mse_loss = mse_loss(x, x_reco).item()
             first_batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
                                          log_var_z,
+                                         mse_loss_weight=mse_loss_weight,
                                          kl_loss_weight=kl_loss_weight,
                                          x_loss_weight=x_loss_weight).item()
             self.train_history['1st batch loss'].append(first_batch_loss)
@@ -220,6 +221,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
                                        log_var_z,
+                                       mse_loss_weight=mse_loss_weight,
                                        x_loss_weight=x_loss_weight,
                                        kl_loss_weight=kl_loss_weight) 
                 batch_loss.backward()
@@ -626,7 +628,7 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    save_dir = './jobs/fashion/job-11'
+    save_dir = './jobs/fashion/job-13'
     load_dir = save_dir
     load_dir = None
     # save_dir = None
@@ -640,7 +642,7 @@ if __name__ == '__main__':
     d_.reverse()
     c_ = [20, 10]
 
-    beta = 1e-4
+    beta = 1e-5
     latent_dim = 20
     latent_sampling = 50
 
@@ -685,7 +687,7 @@ if __name__ == '__main__':
         print('*'*4 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*4)
 
     print(jvae.print_architecture())
-    epochs = 50
+    epochs = 30
     batch_size = 200
     
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
@@ -707,8 +709,9 @@ if __name__ == '__main__':
                    epochs=epochs,
                    batch_size=batch_size,
                    device=device,
-                   x_loss_weight=100 * beta,
-                   kl_loss_weight=None) # beta / 10)
+                   mse_loss_weight=0.0001,
+                   x_loss_weight=1,
+                   kl_loss_weight=0.0001)
     
     if save_dir is not None:
         jvae.save(save_dir)
@@ -719,3 +722,5 @@ if __name__ == '__main__':
     print(f'latent_sampling: {jvae.latent_sampling}')
     x_reco, y_out, batch_losses = jvae.evaluate(x)
     
+    y_est_by_losses = batch_losses.argmin(0)
+    y_est_by_mean = y_out.mean(0).argmax(-1)

@@ -264,31 +264,3 @@ if __name__ == '__main__':
     y_est = classifier(z)
     
     print('y_est: ', y_est.shape)
-=======
-            x = l(x)
-        return self.y_output(x)
-
-
-
-if __name__ == '__main__':
-
-    N = 1000
-    D = 11
-    K = 5
-    L = 100
-    encoder = Encoder(latent_dim=K, intermediate_dims=[], beta=1, sampling_size=L)
-
-    input = np.random.randn(N, D)
-
-    encoder.compile(optimizer='Adam')
-
-
-    
-    z_mean, z_logvar, z = encoder(input)
-
-    kl_loss = 0.5 * tf.reduce_sum((z_mean**2 - 1 + tf.exp(z_logvar) - z_logvar), -1)
-
-    print(kl_loss)
-
-    encoder_loss = encoder.evaluate(input, batch_size=N)
->>>>>>> 6221a1b68ece77f0dd77cf7b59024fa07c90ddf4

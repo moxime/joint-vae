@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense, Concatenate, Input
 from tensorflow.keras.models import Model
+import numpy as np
 
 class Sampling(Layer):
     """Uses (z_mean, z_log_var) to sample z, the latent vector."""
@@ -129,3 +130,27 @@ class Classifier(Model):
         for l in self.dense_layers:
             x = l(x)
         return self.y_output(x)
+
+
+
+if __name__ == '__main__':
+
+    N = 1000
+    D = 11
+    K = 5
+    L = 100
+    encoder = Encoder(latent_dim=K, intermediate_dims=[], beta=1, sampling_size=L)
+
+    input = np.random.randn(N, D)
+
+    encoder.compile(optimizer='Adam')
+
+
+    
+    z_mean, z_logvar, z = encoder(input)
+
+    kl_loss = 0.5 * tf.reduce_sum((z_mean**2 - 1 + tf.exp(z_logvar) - z_logvar), -1)
+
+    print(kl_loss)
+
+    encoder_loss = encoder.evaluate(input, batch_size=N)

@@ -12,6 +12,7 @@ from torchvision.utils import save_image
 from vae_layers import Encoder, Decoder, Classifier, onehot_encoding
 
 import data.generate as dg
+import data.torch_load as torchdl
 from utils import save_load 
 import numpy as np
 
@@ -73,6 +74,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self.trained = False
         # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
+
+        self.train_history = dict()
         
         self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
@@ -153,7 +156,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def train(self, trainset, optimizer=None, epochs=50,
               batch_size=64, device=None, x_loss_weight=None,
-              kl_loss_weight=None , verbose=1):
+              kl_loss_weight=None,
+              verbose=1):
         """
 
         """
@@ -161,10 +165,18 @@ class ClassificationVariationalNetwork(nn.Module):
             device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
             
         if optimizer is None: optimizer = self.optimizer
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+        trainloader = torch.utils.data.DataLoader(trainset,
+                                                  batch_size=batch_size,
                                                   shuffle=True, num_workers=0)
         dataset_size = trainset.data.shape[0]
         per_epoch = dataset_size // batch_size
+        self.train_history = dict() # will not be returned
+        self.train_history['1st batch loss'] = []
+        self.train_history['1st batch xent loss'] = []
+        self.train_history['1st batch mse loss'] = []
+        self.train_history['1st batch kl loss'] = []
+        self.train_history['train loss'] = []
+            
         for epoch in range(epochs):
             t_start_epoch = time.time()
             epoch_total_loss = 0.0            
@@ -178,6 +190,11 @@ class ClassificationVariationalNetwork(nn.Module):
                                          log_var_z,
                                          kl_loss_weight=kl_loss_weight,
                                          x_loss_weight=x_loss_weight).item()
+            self.train_history['1st batch loss'].append(first_batch_loss)
+            self.train_history['1st batch xent loss'].append(batch_x_loss)
+            self.train_history['1st batch mse loss'].append(batch_mse_loss)
+            self.train_history['1st batch kl loss'].append(batch_kl_loss)
+            
             print(f'epoch {epoch + 1:2d}/{epochs} 1st batch ' + 
                   f'mse: {batch_mse_loss:.2e} kl: {batch_kl_loss:.2e} ' + 
                   f'x: {batch_x_loss:.2e} L: {first_batch_loss:.2e}')
@@ -186,10 +203,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 tick = time.time()
                 t_per_i = tick - t_i
                 t_epoch = tick - t_start_epoch
-                info = f'{1e6 * t_epoch/(i * batch_size + 1e-100):.0f} us per sample'
+                mus = 1e6 * t_epoch/(i * batch_size) if i>0 else 0
+                info = f'{mus:.0f} us per sample'
                 t_i = tick
-                print_epoch(i, per_epoch, epoch, epochs,
-                            epoch_total_loss / (i + 1e-100), info=info)
+                mean_loss = epoch_total_loss / i if i > 0 else 0
+                print_epoch(i, per_epoch, epoch, epochs, mean_loss, info=info)
                 # get the inputs; data is a list of [inputs, labels]
                 x, y = data[0].to(device), data[1].to(device)
                 # zero the parameter gradients
@@ -205,16 +223,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_loss.backward()
                 optimizer.step()
                 epoch_total_loss += batch_loss.item()
-
-                # print statistics
-                # running_loss += loss.item()
-                # if i % 2000 == 1999:    # print every 2000 mini-batches
-                #     print('[%d, %5d] loss: %.3f' %
-                #           (epoch + 1, i + 1, running_loss / 2000))
-                #     running_loss = 0.0
+            self.train_history['train loss'].append(epoch_total_loss)
 
         print('Finished Training')
-        self.trained = True
+        self.trained = str(trainset)
 
     def summary(self):
 
@@ -324,9 +336,9 @@ class ClassificationVariationalNetwork(nn.Module):
         save_load.save_json(param_dict, dir_name, 'params.json')
 
         if self.trained:
+            save_load.save_json(self.train_history, dir_name, 'training.json')
             w_p = save_load.get_path(dir_name, 'state.pth')
             torch.save(self.state_dict(), w_p)
-
 
     @classmethod        
     def load(cls,
@@ -339,6 +351,11 @@ class ClassificationVariationalNetwork(nn.Module):
         
         p_dict = save_load.load_json(dir_name, 'params.json')
 
+        try:
+            train_history = save_load.load_json(dir_name, 'training.json')
+        except(FileNotFoundError):
+            train_history = dict()
+            
         latent_sampling = p_dict.get('latent_sampling', 1)
         output_activation = p_dict.get('output_activation',
                                        default_output_activation)
@@ -354,7 +371,8 @@ class ClassificationVariationalNetwork(nn.Module):
                   verbose=verbose)
 
         vae.trained = p_dict['trained']
-
+        vae.train_history = train_history
+        
         if vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))
@@ -429,7 +447,8 @@ class ClassificationVariationalNetwork(nn.Module):
         s_y = x_.shape[:-len(self.input_shape)]
 
         # print('cvae l. 428', 's_y', s_y)
-        y = torch.zeros(s_y, requires_grad=False, dtype=int, device=x.device)
+        # y = torch.zeros(s_y, requires_grad=False, dtype=int, device=x.device)
+        y = torch.zeros(s_y, dtype=int, device=x.device)
         # print('cvae l. 430', 'y', y.shape)
         for c in range(C):
             y[c] = c # maybe a way to accelerate this ?
@@ -605,22 +624,23 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    save_dir = './jobs/mnist/job-9'
+    save_dir = './jobs/fashion/job-11'
     load_dir = save_dir
+    load_dir = None
     # save_dir = None
                   
     rebuild = load_dir is None
     # rebuild = True
     
-    e_ = [512, 256]
+    e_ = [1024, 512, 512]
     # e_ = []
     d_ = e_.copy()
     d_.reverse()
     c_ = [20, 10]
 
-    beta = 1e-5
-    latent_dim = 100
-    latent_sampling = 100
+    beta = 1e-4
+    latent_dim = 20
+    latent_sampling = 50
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
@@ -636,22 +656,8 @@ if __name__ == '__main__':
         #     [transforms.ToTensor(),
         #      transforms.Normalize((0.1307,), (0.3081,))])
         #
-        mnist_transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Lambda(lambda x: x / 255.0)])
 
-        transform = transforms.ToTensor()
-
-        trainset = torchvision.datasets.MNIST(root='./data',
-                                              train=True,
-                                              download=True,
-                                              transform=mnist_transform)
-
-        testset = torchvision.datasets.MNIST(root='./data',
-                                             train=False,
-                                             download=True,
-                                             transform=mnist_transform)
-
+        trainset, testset = torchdl.get_fashion_mnist()        
         output_activation = 'sigmoid'
         data_loaded = True
         
@@ -700,7 +706,7 @@ if __name__ == '__main__':
                    batch_size=batch_size,
                    device=device,
                    x_loss_weight=None,
-                   kl_loss_weight=None)
+                   kl_loss_weight=None) # beta / 10)
     
     if save_dir is not None:
         jvae.save(save_dir)

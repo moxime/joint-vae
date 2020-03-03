@@ -145,8 +145,7 @@ def miss_roc(vae, x_test, y_test, y_pred=None, stats=100, method='output', **kw)
 
         return H_pred, H_miss
     
-    
-        
+            
 def show_examples(vae, x_test, y_test, x_ood, y_ood,
                   num_of_examples=10, stats=100, export=False, export_dir='/tmp'):
 

@@ -155,7 +155,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 kl_loss(mu_z, log_var_z, **kw))        
 
     def train(self, trainset, optimizer=None, epochs=50,
-              batch_size=64, device=None, x_loss_weight=None,
+              batch_size=64, device=None,
+              mse_loss_weight=None,
+              x_loss_weight=None,
               kl_loss_weight=None,
               verbose=1):
         """
@@ -195,8 +197,8 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['1st batch mse loss'].append(batch_mse_loss)
             self.train_history['1st batch kl loss'].append(batch_kl_loss)
             
-            print(f'epoch {epoch + 1:2d}/{epochs} 1st batch ' + 
-                  f'mse: {batch_mse_loss:.2e} kl: {batch_kl_loss:.2e} ' + 
+            print(f'epoch {epoch + 1:2d}/{epochs} 1st batch ',
+                  f'mse: {batch_mse_loss:.2e} kl: {batch_kl_loss:.2e} ',
                   f'x: {batch_x_loss:.2e} L: {first_batch_loss:.2e}')
             t_i = time.time()
             for i, data in enumerate(trainloader, 0):
@@ -705,7 +707,7 @@ if __name__ == '__main__':
                    epochs=epochs,
                    batch_size=batch_size,
                    device=device,
-                   x_loss_weight=None,
+                   x_loss_weight=100 * beta,
                    kl_loss_weight=None) # beta / 10)
     
     if save_dir is not None:

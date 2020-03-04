@@ -2,11 +2,10 @@ import numpy as np
 from cvae import ClassificationVariationalNetwork
 import os
 import matplotlib.pyplot as plt
-from data import generate as dg
+
 import argparse
-
-
-(x_train, y_train, x_test, y_test) = dg.get_fashion_mnist()
+import data.torch_load as torchdl
+import torch
 
 
 e_ = [1024, 1024]
@@ -19,9 +18,7 @@ latent_dim = 50
 # d_.reverse()
 d_ = [256, 512]
 c_ = [10]
-
-
-
+batch_size = 200
 
 latent_sampling = 100 
 
@@ -33,14 +30,23 @@ d_ = e_.copy()
 d_.reverse()
 c_ = [20, 20]
 
+e_ = [1024, 512, 512]
+# e_ = []
+d_ = e_.copy()
+d_.reverse()
+c_ = [20, 10]
+                              
+latent_dim = 20
+latent_sampling = 50
+    
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+output_activation = 'sigmoid'
+
 job_dirs = './jobs'
-useless_vae = ClassificationVariationalNetwork(x_train.shape[-1],
-                                               y_train.shape[-1],
-                                               e_,
-                                               latent_dim,
-                                               d_,
-                                               c_,
-                                               latent_sampling=latent_sampling)
+useless_vae = ClassificationVariationalNetwork((1, 28, 28), 10, e_,
+                                               latent_dim, d_, c_,
+                                               latent_sampling=latent_sampling,
+                                               output_activation='sigmoid')
 
 save_dir = os.path.join(job_dirs, useless_vae.print_architecture())
 
@@ -48,14 +54,13 @@ beta_pseudo_log = np.array([1, 2, 5])
 
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
-beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-8, -6, 3)] * 4)
+beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-8, -5, 4)] * 4)
  
 # beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
 # beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)
 # beta_ = beta_lin
 # beta_ = np.hstack([beta_lin]*3)
 
-epochs = 50
 
 
 def read_float_list(path):
@@ -67,16 +72,17 @@ def read_float_list(path):
 
     return list
 
+
 def write_float_list(list, path):
     with open(path, 'w+') as f:
         for _ in list:
             f.write(f'{_:.3e}' + '\n')
 
-            
+        
 def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
-                  decoder_layers, classifier_layers, x_train, y_train,
-                  x_test, y_test, betas, directory='./jobs',
-                  epochs=30, latent_sampling=100, batch_size=100):
+                  decoder_layers, classifier_layers, trainset, 
+                  testset, betas, directory='./jobs', device=None,
+                  epochs=30, latent_sampling=100, batch_size=100, output_activation=None):
 
 
     if not os.path.exists(directory):
@@ -101,19 +107,22 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
                                                decoder_layers,
                                                classifier_layers,
                                                latent_sampling=latent_sampling,
+                                               output_activation='sigmoid',
                                                beta=beta) 
 
         print(vae.print_architecture(), '\n', vae._sizes_of_layers)
         print(f'beta={vae.beta}')
 
-        vae.train(trainset, epochs=epochs, batch_size=batch_size)
+        vae.to(device)
+        vae.train(trainset, epochs=epochs, testset=testset,
+                  batch_size=batch_size)
 
-        acc = vae.accuracy(x_test, y_test)
+        acc = vae.accuracy(testset)
         print('\n'+'='*80 + '\n'+f'{beta:.2e}: {acc}\n')
 
         dir_beta_ = os.path.join(directory, f'beta={beta:.5e}')
-        dir_beta = dir_beta_
-        i = -1
+        dir_beta = f'{dir_beta_}-0'
+        i = 0
         print(dir_beta, os.path.exists(dir_beta))
         while os.path.exists(dir_beta):
             i += 1
@@ -124,25 +133,14 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
         results_path_file = os.path.join(dir_beta, 'test_accuracy') 
         with open(results_path_file, 'w+') as f:
             f.write(str(acc) + '\n')
-
-
         
         betas = read_float_list(betas_file)
         if len(betas) > 0:
             betas.pop(0)
 
-        
     os.remove(betas_file)
     
-    pass
-
-
-def gogo():
-    
-    training_loop(28**2, 10, e_, latent_dim, d_, c_, x_train, y_train,
-                  x_test, y_test, beta_, directory=save_dir,
-                  latent_sampling=latent_sampling, epochs=epochs) 
-
+   
                 
 def plot_results(save_dir, x_test, y_test):
 
@@ -187,7 +185,6 @@ def plot_results(save_dir, x_test, y_test):
     plt.figure()
     plt.plot(beta_sorted, [1 - _ for _ in acc_sorted], '.')
 
-    
     plt.show(block=False)
 
     input()
@@ -199,14 +196,23 @@ def plot_results(save_dir, x_test, y_test):
                         
 if __name__ == '__main__':
 
-
     parser = argparse.ArgumentParser(
         description="train a network with idfferent values of beta")
     parser.add_argument('--dataset', default='fashion',
                         choices=['fashion', 'mnist'])
 
-    
-    gogo()
-    
+    trainset, testset = torchdl.get_fashion_mnist()        
+
+    epochs = 50
+
+    print('Used device:', device)
+    training_loop((1, 28, 28), 10,
+                  e_, latent_dim, d_, c_,
+                  trainset, testset, beta_,
+                  output_activation='sigmoid',
+                  latent_sampling=latent_sampling,
+                  epochs=epochs,
+                  directory=save_dir,
+                  device=device) 
 
     

@@ -201,6 +201,9 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='fashion',
                         choices=['fashion', 'mnist'])
 
+    parser.add_argument('-b', '--batch_size', type=int, default=200)
+
+    bath_size = args.batch_size
     trainset, testset = torchdl.get_fashion_mnist()        
 
     epochs = 50
@@ -212,6 +215,7 @@ if __name__ == '__main__':
                   output_activation='sigmoid',
                   latent_sampling=latent_sampling,
                   epochs=epochs,
+                  batch_size=batch_size,
                   directory=save_dir,
                   device=device) 
 

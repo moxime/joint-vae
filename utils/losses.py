@@ -158,7 +158,8 @@ if __name__ == '__main__':
 
     test_mse = False
     test_xent = True
-
+    test_grad = True
+    
     print(device)
     
     L = (3,)
@@ -196,14 +197,22 @@ if __name__ == '__main__':
         loss = mse_loss(x_target, x_output, sampling_dims=2, ndim=len(D), batch_mean=False)
 
         print(loss.shape)
-    
-    
+        
     if test_xent:
 
-        y_target = torch.randint(C, N) 
-        y_output = (torch.rand(*L, *N, C) * 5).softmax(dim=-1)
+        y_target = torch.randint(C, N)
+
+        x = torch.rand(*L, *N, C, requires_grad=True)
+        y_output = (x * 5).softmax(dim=-1)
 
         loss = x_loss(y_target, y_output)
         print(loss)
 
         loss_ = x_loss(y_target, y_output, batch_mean=False)
+
+        if test_grad:
+
+            loss.backward()
+        
+
+    

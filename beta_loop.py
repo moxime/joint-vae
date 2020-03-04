@@ -22,12 +22,6 @@ c_ = [10]
 
 
 
-# XIAO SETTINGS
-e_ = []
-latent_dim = 100
-c_ = [10]
-
-d_ = []
 
 latent_sampling = 100 
 
@@ -54,7 +48,6 @@ beta_pseudo_log = np.array([1, 2, 5])
 
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
-
 beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-8, -6, 3)] * 4)
  
 # beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
@@ -62,7 +55,7 @@ beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-8, -6, 3)] * 4)
 # beta_ = beta_lin
 # beta_ = np.hstack([beta_lin]*3)
 
-epochs = 30
+epochs = 50
 
 
 def read_float_list(path):
@@ -73,7 +66,6 @@ def read_float_list(path):
             list = [float(_) for _ in f.readlines()]
 
     return list
-
 
 def write_float_list(list, path):
     with open(path, 'w+') as f:
@@ -111,14 +103,10 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
                                                latent_sampling=latent_sampling,
                                                beta=beta) 
 
-        vae.compile(optimizer='Adam')
-
         print(vae.print_architecture(), '\n', vae._sizes_of_layers)
         print(f'beta={vae.beta}')
-        
-        history = vae.fit(x=[x_train, y_train],
-                          epochs=epochs,
-                          batch_size=batch_size)
+
+        vae.train(trainset, epochs=epochs, batch_size=batch_size)
 
         acc = vae.accuracy(x_test, y_test)
         print('\n'+'='*80 + '\n'+f'{beta:.2e}: {acc}\n')

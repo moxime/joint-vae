@@ -121,7 +121,85 @@ class ClassificationVariationalNetwork(nn.Module):
             out += (z_mean, z_log_var, z)
  
         return out
-    
+
+    def evaluate(self, x, **kw):
+        """
+        x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
+
+        creates a x of size C * N1, ..., D1, ...., Dt)
+        and a y of size C * N1 * ... * Ng
+
+        """
+
+        # build a C* N1* N2* Ng *D1 * Dt tensor of input X
+
+        C = self.num_labels
+        s_x = x.shape
+        if s_x[0] != 1:
+            s_x = (1, ) + s_x
+        s_x_ = (C, )  + tuple([1 for _ in s_x[1:]]) 
+
+        x_ = x.reshape(s_x).repeat(s_x_)
+
+        # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
+
+        s_y = x_.shape[:-len(self.input_shape)]
+
+        # print('cvae l. 428', 's_y', s_y)
+        # y = torch.zeros(s_y, requires_grad=False, dtype=int, device=x.device)
+        y = torch.zeros(s_y, dtype=int, device=x.device)
+        # print('cvae l. 430', 'y', y.shape)
+        for c in range(C):
+            y[c] = c # maybe a way to accelerate this ?
+
+        # print('cva l. 433', x_.shape, x_.dtype, y.shape, s_y, y.dtype)
+        x_reco, y_est, mu, log_var, z = self.forward(x_, y)
+
+        # print('cvae l. 436 x_', x_.shape, 'y', y.shape, '\nx_r', x_reco.shape,
+        #       'y_est', y_est.shape, 'mu', mu.shape, 'log_var',
+        #       log_var.shape, 'z', z.shape) 
+        batch_loss = self.loss(x_, y, x_reco, y_est, mu, log_var, batch_mean=False)
+
+        return x_reco.mean(0), y_est.mean(0), batch_loss
+
+    def predict(self, x, method='mean', **kw):
+
+        """
+        x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
+
+        creates a x of size C * N1, ..., D1, ...., Dt)
+        and a y of size C * N1 * ... * Ng
+
+        - method: 'mean' or None (if None)
+
+        """
+
+        # build a C* N1* N2* Ng *D1 * Dt tensor of input X
+
+        C = self.num_labels
+        s_x = x.shape
+        if s_x[0] != 1:
+            s_x = (1, ) + s_x
+        s_x_ = (C, )  + tuple([1 for _ in s_x[1:]]) 
+
+        x_ = x.reshape(s_x).repeat(s_x_)
+
+        # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
+
+        s_y = x_.shape[:-len(self.input_shape)]
+
+        y = torch.zeros(s_y, dtype=int, device=x.device)
+        for c in range(C):
+            y[c] = c # maybe a way to accelerate this ?
+
+        _, y_est, _, _, _ = self.forward(x_, y)
+
+        if method is None:
+            return y_est
+
+        if method == 'mean':
+            return y_est.mean(0)
+        
     def loss(self, x, y,
              x_reconstructed, y_estimate,
              mu_z, log_var_z,
@@ -170,7 +248,7 @@ class ClassificationVariationalNetwork(nn.Module):
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,
                                                   shuffle=True, num_workers=0)
-        dataset_size = trainset.data.shape[0]
+        dataset_size = len(trainset)
         per_epoch = dataset_size // batch_size
         self.train_history = dict() # will not be returned
         self.train_history['1st batch loss'] = []
@@ -383,113 +461,27 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return vae
 
-    def naive_predict(self, x,  verbose=1):
-        """for x a single input find y for which log P(x, y) is maximum
-        (actually the ELBO < log P(x,y) is maximum)
-
-        """
-        
-        x = np.atleast_2d(x)
-        assert x.shape[0] == 1
-        assert len(self.input_dims) > 1
-        num_labels = self.input_dims[-1]
-
-        y_ = np.eye(num_labels)
-
-        loss_ = np.inf
-
-        for i in range(num_labels):
-
-            y = np.atleast_2d(y_[:,i])
-            loss = super.evaluate([x, y], verbose=verbose)
-            if loss < loss_:
-                i_ = i
-                loss_ = loss
-
-        return i_, loss_
-
-    def naive_evaluate(self, x, verbose=0):
-        """for x an input or a tensor or an array of inputs computes the
-        losses (and returns as a list) for each possible y.
-
-        """
-        num_labels = self.input_dims[-1]
-        y_ = np.eye(num_labels)
-
-        losses = []
-
-        x2d = np.atleast_2d(x)
-        
-        for y in y_:
-            y2d = np.atleast_2d(y)
-            loss = super().evaluate([x2d, y2d], verbose=verbose)
-            losses.append(loss)
-
-        return losses
-
-    def evaluate(self, x, **kw):
-        """
-        x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
-
-        creates a x of size C * N1, ..., D1, ...., Dt)
-        and a y of size C * N1 * ... * Ng
-
-        """
-
-        # build a C* N1* N2* Ng *D1 * Dt tensor of input X
-
-        C = self.num_labels
-        s_x = x.shape
-        if s_x[0] != 1:
-            s_x = (1, ) + s_x
-        s_x_ = (C, )  + tuple([1 for _ in s_x[1:]]) 
-
-        x_ = x.reshape(s_x).repeat(s_x_)
-
-        # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
-
-        s_y = x_.shape[:-len(self.input_shape)]
-
-        # print('cvae l. 428', 's_y', s_y)
-        # y = torch.zeros(s_y, requires_grad=False, dtype=int, device=x.device)
-        y = torch.zeros(s_y, dtype=int, device=x.device)
-        # print('cvae l. 430', 'y', y.shape)
-        for c in range(C):
-            y[c] = c # maybe a way to accelerate this ?
-
-        # print('cva l. 433', x_.shape, x_.dtype, y.shape, s_y, y.dtype)
-        x_reco, y_est, mu, log_var, z = self.forward(x_, y)
-
-        # print('cvae l. 436 x_', x_.shape, 'y', y.shape, '\nx_r', x_reco.shape,
-        #       'y_est', y_est.shape, 'mu', mu.shape, 'log_var',
-        #       log_var.shape, 'z', z.shape) 
-        batch_loss = self.loss(x_, y, x_reco, y_est, mu, log_var, batch_mean=False)
-
-        return x_reco.mean(0), y_est.mean(0), batch_loss
-
     def log_pxy(self, x, normalize=True, losses=None, **kw):
 
         beta2pi = self.beta * 2 * np.pi
-        d = x.shape[-1]
 
         if losses is None:
-            losses = self.evaluate(x, **kw)
+            _, _, losses = self.evaluate(x, **kw)
 
-        c = losses.shape[-1]
         log_pxy = - losses  / (2 * self.beta)
 
         if normalize:
             return log_pxy
 
-        return log_pxy - d / 2 * np.log(d * beta2pi)
+        return log_pxy - np.prod(self.input_shape) / 2 * np.log(beta2pi)
 
     def elbo_xy_pred(self, x, normalize=True, pred_method='blind', **kw):
 
         """computes the elbo for x, y0 with y0 the predicted
 
         """
-
-        elbo_xy = self.log_pxy(np.atleast_2d(x), normalize=normalize, **kw)
+        print('TO BE DONE... OR NOT')
+        elbo_xy = self.log_pxy(x, normalize=normalize, **kw)
 
         if pred_method=='max':
             return elbo_xy.max(axis=-1)
@@ -508,12 +500,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         
-        beta2pi = self.beta * 2 * np.pi
-        d = x.shape[-1]
         if losses is None:
             losses = self.evaluate(x, **kw)
 
-        c = losses.shape[-1]
         log_pxy = - losses  / (2 * self.beta)
 
         m_log_pxy = log_pxy.max(axis=-1)
@@ -628,9 +617,9 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    save_dir = './jobs/fashion/job-13'
+    save_dir = './jobs/fashion/job-10'
     load_dir = save_dir
-    load_dir = None
+    # load_dir = None
     # save_dir = None
                   
     rebuild = load_dir is None
@@ -700,7 +689,7 @@ if __name__ == '__main__':
     x, y = test_batch[0].to(device), test_batch[1].to(device)
     
     refit = False
-    refit = True
+    # refit = True
 
     jvae.to(device)
     
@@ -709,9 +698,9 @@ if __name__ == '__main__':
                    epochs=epochs,
                    batch_size=batch_size,
                    device=device,
-                   mse_loss_weight=0.0001,
-                   x_loss_weight=1,
-                   kl_loss_weight=0.0001)
+                   mse_loss_weight=None,
+                   x_loss_weight=None,
+                   kl_loss_weight=None)
     
     if save_dir is not None:
         jvae.save(save_dir)

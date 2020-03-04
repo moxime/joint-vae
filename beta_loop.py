@@ -204,7 +204,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch_size', type=int, default=200)
 
     args = parser.parse_args()
-    bath_size = args.batch_size
+    batch_size = args.batch_size
     trainset, testset = torchdl.get_fashion_mnist()        
 
     epochs = 50

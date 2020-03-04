@@ -477,26 +477,26 @@ class ClassificationVariationalNetwork(nn.Module):
         except(FileNotFoundError):
             train_history = dict()
             
-            latent_sampling = p_dict.get('latent_sampling', 1)
-            output_activation = p_dict.get('output_activation',
+        latent_sampling = p_dict.get('latent_sampling', 1)
+        output_activation = p_dict.get('output_activation',
                                            default_output_activation)
                               
-            ls = p_dict['layer_sizes']
+        ls = p_dict['layer_sizes']
             # print(ls)
                               
-            vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4], ls[5],
-                      latent_sampling=latent_sampling,
-                      activation=p_dict['activation'],
-                      beta=p_dict['beta'],
-                      output_activation=output_activation,
-                      verbose=verbose)
+        vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4], ls[5],
+                  latent_sampling=latent_sampling,
+                  activation=p_dict['activation'],
+                  beta=p_dict['beta'],
+                  output_activation=output_activation,
+                  verbose=verbose)
                               
-            vae.trained = p_dict['trained']
-            vae.train_history = train_history
+        vae.trained = p_dict['trained']
+        vae.train_history = train_history
                               
-            if vae.trained:
-                w_p = save_load.get_path(dir_name, 'state.pth')
-                vae.load_state_dict(torch.load(w_p))
+        if vae.trained:
+            w_p = save_load.get_path(dir_name, 'state.pth')
+            vae.load_state_dict(torch.load(w_p))
                               
         return vae
                               

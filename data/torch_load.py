@@ -4,6 +4,7 @@ from torchvision import datasets, transforms
 simple_transform = transforms.Compose([transforms.ToTensor(),
                                        transforms.Lambda(lambda x: x
                                                          / 255.0)])
+simple_transform = transforms.ToTensor()
 
 
 def get_dataset(dataset='MNIST', root='./data', ood=None):

@@ -4,30 +4,32 @@ import matplotlib.pyplot as plt
 from data import generate as dg
 from utils.save_load import load_json, save_object, collect_networks, get_path_from_input
 import argparse
+import torch
 
+def showable_tensor(x):
+
+    return x.squeeze().cpu().detach().numpy()
 
 def show_y_matrix(vae, x):
 
-    x_, y_ = vae.naive_call(x)
-    logits = np.log(y_ / (1 - y_))
+    x_, y_, loss = vae.evaluate(x)
+    logits = (y_ / (1 - y_)).log()
 
-    plt.imshow(logits)
+    plt.imshow(logits.cpu().detach().numpy())
     plt.show()
     pass
 
 
 def show_x(vae, x):
 
-    x_, y_ = vae.naive_call(x)
-
-    l_ = vae.naive_evaluate(x)
+    x_, y_, oneloss = vae.evaluate(x)
     
     for i, x in enumerate(x_):
 
         plt.figure()
-        plt.imshow(x.numpy().reshape(28, 28))
+        plt.imshow(showable_tensor(x))
         # plt.show()
-        plt.title(f'y={i} loss = {l_[i]}')
+        plt.title(f'y={i} loss = {oneloss[i]}')
 
     plt.show()
 
@@ -36,15 +38,11 @@ def show_x(vae, x):
 
 def show_x_y(vae, x, title=''):
 
-    x_, y_ = vae.naive_call(x)
-    y = vae.blind_predict(np.atleast_2d(x))
-    y_ = np.vstack([y_, y, y_.numpy().mean(axis=0)])
+    x_reco, y_est_, oneloss = vae.evaluate(x)
+
+    y_ = torch.cat([y_est_.cpu(),
+                    y_est_.mean(0).cpu().unsqueeze(0)], 0)
     # print(y_)
-    l_ = vae.naive_evaluate(x, verbose=0)
-
-    beta2pi = vae.beta * 2 * np.pi
-
-    d = x.size
 
     log_px = vae.log_px(x)
     print(f'{title} : log_px = {log_px}\n')
@@ -53,23 +51,23 @@ def show_x_y(vae, x, title=''):
 
     axes = axes.reshape(12)
     
-    axes[0].imshow(x.reshape(28, 28), cmap='gray')
+    axes[0].imshow(showable_tensor(x), cmap='gray')
     axes[0].set_title(f'original ({title}) log_px={log_px}')
 
     ax_i = 1
-    for i, x in enumerate(x_):
+    for i, x in enumerate(x_reco):
 
-        axes[ax_i].imshow(x.numpy().reshape(28, 28), cmap='gray')
+        axes[ax_i].imshow(showable_tensor(x), cmap='gray')
         # plt.show()
-        axes[ax_i].set_title(f'y={i} loss = {l_[i]}')
+        axes[ax_i].set_title(f'y={i} loss = {oneloss[i]}')
         ax_i += 1
         
-    logits = np.log(y_ / (1 - y_))
+    logits = (y_ / (1 - y_)).log()
 
-    axes[-1].imshow(logits, cmap='gray')
+    axes[-1].imshow(showable_tensor(logits), cmap='gray')
 
     axes[-1].set(xlabel='p(y) output', ylabel='y input')
-    axes[-1].set_title(f'y_pred={np.round(100*y)}')
+    axes[-1].set_title(f'y_pred={np.round(y_pred)}')
 
     return f
 

@@ -18,7 +18,7 @@ latent_dim = 50
 # d_.reverse()
 d_ = [256, 512]
 c_ = [10]
-batch_size = 200
+batch_size = 100
 
 latent_sampling = 100 
 
@@ -34,15 +34,15 @@ e_ = [1024, 512, 512]
 # e_ = []
 d_ = e_.copy()
 d_.reverse()
-c_ = [20, 10]
+c_ = [20, 20]
                               
-latent_dim = 20
-latent_sampling = 50
+latent_dim = 100
+latent_sampling = 100
     
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 output_activation = 'sigmoid'
 
-job_dirs = './jobs'
+job_dirs = './jobs/fashion'
 useless_vae = ClassificationVariationalNetwork((1, 28, 28), 10, e_,
                                                latent_dim, d_, c_,
                                                latent_sampling=latent_sampling,

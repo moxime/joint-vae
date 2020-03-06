@@ -135,12 +135,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         C = self.num_labels
         s_x = x.shape
-        if s_x[0] != 1:
-            s_x = (1, ) + s_x
+        
+        # if len(s_x) == len(self.input_shape):
+        s_x = (1, ) + s_x
         s_x_ = (C, )  + tuple([1 for _ in s_x[1:]]) 
 
         x_ = x.reshape(s_x).repeat(s_x_)
-
+        
         # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
 
         s_y = x_.shape[:-len(self.input_shape)]
@@ -309,21 +310,21 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train batch kl loss'].append(batch_kl_loss)
             train_accuracy = self.accuracy(trainset,
                                            batch_size=batch_size,
-                                           num_batch=1,
+                                           num_batch=1000 // batch_size,
                                            device=device)
             self.train_history['train accuracy'].append(train_accuracy)
 
             if testset:
                 test_accuracy = self.accuracy(testset,
                                               batch_size=batch_size,
-                                              num_batch=1,
+                                              num_batch=1000 // batch_size,
                                               device=device)
                 self.train_history['test accuracy'].append(test_accuracy)
             acc = test_accuracy if testset else train_accuracy
-            print(f'epoch {epoch + 1:2d}/{epochs} 1st batch ',
-                  f'mse: {batch_mse_loss:.2e} kl: {batch_kl_loss:.2e} ',
-                  f'x: {batch_x_loss:.2e} L: {first_batch_loss:.2e}',
-                  f'acc: {100*acc:.2f} %',
+            print(f'epoch {epoch + 1:2d}/{epochs} 1st batch',
+                  f'mse: {batch_mse_loss:.1e} kl: {batch_kl_loss:.1e}',
+                  f'x: {batch_x_loss:.1e} L: {first_batch_loss:.1e}',
+                  f'acc: {100*acc:.1f} %',
                   f'({"test" if testset else "train"})')
 
             t_i = time.time()
@@ -505,12 +506,14 @@ class ClassificationVariationalNetwork(nn.Module):
         if losses is None:
             _, _, losses = self.evaluate(x, **kw)
                               
-        log_pxy = - losses  / self.beta
-                              
+        normalized_log_pxy = - losses  / (2 * self.beta)
+
         if normalize:
-            return log_pxy
-                              
-        return log_pxy - np.prod(self.input_shape) / 2 * np.log(beta2pi)
+            return normalized_log_pxy
+
+        D = np.prod(self.input_shape)
+        a = np.log(self.sigma * 2 * np.pi)
+        return normalized_log_pxy - D / 2 * a
                               
     def elbo_xy_pred(self, x, normalize=True, pred_method='blind', **kw):
         """computes the elbo for x, y0 with y0 the predicted
@@ -534,29 +537,28 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         if losses is None:
-            losses = self.evaluate(x, **kw)
+            _, _, batch_losses = self.evaluate(x, **kw)
                               
-            log_pxy = - losses  / self.beta
+            log_pxy = - losses  / (2 * self.beta)
                               
-            m_log_pxy = log_pxy.max(axis=-1)
-            mat_log_pxy = np.hstack([np.atleast_1d(m_log_pxy)[:, None]] * c)
+            m_log_pxy = log_pxy.max(0)
+
             d_log_pxy = log_pxy - mat_log_pxy
                               
             # p_xy = d_p_xy * m_pxy 
-            d_pxy = np.exp(d_log_pxy)
+            d_pxy = d_log_pxy.exp()
             if method == 'sum':
-                d_px = d_pxy.sum(axis=-1)
+                d_px = d_pxy.sum(0)
             elif method == 'max':
-                d_px = d_pxy.max(axis=-1)
-            else: # mean
-                p_y = self.blind_predict(x)
-                d_px = (d_pxy * p_y).sum(axis=-1)
-                              
+                d_px = d_pxy.max(0)
+
+            normalized_log_px = d_px.log() + m_log_pxy
             if normalize:
-                return np.squeeze(np.log(d_px) + m_log_pxy)
+                return normalized_log_px
             else:
-                return np.squeeze(np.log(d_px) + m_log_pxy
-                                                - d / 2 * np.log(d * beta2pi))
+                D = np.prod(self.input_shape)
+                a = np.log(self.sigma * 2 * np.pi)
+                return normalized_log_px - D / 2 * a
                               
     def log_py_x(self, x, losses=None, **kw):
 
@@ -607,11 +609,12 @@ if __name__ == '__main__':
     
     save_dir = './jobs/fashion/job-1'
     load_dir = save_dir
+    load_dir = './jobs/fashion/thejob'
     # load_dir = None
-    # save_dir = None
+    save_dir = None
                               
     rebuild = load_dir is None
-    rebuild = True
+    # rebuild = True
                               
     e_ = [1024, 512, 512]
     # e_ = []

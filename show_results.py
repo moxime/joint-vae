@@ -5,6 +5,7 @@ from data import generate as dg
 from utils.save_load import load_json, save_object, collect_networks, get_path_from_input
 import argparse
 import torch
+from sklearn.metrics import roc_curve
 
 def showable_tensor(x):
 
@@ -37,7 +38,9 @@ def show_x(vae, x):
 
 
 def show_x_y(vae, x, title=''):
-
+    """ x is ONE sample 
+    """
+    
     x_reco, y_est_, oneloss = vae.evaluate(x)
 
     y_ = torch.cat([y_est_.cpu(),
@@ -45,7 +48,7 @@ def show_x_y(vae, x, title=''):
     # print(y_)
 
     log_px = vae.log_px(x)
-    print(f'{title} : log_px = {log_px}\n')
+    print(f'{title}{" :" of title else ""} log_px = {log_px}\n')
     
     f, axes = plt.subplots(3, 4)
 
@@ -67,35 +70,54 @@ def show_x_y(vae, x, title=''):
     axes[-1].imshow(showable_tensor(logits), cmap='gray')
 
     axes[-1].set(xlabel='p(y) output', ylabel='y input')
-    axes[-1].set_title(f'y_pred={np.round(y_pred)}')
+    axes[-1].set_title(f'y_pred={np.round(100 * y_pred)}')
 
     return f
 
 
-def roc_curves(likelihood_h0, likelihood_h1):
-    """
-    returns p_fa, p_d (false detextion of H1, true detection of H1) 
-    """
-    n_h0 = likelihood_h0.size
-    n_h1 = likelihood_h1.size
-
-    lh0_sorted = np.sort(likelihood_h0)
-    p_fa = np.ndarray(n_h0)
-    p_d = np.ndarray(n_h0)
-    for i, lh in enumerate(lh0_sorted):
-        p_fa[i] = sum(likelihood_h0 > lh) / n_h0
-        p_d[i] = sum(likelihood_h1 > lh) / n_h1
-
-    return p_fa, p_d
-
-
-def ood_roc(vae, x_test, y_test, x_ood, y_ood,
-            method='px',
-            i_test=None, losses=None,
-            stats=100, **kw):
-
-    stats = min(stats, x_test.shape[0], x_ood.shape[0])
+def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all'):
     
+    test_n_batch = len(testset) // batch_size
+    ood_n_batch = len(oodset) // batch_size
+
+    shuffle = False
+    test_n_batch = len(testset) // batch_size
+    ood_n_batch = len(oodtest) // batch_size
+
+    if num_batch is not 'all':
+    
+        shuffle = True
+        test_n_batch = min(num_batch, test_n_batch)
+        ood_n_batch = min(num_batch, ood_n_batch)
+
+    if device is None:
+        has_cuda = torch.cuda.is_available
+        device = torch.device('cuda' if has_cuda else 'cpu')
+
+        testloader = torch.utils.data.DataLoader(testset,
+                                                 shuffle=shuffle,
+                                                 batch_size=batch_size)
+
+        oodloader = torch.utils.data.DataLoader(oodset,
+                                                shuffle=shuffle,
+                                                batch_size=batch_size)
+
+    if method is 'px':
+
+        log_px = np.zeros(batch_size * num_batch)
+        label_ood = np.zeros(batch_size * num_batch)
+        i = 0
+        for loader, num_batch, is_ood in zip((testloader, oodloader),
+                                             (test_n_batch, ood_n_batch),
+                                             (False, True)):
+            iter_ = iter(loader)
+            for batch in range(num_batch):
+                data = next(iter_)
+                x = data[0].to(device)
+                log_px[i: i + batch_size] = vae.log_px(x).cpu().detach().numpy()
+                label_ood[i: i + batch_size] = is_ood
+                i += batch_size
+
     if losses is None or i_test is None:
         i_test = np.random.permutation(x_test.shape[0])[:stats]
         losses = None

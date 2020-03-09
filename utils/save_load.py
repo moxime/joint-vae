@@ -73,7 +73,7 @@ def get_path_from_input(dir_path=os.getcwd()):
     sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_path) if os.path.isdir(d)]
     print(f' 0: choose {dir_path}')
     for i, d in enumerate(sub_dirs_rel_paths):
-        print(f'{i+1:2d}: enter  {d}')
+        print(f'{i+1:2d}: enter {d}')
 
     try:
         i = int(input('Your choice: '))

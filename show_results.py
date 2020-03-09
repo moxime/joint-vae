@@ -37,32 +37,36 @@ def show_x(vae, x):
     pass
 
 
-def show_x_y(vae, x, title=''):
+def show_x_y(vae, x, title='', predict_method='mean'):
     """ x is ONE sample 
     """
     
     x_reco, y_est_, oneloss = vae.evaluate(x)
+    y_pred_ = y_est_.mean(0).cpu().numpy()
+
+    y_pred = vae.predict(x, method=predict_method)
 
     y_ = torch.cat([y_est_.cpu(),
                     y_est_.mean(0).cpu().unsqueeze(0)], 0)
     # print(y_)
 
     log_px = vae.log_px(x)
-    print(f'{title}{" :" of title else ""} log_px = {log_px}\n')
+    print(f'{title}{" :" if title else ""} log_px = {log_px}\n')
     
     f, axes = plt.subplots(3, 4)
 
     axes = axes.reshape(12)
     
     axes[0].imshow(showable_tensor(x), cmap='gray')
-    axes[0].set_title(f'original ({title}) log_px={log_px}')
+    axes[0].set_title(f'original ({title}) log_px={log_px:.3e}')
 
     ax_i = 1
     for i, x in enumerate(x_reco):
 
         axes[ax_i].imshow(showable_tensor(x), cmap='gray')
         # plt.show()
-        axes[ax_i].set_title(f'y={i} loss = {oneloss[i]}')
+        warn = '[]' if i == y_pred else ('', '')
+        axes[ax_i].set_title(f'{warn[0]}y={i} loss = {oneloss[i]:.3e}{warn[-1]}')
         ax_i += 1
         
     logits = (y_ / (1 - y_)).log()
@@ -70,21 +74,21 @@ def show_x_y(vae, x, title=''):
     axes[-1].imshow(showable_tensor(logits), cmap='gray')
 
     axes[-1].set(xlabel='p(y) output', ylabel='y input')
-    axes[-1].set_title(f'y_pred={np.round(100 * y_pred)}')
+    axes[-1].set_title(f'y_pred={np.round(100 * y_pred_)}')
 
     return f
 
 
-def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all'):
+def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all', device=None):
     
     test_n_batch = len(testset) // batch_size
     ood_n_batch = len(oodset) // batch_size
 
     shuffle = False
     test_n_batch = len(testset) // batch_size
-    ood_n_batch = len(oodtest) // batch_size
+    ood_n_batch = len(oodset) // batch_size
 
-    if num_batch is not 'all':
+    if type(num_batch) is int:
     
         shuffle = True
         test_n_batch = min(num_batch, test_n_batch)
@@ -94,18 +98,20 @@ def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all'):
         has_cuda = torch.cuda.is_available
         device = torch.device('cuda' if has_cuda else 'cpu')
 
-        testloader = torch.utils.data.DataLoader(testset,
-                                                 shuffle=shuffle,
-                                                 batch_size=batch_size)
+    vae.to(device)
+        
+    testloader = torch.utils.data.DataLoader(testset,
+                                             shuffle=shuffle,
+                                             batch_size=batch_size)
 
-        oodloader = torch.utils.data.DataLoader(oodset,
-                                                shuffle=shuffle,
-                                                batch_size=batch_size)
+    oodloader = torch.utils.data.DataLoader(oodset,
+                                            shuffle=shuffle,
+                                            batch_size=batch_size)
 
-    if method is 'px':
+    if method == 'px':
 
-        log_px = np.zeros(batch_size * num_batch)
-        label_ood = np.zeros(batch_size * num_batch)
+        log_px = np.zeros(batch_size * num_batch * 2)
+        label_ood = np.zeros(batch_size * num_batch * 2)
         i = 0
         for loader, num_batch, is_ood in zip((testloader, oodloader),
                                              (test_n_batch, ood_n_batch),
@@ -114,58 +120,67 @@ def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all'):
             for batch in range(num_batch):
                 data = next(iter_)
                 x = data[0].to(device)
-                log_px[i: i + batch_size] = vae.log_px(x).cpu().detach().numpy()
+                log_px[i: i + batch_size] = vae.log_px(x).cpu() #.detach().numpy()
                 label_ood[i: i + batch_size] = is_ood
                 i += batch_size
 
-    if losses is None or i_test is None:
-        i_test = np.random.permutation(x_test.shape[0])[:stats]
-        losses = None
-        
-    if losses is None:
-        losses = vae.evaluate(x_test[i_test], **kw)
+    fpr, tpr, thresholds =  roc_curve(label_ood, -log_px)
+    # return label_ood, log_px
+    return fpr, tpr
     
-    i_ood = np.random.permutation(x_ood.shape[0])[:stats]
 
-    if method == 'px':
-        log_px_test = vae.log_px(x_test[i_test], losses=losses, **kw)
-        log_px_ood = vae.log_px(x_ood[i_ood], **kw)
+def miss_roc(vae, testset, batch_size=100, num_batch='all',
+             method='loss', predict_method='mean', device=None):
 
-        return log_px_test, log_px_ood
+    shuffle = True
+    if num_batch == 'all':
+        num_batch = len(testset) // batch_size
+        shuffle = False
 
+    num_batch = min(num_batch, len(testset) // batch_size)
+    testloader = torch.utils.data.DataLoader(testset,
+                                             shuffle=shuffle,
+                                             batch_size=batch_size)
 
-def miss_roc(vae, x_test, y_test, y_pred=None, stats=100, method='output', **kw):
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    if y_pred is None:
-        y_pred = vae.blind_predict(x_test)
+    vae.to(device)    
 
-    y_pred_ = y_pred.argmax(axis=-1)
-    y_test_ = y_test.argmax(axis=-1)
+    score = np.ndarray(num_batch * batch_size)
+    miss = np.ndarray(num_batch * batch_size)
 
-    i_pred_ = np.argwhere(y_test_ == y_pred_).squeeze()
-    n_pred = len(i_pred_)
-    i_pred = i_pred_[np.random.permutation(n_pred)[:min(stats, n_pred)]]
-    i_miss_ = np.argwhere(y_test_ != y_pred_).squeeze()
-    n_miss = len(i_miss_)
-    i_miss = i_miss_[np.random.permutation(n_miss)[:min(stats, n_miss)]]
-    
-    if method == 'loss':
-        log_py_x_pred = vae.log_py_x(x_test[i_pred], **kw)
-        log_py_x_miss = vae.log_py_x(x_test[i_miss], **kw)
+    test_iter = iter(testloader)
 
-        HY_x_pred = -(np.exp(log_py_x_pred) * log_py_x_pred).sum(axis=-1)
-        HY_x_miss = -(np.exp(log_py_x_miss) * log_py_x_miss).sum(axis=-1)
+    for batch in range(num_batch):
 
-        return HY_x_pred, HY_x_miss
+        data = next(test_iter)
+        _, y_est, batch_losses = vae.evaluate(data[0].to(device))
 
-    if method == 'output':
-        
-        H_pred = (-y_pred[i_pred] * np.log(y_pred[i_pred])).sum(axis=-1)
-        H_miss = (-y_pred[i_miss] * np.log(y_pred[i_miss])).sum(axis=-1)
-
-        return H_pred, H_miss
-    
+        y_pred_batch = vae.predict_after_evaluate(y_est, batch_losses,
+                                                  method=predict_method)
             
+        if method == 'loss':
+            log_py_x = vae.log_py_x(None, batch_losses=batch_losses)
+            py_x = log_py_x.exp()
+
+        if method == 'output':
+            py_x = y_est.mean(0)
+            log_py_x = py_x.log()
+            if (py_x == 0).any():
+                log_py_x[torch.where(py_x == 0)] = 0
+        
+        HY_x = (- log_py_x * py_x).sum(0)
+
+        i = batch * batch_size
+        score[i: i + batch_size] = HY_x.cpu()
+        miss[i: i + batch_size] = data[1] != y_pred_batch.cpu()
+
+    fpr, tpr, thresholds =  roc_curve(miss, score)
+    # return label_ood, log_px
+    return fpr, tpr
+
+                
 def show_examples(vae, x_test, y_test, x_ood, y_ood,
                   num_of_examples=10, stats=100, export=False, export_dir='/tmp'):
 
@@ -334,7 +349,6 @@ if __name__ == '__main__':
              dg.get_mnist(ood='mean')
 
     # print(dir_)
-
 
     list_of_lists_of_vae = []
     for directory in directories:

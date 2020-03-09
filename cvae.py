@@ -159,9 +159,9 @@ class ClassificationVariationalNetwork(nn.Module):
         # print('cvae l. 436 x_', x_.shape, 'y', y.shape, '\nx_r', x_reco.shape,
         #       'y_est', y_est.shape, 'mu', mu.shape, 'log_var',
         #       log_var.shape, 'z', z.shape) 
-        batch_loss = self.loss(x_, y, x_reco, y_est, mu, log_var, batch_mean=False)
+        batch_losses = self.loss(x_, y, x_reco, y_est, mu, log_var, batch_mean=False)
 
-        return x_reco.mean(0), y_est.mean(0), batch_loss
+        return x_reco.mean(0), y_est.mean(0), batch_losses
 
     def predict(self, x, method='mean', **kw):
 
@@ -176,17 +176,23 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         
-        _, y_est, loss = self.evaluate(x)
+        _, y_est, batch_losses = self.evaluate(x)
+
+        return self.predict_after_evaluate(y_est, batch_losses, method=method)
+
+    def predict_after_evaluate(self, y_est, losses, method='mean'):
 
         if method is None:
             return y_est
-
+        
         if method == 'mean':
             return y_est.mean(0).argmax(-1)
 
         if method == 'loss':
-            return loss.argmin(0)
-            
+            return losses.argmin(0)
+
+
+        
     def accuracy(self, testset, batch_size=100, num_batch='all',
                  device=None, return_mismatched=False):
         """return detection rate. If return_mismatched is True, indices of
@@ -501,12 +507,12 @@ class ClassificationVariationalNetwork(nn.Module):
                               
         return vae
                               
-    def log_pxy(self, x, normalize=True, losses=None, **kw):
+    def log_pxy(self, x, normalize=True, batch_losses=None, **kw):
                               
-        if losses is None:
-            _, _, losses = self.evaluate(x, **kw)
+        if batch_losses is None:
+            _, _, batch_losses = self.evaluate(x, **kw)
                               
-        normalized_log_pxy = - losses  / (2 * self.beta)
+        normalized_log_pxy = - batch_losses  / (2 * self.beta)
 
         if normalize:
             return normalized_log_pxy
@@ -529,58 +535,50 @@ class ClassificationVariationalNetwork(nn.Module):
             y = self.blind_predict(x).argmax(axis=-1)
             return np.hstack([elbo_xy[i, y0] for (i, y0) in enumerate(y)])
                               
-    def log_px(self, x, normalize=True, method='sum', losses=None, **kw):
-        """TO BE DONE computes a lower bound on log(p(x)) with the loss which is an upper
+    def log_px(self, x, normalize=True, method='sum', batch_losses=None, **kw):
+        """Computes a lower bound on log(p(x)) with the loss which is an upper
         bound on -log(p(x, y)).  - normalize = True forgets a constant
         (2pi sigma^2)^(-d/2) - method ='sum' computes p(x) as the sum
         of p(x, y), method='max' computes p(x) as the max_y of p(x, y)
 
         """
-        if losses is None:
+        if batch_losses is None:
             _, _, batch_losses = self.evaluate(x, **kw)
                               
-            log_pxy = - losses  / (2 * self.beta)
+        log_pxy = - batch_losses  / (2 * self.beta)
                               
-            m_log_pxy = log_pxy.max(0)
+        m_log_pxy = log_pxy.max(0)[0]
+        d_log_pxy = log_pxy - m_log_pxy
+                              
+        # p_xy = d_p_xy * m_pxy 
+        d_pxy = d_log_pxy.exp()
+        if method == 'sum':
+            d_px = d_pxy.sum(0)
+        elif method == 'max':
+            d_px = d_pxy.max(0)
 
-            d_log_pxy = log_pxy - mat_log_pxy
+        normalized_log_px = d_px.log() + m_log_pxy
+        if normalize:
+            return normalized_log_px
+        else:
+            D = np.prod(self.input_shape)
+            a = np.log(self.sigma * 2 * np.pi)
+            return normalized_log_px - D / 2 * a
                               
-            # p_xy = d_p_xy * m_pxy 
-            d_pxy = d_log_pxy.exp()
-            if method == 'sum':
-                d_px = d_pxy.sum(0)
-            elif method == 'max':
-                d_px = d_pxy.max(0)
+    def log_py_x(self, x, batch_losses=None, **kw):
 
-            normalized_log_px = d_px.log() + m_log_pxy
-            if normalize:
-                return normalized_log_px
-            else:
-                D = np.prod(self.input_shape)
-                a = np.log(self.sigma * 2 * np.pi)
-                return normalized_log_px - D / 2 * a
-                              
-    def log_py_x(self, x, losses=None, **kw):
+        if batch_losses is None:
+            _, _, batch_losses = self.evaluate(x, **kw)
 
-        print('NOT IMPLEMENTED')
-        if True:
-            return None
-        d = x.shape[-1]
-        if losses is None:
-            losses = self.evaluate(x, **kw)
-            
-        c = losses.shape[-1]
-        log_pxy = - losses  / (2 * self.beta)
+        # batch_losses is C * N1 * ... * 
+        log_pxy = - batch_losses  / (2 * self.beta)
                               
-        m_log_pxy = log_pxy.max(axis=-1)
-        mat_log_pxy = np.hstack([np.atleast_1d(m_log_pxy)[:, None]] * c)
-        d_log_pxy = log_pxy - mat_log_pxy
+        m_log_pxy = log_pxy.max(0)[0]
+        d_log_pxy = log_pxy - m_log_pxy
         
-        d_pxy = np.exp(d_log_pxy)
-        d_log_px = np.log(d_pxy.sum(axis=-1))
+        d_log_px = d_log_pxy.exp().sum(0).log()
         
-        log_py_x = d_log_pxy - np.hstack([np.atleast_1d(d_log_px)[:, None]]
-                                         * c)
+        log_py_x = d_log_pxy - d_log_px
         
         return log_py_x
 
@@ -642,6 +640,7 @@ if __name__ == '__main__':
         #
                               
         trainset, testset = torchdl.get_fashion_mnist()        
+        _, oodset = torchdl.get_mnist()
         output_activation = 'sigmoid'
         data_loaded = True
         
@@ -669,7 +668,7 @@ if __name__ == '__main__':
 
     print(jvae.print_architecture())
     epochs = 50
-    batch_size = 200
+    batch_size = 100
             
     trainloader = torch.utils.data.DataLoader(trainset,
                                               batch_size=batch_size,
@@ -698,13 +697,11 @@ if __name__ == '__main__':
 
     if save_dir is not None:
         jvae.save(save_dir)
-        
+
+    """
     x_, y_, mu, lv, z = jvae(x, y)
-
-    # jvae.latent_sampling = 20
-    print(f'latent_sampling: {jvae.latent_sampling}')
     x_reco, y_out, batch_losses = jvae.evaluate(x)
-
+    
     y_est_by_losses = batch_losses.argmin(0)
     y_est_by_mean = y_out.mean(0).argmax(-1)
-                              
+    """

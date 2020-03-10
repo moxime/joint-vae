@@ -193,7 +193,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
 
         
-    def accuracy(self, testset, batch_size=100, num_batch='all',
+    def accuracy(self, testset, batch_size=100, num_batch='all', method='mean',
                  device=None, return_mismatched=False):
         """return detection rate. If return_mismatched is True, indices of
         mismatched are also retuned.
@@ -218,7 +218,7 @@ class ClassificationVariationalNetwork(nn.Module):
         for i in range(num_batch):
             data = next(iter_)
             x_test, y_test = data[0].to(device), data[1].to(device)
-            y_pred = self.predict(x_test)
+            y_pred = self.predict(x_test, method=method)
             n_err += (y_pred != y_test).sum().item()
             n += len(y_test)
 

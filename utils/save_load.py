@@ -94,6 +94,7 @@ def collect_networks(directory,
                      list_of_vae_by_architectures,
                      only_trained=True,
                      testset=None,
+                     device=None,
                      **default_load_paramaters):
     
     from cvae import ClassificationVariationalNetwork
@@ -133,9 +134,10 @@ def collect_networks(directory,
                     vae_dict['acc'][method] = float(f.read())
             except FileNotFoundError:
                 compute_accuracies = True
+                vae_dict['acc'][method] = None
                 
         if compute_accuracies and testset:
-            acc = vae.accuracy(testset, method='all')
+            acc = vae.accuracy(testset, method='all', device=device)
             for method in vae.predict_methods:
                 results_path_file = os.path.join(directory,
                                                  'test_accuracy_' +
@@ -144,9 +146,6 @@ def collect_networks(directory,
                     f.write(str(acc[method]) + '\n')            
             vae_dict['acc'] = acc
         
-        if compute_accuracies and not testset:
-            vae_dict['acc'] = None
-
     except FileNotFoundError:
         pass
     

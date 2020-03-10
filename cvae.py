@@ -225,6 +225,7 @@ class ClassificationVariationalNetwork(nn.Module):
             has_cuda = torch.cuda.is_available
             device = torch.device('cuda' if has_cuda else 'cpu')
 
+        self.to(device)
         testloader = torch.utils.data.DataLoader(testset,
                                                  shuffle=shuffle,
                                                  batch_size=batch_size)
@@ -298,6 +299,7 @@ class ClassificationVariationalNetwork(nn.Module):
         """
 
         """
+        methods = self.predict_methods
         if device is None:
             device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
             
@@ -342,21 +344,25 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train batch kl loss'].append(batch_kl_loss)
             train_accuracy = self.accuracy(trainset,
                                            batch_size=batch_size,
-                                           num_batch=1000 // batch_size,
-                                           device=device)
+                                           num_batch=1000 //
+                                           batch_size, device=device,
+                                           method='all')
             self.train_history['train accuracy'].append(train_accuracy)
 
             if testset:
                 test_accuracy = self.accuracy(testset,
                                               batch_size=batch_size,
-                                              num_batch=1000 // batch_size,
-                                              device=device)
+                                              num_batch=1000 //
+                                              batch_size,
+                                              device=device,
+                                              method='all')
                 self.train_history['test accuracy'].append(test_accuracy)
             acc = test_accuracy if testset else train_accuracy
+            acc_str = '|'.join([f'{100 * acc[m]:.1f} % {m}' for m in methods])
             print(f'epoch {epoch + 1:2d}/{epochs} 1st batch',
                   f'mse: {batch_mse_loss:.1e} kl: {batch_kl_loss:.1e}',
                   f'x: {batch_x_loss:.1e} L: {first_batch_loss:.1e}',
-                  f'acc: {100*acc:.1f} %',
+                  acc_str,
                   f'({"test" if testset else "train"})')
 
             t_i = time.time()

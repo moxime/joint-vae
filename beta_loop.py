@@ -55,12 +55,12 @@ beta_pseudo_log = np.array([1, 2, 5])
 beta_lin = np.linspace(1e-4, 5e-4, 5)
 
 beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-8, -5, 4)] * 4)
+beta_ = np.hstack([beta_pseudo_log * p for p in np.logspace(-4, -2, 3)] * 4)
  
 # beta_ = np.hstack([beta_pseudo_log * 1e-7] * 2)
 # beta_ = np.hstack([1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]*5)
 # beta_ = beta_lin
 # beta_ = np.hstack([beta_lin]*3)
-
 
 
 def read_float_list(path):
@@ -84,6 +84,7 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
                   testset, betas, directory='./jobs', device=None,
                   epochs=30, latent_sampling=100, batch_size=100, output_activation=None):
 
+    methods = ClassificationVariationalNetwork.predict_methods
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -117,8 +118,10 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
         vae.train(trainset, epochs=epochs, testset=testset,
                   batch_size=batch_size)
 
-        acc = vae.accuracy(testset)
-        print('\n'+'='*80 + '\n'+f'{beta:.2e}: {acc}\n')
+        acc = vae.accuracy(testset, method='all')
+
+        for m in methods:
+            print(f'{beta:.2e}: {acc[m]*100:5.2 %} (by {m})')
 
         dir_beta_ = os.path.join(directory, f'beta={beta:.5e}')
         dir_beta = f'{dir_beta_}-0'
@@ -130,16 +133,16 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
             print(dir_beta, os.path.exists(dir_beta))
         vae.save(dir_beta)
 
-        results_path_file = os.path.join(dir_beta, 'test_accuracy') 
-        with open(results_path_file, 'w+') as f:
-            f.write(str(acc) + '\n')
+        results_path_file = os.path.join(dir_beta, 'test_accuracy_')
+        for m in methods:
+            with open(results_path_file + m, 'w+') as f:
+                f.write(str(acc[m]) + '\n')
         
         betas = read_float_list(betas_file)
         if len(betas) > 0:
             betas.pop(0)
 
-    os.remove(betas_file)
-    
+    os.remove(betas_file)    
    
                 
 def plot_results(save_dir, x_test, y_test):
@@ -201,7 +204,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='fashion',
                         choices=['fashion', 'mnist'])
 
-    parser.add_argument('-b', '--batch_size', type=int, default=200)
+    parser.add_argument('-b', '--batch_size', type=int, default=100)
 
     args = parser.parse_args()
     batch_size = args.batch_size

@@ -1,7 +1,8 @@
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from data import generate as dg
+from cvae import ClassificationVariationalNetwork
+from data import torch_load as torchdl
 from utils.save_load import load_json, save_object, collect_networks, get_path_from_input
 import argparse
 import torch
@@ -278,13 +279,13 @@ def show_examples(vae, testset, oodset, num_of_examples=10,
         if char.lower() == 'q':
             continued = False
             
-def plot_results(list_of_vae, ax_lin, ax_log):
+def plot_results(list_of_vae, ax, method, semilog=True, verbose=0):
 
     beta_ = []
     acc_ = []
 
     for vae_dict in list_of_vae:
-        acc = vae_dict['acc']
+        acc = vae_dict['acc'][method]
         if acc is not None:
             beta_.append(vae_dict['net'].beta)
             acc_.append(acc)
@@ -292,69 +293,88 @@ def plot_results(list_of_vae, ax_lin, ax_log):
     beta_sorted = np.sort(beta_)
     i = np.argsort(beta_)
     acc_sorted = [acc_[_] for _ in i]
-      
-    for (b, a) in zip(beta_sorted, acc_sorted):
-        print(f'{b:.2e}: {100-100*a:4.1f} %\n')
+
+    if verbose > 0:
+        print(f'Prediction with {method} for {vae_dict[dir]}')
+    if verbose > 1:
+        for (b, a) in zip(beta_sorted, acc_sorted):
+            print(f'{b:.2e}: {100-100*a:4.1f} %')
 
     legend = vae_dict['net'].print_architecture()
-    ax_log.semilogx(beta_sorted, [1 - _ for _ in acc_sorted], 'o', label=legend)
-    
-    ax_lin.plot(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
+    if semilog:
+        ax.semilogx(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
+    else:
+        ax.plot(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
     
     return beta_sorted, acc_sorted
     
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(
-        description="show results of networks in directory")
+    description="show results of networks in directory"
+    parser = argparse.ArgumentParser(description=description)
+        
     parser.add_argument('--dataset', default='fashion',
                         choices=['fashion', 'mnist'])
+
     parser.add_argument('directories',
                         help='where to find the networks',
                         nargs='*', default=None)
+    
     parser.add_argument('-s', '--stats', type=int, default=200)
     
     parser.add_argument('-x', '--export', action='store_true')
 
-    parser.add_argument('-d', '--export_dir', default=None,
+    parser.add_argument('-d', '--export-dir', default=None,
                         help='directory to export results')
+
+    parser.add_argument('-c', '--force-cpu', action='store_true')
+
+    parser.add_argument('-v', '--verbose', action='count', default=0)
     
     args = parser.parse_args()
 
+    verbose = args.verbose
+    
     export_dir = args.export_dir
-
     export = args.export or export_dir is not None
 
     stats = args.stats
+    
     dataset = args.dataset
     directories = args.directories
-    print(directories)
+    # print(directories)
+
+    force_cpu = args.force_cpu
+    has_cuda = torch.cuda.is_available()
+    device = torch.device('cpu' if force_cpu or not has_cuda else 'cuda')
+    
     if len(directories) == 0:
         jobs = os.path.join(os.getcwd(), 'jobs')
         if not os.path.exists(jobs):
             jobs = os.getcwd()
         directories = [get_path_from_input(jobs)]
-    print(directories)
 
+    if verbose > 0:
+        print(f'Used device: {device}')
+        print(f'Explored director{"ies" if len(directories) > 1 else "y"}:')
+        [print(d) for d in directories]
+        print(f'with assumed dataset {dataset}')
     # set = 'fashion'
     # set = 'mnist'
 
-    x_test, y_test = None, None
     if dataset == 'fashion':
-        (x_train, y_train, x_test, y_test, x_ood, y_ood) = \
-            dg.get_fashion_mnist(ood='mnist')
+
+        trainset, testset = torchdl.get_fashion_mnist()
+        _, oodset = torchdl.get_mnist()
 
     if dataset == 'mnist':
-        (x_train, y_train, x_test, y_test, x_ood, y_ood) = \
-             dg.get_mnist(ood='mean')
-
-    # print(dir_)
+        trainset, testset = torchdl.get_mnist()
 
     list_of_lists_of_vae = []
     for directory in directories:
         collect_networks(directory, list_of_lists_of_vae,
-                         x_test=x_test, y_test=y_test)
+                         testset=testset, device=device)
     
     num_of_nets = sum([len(_) for _ in list_of_lists_of_vae])
 
@@ -370,22 +390,27 @@ if __name__ == '__main__':
         show_examples(vae, x_test, y_test, x_ood, y_ood, stats=stats)
 
     if num_of_nets > 1:
-        f_lin, ax_lin = plt.subplots()
-        f_log, ax_log = plt.subplots()
-        
-        for list_of_nets in list_of_lists_of_vae:
-            
-            beta_, acc_ = plot_results(list_of_nets, ax_lin, ax_log)
+        dict_of_f = dict()
+        dict_of_axes = dict()
 
-            if export_dir is not None:
-                file_path = os.path.join(export_dir,
-                                         list_of_nets[0]['net'].print_architecture()
-                                         + '.tab')
-                with open(file_path, 'w+') as f:
-                    for b, a in zip(beta_, acc_):
-                        f.write(f'{b:.2e} {a:6.4f}\n')
-        
-        ax_log.legend()
-        # f_lin.show()
-        f_log.show()
+        methods = ClassificationVariationalNetwork.predict_methods
+        for m in methods:
+            dict_of_f[m], dict_of_axes[m] = plt.subplots()
+  
+        for list_of_nets in list_of_lists_of_vae:
+
+            for m in methods:
+                beta_, acc_ = plot_results(list_of_nets,
+                                           dict_of_axes[m], m,
+                                           verbose=0)
+                
+                if export_dir is not None:
+                    arch = list_of_nets[0]['net'].print_architecture()
+                    file_path = os.path.join(export_dir, arch + f'_{m}.tab')
+                    with open(file_path, 'w+') as f:
+                        for b, a in zip(beta_, acc_):
+                            f.write(f'{b:.2e} {a:6.4f}\n')
+        for m in methods:
+            dict_of_axes[m].legend()
+            dict_of_f[m].show()
         input()

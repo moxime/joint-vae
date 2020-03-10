@@ -37,7 +37,3 @@ def get_mnist(**kw):
 def get_fashion_mnist(**kw):
 
     return get_dataset(dataset='fashion', **kw)
-
-
-
-    

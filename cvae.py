@@ -28,6 +28,8 @@ DEFAULT_LATENT_SAMPLING = 100
 
 class ClassificationVariationalNetwork(nn.Module):
 
+    predict_methods = ['mean', 'loss']
+    
     def __init__(self,
                  input_shape,
                  num_labels,
@@ -123,11 +125,18 @@ class ClassificationVariationalNetwork(nn.Module):
         return out
 
     def evaluate(self, x, **kw):
-        """
-        x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
+        """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
 
         creates a x of size C * N1, ..., D1, ...., Dt)
         and a y of size C * N1 * ... * Ng
+
+        ----- Returns 
+
+        x_ (C,N1,..., D1...) tensor,
+
+        y_est (C,N1,...,C) tensor, 
+
+        batch_losses (C, N1,...N) tensor
 
         """
 
@@ -190,15 +199,23 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if method == 'loss':
             return losses.argmin(0)
-
-
         
     def accuracy(self, testset, batch_size=100, num_batch='all', method='mean',
                  device=None, return_mismatched=False):
         """return detection rate. If return_mismatched is True, indices of
         mismatched are also retuned.
+        method can be a list of methods
 
         """
+        if method == 'all':
+            method = self.predict_methods
+        if type(method) is str:
+            methods = [method]
+            only_one_method = True
+        else:
+            methods = method
+            only_one_method = False
+
         shuffle = True
         if num_batch == 'all':
             num_batch = len(testset) // batch_size
@@ -211,24 +228,33 @@ class ClassificationVariationalNetwork(nn.Module):
         testloader = torch.utils.data.DataLoader(testset,
                                                  shuffle=shuffle,
                                                  batch_size=batch_size)
-        n_err = 0
+        n_err = dict()
+        mismatched = dict()
+        acc = dict()
+        for m in methods:
+            n_err[m] = 0
+            mismatched[m] = []
         n = 0.0
-        mismatched = []
         iter_ = iter(testloader)
         for i in range(num_batch):
             data = next(iter_)
             x_test, y_test = data[0].to(device), data[1].to(device)
-            y_pred = self.predict(x_test, method=method)
-            n_err += (y_pred != y_test).sum().item()
+            for m in methods:
+                _, y_est, batch_losses = self.evaluate(x_test)
+                y_pred = self.predict_after_evaluate(y_est,
+                                                     batch_losses, method=m)
+                n_err[m] += (y_pred != y_test).sum().item()
+                mismatched[m] += [torch.where(y_test != y_pred)[0]]
             n += len(y_test)
 
-            mismatched += [torch.where(y_test != y_pred)[0]]
-
-        acc = 1 - n_err / n
+        for m in methods:
+            acc[m] = 1 - n_err[m] / n
         if return_mismatched:
+            if only_one_method:
+                return acc[m], mismatched[m]
             return acc, mismatched
 
-        return acc
+        return acc[m] if only_one_method else acc
         
     def loss(self, x, y,
              x_reconstructed, y_estimate,

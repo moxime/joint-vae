@@ -93,8 +93,7 @@ def get_path_from_input(dir_path=os.getcwd()):
 def collect_networks(directory,
                      list_of_vae_by_architectures,
                      only_trained=True,
-                     x_test=None,
-                     y_test=None,
+                     testset=None,
                      **default_load_paramaters):
     
     from cvae import ClassificationVariationalNetwork
@@ -123,19 +122,30 @@ def collect_networks(directory,
         if vae.trained or not only_trained:
             append_by_architecture(vae_dict, list_of_vae_by_architectures)
 
-        results_path_file = os.path.join(directory, 'test_accuracy') 
-        try:
-            # get result from file
-            with open(results_path_file, 'r') as f:
-                vae_dict['acc'] = float(f.read())
-        except FileNotFoundError:
-            if x_test is not None:
-                acc = vae.accuracy(x_test, y_test)
+        vae_dict['acc'] = dict()
+        compute_accuracies = False
+        for method in vae.predict_methods:
+            results_path_file = os.path.join(directory,
+                                             'test_accuracy_' + method) 
+            try:
+                # get result from file
+                with open(results_path_file, 'r') as f:
+                    vae_dict['acc'][method] = float(f.read())
+            except FileNotFoundError:
+                compute_accuracies = True
+                
+        if compute_accuracies and testset:
+            acc = vae.accuracy(testset, method='all')
+            for method in vae.predict_methods:
+                results_path_file = os.path.join(directory,
+                                                 'test_accuracy_' +
+                                                 method) 
                 with open(results_path_file, 'w+') as f:
-                    f.write(str(acc) + '\n')            
-                vae_dict['acc'] = acc
-            else:
-                vae_dict['acc'] = None
+                    f.write(str(acc[method]) + '\n')            
+            vae_dict['acc'] = acc
+        
+        if compute_accuracies and not testset:
+            vae_dict['acc'] = None
 
     except FileNotFoundError:
         pass
@@ -147,10 +157,8 @@ def collect_networks(directory,
         collect_networks(d,
                          list_of_vae_by_architectures,
                          only_trained=only_trained,
-                         x_test=x_test,
-                         y_test=y_test,
+                         testset=testset,
                          **default_load_paramaters)
-
 
 def load_and_save(directory, output_directory=None, **kw):
     """ load the incomplete params (with default missing parameter

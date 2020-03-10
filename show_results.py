@@ -181,8 +181,9 @@ def miss_roc(vae, testset, batch_size=100, num_batch='all',
     return fpr, tpr
 
                 
-def show_examples(vae, x_test, y_test, x_ood, y_ood,
-                  num_of_examples=10, stats=100, export=False, export_dir='/tmp'):
+def show_examples(vae, testset, oodset, num_of_examples=10,
+                  batch_size=100, num_batch=5, export=False,
+                  export_dir='/tmp'):
 
     y_pred = vae.blind_predict(x_test)
     y_pred_ = y_pred.argmax(axis=-1)

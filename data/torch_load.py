@@ -1,6 +1,21 @@
 from torchvision import datasets, transforms
+import torch
 
 
+def choose_device(device=None):
+    """
+
+    if device is None, returns cuda or cpu if not available.
+    else returns device
+    """    
+
+    if device is None:
+
+        has_cuda = torch.cuda.is_available()
+        device = torch.device('cuda' if has_cuda else 'cpu')
+
+        return device
+        
 simple_transform = transforms.Compose([transforms.ToTensor(),
                                        transforms.Lambda(lambda x: x
                                                          / 255.0)])

@@ -121,7 +121,7 @@ def training_loop(input_dim, num_labels, encoder_layers, latent_dim,
         acc = vae.accuracy(testset, method='all')
 
         for m in methods:
-            print(f'{beta:.2e}: {acc[m]*100:5.2 %} (by {m})')
+            print(f'{beta:.2e}: {acc[m]*100:5.2} % (by {m})')
 
         dir_beta_ = os.path.join(directory, f'beta={beta:.5e}')
         dir_beta = f'{dir_beta_}-0'

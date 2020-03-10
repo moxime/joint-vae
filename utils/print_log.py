@@ -3,7 +3,8 @@ import numpy as np
 
 
 def print_epoch(i, per_epoch, epoch, epochs, loss,
-                snake='=<', blinker='o ', line_length=60, info=''):
+                snake='=<', blinker='o ', line_length=60,
+                info='', end_of_epoch='\n'):
 
     steps = i * (line_length - len(info)) // per_epoch
     K = int(np.log10(epochs))+1
@@ -13,17 +14,15 @@ def print_epoch(i, per_epoch, epoch, epochs, loss,
     print(f'epoch {epoch+1:{K}d}/{epochs} ', end='')
     print('=' * steps + snake[i % len(snake)] +
           ' ' * (line_length - steps - len(info)) + f'{loss: .3e} {info}', end='')
-    if i == per_epoch - 1:
-        print()
-    else:
-        pass
-        print(f' (batch {i:{Ki}d}/{per_epoch})', end='')
-        # print(f' {blinker[i%len(blinker)]}', end='')
+    
+    print(f' (batch {i:{Ki}d}/{per_epoch})',
+          end = end_of_epoch if i == per_epoch - 1 else '')
+    # print(f' {blinker[i%len(blinker)]}', end='')
 
 if __name__ == '__main__':
         
     epochs = 10
-    per_epoch = 600
+    per_epoch = 60
 
     print_epoch(per_epoch-1, per_epoch, -1, epochs, 0)
 
@@ -31,7 +30,7 @@ if __name__ == '__main__':
         for i in range(per_epoch):
 
             l = np.random.randn()
-            time.sleep(0.05)
-            print_epoch(i, per_epoch, epoch, epochs, l)
+            time.sleep(5)
+            print_epoch(i, per_epoch, epoch, epochs, l, end_of_epoch='')
 
 

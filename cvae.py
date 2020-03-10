@@ -358,12 +358,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                               method='all')
                 self.train_history['test accuracy'].append(test_accuracy)
             acc = test_accuracy if testset else train_accuracy
-            acc_str = '|'.join([f'{100 * acc[m]:.1f} % {m}' for m in methods])
+            acc_str = ' '.join([f'{100 * acc[m]:.1f}% ({m})' for m in methods])
             print(f'epoch {epoch + 1:2d}/{epochs} 1st batch',
                   f'mse: {batch_mse_loss:.1e} kl: {batch_kl_loss:.1e}',
                   f'x: {batch_x_loss:.1e} L: {first_batch_loss:.1e}',
-                  acc_str,
-                  f'({"test" if testset else "train"})')
+                  f'| {"test" if testset else "train"} acc: ',
+                  acc_str)
 
             t_i = time.time()
             for i, data in enumerate(trainloader, 0):
@@ -375,7 +375,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 t_i = tick
                 mean_loss = epoch_total_loss / i if i > 0 else 0
                 print_epoch(i, per_epoch, epoch, epochs, mean_loss,
-                            info=info)
+                            info=info,end_of_epoch='\r')
                 # get the inputs; data is a list of [inputs, labels]
                 x, y = data[0].to(device),data[1].to(device)
                 # zero the parameter gradients

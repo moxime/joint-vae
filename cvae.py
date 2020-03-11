@@ -256,7 +256,8 @@ class ClassificationVariationalNetwork(nn.Module):
             return acc, mismatched
 
         return acc[m] if only_one_method else acc
-        
+    
+    
     def loss(self, x, y,
              x_reconstructed, y_estimate,
              mu_z, log_var_z,

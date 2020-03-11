@@ -14,7 +14,7 @@ def choose_device(device=None):
         has_cuda = torch.cuda.is_available()
         device = torch.device('cuda' if has_cuda else 'cpu')
 
-        return device
+    return device
         
 simple_transform = transforms.Compose([transforms.ToTensor(),
                                        transforms.Lambda(lambda x: x

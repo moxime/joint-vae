@@ -2,6 +2,7 @@ import os
 import pickle
 import json
 from tensorflow.keras.models import load_model
+
 # from cvae import ClassificationVariationalNetwork
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -94,12 +95,18 @@ def collect_networks(directory,
                      list_of_vae_by_architectures,
                      only_trained=True,
                      testset=None,
+                     oodset=None,
+                     true_pos_rates=[95, 98],
+                     batch_size=100,
+                     num_batch=5,
                      device=None,
+                     verbose=0,
                      **default_load_paramaters):
-    
-    from cvae import ClassificationVariationalNetwork
-    def append_by_architecture(net_dict, list_of_lists):
 
+    from cvae import ClassificationVariationalNetwork
+    from roc_curves import ood_roc, fpr_at_tpr
+    def append_by_architecture(net_dict, list_of_lists):
+        
         net = net_dict['net']
 
         added = False
@@ -132,6 +139,7 @@ def collect_networks(directory,
                 # get result from file
                 with open(results_path_file, 'r') as f:
                     vae_dict['acc'][method] = float(f.read())
+                    
             except FileNotFoundError:
                 compute_accuracies = True
                 vae_dict['acc'][method] = None
@@ -145,7 +153,51 @@ def collect_networks(directory,
                 with open(results_path_file, 'w+') as f:
                     f.write(str(acc[method]) + '\n')            
             vae_dict['acc'] = acc
+
+        compute_oodroc = False
+        vae_dict['fpr at tpr'] = dict()
+        derailed_file = os.path.join(directory, 'derailed')
         
+        for rate in true_pos_rates:
+            ood_file_name = f'ood_fpr_at_tpr={rate}'
+            results_path_file = os.path.join(directory, ood_file_name)
+            try:
+                # get result from file
+                with open(results_path_file, 'r') as f:
+                    vae_dict['fpr at tpr'][rate] = float(f.read())
+
+            except FileNotFoundError:
+                is_derailed = os.path.exists(derailed_file)
+                compute_oodroc = True and not is_derailed
+                vae_dict['fpr at tpr'][rate] = None
+                # print('fpr at tpr', rate, 'to be computed')
+
+        if compute_oodroc and oodset:
+            if verbose > 0:
+                print('Computing fprs for', vae_dict['dir'])
+
+            try: 
+                fpr, tpr = ood_roc(vae, testset, oodset,
+                                   batch_size=batch_size,
+                                   num_batch=num_batch,
+                                   device=device)
+            
+                for rate in true_pos_rates:
+                    ood_file_name = f'ood_fpr_at_tpr={rate}'
+                    results_path_file = os.path.join(directory, ood_file_name)
+
+                    with open(results_path_file, 'w+') as f:
+                        false_pos_rate = fpr_at_tpr(fpr, tpr, rate/100)
+                        s = f'{false_pos_rate:.4f}'
+                        f.write(s + '\n')            
+                    vae_dict['fpr at tpr'][rate] = false_pos_rate
+            except(ValueError):
+                print('ValueError')
+                with open(derailed_file, 'w+') as f:
+                    f.write('network has derailed')
+                for rate in true_pos_rates:
+                    vae_dict['fpr at tpr'][rate] = None
+
     except FileNotFoundError:
         pass
     
@@ -157,6 +209,12 @@ def collect_networks(directory,
                          list_of_vae_by_architectures,
                          only_trained=only_trained,
                          testset=testset,
+                         oodset=oodset,
+                         true_pos_rates=true_pos_rates,
+                         batch_size=batch_size,
+                         num_batch=num_batch,
+                         device=device,
+                         verbose=verbose,
                          **default_load_paramaters)
 
 def load_and_save(directory, output_directory=None, **kw):

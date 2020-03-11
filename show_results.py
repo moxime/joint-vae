@@ -90,13 +90,11 @@ def show_examples(vae, testset, oodset, num_of_examples=10,
                                              batch_size=batch_size,
                                              shuffle=True)
 
-    oodloader = torch.utils.data.DataLoader(testset,
+    oodloader = torch.utils.data.DataLoader(oodset,
                                              batch_size=batch_size,
                                              shuffle=True)
-
     device = choose_device(device)
-    vae.to(device)
-        
+    print(f'...{device}...')
 
     example = 0
     continued = True
@@ -116,6 +114,7 @@ def show_examples(vae, testset, oodset, num_of_examples=10,
         acc = dict()
 
         for m in vae.predict_methods:
+            print(x_test.device)
             y_pred[m] = vae.predict(x_test, method=m)
 
             idx_pred[m] = torch.where(y_test == y_pred[m])[0]
@@ -179,7 +178,7 @@ def show_examples(vae, testset, oodset, num_of_examples=10,
             continued = False
 
             
-def plot_results(list_of_vae, ax, method, semilog=True, verbose=0):
+def plot_accuracies(list_of_vae, ax, method, semilog=True, verbose=0):
 
     beta_ = []
     acc_ = []
@@ -194,8 +193,12 @@ def plot_results(list_of_vae, ax, method, semilog=True, verbose=0):
     i = np.argsort(beta_)
     acc_sorted = [acc_[_] for _ in i]
 
+    acc_max = np.max(acc_)
+    beta_max = beta_[np.argmax(acc_)]
+
     if verbose > 0:
-        print(f'Prediction with {method} for {vae_dict[dir]}')
+        dir_of_vae = vae_dict['dir']
+        print(f'Prediction error with {method} for {dir_of_vae}')
     if verbose > 1:
         for (b, a) in zip(beta_sorted, acc_sorted):
             print(f'{b:.2e}: {100-100*a:4.1f} %')
@@ -205,8 +208,42 @@ def plot_results(list_of_vae, ax, method, semilog=True, verbose=0):
         ax.semilogx(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
     else:
         ax.plot(beta_sorted, [1 - _ for _ in acc_sorted], '.', label=legend)
-    
+
     return beta_sorted, acc_sorted
+    
+
+def plot_fpr(list_of_vae, ax, tpr, semilog=True, verbose=0):
+
+    beta_ = []
+    fpr_ = []
+
+    for vae_dict in list_of_vae:
+        fpr = vae_dict['fpr at tpr'][tpr]
+        if fpr is not None:
+            beta_.append(vae_dict['net'].beta)
+            fpr_.append(fpr)
+
+    beta_sorted = np.sort(beta_)
+    i = np.argsort(beta_)
+    fpr_sorted = [fpr_[_] for _ in i]
+
+    fpr_min = np.min(fpr_)
+    beta_min = beta_[np.argmin(fpr_)]
+
+    if verbose > 0:
+        dir_of_vae = vae_dict['dir']
+        print(f'FPR with TPR={tpr} for {dir_of_vae}')
+    if verbose > 1:
+        for (b, r) in zip(beta_sorted, fpr_sorted):
+            print(f'{b:.2e}: {100-100*r:4.1f} %')
+
+    legend = vae_dict['net'].print_architecture()
+    if semilog:
+        ax.semilogx(beta_sorted, fpr_sorted, '.', label=legend)
+    else:
+        ax.plot(beta_sorted, fpr_sorted, '.', label=legend)
+
+    return beta_sorted, fpr_sorted
     
 
 if __name__ == '__main__':
@@ -221,8 +258,8 @@ if __name__ == '__main__':
                         help='where to find the networks',
                         nargs='*', default=None)
     
-    parser.add_argument('-s', '--stats', type=int, default=200)
-    
+    parser.add_argument('-N', '--num-batch', default=5, type=int)
+    parser.add_argument('-b', '--batch-size', default=100, type=int)
     parser.add_argument('-x', '--export', action='store_true')
 
     parser.add_argument('-d', '--export-dir', default=None,
@@ -235,12 +272,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     verbose = args.verbose
-    
     export_dir = args.export_dir
     export = args.export or export_dir is not None
-
-    stats = args.stats
-    
+    batch_size = args.batch_size
+    num_batch = args.num_batch
     dataset = args.dataset
     directories = args.directories
     # print(directories)
@@ -248,6 +283,7 @@ if __name__ == '__main__':
     force_cpu = args.force_cpu
     has_cuda = torch.cuda.is_available()
     device = torch.device('cpu' if force_cpu or not has_cuda else 'cuda')
+    print(f'Used device: {device}') # ({force_cpu}, {has_cuda})')
     
     if len(directories) == 0:
         jobs = os.path.join(os.getcwd(), 'jobs')
@@ -260,51 +296,65 @@ if __name__ == '__main__':
         print(f'Explored director{"ies" if len(directories) > 1 else "y"}:')
         [print(d) for d in directories]
         print(f'with assumed dataset {dataset}')
-    # set = 'fashion'
-    # set = 'mnist'
 
+    tpr_ = [95, 98]
+                    
     if dataset == 'fashion':
 
         trainset, testset = torchdl.get_fashion_mnist()
         _, oodset = torchdl.get_mnist()
+        oodset.name = 'mnist'
 
     if dataset == 'mnist':
         trainset, testset = torchdl.get_mnist()
 
     list_of_lists_of_vae = []
-
+    
     with torch.no_grad():
         for directory in directories:
             collect_networks(directory, list_of_lists_of_vae,
-                             testset=testset, device=device)
+                             testset=testset, oodset=oodset,
+                             true_pos_rates=tpr_,
+                             batch_size=batch_size, num_batch=num_batch,
+                             device=device, verbose=verbose)
     
     num_of_nets = sum([len(_) for _ in list_of_lists_of_vae])
 
     if num_of_nets == 0:
-
         print('NOTHING TO SEE HERE\n')
 
     if num_of_nets == 1:
+        # print(f'...{device}...')
         vae_dict = list_of_lists_of_vae[0][0]
         vae = vae_dict['net']
         directory = vae_dict['dir']
         with torch.no_grad():
-            show_examples(vae, testset, oodset, device=device)
+            # print(f'***{device}***')
+            show_examples(vae, testset, oodset, batch_size=batch_size,
+                          num_batch=num_batch, device=device)
 
     if num_of_nets > 1:
-        dict_of_f = dict()
-        dict_of_axes = dict()
+        dict_of_acc_f = dict()
+        dict_of_acc_axes = dict()
+
+        f_fpr, a_fpr = plt.subplots(1, len(tpr_))
 
         methods = ClassificationVariationalNetwork.predict_methods
         for m in methods:
-            dict_of_f[m], dict_of_axes[m] = plt.subplots()
-  
+            dict_of_acc_f[m], dict_of_acc_axes[m] = plt.subplots()
+        
         for list_of_nets in list_of_lists_of_vae:
 
+            for a, rate in enumerate(tpr_):
+                beta_, fpr_ = plot_fpr(list_of_nets,
+                                       a_fpr[a],
+                                       rate,
+                                       verbose=verbose)
+
             for m in methods:
-                beta_, acc_ = plot_results(list_of_nets,
-                                           dict_of_axes[m], m,
-                                           verbose=0)
+                beta_, acc_ = plot_accuracies(list_of_nets,
+                                              dict_of_acc_axes[m], m,
+                                              verbose=verbose)
                 
                 if export_dir is not None:
                     arch = list_of_nets[0]['net'].print_architecture()
@@ -313,6 +363,13 @@ if __name__ == '__main__':
                         for b, a in zip(beta_, acc_):
                             f.write(f'{b:.2e} {a:6.4f}\n')
         for m in methods:
-            dict_of_axes[m].legend()
-            dict_of_f[m].show()
+            dict_of_acc_axes[m].legend(loc='upper right')
+            dict_of_acc_axes[m].set_title(f'Accuracy with predict method {m}')
+            dict_of_acc_f[m].show()
+
+        for a, rate in enumerate(tpr_):
+            a_fpr[a].legend(loc='upper right')
+            a_fpr[a].set_title(f'FPR at TPR={rate}%')
+            f_fpr.show()
+
         input()

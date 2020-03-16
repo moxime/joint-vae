@@ -45,7 +45,7 @@ def load_json(dir_name, file_name):
     with open(p, 'rb') as f:
         return json.load(f)
     
-
+    
 def save_object(o, dir_name, file_name):
     dir_path = os.path.realpath(dir_name)
     if not os.path.exists(dir_path):
@@ -99,12 +99,14 @@ def collect_networks(directory,
                      true_pos_rates=[95, 98],
                      batch_size=100,
                      num_batch=5,
+                     min_stats=None,
                      device=None,
                      verbose=0,
                      **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
-    from roc_curves import ood_roc, fpr_at_tpr
+    from roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
+
     def append_by_architecture(net_dict, list_of_lists):
         
         net = net_dict['net']
@@ -121,9 +123,15 @@ def collect_networks(directory,
 
         return added
 
+    if min_stats is None:
+        min_stats = num_batch * batch_size
+
+    min_stats = min(min_stats, num_batch * batch_size)
+
     try:
         vae = ClassificationVariationalNetwork.load(directory,
                                                     **default_load_paramaters)
+        print('net found in', directory)
         vae_dict = {'net': vae}
         vae_dict['beta'] = vae.beta
         vae_dict['dir'] = directory
@@ -132,71 +140,71 @@ def collect_networks(directory,
 
         vae_dict['acc'] = dict()
         compute_accuracies = False
-        for method in vae.predict_methods:
-            results_path_file = os.path.join(directory,
-                                             'test_accuracy_' + method) 
-            try:
-                # get result from file
-                with open(results_path_file, 'r') as f:
-                    vae_dict['acc'][method] = float(f.read())
-                    
-            except FileNotFoundError:
-                compute_accuracies = True
-                vae_dict['acc'][method] = None
-                
-        if compute_accuracies and testset:
-            acc = vae.accuracy(testset, method='all', device=device)
+
+        if vae.trained:
             for method in vae.predict_methods:
                 results_path_file = os.path.join(directory,
-                                                 'test_accuracy_' +
-                                                 method) 
-                with open(results_path_file, 'w+') as f:
-                    f.write(str(acc[method]) + '\n')            
-            vae_dict['acc'] = acc
+                                                 'test_accuracy_' + method) 
+                try: # get result from file
+                    with open(results_path_file, 'r') as f:
+                        vae_dict['acc'][method] = float(f.read())
 
-        compute_oodroc = False
-        vae_dict['fpr at tpr'] = dict()
-        derailed_file = os.path.join(directory, 'derailed')
-        
-        for rate in true_pos_rates:
-            ood_file_name = f'ood_fpr_at_tpr={rate}'
-            results_path_file = os.path.join(directory, ood_file_name)
-            try:
-                # get result from file
-                with open(results_path_file, 'r') as f:
-                    vae_dict['fpr at tpr'][rate] = float(f.read())
+                except FileNotFoundError:
+                    compute_accuracies = True
+                    vae_dict['acc'][method] = None
 
-            except FileNotFoundError:
-                is_derailed = os.path.exists(derailed_file)
-                compute_oodroc = True and not is_derailed
-                vae_dict['fpr at tpr'][rate] = None
-                # print('fpr at tpr', rate, 'to be computed')
-
-        if compute_oodroc and oodset:
-            if verbose > 0:
-                print('Computing fprs for', vae_dict['dir'])
-
-            try: 
-                fpr, tpr = ood_roc(vae, testset, oodset,
+            if compute_accuracies and testset:
+                acc = vae.accuracy(testset,
                                    batch_size=batch_size,
-                                   num_batch=num_batch,
+                                   num_batch='all',
+                                   method='all',
                                    device=device)
-            
-                for rate in true_pos_rates:
-                    ood_file_name = f'ood_fpr_at_tpr={rate}'
-                    results_path_file = os.path.join(directory, ood_file_name)
-
+                for method in vae.predict_methods:
+                    results_path_file = os.path.join(directory,
+                                                     'test_accuracy_' +
+                                                     method) 
                     with open(results_path_file, 'w+') as f:
-                        false_pos_rate = fpr_at_tpr(fpr, tpr, rate/100)
-                        s = f'{false_pos_rate:.4f}'
-                        f.write(s + '\n')            
-                    vae_dict['fpr at tpr'][rate] = false_pos_rate
-            except(ValueError):
-                print('ValueError')
-                with open(derailed_file, 'w+') as f:
-                    f.write('network has derailed')
+                        f.write(str(acc[method]) + '\n')            
+                vae_dict['acc'] = acc
+
+            compute_oodroc = False
+            derailed_file = os.path.join(directory, 'derailed')
+            vae_dict['fpr at tpr'] = {rate: None for rate in true_pos_rates}
+            if oodset:
                 for rate in true_pos_rates:
-                    vae_dict['fpr at tpr'][rate] = None
+                    ood_file_name = f'ood_{oodset.name}_fpr_at_tpr={rate}'
+                    # ood_file_name = 'ood_fpr_at_tpr.json'
+                    results_path_file = os.path.join(directory, ood_file_name)
+                    n, fp, tp = load_roc(results_path_file)
+                    assert(tp == rate/100 or tp == 0.)
+                    vae_dict['fpr at tpr'][rate] = fp
+                    if n < min_stats:
+                        print(f'{n} < {min_stats} for tpr {rate}')
+                        compute_oodroc = True
+                    is_derailed = os.path.exists(derailed_file)
+
+            if compute_oodroc and not is_derailed:
+                if verbose > 0:
+                    print('Computing fprs for', vae_dict['dir'])
+                try: 
+                    fpr, tpr = ood_roc(vae, testset, oodset,
+                                       batch_size=batch_size,
+                                       num_batch=num_batch,
+                                       device=device)
+                    print(f'fprs: {len(fpr)}')
+                    for rate in true_pos_rates:
+                        ood_file_name = f'ood_{oodset.name}_fpr_at_tpr={rate}'
+                        results_path_file = os.path.join(directory,
+                                                         ood_file_name)
+                        fp = save_roc(results_path_file, fpr, tpr,
+                                      rate/100, num_batch * batch_size)
+                        vae_dict['fpr at tpr'][rate] = fp
+                except ValueError as err:
+                    print('ValueError', err)
+                    with open(derailed_file, 'w+') as f:
+                        f.write('network has derailed')
+                    for rate in true_pos_rates:
+                        vae_dict['fpr at tpr'][rate] = None
 
     except FileNotFoundError:
         pass
@@ -217,6 +225,7 @@ def collect_networks(directory,
                          verbose=verbose,
                          **default_load_paramaters)
 
+        
 def load_and_save(directory, output_directory=None, **kw):
     """ load the incomplete params (with default missing parameter
     that can be specified in **kw and save them

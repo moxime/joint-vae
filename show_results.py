@@ -94,8 +94,9 @@ def show_examples(vae, testset, oodset, num_of_examples=10,
                                              batch_size=batch_size,
                                              shuffle=True)
     device = choose_device(device)
-    print(f'...{device}...')
+    # print(f'...{device}...')
 
+    vae.to(device)
     example = 0
     continued = True
     while example < num_of_examples and continued:
@@ -114,7 +115,7 @@ def show_examples(vae, testset, oodset, num_of_examples=10,
         acc = dict()
 
         for m in vae.predict_methods:
-            print(x_test.device)
+            # print('s_r l.118 x_test device', x_test.device)
             y_pred[m] = vae.predict(x_test, method=m)
 
             idx_pred[m] = torch.where(y_test == y_pred[m])[0]
@@ -334,26 +335,30 @@ if __name__ == '__main__':
                           num_batch=num_batch, device=device)
 
     if num_of_nets > 1:
-        dict_of_acc_f = dict()
-        dict_of_acc_axes = dict()
+        dict_of_acc_f_a = dict()
+        #dict_of_acc_axes = dict()
 
-        f_fpr, a_fpr = plt.subplots(1, len(tpr_))
+        dict_of_ood_f_a = dict()
+        # dict_of_ood_a = dict()
+        # f_fpr, a_fpr = plt.subplots(1, len(tpr_))
 
         methods = ClassificationVariationalNetwork.predict_methods
         for m in methods:
-            dict_of_acc_f[m], dict_of_acc_axes[m] = plt.subplots()
-        
+            dict_of_acc_f_a[m] = plt.subplots()
+        for r in tpr_:
+            dict_of_ood_f_a[r] = plt.subplots()
+            
         for list_of_nets in list_of_lists_of_vae:
 
-            for a, rate in enumerate(tpr_):
+            for rate in tpr_:
                 beta_, fpr_ = plot_fpr(list_of_nets,
-                                       a_fpr[a],
+                                       dict_of_ood_f_a[rate][1],
                                        rate,
                                        verbose=verbose)
 
             for m in methods:
                 beta_, acc_ = plot_accuracies(list_of_nets,
-                                              dict_of_acc_axes[m], m,
+                                              dict_of_acc_f_a[m][1], m,
                                               verbose=verbose)
                 
                 if export_dir is not None:
@@ -363,13 +368,13 @@ if __name__ == '__main__':
                         for b, a in zip(beta_, acc_):
                             f.write(f'{b:.2e} {a:6.4f}\n')
         for m in methods:
-            dict_of_acc_axes[m].legend(loc='upper right')
-            dict_of_acc_axes[m].set_title(f'Accuracy with predict method {m}')
-            dict_of_acc_f[m].show()
+            dict_of_acc_f_a[m][1].legend(loc='upper right')
+            dict_of_acc_f_a[m][1].set_title(f'Accuracy with predict method {m}')
+            dict_of_acc_f_a[m][0].show()
 
-        for a, rate in enumerate(tpr_):
-            a_fpr[a].legend(loc='upper right')
-            a_fpr[a].set_title(f'FPR at TPR={rate}%')
-            f_fpr.show()
+        for rate in tpr_:
+            dict_of_ood_f_a[rate][1].legend(loc='upper right')
+            dict_of_ood_f_a[rate][1].set_title(f'FPR at TPR={rate}%')
+            dict_of_ood_f_a[rate][0].show()
 
         input()

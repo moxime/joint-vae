@@ -3,6 +3,7 @@ from sklearn.metrics import roc_curve
 from data.torch_load import choose_device
 import torch
 import numpy as np
+import json
 
 def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all', device=None):
     
@@ -104,13 +105,44 @@ def miss_roc(vae, testset, batch_size=100, num_batch='all',
 
 def fpr_at_tpr(fpr, tpr, a):
 
-    i_tpr = np.where(tpr >= a)[0]
-    return fpr[i_tpr].min()
+    as_tpr = np.asarray(tpr)
+    as_fpr = np.asarray(fpr)
+    i_tpr = np.where(as_tpr >= a)[0]
+    return as_fpr[i_tpr].min()
 
 
 def tpr_at_fpr(fpr, tpr, a):
 
-    i_fpr = np.where(fpr <= a)[0]
-    return tpr[i_fpr].max()
-    
+    as_tpr = np.asarray(tpr)
+    as_fpr = np.asarray(fpr)
+    i_fpr = np.where(as_fpr <= a)[0]
+    return as_tpr[i_fpr].max()
 
+
+def ood_dict(fpr, tpr, rate, n):
+    return {'tpr': rate,
+            'fpr': fpr_at_tpr(fpr, tpr, rate),
+            'n': n}
+
+
+def load_roc(file_name):
+
+    try:
+        with open(file_name, 'r') as f:
+            dict = json.load(f)
+            return dict['n'], dict['fpr'], dict['tpr']
+
+    except(FileNotFoundError):
+        return 0, None, 0.
+
+
+def save_roc(file_name, fpr, tpr, true_pos, n):
+
+    n_, f_, t_ = load_roc(file_name)
+    print('save_roc', n_, f_, t_, len(fpr), len(tpr), true_pos, n)
+    if n_ < n:
+        with open(file_name, 'w') as f:
+            d = ood_dict(fpr, tpr, true_pos, n)
+            json.dump(d, f)
+            return d['fpr']
+    return f_

@@ -20,6 +20,7 @@ from utils.print_log import print_epoch
 
 import time
 
+
 DEFAULT_ACTIVATION = 'relu'
 # DEFAULT_OUTPUT_ACTIVATION = 'sigmoid'
 DEFAULT_OUTPUT_ACTIVATION = 'linear'
@@ -27,7 +28,7 @@ DEFAULT_LATENT_SAMPLING = 100
 
 
 class ClassificationVariationalNetwork(nn.Module):
-
+    
     predict_methods = ['mean', 'loss']
     
     def __init__(self,
@@ -107,8 +108,10 @@ class ClassificationVariationalNetwork(nn.Module):
         # print('cvae l. 102 y', y.shape)
         
         # y_onehot of size N1x...xNgxC with
-        
+
+        # print('cvae l. 112', x_.device, y_onehot.device)
         z_mean, z_log_var, z = self.encoder(x_, y_onehot)
+        # print('cvae l. 114', z_mean.device, z_log_var.device, z.device)
         # z_mean and z_log_var of size N1...NgxK
         # z of size LxN1x...xNgxK
         
@@ -187,6 +190,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         _, y_est, batch_losses = self.evaluate(x)
 
+        # print('cvae l. 192', x.device, batch_losses.device)
         return self.predict_after_evaluate(y_est, batch_losses, method=method)
 
     def predict_after_evaluate(self, y_est, losses, method='mean'):
@@ -256,8 +260,7 @@ class ClassificationVariationalNetwork(nn.Module):
             return acc, mismatched
 
         return acc[m] if only_one_method else acc
-    
-    
+   
     def loss(self, x, y,
              x_reconstructed, y_estimate,
              mu_z, log_var_z,
@@ -554,20 +557,6 @@ class ClassificationVariationalNetwork(nn.Module):
         a = np.log(self.sigma * 2 * np.pi)
         return normalized_log_pxy - D / 2 * a
                               
-    def elbo_xy_pred(self, x, normalize=True, pred_method='blind', **kw):
-        """computes the elbo for x, y0 with y0 the predicted
-
-        """
-        print('TO BE DONE... OR NOT')
-        elbo_xy = self.log_pxy(x, normalize=normalize, **kw)
-        
-        if pred_method=='max':
-            return elbo_xy.max(axis=-1)
-        
-        if pred_method=='blind':
-            y = self.blind_predict(x).argmax(axis=-1)
-            return np.hstack([elbo_xy[i, y0] for (i, y0) in enumerate(y)])
-                              
     def log_px(self, x, normalize=True, method='sum', batch_losses=None, **kw):
         """Computes a lower bound on log(p(x)) with the loss which is an upper
         bound on -log(p(x, y)).  - normalize = True forgets a constant
@@ -617,7 +606,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def HY_x(self, x, method='pred', y_pred=None, losses=None, **kw):
     
-        if method=='pred':
+        if method == 'pred':
             if y_pred is None:
                 y_pred = self.blind_predict(x)
                 return -(np.log(y_pred) * y_pred).sum(axis=-1)

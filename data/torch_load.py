@@ -15,7 +15,8 @@ def choose_device(device=None):
         device = torch.device('cuda' if has_cuda else 'cpu')
 
     return device
-        
+
+
 simple_transform = transforms.Compose([transforms.ToTensor(),
                                        transforms.Lambda(lambda x: x
                                                          / 255.0)])
@@ -26,18 +27,25 @@ def get_dataset(dataset='MNIST', root='./data', ood=None):
 
     if dataset == 'MNIST':
 
-        set_getter = datasets.MNIST
+        getter = datasets.MNIST
         transform = simple_transform
 
     if dataset == 'fashion':
-        set_getter = datasets.FashionMNIST
+        getter = datasets.FashionMNIST
+        transform = simple_transform
+
+    if dataset == 'svhn':
+
+        def getter(train=True, **kw):
+            return datasets.SVHN(split='train' if train else 'test', **kw)
+
         transform = simple_transform
         
-    trainset = set_getter(root=root, train=True,
+    trainset = getter(root=root, train=True,
                           download=True,
                           transform=transform)
 
-    testset = set_getter(root=root, train=False,
+    testset = getter(root=root, train=False,
                          download=True,
                          transform=transform)
 
@@ -52,3 +60,7 @@ def get_mnist(**kw):
 def get_fashion_mnist(**kw):
 
     return get_dataset(dataset='fashion', **kw)
+
+def get_svhn(**kw):
+
+    return get_dataset(dataset='svhn', **kw)

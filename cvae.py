@@ -299,6 +299,7 @@ class ClassificationVariationalNetwork(nn.Module):
               mse_loss_weight=None,
               x_loss_weight=None,
               kl_loss_weight=None,
+              further_training=False,
               verbose=1):
         """
 
@@ -319,16 +320,19 @@ class ClassificationVariationalNetwork(nn.Module):
   
         dataset_size = len(trainset)
         per_epoch = dataset_size // batch_size
-        self.train_history = dict() # will not be returned
-        self.train_history['train batch loss'] = []
-        self.train_history['train batch xent loss'] = []
-        self.train_history['train batch mse loss'] = []
-        self.train_history['train batch kl loss'] = []
-        self.train_history['train loss'] = []
-        self.train_history['test accuracy'] = [] if testset else None
-        self.train_history['train accuracy'] = [] 
-            
-        for epoch in range(epochs):
+        done_epochs = 0
+        if not further_training:
+            self.train_history = dict() # will not be returned
+            self.train_history['train batch loss'] = []
+            self.train_history['train batch xent loss'] = []
+            self.train_history['train batch mse loss'] = []
+            self.train_history['train batch kl loss'] = []
+            self.train_history['train loss'] = []
+            self.train_history['test accuracy'] = [] if testset else None
+            self.train_history['train accuracy'] = [] 
+            done_epochs = len(self.train_history['train batch loss'])
+            total_epochs = done_epochs + epochs
+        for epoch in range(done_epochs, total_epochs):
             t_start_epoch = time.time()
             epoch_total_loss = 0.0            
             data = next(iter(trainloader))
@@ -363,7 +367,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.train_history['test accuracy'].append(test_accuracy)
             acc = test_accuracy if testset else train_accuracy
             acc_str = ' '.join([f'{100 * acc[m]:.1f}% ({m})' for m in methods])
-            print(f'epoch {epoch + 1:2d}/{epochs} 1st batch',
+            print(f'epoch {epoch + 1:2d}/{total_epochs} 1st batch',
                   f'mse: {batch_mse_loss:.1e} kl: {batch_kl_loss:.1e}',
                   f'x: {batch_x_loss:.1e} L: {first_batch_loss:.1e}',
                   f'| {"test" if testset else "train"} acc: ',
@@ -378,8 +382,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 info = f'{mus:.0f} us per sample'
                 t_i = tick
                 mean_loss = epoch_total_loss / i if i > 0 else 0
-                print_epoch(i, per_epoch, epoch, epochs, mean_loss,
-                            info=info,end_of_epoch='\r')
+                print_epoch(i, per_epoch, epoch, total_epochs, mean_loss,
+                            info=info, end_of_epoch='\n')
                 # get the inputs; data is a list of [inputs, labels]
                 x, y = data[0].to(device),data[1].to(device)
                 # zero the parameter gradients
@@ -398,7 +402,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 epoch_total_loss += batch_loss.item()
                 self.train_history['train loss'].append(epoch_total_loss)
                 
-        print('Finished Training')
+        print('\nFinished Training')
         self.trained = str(trainset)
                 
     def summary(self):
@@ -627,11 +631,13 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    save_dir = './jobs/fashion/job-1'
-    load_dir = save_dir
-    load_dir = './jobs/fashion/thejob'
+    # save_dir = './jobs/fashion/job-1'
+    # load_dir = './jobs/fashion/thejob'
     # load_dir = None
-    save_dir = None
+    # save_dir = None
+
+    save_dir = './jobs/svhn/job-2'
+    load_dir = save_dir
                               
     rebuild = load_dir is None
     # rebuild = True
@@ -642,7 +648,7 @@ if __name__ == '__main__':
     d_.reverse()
     c_ = [20, 10]
                               
-    beta = 1e-5
+    beta = 1e-4
     latent_dim = 20
     latent_sampling = 50
     
@@ -661,8 +667,10 @@ if __name__ == '__main__':
         #      transforms.Normalize((0.1307,), (0.3081,))])
         #
                               
-        trainset, testset = torchdl.get_fashion_mnist()        
-        _, oodset = torchdl.get_mnist()
+        # trainset, testset = torchdl.get_fashion_mnist()        
+        # _, oodset = torchdl.get_mnist()
+        trainset, testset = torchdl.get_svhn()
+        _, oodset = torchdl.get_cifar10()
         output_activation = 'sigmoid'
         data_loaded = True
         
@@ -680,13 +688,13 @@ if __name__ == '__main__':
     if rebuild:
         t = time.time()
         print('*'*4+' BUILDING '+'*'*4)
-        jvae = ClassificationVariationalNetwork((1, 28, 28), 10,
+        jvae = ClassificationVariationalNetwork((3, 32, 32), 10,
                                                 e_, latent_dim,
                                                 d_, c_,
                                                 latent_sampling=latent_sampling,
                                                 beta=beta,
                                                 output_activation=output_activation) 
-        print('*'*4 + f' BUILT in {(time.time() -t) * 1e3:.0f} ms  ' + '*'*4)
+        print('*'*4 + f' BUILT' + '*'*4)
 
     print(jvae.print_architecture())
     epochs = 50
@@ -704,15 +712,17 @@ if __name__ == '__main__':
     x, y = test_batch[0].to(device), test_batch[1].to(device)
 
     refit = False
-    # refit = True
+    refit = True
 
     jvae.to(device)
 
     if not jvae.trained or refit:
+        further_training = not refit
         jvae.train(trainset, epochs=epochs,
                    batch_size=batch_size,
                    device=device,
                    testset=testset,
+                   further_training=further_training,
                    mse_loss_weight=None,
                    x_loss_weight=None,
                    kl_loss_weight=None)

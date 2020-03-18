@@ -38,7 +38,10 @@ def get_dataset(dataset='MNIST', root='./data', ood=None):
 
         def getter(train=True, **kw):
             return datasets.SVHN(split='train' if train else 'test', **kw)
+        transform = simple_transform
 
+    if dataset == 'cifar10':
+        getter = datasets.CIFAR10
         transform = simple_transform
         
     trainset = getter(root=root, train=True,
@@ -64,3 +67,19 @@ def get_fashion_mnist(**kw):
 def get_svhn(**kw):
 
     return get_dataset(dataset='svhn', **kw)
+
+def get_cifar10(**kw):
+
+    return get_dataset(dataset='cifar10', **kw)
+
+def get_batch(theset, shuffle=True, batch_size=100, device=None):
+
+    loader = torch.utils.data.DataLoader(theset,
+                                         shuffle=shuffle,
+                                         batch_size=batch_size)
+
+    data = next(iter(loader))
+
+    device = choose_device(device)
+    
+    return data[0].to(device), data[1].to(device)

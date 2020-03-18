@@ -102,6 +102,7 @@ def show_images(imageset, shuffle=True, num=4, **kw):
     legend = ' - '.join(classes)
 
     f, a = plt.subplots()
+    a.axis('off')
     a.imshow(npimages, **kw)
     a.set_title(legend)
     f.show()

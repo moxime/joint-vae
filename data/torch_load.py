@@ -1,6 +1,7 @@
 from torchvision import datasets, transforms
+import torchvision
 import torch
-
+import matplotlib.pyplot as plt
 
 def choose_device(device=None):
     """
@@ -72,9 +73,9 @@ def get_cifar10(**kw):
 
     return get_dataset(dataset='cifar10', **kw)
 
-def get_batch(theset, shuffle=True, batch_size=100, device=None):
+def get_batch(dataset, shuffle=True, batch_size=100, device=None):
 
-    loader = torch.utils.data.DataLoader(theset,
+    loader = torch.utils.data.DataLoader(dataset,
                                          shuffle=shuffle,
                                          batch_size=batch_size)
 
@@ -83,3 +84,26 @@ def get_batch(theset, shuffle=True, batch_size=100, device=None):
     device = choose_device(device)
     
     return data[0].to(device), data[1].to(device)
+
+def show_images(imageset, shuffle=True, num=4, **kw):
+
+    loader = torch.utils.data.DataLoader(imageset,
+                                         shuffle=shuffle,
+                                         batch_size=num)
+
+    data = next(iter(loader))
+    npimages = torchvision.utils.make_grid(data[0]).numpy().transpose(1, 2, 0)
+    labels = data[1]
+    try:
+        classes = [imageset.classes[y] for y in labels]
+    except AttributeError:
+        classes = [str(y.numpy()) for y in labels]
+
+    legend = ' - '.join(classes)
+
+    f, a = plt.subplots()
+    a.imshow(npimages, **kw)
+    a.set_title(legend)
+    f.show()
+
+    

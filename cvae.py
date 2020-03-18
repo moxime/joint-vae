@@ -50,6 +50,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self.name = name
 
         # if beta=0 in Encoder(...) loss is not computed by layer
+        self.features = Convolutional()
+
         self.encoder = Encoder(input_shape, num_labels, latent_dim,
                                encoder_layer_sizes,
                                beta=beta, sampling_size=latent_sampling,

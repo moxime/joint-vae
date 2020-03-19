@@ -44,7 +44,47 @@ class Sampling(nn.Module):
         #        f'epsilon: {epsilon.size()}'))
         return z_mean + torch.exp(0.5 * z_log_var) * epsilon
 
- 
+
+class Convolutional(nn.Module):
+
+    def __init__(self, input_shape,
+                 kernel_size=5,
+                 padding=0, max_pool=2,
+                 outputs_per_channel=3,
+                 activation='relu', **kw):
+
+        super(Convolutional, self).__init__(**kw)
+
+        assert len(input_shape) == 3
+        in_channels, height, width = input_shape
+        
+        out_channels = in_channels * outputs_per_channel
+        self.conv = nn.Conv2d(in_channels=in_channels,
+                              out_channels=out_channels,
+                              kernel_size=5, padding=0)
+
+        h = (2 * padding + height - kernel_size + 1) // max_pool
+        w = (2 * padding + width - kernel_size + 1) // max_pool
+
+        self.input_shape = input_shape
+        self.max_pool = max_pool
+        self.output_shape = (out_channels, h, w)
+
+        if activation == 'relu':
+            self.activation = F.relu
+        else:
+            raise ValueError(f'{activation} is not implemented in {self.__class__})')
+
+    def forward(self, x):
+
+        batch_shape = x.shape[:-len(self.input_shape)]
+        x_ = x.view(-1, *self.input_shape)
+        x_ = self.activation(self.conv(x_))
+        if self.max_pool > 1:
+            return F.max_pool2d(x_, kernel_size=self.max_pool, stride=self.max_pool)
+        else: return x_.view(batch_shape + self.output_shape)
+
+        
 class Encoder(nn.Module):
 
     def __init__(self, input_shape, num_labels,
@@ -108,7 +148,7 @@ class Encoder(nn.Module):
         u = torch.zeros(N, D + C, device=x.device)
         u[:, :D] = x.reshape(N, D)
         u[:, D:] = y.reshape(N, C)
-        u.resize_(s)
+        u = u.reshape(s)
 
         for l in self.dense_projs:
             u = self.activation(l(u))

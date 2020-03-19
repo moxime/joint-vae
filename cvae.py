@@ -9,7 +9,7 @@ from utils.losses import x_loss, kl_loss, mse_loss
 import torchvision
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-from vae_layers import Encoder, Decoder, Classifier, onehot_encoding
+from vae_layers import Convolutional, Encoder, Decoder, Classifier, onehot_encoding
 
 import data.generate as dg
 import data.torch_load as torchdl
@@ -50,9 +50,12 @@ class ClassificationVariationalNetwork(nn.Module):
         self.name = name
 
         # if beta=0 in Encoder(...) loss is not computed by layer
-        self.features = Convolutional()
+        self.features = Convolutional(input_shape,
+                                      activation=activation)
 
-        self.encoder = Encoder(input_shape, num_labels, latent_dim,
+        dense_input_shape = self.features.output_shape
+        
+        self.encoder = Encoder(dense_input_shape, num_labels, latent_dim,
                                encoder_layer_sizes,
                                beta=beta, sampling_size=latent_sampling,
                                activation=activation)
@@ -101,11 +104,17 @@ class ClassificationVariationalNetwork(nn.Module):
         - y is of size N1x....xNg(x1)
 
         """
+        batch_shape = x.shape
+        x = self.features(x)
         shape = x.shape
-        shape_ = shape[:-len(self.input_shape)] + (-1,)
+        shape_ = batch_shape[:-len(self.input_shape)] + (-1,)
         x_ = x.reshape(*shape_) # x_ of size N1x...xNgxD with D=D1*...Dt
 
-        # print('cvae l. 100 y', y.shape)
+        ###
+        ###
+        # print('cvae l. 112 x, x_', batch_shape, x_.shape)
+        ###
+        ###
         y_onehot = onehot_encoding(y, self.num_labels).float()
         # print('cvae l. 102 y', y.shape)
         
@@ -123,7 +132,8 @@ class ClassificationVariationalNetwork(nn.Module):
         y_output = self.classifier(z)
         # y_output of size LxN1x...xKgxC
         
-        out = (x_output.reshape((self.latent_sampling,)+shape), y_output)
+        out = (x_output.reshape((self.latent_sampling,) + batch_shape),
+               y_output)
         if z_output:
             out += (z_mean, z_log_var, z)
  
@@ -369,10 +379,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.train_history['test accuracy'].append(test_accuracy)
             acc = test_accuracy if testset else train_accuracy
             acc_str = ' '.join([f'{100 * acc[m]:.1f}% ({m})' for m in methods])
-            print(f'epoch {epoch + 1:2d}/{total_epochs} 1st batch',
+            print(f'epoch {epoch + 1:3d}/{total_epochs} train',
                   f'mse: {batch_mse_loss:.1e} kl: {batch_kl_loss:.1e}',
                   f'x: {batch_x_loss:.1e} L: {first_batch_loss:.1e}',
-                  f'| {"test" if testset else "train"} acc: ',
+                  f'| {"test" if testset else "train"} acc:',
                   acc_str)
 
             t_i = time.time()
@@ -633,14 +643,16 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    # save_dir = './jobs/fashion/job-1'
+    save_dir = './jobs/fashion/job-1'
     # load_dir = './jobs/fashion/thejob'
-    # load_dir = None
     # save_dir = None
-
-    save_dir = './jobs/svhn/job-2'
+    load_dir = None
     load_dir = save_dir
+
+    # save_dir = './jobs/svhn/job-3'
                               
+    refit = False
+    # refit = True
     rebuild = load_dir is None
     # rebuild = True
                               
@@ -653,6 +665,9 @@ if __name__ == '__main__':
     beta = 1e-4
     latent_dim = 20
     latent_sampling = 50
+
+    # latent_dim = 3
+    # latent_sampling = 5         # 
     
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
@@ -669,10 +684,10 @@ if __name__ == '__main__':
         #      transforms.Normalize((0.1307,), (0.3081,))])
         #
                               
-        # trainset, testset = torchdl.get_fashion_mnist()        
-        # _, oodset = torchdl.get_mnist()
-        trainset, testset = torchdl.get_svhn()
-        _, oodset = torchdl.get_cifar10()
+        trainset, testset = torchdl.get_fashion_mnist()        
+        _, oodset = torchdl.get_mnist()
+        # trainset, testset = torchdl.get_svhn ()
+        # _, oodset = torchdl.get_cifar10()
         output_activation = 'sigmoid'
         data_loaded = True
         
@@ -690,7 +705,7 @@ if __name__ == '__main__':
     if rebuild:
         t = time.time()
         print('*'*4+' BUILDING '+'*'*4)
-        jvae = ClassificationVariationalNetwork((3, 32, 32), 10,
+        jvae = ClassificationVariationalNetwork((1, 28, 28), 10,
                                                 e_, latent_dim,
                                                 d_, c_,
                                                 latent_sampling=latent_sampling,
@@ -699,8 +714,9 @@ if __name__ == '__main__':
         print('*'*4 + f' BUILT' + '*'*4)
 
     print(jvae.print_architecture())
-    epochs = 50
+    epochs = 200
     batch_size = 100
+    # batch_size = 7
             
     trainloader = torch.utils.data.DataLoader(trainset,
                                               batch_size=batch_size,
@@ -713,8 +729,6 @@ if __name__ == '__main__':
     test_batch = next(iter(testloader))
     x, y = test_batch[0].to(device), test_batch[1].to(device)
 
-    refit = False
-    refit = True
 
     jvae.to(device)
 

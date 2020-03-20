@@ -49,8 +49,8 @@ class Convolutional(nn.Module):
 
     def __init__(self, input_shape,
                  kernel_size=5,
-                 padding=0, max_pool=2,
-                 outputs_per_channel=3,
+                 padding=2, max_pool=2,
+                 outputs_per_channel=5,
                  activation='relu', **kw):
 
         super(Convolutional, self).__init__(**kw)
@@ -58,17 +58,25 @@ class Convolutional(nn.Module):
         assert len(input_shape) == 3
         in_channels, height, width = input_shape
         
-        out_channels = in_channels * outputs_per_channel
-        self.conv = nn.Conv2d(in_channels=in_channels,
-                              out_channels=out_channels,
-                              kernel_size=5, padding=0)
+        out_channels1 = in_channels * outputs_per_channel
+        self.conv1 = nn.Conv2d(in_channels=in_channels,
+                               out_channels=out_channels1,
+                               kernel_size=kernel_size, padding=padding)
 
-        h = (2 * padding + height - kernel_size + 1) // max_pool
-        w = (2 * padding + width - kernel_size + 1) // max_pool
+        h1 = (2 * padding + height - kernel_size + 1) // max_pool
+        w1 = (2 * padding + width - kernel_size + 1) // max_pool
 
+        out_channels2 = out_channels1 * outputs_per_channel        
+        self.conv2 = nn.Conv2d(in_channels=out_channels1,
+                               out_channels=out_channels2,
+                               kernel_size=kernel_size, padding=padding)
+
+        h2 = (2 * padding + h1 - kernel_size + 1) // max_pool
+        w2 = (2 * padding + w1 - kernel_size + 1) // max_pool
+        
         self.input_shape = input_shape
+        self.output_shape = (out_channels2, h2, w2)
         self.max_pool = max_pool
-        self.output_shape = (out_channels, h, w)
 
         if activation == 'relu':
             self.activation = F.relu
@@ -79,10 +87,16 @@ class Convolutional(nn.Module):
 
         batch_shape = x.shape[:-len(self.input_shape)]
         x_ = x.view(-1, *self.input_shape)
-        x_ = self.activation(self.conv(x_))
+        t = self.activation(self.conv1(x_))
         if self.max_pool > 1:
-            return F.max_pool2d(x_, kernel_size=self.max_pool, stride=self.max_pool)
-        else: return x_.view(batch_shape + self.output_shape)
+            t = F.max_pool2d(t, kernel_size=self.max_pool,
+                             stride=self.max_pool)
+        t = self.activation(self.conv2(t))
+        if self.max_pool > 1:
+            t = F.max_pool2d(t, kernel_size=self.max_pool,
+                             stride=self.max_pool)
+       
+        return t.view(batch_shape + self.output_shape)
 
         
 class Encoder(nn.Module):

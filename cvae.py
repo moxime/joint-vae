@@ -311,7 +311,8 @@ class ClassificationVariationalNetwork(nn.Module):
               mse_loss_weight=None,
               x_loss_weight=None,
               kl_loss_weight=None,
-              further_training=False,
+              resume_training=False,
+              sample_size=1000,
               verbose=1):
         """
 
@@ -333,7 +334,7 @@ class ClassificationVariationalNetwork(nn.Module):
         dataset_size = len(trainset)
         per_epoch = dataset_size // batch_size
         done_epochs = 0
-        if not further_training:
+        if not resume_training or not self.trained:
             self.train_history = dict() # will not be returned
             self.train_history['train batch loss'] = []
             self.train_history['train batch xent loss'] = []
@@ -342,9 +343,9 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train loss'] = []
             self.train_history['test accuracy'] = [] if testset else None
             self.train_history['train accuracy'] = [] 
-            done_epochs = len(self.train_history['train batch loss'])
-            total_epochs = done_epochs + epochs
-        for epoch in range(done_epochs, total_epochs):
+        done_epochs = len(self.train_history['train batch loss'])
+        
+        for epoch in range(done_epochs, epochs):
             t_start_epoch = time.time()
             epoch_total_loss = 0.0            
             data = next(iter(trainloader))
@@ -364,22 +365,21 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train batch kl loss'].append(batch_kl_loss)
             train_accuracy = self.accuracy(trainset,
                                            batch_size=batch_size,
-                                           num_batch=1000 //
-                                           batch_size, device=device,
+                                           num_batch=sample_size // batch_size,
+                                           device=device,
                                            method='all')
             self.train_history['train accuracy'].append(train_accuracy)
 
             if testset:
                 test_accuracy = self.accuracy(testset,
                                               batch_size=batch_size,
-                                              num_batch=1000 //
-                                              batch_size,
+                                              num_batch=sample_size // batch_size,
                                               device=device,
                                               method='all')
                 self.train_history['test accuracy'].append(test_accuracy)
             acc = test_accuracy if testset else train_accuracy
             acc_str = ' '.join([f'{100 * acc[m]:.1f}% ({m})' for m in methods])
-            print(f'epoch {epoch + 1:3d}/{total_epochs} train',
+            print(f'epoch {epoch + 1:3d}/{epochs} train',
                   f'mse: {batch_mse_loss:.1e} kl: {batch_kl_loss:.1e}',
                   f'x: {batch_x_loss:.1e} L: {first_batch_loss:.1e}',
                   f'| {"test" if testset else "train"} acc:',
@@ -394,7 +394,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 info = f'{mus:.0f} us per sample'
                 t_i = tick
                 mean_loss = epoch_total_loss / i if i > 0 else 0
-                print_epoch(i, per_epoch, epoch, total_epochs, mean_loss,
+                print_epoch(i, per_epoch, epoch, epochs, mean_loss,
                             info=info, end_of_epoch='\n')
                 # get the inputs; data is a list of [inputs, labels]
                 x, y = data[0].to(device),data[1].to(device)
@@ -643,16 +643,18 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    save_dir = './jobs/fashion/job-1'
+    save_dir = './jobs/fashion/job-3'
+    # save_dir = './jobs/svhn/job-3'
     # load_dir = './jobs/fashion/thejob'
     # save_dir = None
     load_dir = None
     load_dir = save_dir
 
-    # save_dir = './jobs/svhn/job-3'
-                              
+    resume_training = False
+    resume_training = True
+    refit = True
     refit = False
-    # refit = True
+    
     rebuild = load_dir is None
     # rebuild = True
                               
@@ -663,8 +665,8 @@ if __name__ == '__main__':
     c_ = [20, 10]
                               
     beta = 1e-4
-    latent_dim = 20
-    latent_sampling = 50
+    latent_dim = 100
+    latent_sampling = 100
 
     # latent_dim = 3
     # latent_sampling = 5         # 
@@ -729,16 +731,16 @@ if __name__ == '__main__':
     test_batch = next(iter(testloader))
     x, y = test_batch[0].to(device), test_batch[1].to(device)
 
-
     jvae.to(device)
 
-    if not jvae.trained or refit:
-        further_training = not refit
+    if not jvae.trained or refit or resume_training:
+
         jvae.train(trainset, epochs=epochs,
                    batch_size=batch_size,
                    device=device,
                    testset=testset,
-                   further_training=further_training,
+                   resume_training=resume_training,
+                   sample_size=200, # 10000,
                    mse_loss_weight=None,
                    x_loss_weight=None,
                    kl_loss_weight=None)

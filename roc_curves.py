@@ -1,6 +1,6 @@
 from cvae import ClassificationVariationalNetwork
 from sklearn.metrics import roc_curve
-from data.torch_load import choose_device
+from data.torch_load import choose_device, get_fashion_mnist, get_mnist
 import torch
 import numpy as np
 import json

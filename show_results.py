@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from cvae import ClassificationVariationalNetwork
 from data import torch_load as torchdl
 from utils.save_load import collect_networks, get_path_from_input
-from roc_curves import ood_roc, miss_roc, fpr_at_tpr, tpr_at_fpr
+from roc_curves import ood_roc, miss_roc, fpr_at_tpr, tpr_at_fpr, plot_roc
 import argparse
 import torch
 from data.torch_load import choose_device

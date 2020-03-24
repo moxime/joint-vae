@@ -23,6 +23,12 @@ simple_transform = transforms.Compose([transforms.ToTensor(),
                                                          / 255.0)])
 simple_transform = transforms.ToTensor()
 
+cifar_means = (0.4914, 0.4822, 0.4465)
+cifar_stds = (0.2023, 0.1994, 0.2010)
+cifar_transform = transforms.Compose([transforms.ToTensor(),
+                                      transforms.Normalize(cifar_means,
+                                                           cifar_stds)])
+
 
 def get_dataset(dataset='MNIST', root='./data', ood=None):
 
@@ -39,11 +45,11 @@ def get_dataset(dataset='MNIST', root='./data', ood=None):
 
         def getter(train=True, **kw):
             return datasets.SVHN(split='train' if train else 'test', **kw)
-        transform = simple_transform
+        transform = cifar_transform # simple_transform
 
     if dataset == 'cifar10':
         getter = datasets.CIFAR10
-        transform = simple_transform
+        transform = cifar_transform
         
     trainset = getter(root=root, train=True,
                           download=True,
@@ -65,13 +71,16 @@ def get_fashion_mnist(**kw):
 
     return get_dataset(dataset='fashion', **kw)
 
+
 def get_svhn(**kw):
 
     return get_dataset(dataset='svhn', **kw)
 
+
 def get_cifar10(**kw):
 
     return get_dataset(dataset='cifar10', **kw)
+
 
 def get_batch(dataset, shuffle=True, batch_size=100, device=None):
 

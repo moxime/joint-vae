@@ -44,6 +44,44 @@ class Sampling(nn.Module):
         #        f'epsilon: {epsilon.size()}'))
         return z_mean + torch.exp(0.5 * z_log_var) * epsilon
 
+    
+cfg = {
+    'VGG11': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    'VGG13': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    'VGG16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
+    'vgg19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
+}
+
+
+class VGGFeatures(nn.Sequential):
+    
+    def __init__(self, vgg_name, input_shape, pretrained=None):
+        
+        layers = self._make_layers(cfg[vgg_name], input_shape)
+        super(VGGFeatures, self).__init__(*layers)
+
+        if pretrained:
+            self.load_state_dict(pretrained)
+            for p in self.parameters():
+                p.requires_grad_(False)
+        
+    def _make_layers(self, cfg, input_shape):
+        layers = []
+        in_channels, h, w = input_shape
+        for x in cfg:
+            if x == 'M':
+                layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+                h = h // 2
+                w = w // 2
+            else:
+                layers += [nn.Conv2d(in_channels, x, kernel_size=3, padding=1),
+                           nn.BatchNorm2d(x),
+                           nn.ReLU(inplace=True)]
+                in_channels = x
+        layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
+        self.output_shape = (in_channels,)
+        return layers
+
 
 class Convolutional(nn.Module):
 

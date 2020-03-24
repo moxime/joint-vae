@@ -9,7 +9,8 @@ from utils.losses import x_loss, kl_loss, mse_loss
 import torchvision
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-from vae_layers import Convolutional, Encoder, Decoder, Classifier, onehot_encoding
+from vae_layers import VGGFeatures, Convolutional, Encoder, Decoder, Classifier
+from vae_layers import onehot_encoding
 
 import data.generate as dg
 import data.torch_load as torchdl
@@ -49,9 +50,10 @@ class ClassificationVariationalNetwork(nn.Module):
         super().__init__(*args, **kw)
         self.name = name
 
+        vgg_dict = torch.load('vgg19')
         # if beta=0 in Encoder(...) loss is not computed by layer
-        self.features = Convolutional(input_shape,
-                                      activation=activation)
+        self.features = VGGFeatures('vgg19', input_shape,
+                                    pretrained=vgg_dict)
 
         dense_input_shape = self.features.output_shape
         
@@ -104,11 +106,12 @@ class ClassificationVariationalNetwork(nn.Module):
         - y is of size N1x....xNg(x1)
 
         """
-        batch_shape = x.shape
-        x = self.features(x)
-        shape = x.shape
-        shape_ = batch_shape[:-len(self.input_shape)] + (-1,)
-        x_ = x.reshape(*shape_) # x_ of size N1x...xNgxD with D=D1*...Dt
+        batch_shape = x.shape 
+        x = self.features(x.view(-1, *self.input_shape))
+
+        batch_size = batch_shape[:-len(self.input_shape)] # N1 x...xNg
+        shape_ = batch_size + (-1,)
+        x_ = x.view(*shape_) # x_ of size N1x...xNgxD 
 
         ###
         ###
@@ -332,7 +335,8 @@ class ClassificationVariationalNetwork(nn.Module):
         #                                              num_workers=0)
   
         dataset_size = len(trainset)
-        per_epoch = dataset_size // batch_size
+        remainder = 1 if (dataset_size % batch_size) > 0 else 0
+        per_epoch = dataset_size // batch_size + remainder
         done_epochs = 0
         if not resume_training or not self.trained:
             self.train_history = dict() # will not be returned
@@ -354,11 +358,14 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_kl_loss = kl_loss(mu_z, log_var_z).item()
             batch_x_loss = x_loss(y, y_est).item()
             batch_mse_loss = mse_loss(x, x_reco).item()
-            first_batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
-                                         log_var_z,
-                                         mse_loss_weight=mse_loss_weight,
-                                         kl_loss_weight=kl_loss_weight,
-                                         x_loss_weight=x_loss_weight).item()
+            first_batch_loss = (self.kl_loss_weight * batch_kl_loss +
+                                self.mse_loss_weight * batch_mse_loss +
+                                self.x_entropy_loss_weight * batch_x_loss)
+            # first_batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
+            #                              log_var_z,
+            #                              mse_loss_weight=mse_loss_weight,
+            #                              kl_loss_weight=kl_loss_weight,
+            #                              x_loss_weight=x_loss_weight).item()
             self.train_history['train batch loss'].append(first_batch_loss)
             self.train_history['train batch xent loss'].append(batch_x_loss)
             self.train_history['train batch mse loss'].append(batch_mse_loss)
@@ -379,7 +386,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.train_history['test accuracy'].append(test_accuracy)
             acc = test_accuracy if testset else train_accuracy
             acc_str = ' '.join([f'{100 * acc[m]:.1f}% ({m})' for m in methods])
-            print(f'epoch {epoch + 1:3d}/{epochs} train',
+            Ksp = int(np.log10(epochs))+1
+            print(f'epoch {epoch + 1:{Ksp}d}/{epochs} train',
                   f'mse: {batch_mse_loss:.1e} kl: {batch_kl_loss:.1e}',
                   f'x: {batch_x_loss:.1e} L: {first_batch_loss:.1e}',
                   f'| {"test" if testset else "train"} acc:',
@@ -643,12 +651,13 @@ if __name__ == '__main__':
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
     
-    save_dir = './jobs/fashion/job-3'
+    # save_dir = './jobs/fashion/job-3'
     # save_dir = './jobs/svhn/job-3'
     # load_dir = './jobs/fashion/thejob'
     # save_dir = None
+    save_dir = './jobs/conv-features/cifar10/job-1'
     load_dir = None
-    load_dir = save_dir
+    # load_dir = save_dir
 
     resume_training = False
     resume_training = True
@@ -658,15 +667,15 @@ if __name__ == '__main__':
     rebuild = load_dir is None
     # rebuild = True
                               
-    e_ = [1024, 512, 512]
+    e_ = [512]
     # e_ = []
     d_ = e_.copy()
-    d_.reverse()
+    d_ = [512, 512, 1024]
     c_ = [20, 10]
                               
     beta = 1e-4
     latent_dim = 100
-    latent_sampling = 100
+    latent_sampling = 70
 
     # latent_dim = 3
     # latent_sampling = 5         # 
@@ -686,11 +695,12 @@ if __name__ == '__main__':
         #      transforms.Normalize((0.1307,), (0.3081,))])
         #
                               
-        trainset, testset = torchdl.get_fashion_mnist()        
-        _, oodset = torchdl.get_mnist()
-        # trainset, testset = torchdl.get_svhn ()
-        # _, oodset = torchdl.get_cifar10()
-        output_activation = 'sigmoid'
+        # trainset, testset = torchdl.get_fashion_mnist()        
+        # _, oodset = torchdl.get_mnist()
+        trainset, testset = torchdl.get_cifar10()
+        _, oodset = torchdl.get_svhn()
+
+        output_activation = 'linear' # 'sigmoid'
         data_loaded = True
         
     if not rebuild:
@@ -707,7 +717,7 @@ if __name__ == '__main__':
     if rebuild:
         t = time.time()
         print('*'*4+' BUILDING '+'*'*4)
-        jvae = ClassificationVariationalNetwork((1, 28, 28), 10,
+        jvae = ClassificationVariationalNetwork((3, 32, 32), 10,
                                                 e_, latent_dim,
                                                 d_, c_,
                                                 latent_sampling=latent_sampling,
@@ -716,8 +726,8 @@ if __name__ == '__main__':
         print('*'*4 + f' BUILT' + '*'*4)
 
     print(jvae.print_architecture())
-    epochs = 200
-    batch_size = 100
+    epochs = 50
+    batch_size = 70
     # batch_size = 7
             
     trainloader = torch.utils.data.DataLoader(trainset,

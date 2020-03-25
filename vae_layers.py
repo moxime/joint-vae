@@ -58,8 +58,6 @@ vgg_cfg = {
               512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
-
-
 class VGGFeatures(nn.Sequential):
 
     def __init__(self, vgg_name, input_shape, pretrained=None):

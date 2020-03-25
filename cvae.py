@@ -635,20 +635,19 @@ class ClassificationVariationalNetwork(nn.Module):
 
 if __name__ == '__main__':
 
-    # load_dir = './jobs/mnist/job5'
-    # load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
-    # load_dir = ('./jobs/output-activation=sigmoid' +
-    #             '/activation=relu--latent-dim=50' +
-    #             '--sampling=100' +
-    #             '--encoder-layers=1024-1024-512-512-256-256' +
-    #             '--decoder-layers=256-512' +
-    #             '--classifier-layers=10' +
-    #             '/beta=1.00000e-06-1')
+    parser = argparse.ArgumentParser(
+        description="train a network")
+    parser.add_argument('--dataset', default='fashion',
+                        choices=['fashion', 'mnist', 'cifar10'])
 
-    # save_dir = './jobs/fashion/job-3'
-    # save_dir = './jobs/svhn/job-3'
-    # load_dir = './jobs/fashion/thejob'
-    # save_dir = None
+    parser.add_argument('-b', '--batch_size', type=int, default=100)
+
+    args = parser.parse_args()
+    batch_size = args.batch_size
+
+    epochs = 50
+
+    
     save_dir = './jobs/conv-features/cifar10/job-1'
     load_dir = None
     # load_dir = save_dir
@@ -669,8 +668,8 @@ if __name__ == '__main__':
 
     beta = 1e-4
     latent_dim = 100
-    latent_sampling = 50
-    batch_size = 50
+    latent_sampling = 100
+
 
     # latent_dim = 3
     # latent_sampling = 5         #
@@ -749,3 +748,23 @@ if __name__ == '__main__':
     y_est_by_losses = batch_losses.argmin(0)
     y_est_by_mean = y_out.mean(0).argmax(-1)
     """
+
+    def timing(vae, x, N=1):
+        from utils.print_log import Time
+    
+        t0 = time.time()
+
+        for n in range(N):
+            _ = vae.evaluate(x)
+
+        t1 = time.time()
+        print('Evaluate:', (Time(t1) - t0) / N / len(x))
+
+        t0 = t1
+
+        for n in range(N):
+
+            u = vae.features(x)
+              
+        t1 = time.time()
+        print('Features:', (Time(t1) - t0) / N / len(x))

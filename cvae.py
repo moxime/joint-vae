@@ -9,12 +9,12 @@ from utils.losses import x_loss, kl_loss, mse_loss
 import torchvision
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-from vae_layers import VGGFeatures, Convolutional, Encoder, Decoder, Classifier
+from vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier
 from vae_layers import onehot_encoding
 
-import data.generate as dg
 import data.torch_load as torchdl
-from utils import save_load 
+from data.torch_load import choose_device
+from utils import save_load
 import numpy as np
 
 from utils.print_log import print_epoch
@@ -29,17 +29,19 @@ DEFAULT_LATENT_SAMPLING = 100
 
 
 class ClassificationVariationalNetwork(nn.Module):
-    
+
     predict_methods = ['mean', 'loss']
-    
+
     def __init__(self,
                  input_shape,
                  num_labels,
+                 features=None,
+                 pretrained_features=None,
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  decoder_layer_sizes=[36],
                  classifier_layer_sizes=[36],
-                 name = 'joint-vae',
+                 name='joint-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
@@ -50,23 +52,34 @@ class ClassificationVariationalNetwork(nn.Module):
         super().__init__(*args, **kw)
         self.name = name
 
-        vgg_dict = torch.load('vgg19')
-        # if beta=0 in Encoder(...) loss is not computed by layer
-        self.features = VGGFeatures('vgg19', input_shape,
-                                    pretrained=vgg_dict)
+        if features:
+            if pretrained_features:
+                vgg_dict = torch.load(pretrained_features)
+            else:
+                vgg_dict = None
 
-        dense_input_shape = self.features.output_shape
-        
+            self.features = VGGFeatures(features, input_shape,
+                                        pretrained=vgg_dict)
+
+            dense_input_shape = self.features.output_shape
+        else:
+            dense_input_shape = input_shape
+            self.features = None
+
         self.encoder = Encoder(dense_input_shape, num_labels, latent_dim,
                                encoder_layer_sizes,
                                beta=beta, sampling_size=latent_sampling,
                                activation=activation)
+        if features:
+            self.decoder = ConvDecoder(latent_dim, dense_input_shape,
+                                       decoder_layer_sizes,
+                                       output_activation=output_activation)
+        else:
+            self.decoder = Decoder(latent_dim, input_shape,
+                                   decoder_layer_sizes,
+                                   activation=activation,
+                                   output_activation=output_activation)
 
-        self.decoder = Decoder(latent_dim, input_shape,
-                               decoder_layer_sizes,
-                               activation=activation,
-                               output_activation=output_activation)
-    
         self.classifier = Classifier(latent_dim, num_labels,
                                      classifier_layer_sizes,
                                      activation=activation)
@@ -76,7 +89,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.input_dims = (input_shape, num_labels)
 
         self.beta = beta
-            
+
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder_layer_sizes, latent_dim,
                                  decoder_layer_sizes, classifier_layer_sizes]
@@ -86,7 +99,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
 
         self.train_history = dict()
-        
+
         self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
         self.encoder_layer_sizes = encoder_layer_sizes
@@ -99,47 +112,38 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.z_output = False
 
-    def forward(self, x, y=None, z_output=True):
+    def forward(self, x, y, z_output=True):
         """inputs: x, y where x, and y are tensors sharing first dims.
 
         - x is of size N1x...xNgxD1x..xDt
         - y is of size N1x....xNg(x1)
 
         """
-        batch_shape = x.shape 
-        x = self.features(x.view(-1, *self.input_shape))
+        batch_shape = x.shape
 
-        batch_size = batch_shape[:-len(self.input_shape)] # N1 x...xNg
-        shape_ = batch_size + (-1,)
-        x_ = x.view(*shape_) # x_ of size N1x...xNgxD 
+        if self.features:
+            x = self.features(x.view(-1, *self.input_shape))
 
-        ###
-        ###
-        # print('cvae l. 112 x, x_', batch_shape, x_.shape)
-        ###
-        ###
+        batch_size = batch_shape[:-len(self.input_shape)]  # N1 x...xNg
+
+        x_ = x.view(*batch_size, -1)  # x_ of size N1x...xNgxD
+
         y_onehot = onehot_encoding(y, self.num_labels).float()
-        # print('cvae l. 102 y', y.shape)
-        
-        # y_onehot of size N1x...xNgxC with
 
-        # print('cvae l. 112', x_.device, y_onehot.device)
         z_mean, z_log_var, z = self.encoder(x_, y_onehot)
-        # print('cvae l. 114', z_mean.device, z_log_var.device, z.device)
-        # z_mean and z_log_var of size N1...NgxK
         # z of size LxN1x...xNgxK
-        
+
         x_output = self.decoder(z)
         # x_output of size LxN1x...xKgxD
-        
+
         y_output = self.classifier(z)
         # y_output of size LxN1x...xKgxC
-        
+
         out = (x_output.reshape((self.latent_sampling,) + batch_shape),
                y_output)
         if z_output:
             out += (z_mean, z_log_var, z)
- 
+
         return out
 
     def evaluate(self, x, **kw):
@@ -162,36 +166,31 @@ class ClassificationVariationalNetwork(nn.Module):
 
         C = self.num_labels
         s_x = x.shape
-        
-        # if len(s_x) == len(self.input_shape):
+
         s_x = (1, ) + s_x
-        s_x_ = (C, )  + tuple([1 for _ in s_x[1:]]) 
+        s_x_ = (C, ) + tuple([1 for _ in s_x[1:]])
 
         x_ = x.reshape(s_x).repeat(s_x_)
-        
+
         # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
 
         s_y = x_.shape[:-len(self.input_shape)]
 
-        # print('cvae l. 428', 's_y', s_y)
-        # y = torch.zeros(s_y, requires_grad=False, dtype=int, device=x.device)
         y = torch.zeros(s_y, dtype=int, device=x.device)
-        # print('cvae l. 430', 'y', y.shape)
-        for c in range(C):
-            y[c] = c # maybe a way to accelerate this ?
 
-        # print('cva l. 433', x_.shape, x_.dtype, y.shape, s_y, y.dtype)
+        for c in range(C):
+            y[c] = c  # maybe a way to accelerate this ?
+
         x_reco, y_est, mu, log_var, z = self.forward(x_, y)
 
-        # print('cvae l. 436 x_', x_.shape, 'y', y.shape, '\nx_r', x_reco.shape,
-        #       'y_est', y_est.shape, 'mu', mu.shape, 'log_var',
-        #       log_var.shape, 'z', z.shape) 
-        batch_losses = self.loss(x_, y, x_reco, y_est, mu, log_var, batch_mean=False)
+        batch_losses = self.loss(x_, y,
+                                 x_reco, y_est,
+                                 mu, log_var,
+                                 batch_mean=False)
 
         return x_reco.mean(0), y_est.mean(0), batch_losses
 
     def predict(self, x, method='mean', **kw):
-
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
 
         creates a x of size C * N1, ..., D1, ...., Dt)
@@ -202,7 +201,7 @@ class ClassificationVariationalNetwork(nn.Module):
         p(y|x,y). If 'loss' returns the y which minimizes loss(x, y)
 
         """
-        
+
         _, y_est, batch_losses = self.evaluate(x)
 
         # print('cvae l. 192', x.device, batch_losses.device)
@@ -212,13 +211,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if method is None:
             return y_est
-        
+
         if method == 'mean':
             return y_est.mean(0).argmax(-1)
 
         if method == 'loss':
             return losses.argmin(0)
-        
+
     def accuracy(self, testset, batch_size=100, num_batch='all', method='mean',
                  device=None, return_mismatched=False):
         """return detection rate. If return_mismatched is True, indices of
@@ -275,15 +274,16 @@ class ClassificationVariationalNetwork(nn.Module):
             return acc, mismatched
 
         return acc[m] if only_one_method else acc
-   
+
     def loss(self, x, y,
              x_reconstructed, y_estimate,
              mu_z, log_var_z,
              mse_loss_weight=None,
              x_loss_weight=None,
-             kl_loss_weight=None, **kw):
+             kl_loss_weight=None,
+             return_all_losses = False,
+             **kw):
 
-        # print('cvae l. 137 | y', y.shape)
         if mse_loss_weight is None:
             mse_loss_weight = self.mse_loss_weight
         if x_loss_weight is None:
@@ -291,22 +291,19 @@ class ClassificationVariationalNetwork(nn.Module):
         if kl_loss_weight is None:
             kl_loss_weight = self.kl_loss_weight
 
-        # print('cvae l. 134 | kl_loss_weight', kl_loss_weight)
-        # w_kl = kl_loss_weight * kl_loss(mu_z, log_var_z, **kw)
-        # print('cvae l. 136 | x', x.shape)
-        # print('cvae l. 138 | w*kl', w_kl.shape)
-        # print('cvae l. 139 | x_loss', x_loss(y, y_estimate, **kw).shape)
-        # print('cvae l. 140 | mse_loss',
-        # mse_loss(x, x_reconstructed,
-        #         ndim=len(self.input_shape), **kw).shape)
+        batch_mse_loss = mse_loss(x, x_reconstructed,
+                                  ndim=len(self.input_shape), **kw)
+        batch_x_loss = x_loss(y, y_estimate, **kw)
+        batch_kl_loss = kl_loss(mu_z, log_var_z, **kw)
 
-        return (mse_loss_weight *
-                mse_loss(x, x_reconstructed,
-                         ndim=len(self.input_shape), **kw) +
-                x_loss_weight *
-                x_loss(y, y_estimate, **kw) +
-                kl_loss_weight *
-                kl_loss(mu_z, log_var_z, **kw))        
+        batch_loss = (mse_loss_weight * batch_mse_loss +
+                      x_loss_weight * batch_x_loss +
+                      kl_loss_weight * batch_kl_loss)
+
+        if return_all_losses:
+            return batch_mse_loss, batch_x_loss, batch_kl_loss, batch_loss
+
+        return batch_loss
 
     def train(self, trainset, optimizer=None, epochs=50,
               batch_size=100, device=None,
@@ -321,37 +318,32 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         methods = self.predict_methods
-        if device is None:
-            device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-            
-        if optimizer is None: optimizer = self.optimizer
+        device = choose_device(device)
+
+        if optimizer is None:
+            optimizer = self.optimizer
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,
                                                   shuffle=True, num_workers=0)
-        # if testset:
-        #     testloader = torch.utils.data.DataLoader(testset,
-        #                                              batch_size=batch_size,
-        #                                              shuffle=False,
-        #                                              num_workers=0)
-  
+
         dataset_size = len(trainset)
         remainder = 1 if (dataset_size % batch_size) > 0 else 0
         per_epoch = dataset_size // batch_size + remainder
-        done_epochs = 0
+
         if not resume_training or not self.trained:
-            self.train_history = dict() # will not be returned
+            self.train_history = dict()  # will not be returned
             self.train_history['train batch loss'] = []
             self.train_history['train batch xent loss'] = []
             self.train_history['train batch mse loss'] = []
             self.train_history['train batch kl loss'] = []
             self.train_history['train loss'] = []
             self.train_history['test accuracy'] = [] if testset else None
-            self.train_history['train accuracy'] = [] 
+            self.train_history['train accuracy'] = []
         done_epochs = len(self.train_history['train batch loss'])
-        
+
         for epoch in range(done_epochs, epochs):
             t_start_epoch = time.time()
-            epoch_total_loss = 0.0            
+            epoch_total_loss = 0.0
             data = next(iter(trainloader))
             x, y = data[0].to(device), data[1].to(device)
             x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
@@ -378,9 +370,10 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train accuracy'].append(train_accuracy)
 
             if testset:
+                num_batch = sample_size // batch_size
                 test_accuracy = self.accuracy(testset,
                                               batch_size=batch_size,
-                                              num_batch=sample_size // batch_size,
+                                              num_batch=num_batch,
                                               device=device,
                                               method='all')
                 self.train_history['test accuracy'].append(test_accuracy)
@@ -398,88 +391,89 @@ class ClassificationVariationalNetwork(nn.Module):
                 tick = time.time()
                 t_per_i = tick - t_i
                 t_epoch = tick - t_start_epoch
-                mus = 1e6 * t_epoch/(i * batch_size) if i>0 else 0
+                mus = 1e6 * t_epoch/(i * batch_size) if i > 0 else 0
                 info = f'{mus:.0f} us per sample'
                 t_i = tick
                 mean_loss = epoch_total_loss / i if i > 0 else 0
                 print_epoch(i, per_epoch, epoch, epochs, mean_loss,
                             info=info, end_of_epoch='\n')
                 # get the inputs; data is a list of [inputs, labels]
-                x, y = data[0].to(device),data[1].to(device)
+                x, y = data[0].to(device), data[1].to(device)
                 # zero the parameter gradients
                 optimizer.zero_grad()
-                
+
                 # forward + backward + optimize
                 x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
-                              
+
                 batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
                                        log_var_z,
                                        mse_loss_weight=mse_loss_weight,
                                        x_loss_weight=x_loss_weight,
-                                       kl_loss_weight=kl_loss_weight) 
+                                       kl_loss_weight=kl_loss_weight)
                 batch_loss.backward()
                 optimizer.step()
                 epoch_total_loss += batch_loss.item()
                 self.train_history['train loss'].append(epoch_total_loss)
-                
+
         print('\nFinished Training')
         self.trained = str(trainset)
-                
+
     def summary(self):
-                              
+
         print('SUMMARY FUNCTION NOT IMPLEMENTED')
-                              
+
     @property
     def beta(self):
         return self._beta
-                              
-    @beta.setter # decorator to change beta in the decoder if changed in the vae.
+
+    # decorator to change beta in the decoder if changed in the vae.
+    @beta.setter
     def beta(self, value):
         self._beta = value
         self.encoder.beta = value
         self.kl_loss_weight = 2 * value
         self.x_entropy_loss_weight = 2 * value
-                              
+
     @property
     def kl_loss_weight(self):
         return self._kl_loss_weight
-                              
+
     @kl_loss_weight.setter
     def kl_loss_weight(self, value):
         self._kl_loss_weight = value
         self.encoder.kl_loss_weight = value
-                              
+
     @property
     def latent_sampling(self):
         return self._latent_sampling
-                              
+
     @latent_sampling.setter
     def latent_sampling(self, v):
         self._latent_sampling = v
         self.encoder.sampling_size = v
-                              
+
     def plot_model(self, dir='.', suffix='.png', show_shapes=True,
                    show_layer_names=True):
-                              
+
         if dir is None:
             dir = '.'
-                              
+
         def _plot(net):
             print(f'PLOT HAS TO BE IMPLEMENTED WITH TB')
             # f_p = save_load.get_path(dir, net.name+suffix)
             # plot_model(net, to_file=f_p, show_shapes=show_shapes,
             #            show_layer_names=show_layer_names,
             #            expand_nested=True)
-            
+
         _plot(self)
         _plot(self.encoder)
         _plot(self.decoder)
         _plot(self.classifier)
-                              
+
     def has_same_architecture(self, other_net):
-                              
+
         out = True
-                              
+
         out = out and self.activation == other_net.activation
         # print(out)
         out = out and self._sizes_of_layers == other_net._sizes_of_layers
@@ -489,32 +483,32 @@ class ClassificationVariationalNetwork(nn.Module):
         return out
 
     def print_architecture(self, beta=False):
-                              
+
         def _l2s(l, c='-', empty='.'):
             if len(l) == 0:
                 return empty
             return c.join(str(_) for _ in l)
-                              
-        s  = f'output-activation={self.output_activation}--' 
+
+        s = f'output-activation={self.output_activation}--'
         s += f'activation={self.activation}--'
         s += f'latent-dim={self.latent_dim}--'
         s += f'sampling={self.latent_sampling}--'
         s += f'encoder-layers={_l2s(self.encoder_layer_sizes)}--'
         s += f'decoder-layers={_l2s(self.decoder_layer_sizes)}--'
         s += f'classifier-layers={_l2s(self.classifier_layer_sizes)}'
-                              
+
         if beta:
             s += f'--beta={beta:1.3e}'
-                              
+
         return s
-                              
+
     def save(self, dir_name=None):
         """Save the params in params.json file in the directroy dir_name and, if
         trained, the weights inweights.h5.
 
         """
         ls = self._sizes_of_layers
-                              
+
         if dir_name is None:
             dir_name = './jobs/' + self.print_architecture()
 
@@ -523,56 +517,56 @@ class ClassificationVariationalNetwork(nn.Module):
                       'latent_sampling': self.latent_sampling,
                       'activation': self.activation,
                       'output_activation': self.output_activation}
-                              
+
         save_load.save_json(param_dict, dir_name, 'params.json')
-                              
+
         if self.trained:
             save_load.save_json(self.train_history, dir_name, 'training.json')
             w_p = save_load.get_path(dir_name, 'state.pth')
             torch.save(self.state_dict(), w_p)
-                              
-    @classmethod        
+
+    @classmethod
     def load(cls, dir_name, verbose=1,
              default_output_activation=DEFAULT_OUTPUT_ACTIVATION):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
         p_dict = save_load.load_json(dir_name, 'params.json')
-        
+
         try:
             train_history = save_load.load_json(dir_name, 'training.json')
         except(FileNotFoundError):
             train_history = dict()
-            
+
         latent_sampling = p_dict.get('latent_sampling', 1)
         output_activation = p_dict.get('output_activation',
-                                           default_output_activation)
-                              
+                                       default_output_activation)
+
         ls = p_dict['layer_sizes']
-            # print(ls)
-                              
+        # print(ls)
+
         vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4], ls[5],
                   latent_sampling=latent_sampling,
                   activation=p_dict['activation'],
                   beta=p_dict['beta'],
                   output_activation=output_activation,
                   verbose=verbose)
-                              
+
         vae.trained = p_dict['trained']
         vae.train_history = train_history
-                              
+
         if vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))
-                              
+
         return vae
-                              
+
     def log_pxy(self, x, normalize=True, batch_losses=None, **kw):
-                              
+
         if batch_losses is None:
             _, _, batch_losses = self.evaluate(x, **kw)
-                              
-        normalized_log_pxy = - batch_losses  / (2 * self.beta)
+
+        normalized_log_pxy = - batch_losses / (2 * self.beta)
 
         if normalize:
             return normalized_log_pxy
@@ -580,7 +574,7 @@ class ClassificationVariationalNetwork(nn.Module):
         D = np.prod(self.input_shape)
         a = np.log(self.sigma * 2 * np.pi)
         return normalized_log_pxy - D / 2 * a
-                              
+
     def log_px(self, x, normalize=True, method='sum', batch_losses=None, **kw):
         """Computes a lower bound on log(p(x)) with the loss which is an upper
         bound on -log(p(x, y)).  - normalize = True forgets a constant
@@ -590,13 +584,13 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         if batch_losses is None:
             _, _, batch_losses = self.evaluate(x, **kw)
-                              
-        log_pxy = - batch_losses  / (2 * self.beta)
-                              
+
+        log_pxy = - batch_losses / (2 * self.beta)
+
         m_log_pxy = log_pxy.max(0)[0]
         d_log_pxy = log_pxy - m_log_pxy
-                              
-        # p_xy = d_p_xy * m_pxy 
+
+        # p_xy = d_p_xy * m_pxy
         d_pxy = d_log_pxy.exp()
         if method == 'sum':
             d_px = d_pxy.sum(0)
@@ -610,37 +604,37 @@ class ClassificationVariationalNetwork(nn.Module):
             D = np.prod(self.input_shape)
             a = np.log(self.sigma * 2 * np.pi)
             return normalized_log_px - D / 2 * a
-                              
+
     def log_py_x(self, x, batch_losses=None, **kw):
 
         if batch_losses is None:
             _, _, batch_losses = self.evaluate(x, **kw)
 
-        # batch_losses is C * N1 * ... * 
-        log_pxy = - batch_losses  / (2 * self.beta)
-                              
+        # batch_losses is C * N1 * ... *
+        log_pxy = - batch_losses / (2 * self.beta)
+
         m_log_pxy = log_pxy.max(0)[0]
         d_log_pxy = log_pxy - m_log_pxy
-        
+
         d_log_px = d_log_pxy.exp().sum(0).log()
-        
+
         log_py_x = d_log_pxy - d_log_px
-        
+
         return log_py_x
 
     def HY_x(self, x, method='pred', y_pred=None, losses=None, **kw):
-    
+
         if method == 'pred':
             if y_pred is None:
                 y_pred = self.blind_predict(x)
                 return -(np.log(y_pred) * y_pred).sum(axis=-1)
-            
+
         log_p = self.log_py_x(x, losses=losses, **kw)
         return -(np.exp(log_p) * log_p).sum(axis=-1)
-                              
-                              
+
+
 if __name__ == '__main__':
-                              
+
     # load_dir = './jobs/mnist/job5'
     # load_dir = './jobs/fashion-mnist/latent-dim=20-sampling=100-encoder-layers=3/beta=5.00000e-06-0'
     # load_dir = ('./jobs/output-activation=sigmoid' +
@@ -650,7 +644,7 @@ if __name__ == '__main__':
     #             '--decoder-layers=256-512' +
     #             '--classifier-layers=10' +
     #             '/beta=1.00000e-06-1')
-    
+
     # save_dir = './jobs/fashion/job-3'
     # save_dir = './jobs/svhn/job-3'
     # load_dir = './jobs/fashion/thejob'
@@ -659,50 +653,37 @@ if __name__ == '__main__':
     load_dir = None
     # load_dir = save_dir
 
-    resume_training = False
     resume_training = True
+    resume_training = False
     refit = True
     refit = False
-    
+
     rebuild = load_dir is None
     # rebuild = True
-                              
+
     e_ = [512]
     # e_ = []
     d_ = e_.copy()
-    d_ = [512, 512, 1024]
+    d_ = [32, 32, 32, 32, 3]
     c_ = [20, 10]
-                              
+
     beta = 1e-4
     latent_dim = 100
-    latent_sampling = 70
+    latent_sampling = 50
+    batch_size = 50
 
     # latent_dim = 3
-    # latent_sampling = 5         # 
-    
+    # latent_sampling = 5         #
+
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
     print('*** USED DEVICE', device, '***')
-    # try:
-    #     data_loaded
-    # except(NameError):
-    #     data_loaded = False
-    
-    data_loaded = False
-    if not data_loaded:
-        # mnist_transform = transforms.Compose(
-        #     [transforms.ToTensor(),
-        #      transforms.Normalize((0.1307,), (0.3081,))])
-        #
-                              
-        # trainset, testset = torchdl.get_fashion_mnist()        
-        # _, oodset = torchdl.get_mnist()
-        trainset, testset = torchdl.get_cifar10()
-        _, oodset = torchdl.get_svhn()
+    trainset, testset = torchdl.get_cifar10()
+    _, oodset = torchdl.get_svhn()
 
-        output_activation = 'linear' # 'sigmoid'
-        data_loaded = True
-        
+    output_activation = 'linear'  # 'sigmoid'
+    data_loaded = True
+
     if not rebuild:
         print('*** LOADING... ***')
         try:
@@ -718,18 +699,21 @@ if __name__ == '__main__':
         t = time.time()
         print('*'*4+' BUILDING '+'*'*4)
         jvae = ClassificationVariationalNetwork((3, 32, 32), 10,
-                                                e_, latent_dim,
-                                                d_, c_,
+                                                features='vgg11',
+                                                pretrained_features='vgg11.pth',
+                                                # encoder_layer_sizes=e_,
+                                                latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
+                                                decoder_layer_sizes=d_,
+                                                classifier_layer_sizes=c_,
                                                 beta=beta,
-                                                output_activation=output_activation) 
+                                                output_activation=output_activation)
         print('*'*4 + f' BUILT' + '*'*4)
 
     print(jvae.print_architecture())
     epochs = 50
-    batch_size = 70
     # batch_size = 7
-            
+
     trainloader = torch.utils.data.DataLoader(trainset,
                                               batch_size=batch_size,
                                               shuffle=True,
@@ -750,7 +734,7 @@ if __name__ == '__main__':
                    device=device,
                    testset=testset,
                    resume_training=resume_training,
-                   sample_size=200, # 10000,
+                   sample_size=200,  # 10000,
                    mse_loss_weight=None,
                    x_loss_weight=None,
                    kl_loss_weight=None)

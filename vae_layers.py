@@ -23,6 +23,8 @@ def _no_activation(a):
     return a
 
 
+output_layers = {'linear': nn.Identity, 'sigmoid': nn.Sigmoid} 
+
 class Sampling(nn.Module):
     """Uses (z_mean, z_log_var) to sample z, the latent vector.
     - z_mean and a_log_var have the same dimensions N1xN2x...xNgxK
@@ -229,11 +231,13 @@ class ConvDecoder(nn.Module):
 
     """
 
-    def __init__(self, input_dim, first_shape, channels, **kwargs):
+    
+    def __init__(self, input_dim, first_shape, channels,
+                 output_activation='linear', **kwargs):
 
         super(ConvDecoder, self).__init__(**kwargs)
            
-        layers = self._makelayer(first_shape, channels)
+        layers = self._makelayer(first_shape, channels, output_activation)
 
         self.first_shape = first_shape
         self.refactor = nn.Linear(input_dim, np.prod(first_shape))
@@ -250,7 +254,7 @@ class ConvDecoder(nn.Module):
         output_dim = out.shape[1:]
         return out.view(*batch_shape, *output_dim)
 
-    def _makelayer(self, first_shape, channels):
+    def _makelayer(self, first_shape, channels, output_activation):
 
         layers = []
 
@@ -260,6 +264,9 @@ class ConvDecoder(nn.Module):
                                           4, stride=2, padding=1),
                        nn.ReLU(inplace=True)]
             input_channels = output_channels
+
+        layers[-1] = output_layers.get(output_activation, nn.Identity)()
+        
         return layers
 
 

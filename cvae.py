@@ -640,7 +640,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='fashion',
                         choices=['fashion', 'mnist', 'cifar10'])
 
-    parser.add_argument('-b', '--batch_size', type=int, default=100)
+    parser.add_argument('-b', '--batch_size', type=int, default=50)
 
     args = parser.parse_args()
     batch_size = args.batch_size

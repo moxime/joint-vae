@@ -112,20 +112,27 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.z_output = False
 
-    def forward(self, x, y, z_output=True):
+    def forward(self, x, y, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
 
         - x is of size N1x...xNgxD1x..xDt
         - y is of size N1x....xNg(x1)
 
         """
-        batch_shape = x.shape
 
-        if self.features:
-            x = self.features(x.view(-1, *self.input_shape))
+        if not self.features:
+            x_features = x
+        if not x_features:
+            x_features = self.features(x.view(-1, *self.input_shape))
 
-        batch_size = batch_shape[:-len(self.input_shape)]  # N1 x...xNg
+        return self.forward_features(x_features, y, **kw)
+            
+    def forward_features(self, x_features, y, z_output=True):
 
+        batch_shape = x_features.shape
+        batch_size = batch_shape[:-len(self.encoder.input_shape)]  # N1 x...xNg
+        reco_batch_shape = batch_size + self.input_shape
+        
         x_ = x.view(*batch_size, -1)  # x_ of size N1x...xNgxD
 
         y_onehot = onehot_encoding(y, self.num_labels).float()
@@ -139,7 +146,7 @@ class ClassificationVariationalNetwork(nn.Module):
         y_output = self.classifier(z)
         # y_output of size LxN1x...xKgxC
 
-        out = (x_output.reshape((self.latent_sampling,) + batch_shape),
+        out = (x_output.reshape((self.latent_sampling,) + reco_batch_shape),
                y_output)
         if z_output:
             out += (z_mean, z_log_var, z)
@@ -162,7 +169,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
 
-        # build a C* N1* N2* Ng *D1 * Dt tensor of input X
+        if self.features:
+            x_features = self.features(x)
+        else:
+            x_features = x
+            
+        # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
 
         C = self.num_labels
         s_x = x.shape

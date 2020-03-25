@@ -30,26 +30,29 @@ cifar_transform = transforms.Compose([transforms.ToTensor(),
                                                            cifar_stds)])
 
 
-def get_dataset(dataset='MNIST', root='./data', ood=None):
+def get_dataset(dataset='MNIST', root='./data', ood=None, transform='default'):
+
+    default_transform = transform == 'default'
 
     if dataset == 'MNIST':
 
         getter = datasets.MNIST
-        transform = simple_transform
+        transform = simple_transform if default_transform else transform
 
     if dataset == 'fashion':
         getter = datasets.FashionMNIST
-        transform = simple_transform
+        transform = simple_transform if default_transform else transform
 
     if dataset == 'svhn':
 
         def getter(train=True, **kw):
             return datasets.SVHN(split='train' if train else 'test', **kw)
-        transform = cifar_transform # simple_transform
+        transform = cifar_transform if default_transform else transform
+        # simple_transform
 
     if dataset == 'cifar10':
         getter = datasets.CIFAR10
-        transform = cifar_transform
+        transform = cifar_transform if default_transform else transform
         
     trainset = getter(root=root, train=True,
                           download=True,

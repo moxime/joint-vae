@@ -133,7 +133,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_size = batch_shape[:-len(self.encoder.input_shape)]  # N1 x...xNg
         reco_batch_shape = batch_size + self.input_shape
         
-        x_ = x.view(*batch_size, -1)  # x_ of size N1x...xNgxD
+        x_ = x_features.view(*batch_size, -1)  # x_ of size N1x...xNgxD
 
         y_onehot = onehot_encoding(y, self.num_labels).float()
 
@@ -177,25 +177,28 @@ class ClassificationVariationalNetwork(nn.Module):
         # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
 
         C = self.num_labels
-        s_x = x.shape
+        s_f = x_features.shape
+        
+        s_f = (1, ) + s_f
+        rep_dims = (C, ) + tuple([1 for _ in s_f[1:]])
 
-        s_x = (1, ) + s_x
-        s_x_ = (C, ) + tuple([1 for _ in s_x[1:]])
-
-        x_ = x.reshape(s_x).repeat(s_x_)
+        f_repeated = x_features.reshape(s_f).repeat(rep_dims)
 
         # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
 
-        s_y = x_.shape[:-len(self.input_shape)]
+        s_y = f_repeated.shape[:-len(self.input_shape)]
 
         y = torch.zeros(s_y, dtype=int, device=x.device)
 
         for c in range(C):
             y[c] = c  # maybe a way to accelerate this ?
 
-        x_reco, y_est, mu, log_var, z = self.forward(x_, y)
-
-        batch_losses = self.loss(x_, y,
+        if self.features:
+            x_reco, y_est, mu, log_var, z = self.forward_features(f_repeated, y)
+        else:
+            x_reco, y_est, mu, log_var, z = self.forward(f_repeated, y)
+            
+        batch_losses = self.loss(x, y,
                                  x_reco, y_est,
                                  mu, log_var,
                                  batch_mean=False)
@@ -679,8 +682,8 @@ if __name__ == '__main__':
     c_ = [20, 10]
 
     beta = 1e-4
-    latent_dim = 100
-    latent_sampling = 100
+    latent_dim = 40
+    latent_sampling = 50
 
 
     # latent_dim = 3
@@ -692,7 +695,8 @@ if __name__ == '__main__':
     trainset, testset = torchdl.get_cifar10()
     _, oodset = torchdl.get_svhn()
 
-    output_activation = 'linear'  # 'sigmoid'
+    # output_activation = 'linear'  # 'sigmoid'
+    output_activation = 'sigmoid'
     data_loaded = True
 
     if not rebuild:
@@ -712,7 +716,7 @@ if __name__ == '__main__':
         jvae = ClassificationVariationalNetwork((3, 32, 32), 10,
                                                 features='vgg11',
                                                 pretrained_features='vgg11.pth',
-                                                # encoder_layer_sizes=e_,
+                                                encoder_layer_sizes=e_,
                                                 latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
                                                 decoder_layer_sizes=d_,

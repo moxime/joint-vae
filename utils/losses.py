@@ -32,11 +32,13 @@ def compare_dims(small_dim, large_dim):
 
 
 
-def mse_loss(x_target, x_output, sampling_dims=1, ndim=0, batch_mean=True):
+def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
     """
     x_target of size (N1, .. ,Ng, D1, D2,..., Dt) 
     x_output of size (L, N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
     """
+    sampling_dims = x_output.dim() - x_target.dim()
+    assert x_output.shape[sampling_dims:] == x_target.shape
     sampling_dims_ = [_ for _ in range(sampling_dims)]
 
     # print('sampling_dims: ', sampling_dims)
@@ -45,8 +47,8 @@ def mse_loss(x_target, x_output, sampling_dims=1, ndim=0, batch_mean=True):
         mean_output_sampling = x_output.mean(sampling_dims_)
         var_output_sampling = x_output.var(sampling_dims_, unbiased=False)
     else:
-        mean_output_sampling = x_output.mean(sampling_dims_)
-        var_output_sampling = x_output.var(sampling_dims_, unbiased=False)
+        mean_output_sampling = x_output
+        var_output_sampling = torch.zeros(x_output.shape)
         
     if batch_mean:
         return F.mse_loss(mean_output_sampling,
@@ -58,12 +60,14 @@ def mse_loss(x_target, x_output, sampling_dims=1, ndim=0, batch_mean=True):
     mse = F.mse_loss(mean_output_sampling,
                      x_target, reduction='none').mean(mean_dims)
 
-    # print('Shapes: ',
-    #       mean_dims,
-    #       mean_output_sampling.shape,
-    #       x_output.shape,
-    #       mse.shape,
-    #       var_output_sampling.shape)
+    # print('l.py l. 61:\n',
+    #       'x_out', x_output.shape, '\n',
+    #       'x_tar', x_target.shape, '\n',
+    #       'batch_ndim', batch_ndim, '\n',
+    #       'mean_dims', mean_dims, '\n',
+    #       'mse', mse.shape, '\n',
+    #       'mean_out', mean_output_sampling.shape, '\n',
+    #       'var_out', var_output_sampling.shape)
     
     return mse + var_output_sampling.mean(mean_dims)
 

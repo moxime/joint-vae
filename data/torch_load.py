@@ -33,8 +33,9 @@ cifar_transform = transforms.Compose([transforms.ToTensor(),
 def get_dataset(dataset='MNIST', root='./data', ood=None, transform='default'):
 
     default_transform = transform == 'default'
-
-    if dataset == 'MNIST':
+    dataset = dataset.lower()
+    
+    if dataset == 'mnist':
 
         getter = datasets.MNIST
         transform = simple_transform if default_transform else transform
@@ -47,12 +48,14 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transform='default'):
 
         def getter(train=True, **kw):
             return datasets.SVHN(split='train' if train else 'test', **kw)
-        transform = cifar_transform if default_transform else transform
-        # simple_transform
+        # transform = cifar_transform if default_transform else transform
+        transform = simple_transform if default_transform else transform
 
     if dataset == 'cifar10':
+        
         getter = datasets.CIFAR10
-        transform = cifar_transform if default_transform else transform
+        # transform = cifar_transform if default_transform else transform
+        transform = simple_transform if default_transform else transform
         
     trainset = getter(root=root, train=True,
                           download=True,
@@ -62,6 +65,9 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transform='default'):
                          download=True,
                          transform=transform)
 
+    trainset.name = dataset
+    testset.name = dataset
+    
     return trainset, testset
 
 

@@ -650,20 +650,36 @@ class ClassificationVariationalNetwork(nn.Module):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(
-        description="train a network")
-    parser.add_argument('--dataset', default='fashion',
+    default_latent_dim = 40
+    default_latent_sampling = 50
+    default_batch_size = 50
+    default_dataset = 'cifar10'
+    default_epochs = 50
+    
+    parser = argparse.ArgumentParser(description="train a network")
+
+    parser.add_argument('--dataset', default=default_dataset,
                         choices=['fashion', 'mnist', 'cifar10'])
 
-    parser.add_argument('-b', '--batch_size', type=int, default=50)
+    parser.add_argument('--epochs', type=int, default=default_epochs)
 
-    args = parser.parse_args()
-    batch_size = args.batch_size
+    parser.add_argument('-b', '--batch_size', type=int,
+                        default=default_batch_size)
 
-    epochs = 50
-
+    parser.add_argument('-K', '--latent_dim', type=int,
+                        default=default_latent_dim)
+    parser.add_argument('-L', '--latent_sampling', type=int,
+                        default=default_latent_sampling)
     
-    save_dir = './jobs/conv-features/cifar10/job-1'
+    args = parser.parse_args()
+    
+    dataset = args.dataset
+    epochs = args.epochs
+    batch_size = args.batch_size
+    latent_dim = args.latent_dim
+    latent_sampling = args.latent_sampling
+    
+    save_dir = './jobs/features/cifar10/job-1'
     load_dir = None
     # load_dir = save_dir
 
@@ -682,12 +698,6 @@ if __name__ == '__main__':
     c_ = [20, 10]
 
     beta = 1e-4
-    latent_dim = 40
-    latent_sampling = 50
-
-
-    # latent_dim = 3
-    # latent_sampling = 5         #
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')

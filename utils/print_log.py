@@ -20,6 +20,94 @@ def print_epoch(i, per_epoch, epoch, epochs, loss,
     # print(f' {blinker[i%len(blinker)]}', end='')
 
 
+def print_results(i, per_epoch, epoch, epochs,
+                  losses=None, accuracies=None,
+                  loss_types=('mse', 'x', 'kl', 'total'),
+                  acc_methods = ('mean', 'loss'),
+                  time_per_i=0, batch_size=100,
+                  preambule='',
+                  end_of_epoch='\n'):
+
+    no_loss = losses is None
+        
+    Kep = 3
+    
+    if epoch < 0:
+        i = per_epoch - 1
+        preambule = f'{"epoch":^{2 * Kep + 2}} {preambule:>5}|'
+        loss_str = '|'.join(f'{k:^10}' for k in loss_types)
+
+    elif epoch == 0:
+        preambule = f'{preambule:^{8 + 2 * Kep}}|'
+        if no_loss:
+            loss_str = '|'.join(f'{" ":^10}' for k in loss_types)
+        else:
+            loss_str = '|'.join(f'{losses.get(k, 0):^10.2e}'
+                                for k in loss_types)
+        
+    else:
+        preambule = f'{epoch:{Kep}d}/{epochs:<{Kep}d} {preambule:>5} |'
+        if no_loss:
+            loss_str = '|'.join(10 * ' ' for k in loss_types)
+        else:
+            loss_str = '|'.join(f'{losses.get(k, 0):^10.2e}'
+                                for k in loss_types)
+
+    if epoch == -1: 
+        acc_str = '| ' + '|'.join(f'{k:^8}' for k in acc_methods)
+    elif accuracies:
+        acc_str = '| ' + '|'.join(f' {accuracies[k]:6.2%} ' for k in acc_methods)
+    else:
+        acc_str = '| ' + '|'.join(8 * ' ' for k in acc_methods)
+        
+    if time_per_i > 0:
+        time_per_i = Time(time_per_i)
+        if i < per_epoch - 1:
+            eta_str = f'| {time_per_i / batch_size:>9}/i'
+            eta_str += f'   eta: {time_per_i * (per_epoch - i):<9}'
+        else:
+            eta_str = f'| {time_per_i / batch_size:>9}/i'
+            eta_str += f' total: {time_per_i * per_epoch:<9}'
+       
+    else:
+        eta_str = '|'
+
+    print('\r' + preambule + loss_str  + acc_str + eta_str,
+          end='' if i < per_epoch - 1 else end_of_epoch)
+
+    
+def progress_bar(i, per_epoch, width=20):
+
+    N = width ** 2
+
+    step = round(i * N / per_epoch)
+
+    lss = step % width
+    mss = step // width 
+
+    n_both = min(mss, lss)
+    n_mss = max(mss -  lss, 0)
+    n_lss = max(lss - mss, 0)
+    n_blk = width - n_both - n_mss - n_lss
+    str = 'ø' * n_both
+    str += 'o' * n_mss
+    str += '/' * n_lss
+    str += n_blk * ' ' 
+
+    return str
+
+    print(str)
+    return step, mss, lss
+
+def test_pb(N, w, sleep=0.2):
+
+    for i in range(N):
+
+        print(progress_bar(i, N, w), end='|\r')
+        time.sleep(sleep)
+    
+    
+    
 class Time(float):
 
     def __str__(self, max=2):
@@ -111,3 +199,4 @@ if __name__ == '__main__':
             print_epoch(i, per_epoch, epoch, epochs, l, end_of_epoch='')
 
 
+    

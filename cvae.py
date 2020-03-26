@@ -17,7 +17,7 @@ from data.torch_load import choose_device
 from utils import save_load
 import numpy as np
 
-from utils.print_log import print_epoch
+from utils.print_log import print_results
 
 import time
 
@@ -201,7 +201,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_losses = self.loss(x, y,
                                  x_reco, y_est,
                                  mu, log_var,
-                                 batch_mean=False)
+                                 batch_mean=False, **kw)
 
         return x_reco.mean(0), y_est.mean(0), batch_losses
 
@@ -234,7 +234,7 @@ class ClassificationVariationalNetwork(nn.Module):
             return losses.argmin(0)
 
     def accuracy(self, testset, batch_size=100, num_batch='all', method='mean',
-                 device=None, return_mismatched=False):
+                 device=None, return_mismatched=False, print_result=False):
         """return detection rate. If return_mismatched is True, indices of
         mismatched are also retuned.
         method can be a list of methods
@@ -270,19 +270,35 @@ class ClassificationVariationalNetwork(nn.Module):
             mismatched[m] = []
         n = 0.0
         iter_ = iter(testloader)
+        start = time.time()
+
+        mean_loss = {'mse': 0, 'x': 0., 'kl': 0., 'total': 0.} 
+        total_loss = mean_loss.copy()
         for i in range(num_batch):
             data = next(iter_)
             x_test, y_test = data[0].to(device), data[1].to(device)
+            _, y_est, batch_losses = self.evaluate(x_test,
+                                                   return_all_losses=True)
+            for k in batch_losses:
+                total_loss[k] += batch_losses[k].mean().item()
+                mean_loss[k] = total_loss[k] / (i + 1)
             for m in methods:
-                _, y_est, batch_losses = self.evaluate(x_test)
                 y_pred = self.predict_after_evaluate(y_est,
-                                                     batch_losses, method=m)
+                                                     batch_losses['total'],
+                                                     method=m)
                 n_err[m] += (y_pred != y_test).sum().item()
                 mismatched[m] += [torch.where(y_test != y_pred)[0]]
             n += len(y_test)
+            time_per_i = (time.time() - start) / (i + 1)
+            for m in methods:
+                acc[m] = 1 - n_err[m] / n
+            if print_result:
+                print_results(i, num_batch, 0, 0,
+                              losses=mean_loss, accuracies=acc,
+                              time_per_i=time_per_i,
+                              batch_size=batch_size,
+                              preambule=print_result)
 
-        for m in methods:
-            acc[m] = 1 - n_err[m] / n
         if return_mismatched:
             if only_one_method:
                 return acc[m], mismatched[m]
@@ -296,7 +312,7 @@ class ClassificationVariationalNetwork(nn.Module):
              mse_loss_weight=None,
              x_loss_weight=None,
              kl_loss_weight=None,
-             return_all_losses = False,
+             return_all_losses=False,
              **kw):
 
         if mse_loss_weight is None:
@@ -316,7 +332,8 @@ class ClassificationVariationalNetwork(nn.Module):
                       kl_loss_weight * batch_kl_loss)
 
         if return_all_losses:
-            return batch_mse_loss, batch_x_loss, batch_kl_loss, batch_loss
+            return {'mse': batch_mse_loss, 'x': batch_x_loss,
+                    'kl': batch_kl_loss, 'total': batch_loss}
 
         return batch_loss
 
@@ -328,6 +345,7 @@ class ClassificationVariationalNetwork(nn.Module):
               kl_loss_weight=None,
               resume_training=False,
               sample_size=1000,
+              train_accuracy=False,
               verbose=1):
         """
 
@@ -347,71 +365,53 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if not resume_training or not self.trained:
             self.train_history = dict()  # will not be returned
-            self.train_history['train batch loss'] = []
-            self.train_history['train batch xent loss'] = []
-            self.train_history['train batch mse loss'] = []
-            self.train_history['train batch kl loss'] = []
-            self.train_history['train loss'] = []
-            self.train_history['test accuracy'] = [] if testset else None
-            self.train_history['train accuracy'] = []
-        done_epochs = len(self.train_history['train batch loss'])
+            self.train_history['train_loss'] = []
+            self.train_history['train_x_loss'] = []
+            self.train_history['train_mse_loss'] = []
+            self.train_history['train_kl_loss'] = []
+            self.train_history['test_accuracy'] = [] if testset else None
+            self.train_history['train_accuracy'] = []
+            self.train_history['train_loss'] = []
+        done_epochs = len(self.train_history['train_loss'])
+
+        print_results(0, 0, -1, epochs, losses={'mse': 0, 'x': 0, 'kl': 0,
+                                                'total': 0}) 
 
         for epoch in range(done_epochs, epochs):
+
             t_start_epoch = time.time()
-            epoch_total_loss = 0.0
-            data = next(iter(trainloader))
-            x, y = data[0].to(device), data[1].to(device)
-            x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
-            batch_kl_loss = kl_loss(mu_z, log_var_z).item()
-            batch_x_loss = x_loss(y, y_est).item()
-            batch_mse_loss = mse_loss(x, x_reco).item()
-            first_batch_loss = (self.kl_loss_weight * batch_kl_loss +
-                                self.mse_loss_weight * batch_mse_loss +
-                                self.x_entropy_loss_weight * batch_x_loss)
-            # first_batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
-            #                              log_var_z,
-            #                              mse_loss_weight=mse_loss_weight,
-            #                              kl_loss_weight=kl_loss_weight,
-            #                              x_loss_weight=x_loss_weight).item()
-            self.train_history['train batch loss'].append(first_batch_loss)
-            self.train_history['train batch xent loss'].append(batch_x_loss)
-            self.train_history['train batch mse loss'].append(batch_mse_loss)
-            self.train_history['train batch kl loss'].append(batch_kl_loss)
-            train_accuracy = self.accuracy(trainset,
-                                           batch_size=batch_size,
-                                           num_batch=sample_size // batch_size,
-                                           device=device,
-                                           method='all')
-            self.train_history['train accuracy'].append(train_accuracy)
+            # test
 
             if testset:
                 num_batch = sample_size // batch_size
-                test_accuracy = self.accuracy(testset,
-                                              batch_size=batch_size,
-                                              num_batch=num_batch,
-                                              device=device,
-                                              method='all')
-                self.train_history['test accuracy'].append(test_accuracy)
-            acc = test_accuracy if testset else train_accuracy
-            acc_str = ' '.join([f'{100 * acc[m]:.1f}% ({m})' for m in methods])
-            Ksp = int(np.log10(epochs))+1
-            print(f'epoch {epoch + 1:{Ksp}d}/{epochs} train',
-                  f'mse: {batch_mse_loss:.1e} kl: {batch_kl_loss:.1e}',
-                  f'x: {batch_x_loss:.1e} L: {first_batch_loss:.1e}',
-                  f'| {"test" if testset else "train"} acc:',
-                  acc_str)
+                with torch.no_grad():
+                    test_accuracy = self.accuracy(testset,
+                                                  batch_size=batch_size,
+                                                  num_batch='all',
+                                                  device=device,
+                                                  method='all',
+                                                  print_result='test acc')
+                self.train_history['test_accuracy'].append(test_accuracy)
 
+            # train
+            if train_accuracy:
+                with torch.no_grad():
+                    train_accuracy = self.accuracy(trainset,
+                                                   batch_size=batch_size,
+                                                   num_batch='all',
+                                                   device=device,
+                                                   method='all',
+                                                   print_result='train acc')
+
+                self.train_history['train_accuracy'].append(train_accuracy)
+                
             t_i = time.time()
+            t_start_train = t_i
+            train_mean_loss = {'mse': 0.0, 'x': 0.0, 'kl': 0.0, 'total': 0.0}
+            train_total_loss = train_mean_loss.copy()
+            
             for i, data in enumerate(trainloader, 0):
-                tick = time.time()
-                t_per_i = tick - t_i
-                t_epoch = tick - t_start_epoch
-                mus = 1e6 * t_epoch/(i * batch_size) if i > 0 else 0
-                info = f'{mus:.0f} us per sample'
-                t_i = tick
-                mean_loss = epoch_total_loss / i if i > 0 else 0
-                print_epoch(i, per_epoch, epoch, epochs, mean_loss,
-                            info=info, end_of_epoch='\n')
+
                 # get the inputs; data is a list of [inputs, labels]
                 x, y = data[0].to(device), data[1].to(device)
                 # zero the parameter gradients
@@ -424,14 +424,27 @@ class ClassificationVariationalNetwork(nn.Module):
                                        log_var_z,
                                        mse_loss_weight=mse_loss_weight,
                                        x_loss_weight=x_loss_weight,
-                                       kl_loss_weight=kl_loss_weight)
-                batch_loss.backward()
+                                       kl_loss_weight=kl_loss_weight,
+                                       return_all_losses=True)
+                batch_loss['total'].backward()
                 optimizer.step()
-                epoch_total_loss += batch_loss.item()
-                self.train_history['train loss'].append(epoch_total_loss)
+
+                for k in batch_loss:
+                    train_total_loss[k] += batch_loss[k].item()
+                    train_mean_loss[k] = train_total_loss[k] / (i + 1)
+
+                t_per_i = (time.time() - t_start_train) / (i + 1)
+                print_results(i, per_epoch, epoch + 1, epochs,
+                              preambule='train',
+                              losses=train_mean_loss,
+                              time_per_i=t_per_i,
+                              batch_size=batch_size,
+                              end_of_epoch='\n')
+
+            self.train_history['train_loss'].append(train_mean_loss)
 
         print('\nFinished Training')
-        self.trained = str(trainset)
+        self.trained = trainset.name
 
     def summary(self):
 
@@ -691,7 +704,7 @@ if __name__ == '__main__':
     rebuild = load_dir is None
     # rebuild = True
 
-    e_ = [512]
+    e_ = [512, 256]
     # e_ = []
     d_ = e_.copy()
     d_ = [32, 32, 32, 32, 3]

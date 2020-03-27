@@ -684,6 +684,7 @@ if __name__ == '__main__':
     default_latent_dim = 40
     default_latent_sampling = 50
     default_batch_size = 50
+    default_test_sample_size = 2000
     default_dataset = 'cifar10'
     default_epochs = 50
     default_beta = 1e-4
@@ -700,7 +701,9 @@ if __name__ == '__main__':
                         default=default_batch_size)
 
     help = 'Num of samples to compute test accuracy'
-    parser.add_argument('-t', '--test_sample_size', help=help)
+    parser.add_argument('-t', '--test_sample_size',
+                        default=default_test_sample_size,
+                        help=help)
 
     help = 'Force refit of a net with same architecture'
     help += '(may have a different beta)'
@@ -790,10 +793,10 @@ if __name__ == '__main__':
                                          jvae.print_architecture(),
                                          f'{beta:.2e}')
             i = 0
-            save_dir = os.path.join(save_dir_root, i)
+            save_dir = os.path.join(save_dir_root, f'{i:02d}')
             while os.path.exists(save_dir):
                 i+=1
-                save_dir = os.path.join(save_dir_root, i)
+                save_dir = os.path.join(save_dir_root, f'{i:02d}')
                 
         print('done.', 'Will be saved in\n' + save_dir)
 

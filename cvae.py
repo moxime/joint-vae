@@ -19,6 +19,7 @@ import numpy as np
 
 from utils.print_log import print_results
 
+import os.path
 import time
 
 
@@ -388,7 +389,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 with torch.no_grad():
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=batch_size,
-                                                  num_batch='all',
+                                                  num_batch=num_batch,
                                                   device=device,
                                                   method='all',
                                                   print_result='test')
@@ -520,10 +521,16 @@ class ClassificationVariationalNetwork(nn.Module):
                 return empty
             return c.join(str(_) for _ in l)
 
+        features = None
+        if self.features:
+            features = self.features.name
+
         s = f'output-activation={self.output_activation}--'
         s += f'activation={self.activation}--'
         s += f'latent-dim={self.latent_dim}--'
         s += f'sampling={self.latent_sampling}--'
+        if features:
+            s += f'features={features}--'
         s += f'encoder-layers={_l2s(self.encoder_layer_sizes)}--'
         s += f'decoder-layers={_l2s(self.decoder_layer_sizes)}--'
         s += f'classifier-layers={_l2s(self.classifier_layer_sizes)}'
@@ -543,15 +550,21 @@ class ClassificationVariationalNetwork(nn.Module):
         if dir_name is None:
             dir_name = './jobs/' + self.print_architecture()
 
-        param_dict = {'layer_sizes': self._sizes_of_layers, 'trained':
-                      self.trained, 'beta': self.beta,
+        features = None
+        if self.features:
+            features = self.features.name
+        param_dict = {'layer_sizes': self._sizes_of_layers,
+                      'features': features,
+                      'trained': self.trained, 'beta': self.beta,
                       'latent_sampling': self.latent_sampling,
                       'activation': self.activation,
                       'output_activation': self.output_activation}
 
         save_load.save_json(param_dict, dir_name, 'params.json')
 
-        if self.trained:
+        train_loss = self.train_history.get('train_loss', [])
+        
+        if self.trained or len (train_loss) > 0:
             save_load.save_json(self.train_history, dir_name, 'training.json')
             w_p = save_load.get_path(dir_name, 'state.pth')
             torch.save(self.state_dict(), w_p)
@@ -580,13 +593,15 @@ class ClassificationVariationalNetwork(nn.Module):
                   latent_sampling=latent_sampling,
                   activation=p_dict['activation'],
                   beta=p_dict['beta'],
+                  features=p_dict['features'],
                   output_activation=output_activation,
                   verbose=verbose)
 
         vae.trained = p_dict['trained']
         vae.train_history = train_history
 
-        if vae.trained:
+        is_training = len(train_history.get('train_loss'), []) > 0
+        if vae.trained or is_training:
             w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))
 
@@ -672,6 +687,7 @@ if __name__ == '__main__':
     default_dataset = 'cifar10'
     default_epochs = 50
     default_beta = 1e-4
+    default_job_dir = './job'
     
     parser = argparse.ArgumentParser(description="train a network")
 
@@ -683,6 +699,13 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--batch_size', type=int,
                         default=default_batch_size)
 
+    help = 'Num of samples to compute test accuracy'
+    parser.add_argument('-t', '--test_sample_size', help=help)
+
+    help = 'Force refit of a net with same architecture'
+    help += '(may have a different beta)'
+    parser.add_argument('-F', '--refit', action='store_true')
+    
     parser.add_argument('-K', '--latent_dim', type=int,
                         default=default_latent_dim)
     parser.add_argument('-L', '--latent_sampling', type=int,
@@ -690,27 +713,35 @@ if __name__ == '__main__':
 
     parser.add_argument('-b', '--beta', type=float,
                         default=default_beta)
-    
+
+    help = 'save train(ing|ed) network in job-r/<architecture/i>'
+    help += 'unless load_dir is specified'
+    parser.add_argument('-j', '--job_dir',
+                        default=default_job_dir,
+                        help=help)
+
+    help = 'where to load the network'
+    help += ' (overrides all other parameters)'
+    parser.add_argument('load_dir',
+                        help=help,
+                        nargs='?', default=None)
+
     args = parser.parse_args()
     
     dataset = args.dataset
     epochs = args.epochs
     batch_size = args.batch_size
+    test_sample_size = args.sample_size
     latent_dim = args.latent_dim
     latent_sampling = args.latent_sampling
     beta = args.beta
+    refit = args.refit
+    job_dir = arg.job_dir
     
-    save_dir = './jobs/features/cifar10/job-3'
-    load_dir = None
-    # load_dir = save_dir
+    load_dir = args.load_dir
+    save_dir = load_dir
 
-    resume_training = True
-    resume_training = False
-    refit = True
-    refit = False
-
-    rebuild = load_dir is None
-    # rebuild = True
+    rebuild = True
 
     e_ = [512, 256]
     # e_ = []
@@ -742,10 +773,10 @@ if __name__ == '__main__':
 
     if rebuild:
         t = time.time()
-        print('*'*4+' BUILDING '+'*'*4)
+        print('Building network...', end=' ')
         jvae = ClassificationVariationalNetwork((3, 32, 32), 10,
                                                 features='vgg11',
-                                                pretrained_features='vgg11.pth',
+                                                # pretrained_features='vgg11.pth',
                                                 encoder_layer_sizes=e_,
                                                 latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
@@ -753,11 +784,20 @@ if __name__ == '__main__':
                                                 classifier_layer_sizes=c_,
                                                 beta=beta,
                                                 output_activation=output_activation)
-        print('*'*4 + f' BUILT' + '*'*4)
+
+        if not save_dir:
+            save_dir_root = os.path.join(job_dir, dataset,
+                                         jvae.print_architecture,
+                                         beta)
+            i = 0
+            save_dir = os.path.join(save_dir_root, i)
+            while os.path.exists(save_dir):
+                i+=1
+                save_dir = os.path.join(save_dir_root, i)
+                
+        print('done.', 'Will be saved in\n' + save_dir)
 
     print(jvae.print_architecture())
-    epochs = 50
-    # batch_size = 7
 
     trainloader = torch.utils.data.DataLoader(trainset,
                                               batch_size=batch_size,
@@ -772,15 +812,15 @@ if __name__ == '__main__':
 
     jvae.to(device)
 
-    print('TRAINING\n\n')
-    if not jvae.trained or refit or resume_training:
+    print('Training\n\n')
+    if not jvae.trained or refit or load_dir:
 
         jvae.train(trainset, epochs=epochs,
                    batch_size=batch_size,
                    device=device,
                    testset=testset,
-                   resume_training=resume_training,
-                   sample_size=200,  # 10000,
+                   resume_training=not refit,
+                   sample_size=test_sample_size,  # 10000,
                    mse_loss_weight=None,
                    x_loss_weight=None,
                    kl_loss_weight=None,

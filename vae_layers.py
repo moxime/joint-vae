@@ -65,10 +65,12 @@ class VGGFeatures(nn.Sequential):
         layers = self._make_layers(vgg_cfg[vgg_name], input_shape)
         super(VGGFeatures, self).__init__(*layers)
 
+        self.pretrained = pretrained
         if pretrained:
             self.load_state_dict(pretrained)
             for p in self.parameters():
                 p.requires_grad_(False)
+        self.name = vgg_name
 
     def _make_layers(self, cfg, input_shape):
         layers = []

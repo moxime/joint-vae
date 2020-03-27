@@ -346,6 +346,7 @@ class ClassificationVariationalNetwork(nn.Module):
               resume_training=False,
               sample_size=1000,
               train_accuracy=False,
+              save_dir=None,
               verbose=1):
         """
 
@@ -374,8 +375,8 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_loss'] = []
         done_epochs = len(self.train_history['train_loss'])
 
-        print_results(0, 0, -1, epochs, losses={'mse': 0, 'x': 0, 'kl': 0,
-                                                'total': 0}) 
+        print_results(0, 0, -2, epochs)
+        print_results(0, 0, -1, epochs)        
 
         for epoch in range(done_epochs, epochs):
 
@@ -390,7 +391,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   num_batch='all',
                                                   device=device,
                                                   method='all',
-                                                  print_result='test acc')
+                                                  print_result='test')
                 self.train_history['test_accuracy'].append(test_accuracy)
 
             # train
@@ -401,7 +402,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                    num_batch='all',
                                                    device=device,
                                                    method='all',
-                                                   print_result='train acc')
+                                                   print_result='acc')
 
                 self.train_history['train_accuracy'].append(train_accuracy)
                 
@@ -442,6 +443,8 @@ class ClassificationVariationalNetwork(nn.Module):
                               end_of_epoch='\n')
 
             self.train_history['train_loss'].append(train_mean_loss)
+            if save_dir:
+                self.save(save_dir)
 
         print('\nFinished Training')
         self.trained = trainset.name
@@ -692,7 +695,7 @@ if __name__ == '__main__':
     latent_dim = args.latent_dim
     latent_sampling = args.latent_sampling
     
-    save_dir = './jobs/features/cifar10/job-1'
+    save_dir = './jobs/features/cifar10/job-2'
     load_dir = None
     # load_dir = save_dir
 
@@ -710,7 +713,7 @@ if __name__ == '__main__':
     d_ = [32, 32, 32, 32, 3]
     c_ = [20, 10]
 
-    beta = 1e-4
+    beta = 1e-9
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
@@ -765,6 +768,7 @@ if __name__ == '__main__':
 
     jvae.to(device)
 
+    print('TRAINING\n\n')
     if not jvae.trained or refit or resume_training:
 
         jvae.train(trainset, epochs=epochs,
@@ -775,7 +779,8 @@ if __name__ == '__main__':
                    sample_size=200,  # 10000,
                    mse_loss_weight=None,
                    x_loss_weight=None,
-                   kl_loss_weight=None)
+                   kl_loss_weight=None,
+                   save_dir=save_dir)
 
     if save_dir is not None:
         jvae.save(save_dir)

@@ -28,17 +28,30 @@ def print_results(i, per_epoch, epoch, epochs,
                   preambule='',
                   end_of_epoch='\n'):
 
+    bold_esc = '\033[1m'
+    end_esc = ''
+    if preambule == 'train':
+        preambule = bold_esc + preambule
+        end_esc = '\033[0m'
+        
     no_loss = losses is None
         
     Kep = 3
-    
-    if epoch < 0:
+
+    if epoch == -2:
+        i = per_epoch - 1        
+        preambule = f'{"epoch":_^{2 * Kep + 1}}_{preambule:_>5}_|'
+        length = len('|'.join(f'{k:^10}' for k in loss_types))
+        loss_str = f'{"losses":_^{length}}'
+
+    elif epoch == -1:
         i = per_epoch - 1
-        preambule = f'{"epoch":^{2 * Kep + 2}} {preambule:>5}|'
+        preambule = f'{" ":^{2 * Kep + 1}} {preambule:>5} |'
         loss_str = '|'.join(f'{k:^10}' for k in loss_types)
 
     elif epoch == 0:
-        preambule = f'{preambule:^{8 + 2 * Kep}}|'
+        preambule = f'{" ":^{2 * Kep + 1}} {preambule:>5} |'
+
         if no_loss:
             loss_str = '|'.join(f'{" ":^10}' for k in loss_types)
         else:
@@ -53,12 +66,15 @@ def print_results(i, per_epoch, epoch, epochs,
             loss_str = '|'.join(f'{losses.get(k, 0):^10.2e}'
                                 for k in loss_types)
 
-    if epoch == -1: 
-        acc_str = '| ' + '|'.join(f'{k:^8}' for k in acc_methods)
+    if epoch == -2:
+        length = len('|'.join(f'{k:^8}' for k in acc_methods)) 
+        acc_str = '|' + f'{"accuracy":_^{length}}'
+    elif epoch == -1: 
+        acc_str = '|' + '|'.join(f'{k:^8}' for k in acc_methods)
     elif accuracies:
-        acc_str = '| ' + '|'.join(f' {accuracies[k]:6.2%} ' for k in acc_methods)
+        acc_str = '|' + '|'.join(f' {accuracies[k]:6.2%} ' for k in acc_methods)
     else:
-        acc_str = '| ' + '|'.join(8 * ' ' for k in acc_methods)
+        acc_str = '|' + '|'.join(8 * ' ' for k in acc_methods)
         
     if time_per_i > 0:
         time_per_i = Time(time_per_i)
@@ -73,6 +89,7 @@ def print_results(i, per_epoch, epoch, epochs,
         eta_str = '|'
 
     print('\r' + preambule + loss_str  + acc_str + eta_str,
+          end_esc,
           end='' if i < per_epoch - 1 else end_of_epoch)
 
     

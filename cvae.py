@@ -736,7 +736,7 @@ if __name__ == '__main__':
     latent_sampling = args.latent_sampling
     beta = args.beta
     refit = args.refit
-    job_dir = arg.job_dir
+    job_dir = args.job_dir
     
     load_dir = args.load_dir
     save_dir = load_dir

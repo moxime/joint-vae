@@ -671,6 +671,7 @@ if __name__ == '__main__':
     default_batch_size = 50
     default_dataset = 'cifar10'
     default_epochs = 50
+    default_beta = 1e-4
     
     parser = argparse.ArgumentParser(description="train a network")
 
@@ -679,13 +680,16 @@ if __name__ == '__main__':
 
     parser.add_argument('--epochs', type=int, default=default_epochs)
 
-    parser.add_argument('-b', '--batch_size', type=int,
+    parser.add_argument('-m', '--batch_size', type=int,
                         default=default_batch_size)
 
     parser.add_argument('-K', '--latent_dim', type=int,
                         default=default_latent_dim)
     parser.add_argument('-L', '--latent_sampling', type=int,
                         default=default_latent_sampling)
+
+    parser.add_argument('-b', '--beta', type=float,
+                        default=default_beta)
     
     args = parser.parse_args()
     
@@ -694,8 +698,9 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     latent_dim = args.latent_dim
     latent_sampling = args.latent_sampling
+    beta = args.beta
     
-    save_dir = './jobs/features/cifar10/job-2'
+    save_dir = './jobs/features/cifar10/job-3'
     load_dir = None
     # load_dir = save_dir
 
@@ -710,10 +715,9 @@ if __name__ == '__main__':
     e_ = [512, 256]
     # e_ = []
     d_ = e_.copy()
-    d_ = [32, 32, 32, 32, 3]
+    d_ = [256, 128, 64, 32, 3]
     c_ = [20, 10]
 
-    beta = 1e-9
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')

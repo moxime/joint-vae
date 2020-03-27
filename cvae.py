@@ -787,8 +787,8 @@ if __name__ == '__main__':
 
         if not save_dir:
             save_dir_root = os.path.join(job_dir, dataset,
-                                         jvae.print_architecture,
-                                         beta)
+                                         jvae.print_architecture(),
+                                         f'{beta:.2e}')
             i = 0
             save_dir = os.path.join(save_dir_root, i)
             while os.path.exists(save_dir):

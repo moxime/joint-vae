@@ -731,7 +731,7 @@ if __name__ == '__main__':
     dataset = args.dataset
     epochs = args.epochs
     batch_size = args.batch_size
-    test_sample_size = args.sample_size
+    test_sample_size = args.test_sample_size
     latent_dim = args.latent_dim
     latent_sampling = args.latent_sampling
     beta = args.beta

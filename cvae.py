@@ -365,7 +365,7 @@ class ClassificationVariationalNetwork(nn.Module):
         remainder = 1 if (dataset_size % batch_size) > 0 else 0
         per_epoch = dataset_size // batch_size + remainder
 
-        if not resume_training or not self.trained:
+        if not resume_training: # or not self.trained:
             self.train_history = dict()  # will not be returned
             self.train_history['train_loss'] = []
             self.train_history['train_x_loss'] = []
@@ -588,8 +588,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         ls = p_dict['layer_sizes']
         # print(ls)
-
-        vae = cls(ls[0], ls[1], ls[2], ls[3], ls[4], ls[5],
+        # print(p_dict['features'])
+        vae = cls(input_shape=ls[0],
+                  num_labels=ls[1],
+                  encoder_layer_sizes=ls[2],
+                  latent_dim=ls[3],
+                  decoder_layer_sizes=ls[4],
+                  classifier_layer_sizes=ls[5],
                   latent_sampling=latent_sampling,
                   activation=p_dict['activation'],
                   beta=p_dict['beta'],
@@ -599,9 +604,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         vae.trained = p_dict['trained']
         vae.train_history = train_history
+        # print(train_history)
+        epochs = len(train_history.get('train_loss', [])) 
+        vae.is_training = epochs 
 
-        is_training = len(train_history.get('train_loss'), []) > 0
-        if vae.trained or is_training:
+        if vae.trained or vae.is_training:
             w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))
 
@@ -688,7 +695,7 @@ if __name__ == '__main__':
     default_dataset = 'cifar10'
     default_epochs = 50
     default_beta = 1e-4
-    default_job_dir = './job'
+    default_job_dir = './jobs'
     
     parser = argparse.ArgumentParser(description="train a network")
 
@@ -744,7 +751,7 @@ if __name__ == '__main__':
     load_dir = args.load_dir
     save_dir = load_dir
 
-    rebuild = True
+    rebuild = load_dir is None
 
     e_ = [512, 256]
     # e_ = []
@@ -761,15 +768,15 @@ if __name__ == '__main__':
 
     # output_activation = 'linear'  # 'sigmoid'
     output_activation = 'sigmoid'
-    data_loaded = True
 
     if not rebuild:
-        print('*** LOADING... ***')
+        print('Loading...', end=' ')
         try:
             jvae = ClassificationVariationalNetwork.load(load_dir)
-            print(f'*** NETWORK LOADED',
-                  f'{"AND" if jvae.trained else "BUT NOT"}',
-                  'TRAINED ***')
+            print(f'done', end=' ')
+            if jvae.is_training:
+                verb = 'resuming' if jvae.is_training else 'starting'
+            print(f'{verb} training since epoch {jvae.is_training}')
         except(FileNotFoundError, NameError) as err:
             print(f'*** NETWORK NOT LOADED -- REBUILDING bc of {err} ***')
             rebuild = True
@@ -815,19 +822,18 @@ if __name__ == '__main__':
 
     jvae.to(device)
 
-    print('Training\n\n')
-    if not jvae.trained or refit or load_dir:
-
-        jvae.train(trainset, epochs=epochs,
-                   batch_size=batch_size,
-                   device=device,
-                   testset=testset,
-                   resume_training=not refit,
-                   sample_size=test_sample_size,  # 10000,
-                   mse_loss_weight=None,
-                   x_loss_weight=None,
-                   kl_loss_weight=None,
-                   save_dir=save_dir)
+    print('\nTraining\n')
+    # print(refit)
+    jvae.train(trainset, epochs=epochs,
+               batch_size=batch_size,
+               device=device,
+               testset=testset,
+               resume_training=not refit,
+               sample_size=test_sample_size,  # 10000,
+               mse_loss_weight=None,
+               x_loss_weight=None,
+               kl_loss_weight=None,
+               save_dir=save_dir)
 
     if save_dir is not None:
         jvae.save(save_dir)

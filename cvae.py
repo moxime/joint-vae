@@ -607,6 +607,8 @@ class ClassificationVariationalNetwork(nn.Module):
         vae.train_history = train_history
         # print(train_history)
 
+        train_loss = train_history.get('train_loss', [])
+        vae.train_history['epochs'] = len(train_loss)
         if vae.trained or vae.train_history['epochs']:
             w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))

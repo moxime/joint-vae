@@ -99,7 +99,7 @@ class ClassificationVariationalNetwork(nn.Module):
         # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
 
-        self.train_history = dict()
+        self.train_history = {'epochs': 0}
 
         self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
@@ -365,7 +365,8 @@ class ClassificationVariationalNetwork(nn.Module):
         remainder = 1 if (dataset_size % batch_size) > 0 else 0
         per_epoch = dataset_size // batch_size + remainder
 
-        if not resume_training: # or not self.trained:
+        done_epochs = self.train_history['epochs']
+        if done_epochs == 0:
             self.train_history = dict()  # will not be returned
             self.train_history['train_loss'] = []
             self.train_history['train_x_loss'] = []
@@ -374,7 +375,6 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['test_accuracy'] = [] if testset else None
             self.train_history['train_accuracy'] = []
             self.train_history['train_loss'] = []
-        done_epochs = len(self.train_history['train_loss'])
 
         print_results(0, 0, -2, epochs)
         print_results(0, 0, -1, epochs)        
@@ -393,8 +393,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   device=device,
                                                   method='all',
                                                   print_result='test')
-                self.train_history['test_accuracy'].append(test_accuracy)
-
             # train
             if train_accuracy:
                 with torch.no_grad():
@@ -443,7 +441,10 @@ class ClassificationVariationalNetwork(nn.Module):
                               batch_size=batch_size,
                               end_of_epoch='\n')
 
+            if testset:
+                self.train_history['test_accuracy'].append(test_accuracy)
             self.train_history['train_loss'].append(train_mean_loss)
+            self.train_history['epochs'] += 1
             if save_dir:
                 self.save(save_dir)
 
@@ -580,7 +581,7 @@ class ClassificationVariationalNetwork(nn.Module):
         try:
             train_history = save_load.load_json(dir_name, 'training.json')
         except(FileNotFoundError):
-            train_history = dict()
+            train_history = {'epochs': 0}
 
         latent_sampling = p_dict.get('latent_sampling', 1)
         output_activation = p_dict.get('output_activation',
@@ -605,10 +606,8 @@ class ClassificationVariationalNetwork(nn.Module):
         vae.trained = p_dict['trained']
         vae.train_history = train_history
         # print(train_history)
-        epochs = len(train_history.get('train_loss', [])) 
-        vae.is_training = epochs 
 
-        if vae.trained or vae.is_training:
+        if vae.trained or vae.train_history['epochs']:
             w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))
 
@@ -774,9 +773,9 @@ if __name__ == '__main__':
         try:
             jvae = ClassificationVariationalNetwork.load(load_dir)
             print(f'done', end=' ')
-            if jvae.is_training:
-                verb = 'resuming' if jvae.is_training else 'starting'
-            print(f'{verb} training since epoch {jvae.is_training}')
+            done_epochs = jvae.train_history['epochs']
+            verb = 'resuming' if done_epochs else 'starting'
+            print(f'{verb} training since epoch {done_epochs}')
         except(FileNotFoundError, NameError) as err:
             print(f'*** NETWORK NOT LOADED -- REBUILDING bc of {err} ***')
             rebuild = True

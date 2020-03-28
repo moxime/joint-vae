@@ -1,5 +1,3 @@
-from __future__ import print_function
-import argparse
 import torch
 import torch.utils.data
 from torch import nn, optim
@@ -344,7 +342,6 @@ class ClassificationVariationalNetwork(nn.Module):
               mse_loss_weight=None,
               x_loss_weight=None,
               kl_loss_weight=None,
-              resume_training=False,
               sample_size=1000,
               train_accuracy=False,
               save_dir=None,
@@ -367,7 +364,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         done_epochs = self.train_history['epochs']
         if done_epochs == 0:
-            self.train_history = dict()  # will not be returned
+            self.train_history = {'epochs': 0}  # will not be returned
             self.train_history['train_loss'] = []
             self.train_history['train_x_loss'] = []
             self.train_history['train_mse_loss'] = []
@@ -537,7 +534,7 @@ class ClassificationVariationalNetwork(nn.Module):
         s += f'classifier-layers={_l2s(self.classifier_layer_sizes)}'
 
         if beta:
-            s += f'--beta={beta:1.3e}'
+            s += f'--beta={self.beta:1.2e}'
 
         return s
 
@@ -571,18 +568,23 @@ class ClassificationVariationalNetwork(nn.Module):
             torch.save(self.state_dict(), w_p)
 
     @classmethod
-    def load(cls, dir_name, verbose=1,
+    def load(cls, dir_name,
+             load_state = True,
+             verbose=1,
              default_output_activation=DEFAULT_OUTPUT_ACTIVATION):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
         p_dict = save_load.load_json(dir_name, 'params.json')
 
-        try:
-            train_history = save_load.load_json(dir_name, 'training.json')
-        except(FileNotFoundError):
+        if load_state:
+            try:
+                train_history = save_load.load_json(dir_name, 'training.json')
+            except(FileNotFoundError):
+                train_history = {'epochs': 0}
+        else:
             train_history = {'epochs': 0}
-
+                
         latent_sampling = p_dict.get('latent_sampling', 1)
         output_activation = p_dict.get('output_activation',
                                        default_output_activation)
@@ -609,7 +611,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         train_loss = train_history.get('train_loss', [])
         vae.train_history['epochs'] = len(train_loss)
-        if vae.trained or vae.train_history['epochs']:
+        if load_state and (vae.trained or vae.train_history['epochs']):
             w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))
 
@@ -760,10 +762,9 @@ if __name__ == '__main__':
     d_ = [256, 128, 64, 32, 3]
     c_ = [20, 10]
 
-
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
-    print('*** USED DEVICE', device, '***')
+    print('Used device:', device)
     trainset, testset = torchdl.get_cifar10()
     _, oodset = torchdl.get_svhn()
 
@@ -829,7 +830,6 @@ if __name__ == '__main__':
                batch_size=batch_size,
                device=device,
                testset=testset,
-               resume_training=not refit,
                sample_size=test_sample_size,  # 10000,
                mse_loss_weight=None,
                x_loss_weight=None,

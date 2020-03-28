@@ -30,32 +30,46 @@ cifar_transform = transforms.Compose([transforms.ToTensor(),
                                                            cifar_stds)])
 
 
-def get_dataset(dataset='MNIST', root='./data', ood=None, transform='default'):
+def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default'):
 
-    default_transform = transform == 'default'
+    default_transform = transformer == 'default'
     dataset = dataset.lower()
     
     if dataset == 'mnist':
 
         getter = datasets.MNIST
-        transform = simple_transform if default_transform else transform
+        if default_transform:
+            transform = simple_transform
+        elif transformer == 'simple':
+            transform = simple_transform
 
     if dataset == 'fashion':
         getter = datasets.FashionMNIST
-        transform = simple_transform if default_transform else transform
+        if default_transform:
+            transform = simple_transform
+        elif transformer == 'simple':
+            transform = simple_transform
 
     if dataset == 'svhn':
 
         def getter(train=True, **kw):
             return datasets.SVHN(split='train' if train else 'test', **kw)
-        # transform = cifar_transform if default_transform else transform
-        transform = simple_transform if default_transform else transform
+
+        if default_transform:
+            transform = simple_transform
+        elif transformer == 'simple':
+            transform = simple_transform
 
     if dataset == 'cifar10':
         
         getter = datasets.CIFAR10
         # transform = cifar_transform if default_transform else transform
-        transform = simple_transform if default_transform else transform
+        if default_transform:
+            transform = simple_transform
+        elif transformer == 'simple':
+            transform = simple_transform
+        elif transformer == 'normal':
+            transform = cifar_transform
         
     trainset = getter(root=root, train=True,
                           download=True,

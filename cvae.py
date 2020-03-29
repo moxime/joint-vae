@@ -383,6 +383,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if testset:
                 num_batch = sample_size // batch_size
+                # print(num_batch, sample_size)
                 with torch.no_grad():
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=batch_size,

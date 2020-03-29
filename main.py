@@ -34,7 +34,7 @@ parser.add_argument('--config', default='DEFAULT',
                     help='Which config to choose in config file')
 
 parser.add_argument('--epochs', type=int)
-parser.add_argument('-m', '--batch_size', type=int)
+parser.add_argument('-m', '--batch-size', type=int)
 
 help = 'Num of samples to compute test accuracy'
 parser.add_argument('-t', '--test_sample_size',
@@ -55,7 +55,7 @@ parser.add_argument('--encoder', type=int, nargs='+')
 parser.add_argument('--decoder', type=int, nargs='+')    
 
 parser.add_argument('--dataset', 
-                    choices=['fashion', 'mnist', 'cifar10'])
+                    choices=['fashion', 'mnist', 'svhn', 'cifar10'])
 
 parser.add_argument('--transformer',
                     choices=['simple', 'normal', 'default'],
@@ -84,7 +84,7 @@ default_parameters = config[args.config if args.config in config
 
 batch_size = get_param(default_parameters, args, 'batch_size', type=int)
 epochs = get_param(default_parameters, args, 'epochs', type=int)
-test_sample_size = get_param(default_parameters, args, 'epochs', type=int)
+test_sample_size = get_param(default_parameters, args, 'test_sample_size', type=int)
 
 beta = get_param(default_parameters, args, 'beta', type=float)
 

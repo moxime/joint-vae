@@ -92,6 +92,11 @@ def print_results(i, per_epoch, epoch, epochs,
           end_esc,
           end='' if i < per_epoch - 1 else end_of_epoch)
 
+    if i == per_epoch - 1:
+
+        with open('train.log', 'a') as f:
+            f.write(preambule + loss_str  + acc_str + eta_str + end_esc + '\n')
+
     
 def progress_bar(i, per_epoch, width=20):
 

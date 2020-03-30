@@ -50,7 +50,7 @@ parser.add_argument('-L', '--latent_sampling', type=int,
                     metavar='L')
 
 parser.add_argument('--features',
-                    choices=['vgg11'])
+                    choices=['vgg11', 'vgg16'])
 parser.add_argument('--encoder', type=int, nargs='+')
 parser.add_argument('--decoder', type=int, nargs='+')    
 

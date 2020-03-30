@@ -3,7 +3,7 @@ import torch.utils.data
 from torch import nn, optim
 # from torch.nn import functional as F
 from utils.losses import x_loss, kl_loss, mse_loss
-
+import argparse, configparser
 import torchvision
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
@@ -700,77 +700,53 @@ if __name__ == '__main__':
     default_epochs = 50
     default_beta = 1e-4
     default_job_dir = './jobs'
+
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+
+    used_config = config['DEFAULT']
+    used_config = config['svhn']
     
-    parser = argparse.ArgumentParser(description="train a network")
-
-    parser.add_argument('--dataset', default=default_dataset,
-                        choices=['fashion', 'mnist', 'cifar10'])
-
-    parser.add_argument('--epochs', type=int, default=default_epochs)
-
-    parser.add_argument('-m', '--batch_size', type=int,
-                        default=default_batch_size)
-
-    help = 'Num of samples to compute test accuracy'
-    parser.add_argument('-t', '--test_sample_size',
-                        default=default_test_sample_size,
-                        help=help)
-
-    help = 'Force refit of a net with same architecture'
-    help += '(may have a different beta)'
-    parser.add_argument('-F', '--refit', action='store_true')
+    dataset = used_config['dataset']
     
-    parser.add_argument('-K', '--latent_dim', type=int,
-                        default=default_latent_dim)
-    parser.add_argument('-L', '--latent_sampling', type=int,
-                        default=default_latent_sampling)
+    epochs = int(used_config['epochs'])
+    batch_size = int(used_config['batch_size'])
+    test_sample_size = int(used_config['test_sample_size'])
+    latent_dim = int(used_config['latent_dim'])
+    latent_sampling = int(used_config['latent_sampling'])
+    output_activation = used_config['output_activation']
+    beta = used_config.getfloat('beta')
 
-    parser.add_argument('-b', '--beta', type=float,
-                        default=default_beta)
-
-    help = 'save train(ing|ed) network in job-r/<architecture/i>'
-    help += 'unless load_dir is specified'
-    parser.add_argument('-j', '--job_dir',
-                        default=default_job_dir,
-                        help=help)
-
-    help = 'where to load the network'
-    help += ' (overrides all other parameters)'
-    parser.add_argument('load_dir',
-                        help=help,
-                        nargs='?', default=None)
-
-    args = parser.parse_args()
+    features = used_config['features']
+    encoder = [int(l) for l in used_config['encoder'].split()]
+    decoder = [int(l) for l in used_config['decoder'].split()]
+    classifier = [int(l) for l in used_config['classifier'].split()]
     
-    dataset = args.dataset
-    epochs = args.epochs
-    batch_size = args.batch_size
-    test_sample_size = args.test_sample_size
-    latent_dim = args.latent_dim
-    latent_sampling = args.latent_sampling
-    beta = args.beta
-    refit = args.refit
-    job_dir = args.job_dir
-    
-    load_dir = args.load_dir
+    job_dir = default_job_dir
+
+    load_dir = None
     save_dir = load_dir
-
     rebuild = load_dir is None
-
-    e_ = [512, 256]
-    # e_ = []
-    d_ = e_.copy()
-    d_ = [256, 128, 64, 32, 3]
-    c_ = [20, 10]
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
     print('Used device:', device)
-    trainset, testset = torchdl.get_cifar10()
+    trainset, testset = torchdl.get_dataset(dataset)
     _, oodset = torchdl.get_svhn()
 
-    # output_activation = 'linear'  # 'sigmoid'
-    output_activation = 'sigmoid'
+    trainloader = torch.utils.data.DataLoader(trainset,
+                                              batch_size=batch_size,
+                                              shuffle=True,
+                                              num_workers=0)
+
+    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                             shuffle=True, num_workers=0)
+
+    test_batch = next(iter(testloader))
+    x, y = test_batch[0].to(device), test_batch[1].to(device)
+
+    input_shape = x.shape[1:]
+    num_labels = len(torch.unique(y))
 
     if not rebuild:
         print('Loading...', end=' ')
@@ -785,19 +761,19 @@ if __name__ == '__main__':
             rebuild = True
 
     if rebuild:
-        t = time.time()
         print('Building network...', end=' ')
-        jvae = ClassificationVariationalNetwork((3, 32, 32), 10,
+        jvae = ClassificationVariationalNetwork(input_shape, num_labels,
                                                 features='vgg11',
                                                 # pretrained_features='vgg11.pth',
-                                                encoder_layer_sizes=e_,
+                                                encoder_layer_sizes=encoder,
                                                 latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
-                                                decoder_layer_sizes=d_,
-                                                classifier_layer_sizes=c_,
+                                                decoder_layer_sizes=decoder,
+                                                classifier_layer_sizes=classifier,
                                                 beta=beta,
                                                 output_activation=output_activation)
 
+        """
         if not save_dir:
             save_dir_root = os.path.join(job_dir, dataset,
                                          jvae.print_architecture(),
@@ -805,42 +781,34 @@ if __name__ == '__main__':
             i = 0
             save_dir = os.path.join(save_dir_root, f'{i:02d}')
             while os.path.exists(save_dir):
-                i+=1
+                i += 1
                 save_dir = os.path.join(save_dir_root, f'{i:02d}')
                 
         print('done.', 'Will be saved in\n' + save_dir)
-
+        """
+        
     print(jvae.print_architecture())
-
-    trainloader = torch.utils.data.DataLoader(trainset,
-                                              batch_size=batch_size,
-                                              shuffle=True,
-                                              num_workers=0)
-
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                             shuffle=True, num_workers=0)
-
-    test_batch = next(iter(testloader))
-    x, y = test_batch[0].to(device), test_batch[1].to(device)
 
     jvae.to(device)
 
     print('\nTraining\n')
     # print(refit)
-    jvae.train(trainset, epochs=epochs,
-               batch_size=batch_size,
-               device=device,
-               testset=testset,
-               sample_size=test_sample_size,  # 10000,
-               mse_loss_weight=None,
-               x_loss_weight=None,
-               kl_loss_weight=None,
-               save_dir=save_dir)
 
+    def train_the_net():
+        jvae.train(trainset, epochs=epochs,
+                   batch_size=batch_size,
+                   device=device,
+                   testset=testset,
+                   sample_size=test_sample_size,  # 10000,
+                   mse_loss_weight=None,
+                   x_loss_weight=None,
+                   kl_loss_weight=None,
+               save_dir=save_dir)
+        
+    """
     if save_dir is not None:
         jvae.save(save_dir)
 
-    """
     x_, y_, mu, lv, z = jvae(x, y)
     x_reco, y_out, batch_losses = jvae.evaluate(x)
     
@@ -848,22 +816,3 @@ if __name__ == '__main__':
     y_est_by_mean = y_out.mean(0).argmax(-1)
     """
 
-    def timing(vae, x, N=1):
-        from utils.print_log import Time
-    
-        t0 = time.time()
-
-        for n in range(N):
-            _ = vae.evaluate(x)
-
-        t1 = time.time()
-        print('Evaluate:', (Time(t1) - t0) / N / len(x))
-
-        t0 = t1
-
-        for n in range(N):
-
-            u = vae.features(x)
-              
-        t1 = time.time()
-        print('Features:', (Time(t1) - t0) / N / len(x))

@@ -705,7 +705,8 @@ if __name__ == '__main__':
     config.read('config.ini')
 
     used_config = config['DEFAULT']
-    used_config = config['svhn']
+
+    used_config = config['svhn-vgg16']
     
     dataset = used_config['dataset']
     
@@ -763,7 +764,7 @@ if __name__ == '__main__':
     if rebuild:
         print('Building network...', end=' ')
         jvae = ClassificationVariationalNetwork(input_shape, num_labels,
-                                                features='vgg11',
+                                                features=features,
                                                 # pretrained_features='vgg11.pth',
                                                 encoder_layer_sizes=encoder,
                                                 latent_dim=latent_dim,

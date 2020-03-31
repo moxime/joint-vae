@@ -29,6 +29,8 @@ cifar_transform = transforms.Compose([transforms.ToTensor(),
                                       transforms.Normalize(cifar_means,
                                                            cifar_stds)])
 
+pad_transform = transforms.Compose([transforms.Pad(2), simple_transform])
+
 
 def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default'):
 
@@ -44,11 +46,15 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
             transform = simple_transform
 
     if dataset == 'fashion':
+
         getter = datasets.FashionMNIST
         if default_transform:
             transform = simple_transform
         elif transformer == 'simple':
             transform = simple_transform
+        elif transformer == 'pad':
+
+            transform = pad_transform
 
     if dataset == 'svhn':
 
@@ -70,14 +76,15 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
             transform = simple_transform
         elif transformer == 'normal':
             transform = cifar_transform
-        
+
+
     trainset = getter(root=root, train=True,
-                          download=True,
-                          transform=transform)
+                      download=True,
+                      transform=transform)
 
     testset = getter(root=root, train=False,
-                         download=True,
-                         transform=transform)
+                     download=True,
+                     transform=transform)
 
     trainset.name = dataset
     testset.name = dataset

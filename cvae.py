@@ -121,7 +121,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if not self.features:
             x_features = x
-        if not x_features:
+        if x_features is None:
             x_features = self.features(x.view(-1, *self.input_shape))
 
         return self.forward_features(x_features, y, **kw)
@@ -705,10 +705,11 @@ if __name__ == '__main__':
     config.read('config.ini')
 
     used_config = config['DEFAULT']
-
     used_config = config['svhn-vgg16']
+    used_config = config['fashion-conv']
     
     dataset = used_config['dataset']
+    transformer = used_config['transformer']
     
     epochs = int(used_config['epochs'])
     batch_size = int(used_config['batch_size'])
@@ -719,6 +720,9 @@ if __name__ == '__main__':
     beta = used_config.getfloat('beta')
 
     features = used_config['features']
+    if features.lower() == 'none':
+        features = None
+    
     encoder = [int(l) for l in used_config['encoder'].split()]
     decoder = [int(l) for l in used_config['decoder'].split()]
     classifier = [int(l) for l in used_config['classifier'].split()]
@@ -732,7 +736,7 @@ if __name__ == '__main__':
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
     print('Used device:', device)
-    trainset, testset = torchdl.get_dataset(dataset)
+    trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
     _, oodset = torchdl.get_svhn()
 
     trainloader = torch.utils.data.DataLoader(trainset,
@@ -792,7 +796,7 @@ if __name__ == '__main__':
 
     jvae.to(device)
 
-    print('\nTraining\n')
+    # print('\nTraining\n')
     # print(refit)
 
     def train_the_net():

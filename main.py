@@ -51,6 +51,8 @@ parser.add_argument('-L', '--latent_sampling', type=int,
 
 parser.add_argument('--features',
                     choices=['vgg11', 'vgg16'])
+parser.add_argument('--no-features', action='store_true')
+
 parser.add_argument('--encoder', type=int, nargs='+')
 parser.add_argument('--decoder', type=int, nargs='+')    
 
@@ -94,6 +96,9 @@ latent_dim = get_param(default_parameters, args, 'latent_dim',
                        type=int)
 
 features = get_param(default_parameters, args, 'features')
+
+if features.lower() == 'none' or args.no_features:
+    features=None
 
 encoder = get_param(default_parameters, args, 'encoder',
                     type=int, list=True)

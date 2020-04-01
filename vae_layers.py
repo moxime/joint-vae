@@ -23,7 +23,10 @@ def _no_activation(a):
     return a
 
 
-output_layers = {'linear': nn.Identity, 'sigmoid': nn.Sigmoid} 
+activation_layers = {'linear': nn.Identity,
+                     'sigmoid': nn.Sigmoid, 
+                     'relu': nn.ReLU} 
+
 
 class Sampling(nn.Module):
     """Uses (z_mean, z_log_var) to sample z, the latent vector.
@@ -90,60 +93,6 @@ class VGGFeatures(nn.Sequential):
         return layers
 
 
-class Convolutional(nn.Module):
-
-    def __init__(self, input_shape,
-                 kernel_size=5,
-                 padding=2, max_pool=2,
-                 outputs_per_channel=5,
-                 activation='relu', **kw):
-
-        super(Convolutional, self).__init__(**kw)
-
-        assert len(input_shape) == 3
-        in_channels, height, width = input_shape
-
-        out_channels1 = in_channels * outputs_per_channel
-        self.conv1 = nn.Conv2d(in_channels=in_channels,
-                               out_channels=out_channels1,
-                               kernel_size=kernel_size, padding=padding)
-
-        h1 = (2 * padding + height - kernel_size + 1) // max_pool
-        w1 = (2 * padding + width - kernel_size + 1) // max_pool
-
-        out_channels2 = out_channels1 * outputs_per_channel
-        self.conv2 = nn.Conv2d(in_channels=out_channels1,
-                               out_channels=out_channels2,
-                               kernel_size=kernel_size, padding=padding)
-
-        h2 = (2 * padding + h1 - kernel_size + 1) // max_pool
-        w2 = (2 * padding + w1 - kernel_size + 1) // max_pool
-
-        self.input_shape = input_shape
-        self.output_shape = (out_channels2, h2, w2)
-        self.max_pool = max_pool
-
-        if activation == 'relu':
-            self.activation = F.relu
-        else:
-            raise ValueError(f'{activation} is not implemented',
-                             f'in {self.__class__})')
-
-    def forward(self, x):
-
-        batch_shape = x.shape[:-len(self.input_shape)]
-        x_ = x.view(-1, *self.input_shape)
-        t = self.activation(self.conv1(x_))
-        if self.max_pool > 1:
-            t = F.max_pool2d(t, kernel_size=self.max_pool,
-                             stride=self.max_pool)
-        t = self.activation(self.conv2(t))
-        if self.max_pool > 1:
-            t = F.max_pool2d(t, kernel_size=self.max_pool,
-                             stride=self.max_pool)
-
-        return t.view(batch_shape + self.output_shape)
-
 
 class Encoder(nn.Module):
 
@@ -171,13 +120,15 @@ class Encoder(nn.Module):
 
         self._sampling_size = sampling_size
 
-        self.dense_projs = nn.ModuleList()
+        dense_layers = []
+
         input_dim = np.prod(input_shape) + num_labels
         for d in intermediate_dims:
-            l_ = nn.Linear(input_dim, d)
-            self.dense_projs.append(l_)
+            dense_layers += [nn.Linear(input_dim, d),
+                             activation_layers[activation]()]
             input_dim = d
-
+        self.dense_projs = nn.Sequential(*dense_layers)
+        
         self.dense_mean = nn.Linear(input_dim, latent_dim)
         self.dense_log_var = nn.Linear(input_dim, latent_dim)
 
@@ -211,8 +162,7 @@ class Encoder(nn.Module):
         u[:, D:] = y.reshape(N, C)
         u = u.reshape(s)
 
-        for l in self.dense_projs:
-            u = self.activation(l(u))
+        u = self.dense_projs(u)
         z_mean = self.dense_mean(u)
         z_log_var = self.dense_log_var(u)
         z = self.sampling(z_mean, z_log_var)
@@ -265,7 +215,7 @@ class ConvDecoder(nn.Module):
                        nn.ReLU(inplace=True)]
             input_channels = output_channels
 
-        layers[-1] = output_layers.get(output_activation, nn.Identity)()
+        layers[-1] = activation_layers.get(output_activation, nn.Identity)()
         
         return layers
 
@@ -318,7 +268,7 @@ class Decoder(nn.Module):           #
             h = self.activation(l(h))
         return self.output_activation(self.output_layer(h))
 
-
+    
 class Classifier(nn.Module):
     """Classifer
 

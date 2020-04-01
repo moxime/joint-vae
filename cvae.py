@@ -27,7 +27,33 @@ DEFAULT_OUTPUT_ACTIVATION = 'linear'
 DEFAULT_LATENT_SAMPLING = 100
 
 
+activation_layers = {'linear': nn.Identity,
+                     'sigmoid': nn.Sigmoid, 
+                     'relu': nn.ReLU} 
+
+
 class ClassificationVariationalNetwork(nn.Module):
+    r"""Creates a network
+
+    X -- Features ---- Encoder -- Latent var Z -- Decoder -- Upsampler -- Ẍ
+                    /                           \
+                 Y_/                             \-- Classfier-- Ŷ
+
+    Args:
+
+    input_shape: the shape of the image (3, 32, 32), (1, 28, 28)
+    ...
+
+    num_labels: the number of labels.
+
+    features (default None): type of features extractors from vgg
+    convolutional encoder (possibilities are 'vgg11', 'vgg16'...
+
+    pretrained_features (default None) .pth file in which the
+    weights of the pretained features extractor are stored.
+
+    """
+
 
     predict_methods = ['mean', 'loss']
 
@@ -39,6 +65,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  decoder_layer_sizes=[36],
+                 upsampler_channels=None,
                  classifier_layer_sizes=[36],
                  name='joint-vae',
                  activation=DEFAULT_ACTIVATION,
@@ -51,6 +78,9 @@ class ClassificationVariationalNetwork(nn.Module):
         super().__init__(*args, **kw)
         self.name = name
 
+        # no upsampler if no features
+        assert (not upsampler_channels or features)
+        
         if features:
             if pretrained_features:
                 vgg_dict = torch.load(pretrained_features)
@@ -60,24 +90,39 @@ class ClassificationVariationalNetwork(nn.Module):
             self.features = VGGFeatures(features, input_shape,
                                         pretrained=vgg_dict)
 
-            dense_input_shape = self.features.output_shape
+            encoder_input_shape = self.features.output_shape
         else:
-            dense_input_shape = input_shape
+            encoder_input_shape = input_shape
             self.features = None
 
-        self.encoder = Encoder(dense_input_shape, num_labels, latent_dim,
+        self.encoder = Encoder(encoder_input_shape, num_labels, latent_dim,
                                encoder_layer_sizes,
                                beta=beta, sampling_size=latent_sampling,
                                activation=activation)
-        if features:
-            self.decoder = ConvDecoder(latent_dim, dense_input_shape,
-                                       decoder_layer_sizes,
-                                       output_activation=output_activation)
+
+        activation_layer = activation_layers[activation]()
+        decoder_layers = []
+        input_dim = latent_dim
+        for output_dim in decoder_layer_sizes:
+            decoder_layers += [nn.Linear(input_dim, output_dim) ,
+                               activation_layer]
+            input_dim = output_dim
+            
+        self.decoder = nn.Sequential(*decoder_layers)
+
+        imager_input_dim = input_dim
+        if upsampler_channels:
+            upsampler_first_shape = self.features.output_shape
+            self.imager = ConvDecoder(imager_input_dim,
+                                      upsampler_first_shape,
+                                      upsampler_channels,
+                                      output_activation=output_activation)
+
         else:
-            self.decoder = Decoder(latent_dim, input_shape,
-                                   decoder_layer_sizes,
-                                   activation=activation,
-                                   output_activation=output_activation)
+            activation_layer = activation_layers[output_activation]()
+            self.imager = nn.Sequential(nn.Linear(imager_input_dim,
+                                                  np.prod(input_shape)),
+                                        activation_layer)
 
         self.classifier = Classifier(latent_dim, num_labels,
                                      classifier_layer_sizes,
@@ -139,9 +184,10 @@ class ClassificationVariationalNetwork(nn.Module):
         z_mean, z_log_var, z = self.encoder(x_, y_onehot)
         # z of size LxN1x...xNgxK
 
-        x_output = self.decoder(z)
+        u = self.decoder(z)
         # x_output of size LxN1x...xKgxD
-
+        x_output = self.imager(u)
+        
         y_output = self.classifier(z)
         # y_output of size LxN1x...xKgxC
 
@@ -705,8 +751,8 @@ if __name__ == '__main__':
     config.read('config.ini')
 
     used_config = config['DEFAULT']
-    used_config = config['svhn-vgg16']
-    used_config = config['fashion-conv']
+    # used_config = config['svhn-vgg16']
+    # used_config = config['fashion-conv']
     
     dataset = used_config['dataset']
     transformer = used_config['transformer']
@@ -719,12 +765,19 @@ if __name__ == '__main__':
     output_activation = used_config['output_activation']
     beta = used_config.getfloat('beta')
 
-    features = used_config['features']
+    features = used_config.get('features', None)
     if features.lower() == 'none':
         features = None
-    
+
+    """
     encoder = [int(l) for l in used_config['encoder'].split()]
     decoder = [int(l) for l in used_config['decoder'].split()]
+    upsampler = [int(l) for l in used_config['upsampler'].split()]
+    """
+    encoder, decoder, upsampler = ([int(l)
+                                    for l in used_config.get(p, '').split()]
+                                   for p in ('encoder', 'decoder', 'upsampler'))
+    
     classifier = [int(l) for l in used_config['classifier'].split()]
     
     job_dir = default_job_dir

@@ -216,7 +216,7 @@ class ConvDecoder(nn.Module):
         for output_channels in channels:
             layers += [nn.ConvTranspose2d(input_channels, output_channels,
                                           4, stride=2, padding=1),
-                       nn.BatchNorm2d(output_channels,
+                       nn.BatchNorm2d(output_channels),
                        nn.ReLU(inplace=True)]
             input_channels = output_channels
 

@@ -674,6 +674,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   activation=params['activation'],
                   beta=train_params['beta'],
                   features=params['features'],
+                  upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
                   verbose=verbose)
 
@@ -777,7 +778,7 @@ if __name__ == '__main__':
     # used_config = config['svhn-vgg16']
     # used_config = config['fashion-conv']
     # used_config = config['dense']
-    used_config = config['test']
+    # used_config = config['test']
 
     for k in used_config:
         print(k, used_config[k])

@@ -183,14 +183,18 @@ class ConvDecoder(nn.Module):
 
     
     def __init__(self, input_dim, first_shape, channels,
-                 output_activation='linear', **kwargs):
+                 output_activation='linear',
+                 activation='relu',
+                 **kwargs):
 
         super(ConvDecoder, self).__init__(**kwargs)
            
         layers = self._makelayer(first_shape, channels, output_activation)
-
+        activation_layer = activation_layers[activation]()
+        
         self.first_shape = first_shape
-        self.refactor = nn.Linear(input_dim, np.prod(first_shape))
+        self.refactor = nn.sequential(nn.Linear(input_dim, np.prod(first_shape)),
+                                      activation_layer)
         self.upsampler = nn.Sequential(*layers)
 
     def forward(self, z):
@@ -212,6 +216,7 @@ class ConvDecoder(nn.Module):
         for output_channels in channels:
             layers += [nn.ConvTranspose2d(input_channels, output_channels,
                                           4, stride=2, padding=1),
+                       nn.BatchNorm2d(output_channels,
                        nn.ReLU(inplace=True)]
             input_channels = output_channels
 

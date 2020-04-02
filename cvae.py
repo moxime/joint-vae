@@ -137,7 +137,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder_layer_sizes, latent_dim,
-                                 decoder_layer_sizes, classifier_layer_sizes]
+                                 decoder_layer_sizes,
+                                 upsampler_channels,
+                                 classifier_layer_sizes]
 
         self.architecture = {'input': input_shape,
                              'labels': num_labels,
@@ -163,6 +165,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.encoder_layer_sizes = encoder_layer_sizes
         self.decoder_layer_sizes = decoder_layer_sizes
         self.classifier_layer_sizes = classifier_layer_sizes
+        self.upsampler_channels = upsampler_channels
         self.activation = activation
         self.output_activation = output_activation
 
@@ -415,7 +418,6 @@ class ClassificationVariationalNetwork(nn.Module):
             set_name = trainset.name
         except(AttributeError):
             set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
-        self.training = {'set': set_name}
 
         if beta:
             self.beta = beta
@@ -443,10 +445,11 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_accuracy'] = [] 
             self.training = {'beta': self.beta,
                              'sampling': self.latent_sampling,
+                             'set': set_name,
                              'epochs': epochs}
         else:
             assert self.beta == self.training['beta']
-            assert self.sampling == self.training['sampling']
+            assert self.latent_sampling == self.training['sampling']
             
         print_results(0, 0, -2, epochs)
         print_results(0, 0, -1, epochs)
@@ -589,26 +592,29 @@ class ClassificationVariationalNetwork(nn.Module):
         # print(out)
         return out
 
-    def print_architecture(self, beta=False):
+    def print_architecture(self, beta=False, sampling=False):
 
         def _l2s(l, c='-', empty='.'):
-            if len(l) == 0:
-                return empty
-            return c.join(str(_) for _ in l)
+            if l:
+                return c.join(str(_) for _ in l)
+            return empty
 
         features = None
         if self.features:
             features = self.features.name
 
-        s = f'output-activation={self.output_activation}--'
+        s = f'output={self.output_activation}--'
         s += f'activation={self.activation}--'
         s += f'latent-dim={self.latent_dim}--'
-        s += f'sampling={self.latent_sampling}--'
+        if sampling:
+            s += f'sampling={self.latent_sampling}--'
         if features:
             s += f'features={features}--'
-        s += f'encoder-layers={_l2s(self.encoder_layer_sizes)}--'
-        s += f'decoder-layers={_l2s(self.decoder_layer_sizes)}--'
-        s += f'classifier-layers={_l2s(self.classifier_layer_sizes)}'
+        s += f'encoder={_l2s(self.encoder_layer_sizes)}--'
+        s += f'decoder={_l2s(self.decoder_layer_sizes)}--'
+        if self.upsampler_channels:
+            s += f'upsampler={_l2s(self.upsampler_channels)}--'
+        s += f'classifier={_l2s(self.classifier_layer_sizes)}'
 
         if beta:
             s += f'--beta={self.beta:1.2e}'
@@ -620,27 +626,18 @@ class ClassificationVariationalNetwork(nn.Module):
         trained, the weights inweights.h5.
 
         """
-        ls = self._sizes_of_layers
-
+        
         if dir_name is None:
             dir_name = './jobs/' + self.print_architecture()
 
-        features = None
         if self.features:
             features = self.features.name
-        param_dict = {'layer_sizes': self._sizes_of_layers,
-                      'features': features,
-                      'trained': self.trained, 'beta': self.beta,
-                      'latent_sampling': self.latent_sampling,
-                      'activation': self.activation,
-                      'output_activation': self.output_activation}
 
-        save_load.save_json(param_dict, dir_name, 'params.json')
-
-        train_loss = self.train_history.get('train_loss', [])
+        save_load.save_json(self.architecture, dir_name, 'params.json')
+        save_load.save_json(self.training, dir_name, 'train.json')
+        save_load.save_json(self.train_history, dir_name, 'history.json')
         
-        if self.trained or len (train_loss) > 0:
-            save_load.save_json(self.train_history, dir_name, 'training.json')
+        if self.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             torch.save(self.state_dict(), w_p)
 
@@ -652,43 +649,39 @@ class ClassificationVariationalNetwork(nn.Module):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
-        p_dict = save_load.load_json(dir_name, 'params.json')
+        params = save_load.load_json(dir_name, 'params.json')
+        train_params = save_load.load_json(dir_name, 'train.json')
 
         if load_state:
             try:
-                train_history = save_load.load_json(dir_name, 'training.json')
+                train_history = save_load.load_json(dir_name, 'history.json')
             except(FileNotFoundError):
                 train_history = {'epochs': 0}
         else:
             train_history = {'epochs': 0}
-                
-        latent_sampling = p_dict.get('latent_sampling', 1)
-        output_activation = p_dict.get('output_activation',
-                                       default_output_activation)
 
-        ls = p_dict['layer_sizes']
-        # print(ls)
-        # print(p_dict['features'])
-        vae = cls(input_shape=ls[0],
-                  num_labels=ls[1],
-                  encoder_layer_sizes=ls[2],
-                  latent_dim=ls[3],
-                  decoder_layer_sizes=ls[4],
-                  classifier_layer_sizes=ls[5],
-                  latent_sampling=latent_sampling,
-                  activation=p_dict['activation'],
-                  beta=p_dict['beta'],
-                  features=p_dict['features'],
-                  output_activation=output_activation,
+        if not train_params:
+            train_params = {'beta': 1e-4,
+                            'sampling': 64}
+        
+        vae = cls(input_shape=params['input'],
+                  num_labels=params['labels'],
+                  encoder_layer_sizes=params['encoder'],
+                  latent_dim=params['latent_dim'],
+                  decoder_layer_sizes=params['decoder'],
+                  classifier_layer_sizes=params['classifier'],
+                  latent_sampling=train_params['sampling'],
+                  activation=params['activation'],
+                  beta=train_params['beta'],
+                  features=params['features'],
+                  output_activation=params['output'],
                   verbose=verbose)
 
-        vae.trained = p_dict['trained']
+        vae.trained = train_history['epochs']
         vae.train_history = train_history
-        # print(train_history)
+        vae.training = train_params
 
-        train_loss = train_history.get('train_loss', [])
-        vae.train_history['epochs'] = len(train_loss)
-        if load_state and (vae.trained or vae.train_history['epochs']):
+        if load_state and vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             vae.load_state_dict(torch.load(w_p))
 
@@ -783,6 +776,11 @@ if __name__ == '__main__':
     used_config = config['DEFAULT']
     # used_config = config['svhn-vgg16']
     # used_config = config['fashion-conv']
+    # used_config = config['dense']
+    used_config = config['test']
+
+    for k in used_config:
+        print(k, used_config[k])
     
     dataset = used_config['dataset']
     transformer = used_config['transformer']
@@ -799,15 +797,13 @@ if __name__ == '__main__':
     if features.lower() == 'none':
         features = None
 
-    """
+    upsampler = used_config.get('upsampler', None)
+    if upsampler.lower() == 'none':
+        upsampler = ''
+
     encoder = [int(l) for l in used_config['encoder'].split()]
     decoder = [int(l) for l in used_config['decoder'].split()]
-    upsampler = [int(l) for l in used_config['upsampler'].split()]
-    """
-    encoder, decoder, upsampler = ([int(l)
-                                    for l in used_config.get(p, '').split()]
-                                   for p in ('encoder', 'decoder', 'upsampler'))
-    
+    upsampler = [int(l) for l in upsampler.split()]
     classifier = [int(l) for l in used_config['classifier'].split()]
     
     job_dir = default_job_dir
@@ -857,6 +853,7 @@ if __name__ == '__main__':
                                                 latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
                                                 decoder_layer_sizes=decoder,
+                                                upsampler_channels=upsampler,
                                                 classifier_layer_sizes=classifier,
                                                 beta=beta,
                                                 output_activation=output_activation)
@@ -876,13 +873,27 @@ if __name__ == '__main__':
         """
         
     print(jvae.print_architecture())
+    print(jvae.print_architecture(True, True))
 
     jvae.to(device)
 
+    out = jvae(x, y)
+
+    for o in out:
+        print(o.shape)
+
+    jvae.save('/tmp')
+
+    jvae2 = ClassificationVariationalNetwork.load('/tmp')
+
+    
+
+    
+    
     # print('\nTraining\n')
     # print(refit)
 
-    def train_the_net():
+    def train_the_net(epochs=3, **kw):
         jvae.train(trainset, epochs=epochs,
                    batch_size=batch_size,
                    device=device,
@@ -891,8 +902,18 @@ if __name__ == '__main__':
                    mse_loss_weight=None,
                    x_loss_weight=None,
                    kl_loss_weight=None,
-               save_dir=save_dir)
-        
+                   save_dir='/tmp', **kw)
+
+    train_the_net(1, latent_sampling=3, beta=2e-5)
+    jvae3 = ClassificationVariationalNetwork.load('/tmp')
+    
+    for net in (jvae, jvae2, jvae3):
+        print(net.print_architecture())
+    for net in (jvae, jvae2, jvae3):
+        print(net.print_architecture(True, True))
+
+    print(jvae.training)
+    train_the_net(3, latent_sampling=3, beta=2e-5)
     """
     if save_dir is not None:
         jvae.save(save_dir)

@@ -19,7 +19,10 @@ def get_param(default_parameters, args, key, type=str, list=False):
     if not list:
         return type(default_parameters.get(key))
     else:
-        return [type(s) for s in default_parameters.get(key).split()]
+        default = default_parameters.get(key)
+        if default.lower() == 'none':
+            default = ''
+        return [type(s) for s in default.split()]
 
     
 default_job_dir = './jobs'
@@ -49,12 +52,13 @@ parser.add_argument('-K', '--latent_dim', metavar='K', type=int)
 parser.add_argument('-L', '--latent_sampling', type=int,
                     metavar='L')
 
-parser.add_argument('--features',
+parser.add_argument('--features', metavar='vgg*',
                     choices=['vgg11', 'vgg16'])
 parser.add_argument('--no-features', action='store_true')
 
-parser.add_argument('--encoder', type=int, nargs='+')
-parser.add_argument('--decoder', type=int, nargs='+')    
+parser.add_argument('--encoder', type=int, nargs='*')
+parser.add_argument('--decoder', type=int, nargs='*')
+parser.add_argument('--upsampler', type=int, nargs='*')
 
 parser.add_argument('--dataset', 
                     choices=['fashion', 'mnist', 'svhn', 'cifar10'])
@@ -81,6 +85,7 @@ parser.add_argument('load_dir',
 
 args = parser.parse_args()
 config.read(args.config_file)
+
 default_parameters = config[args.config if args.config in config
                             else 'DEFAULT']
 
@@ -100,10 +105,14 @@ features = get_param(default_parameters, args, 'features')
 if features.lower() == 'none' or args.no_features:
     features=None
 
+
 encoder = get_param(default_parameters, args, 'encoder',
                     type=int, list=True)
 decoder = get_param(default_parameters, args, 'decoder',
                     type=int, list=True)
+
+upsampler = get_param(default_parameters, args, 'upsampler',
+                      type=int, list=True)
 output_activation = get_param(default_parameters, args, 'output_activation')
 classifier = get_param(default_parameters, args, 'classifier',
                        type=int, list=True)
@@ -181,6 +190,7 @@ if __name__ == '__main__':
                      latent_dim=latent_dim,
                      latent_sampling=latent_sampling,
                      decoder_layer_sizes=decoder,
+                     upsampler_channels=upsampler,
                      classifier_layer_sizes=classifier,
                      beta=beta,
                      output_activation=output_activation)
@@ -188,7 +198,7 @@ if __name__ == '__main__':
     if not save_dir:
 
         save_dir_root = os.path.join(job_dir, dataset,
-                                     jvae.print_architecture(),
+                                     jvae.print_architecture(sampling=True),
                                      f'{jvae.beta:1.2e}')
 
         i = 0
@@ -205,7 +215,7 @@ if __name__ == '__main__':
 
     print('done.', 'Will be saved in\n' + save_dir)
 
-    print(jvae.print_architecture())
+    print(jvae.print_architecture(True, True))
 
     jvae.to(device)
 

@@ -269,7 +269,7 @@ class Decoder(nn.Module):           #
         return self.output_activation(self.output_layer(h))
 
     
-class Classifier(nn.Module):
+class Classifier(nn.Sequential):
     """Classifer
 
     - input: N1 x N2 x ... Ng x K
@@ -284,33 +284,20 @@ class Classifier(nn.Module):
                  name='classifier',
                  activation='relu',
                  **kwargs):
-
-        super().__init__(**kwargs)
-        self.name = name
-
-        if activation == 'relu':
-            self.activation = F.relu
-        else:
-            raise ValueError(
-                f'{output_activation} is not implemented in {self.__class__})')
-
-        self.dense_layers = nn.ModuleList()
+        
+        activation_layer = activation_layers[activation]()
+        layers = []
         input_dim = latent_dim
         for d in intermediate_dims:
-            l_ = nn.Linear(input_dim, d)
-            self.dense_layers.append(l_)
+            layers.append(nn.Linear(input_dim, d))
+            layers.append(activation_layer)
             input_dim = d
-
-        self.output_layer = nn.Linear(input_dim, num_labels)
-
-    def forward(self, z):
-        u = z
-        # print('decoder inputs', inputs.shape)
-        for l in self.dense_layers:
-            # print('l:', l)
-            u = self.activation(l(u))
-        return self.output_layer(u).softmax(dim=-1)
-
+            
+        layers.append(nn.Linear(input_dim, num_labels))
+        layers.append(nn.Softmax(dim=-1))
+        super().__init__(*layers, **kwargs)
+        self.name = name
+        
 
 if __name__ == '__main__':
 

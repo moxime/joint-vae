@@ -80,7 +80,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         # no upsampler if no features
         assert (not upsampler_channels or features)
-        
+
         if features:
             if pretrained_features:
                 vgg_dict = torch.load(pretrained_features)
@@ -119,6 +119,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                       output_activation=output_activation)
 
         else:
+            upsampler_channels = None
             activation_layer = activation_layers[output_activation]()
             self.imager = nn.Sequential(nn.Linear(imager_input_dim,
                                                   np.prod(input_shape)),
@@ -138,7 +139,20 @@ class ClassificationVariationalNetwork(nn.Module):
                                  encoder_layer_sizes, latent_dim,
                                  decoder_layer_sizes, classifier_layer_sizes]
 
-        self.trained = False
+        self.architecture = {'input': input_shape,
+                             'labels': num_labels,
+                             'features': features, 
+                             'encoder': encoder_layer_sizes,
+                             'activation': activation,
+                             'latent_dim': latent_dim,
+                             'decoder': decoder_layer_sizes,
+                             'upsampler': upsampler_channels,
+                             'classifier': classifier_layer_sizes,
+                             'output': output_activation}
+
+        self.trained = 0
+        self.training = None # {'beta': beta, 'sampling': latent_sampling}
+        
         # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
 
@@ -385,6 +399,8 @@ class ClassificationVariationalNetwork(nn.Module):
     def train(self, trainset, optimizer=None, epochs=50,
               batch_size=100, device=None,
               testset=None,
+              beta=None,
+              latent_sampling=None,
               mse_loss_weight=None,
               x_loss_weight=None,
               kl_loss_weight=None,
@@ -395,7 +411,18 @@ class ClassificationVariationalNetwork(nn.Module):
         """
 
         """
-        methods = self.predict_methods
+        try:
+            set_name = trainset.name
+        except(AttributeError):
+            set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
+        self.training = {'set': set_name}
+
+        if beta:
+            self.beta = beta
+        
+        if latent_sampling:
+            self.latent_sampling = latent_sampling
+        
         device = choose_device(device)
 
         if optimizer is None:
@@ -405,30 +432,32 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   shuffle=True, num_workers=0)
 
         dataset_size = len(trainset)
-        remainder = 1 if (dataset_size % batch_size) > 0 else 0
+        remainder = (dataset_size % batch_size) > 0 
         per_epoch = dataset_size // batch_size + remainder
 
         done_epochs = self.train_history['epochs']
         if done_epochs == 0:
             self.train_history = {'epochs': 0}  # will not be returned
             self.train_history['train_loss'] = []
-            self.train_history['train_x_loss'] = []
-            self.train_history['train_mse_loss'] = []
-            self.train_history['train_kl_loss'] = []
-            self.train_history['test_accuracy'] = [] if testset else None
-            self.train_history['train_accuracy'] = []
-            self.train_history['train_loss'] = []
-
+            self.train_history['test_accuracy'] = []
+            self.train_history['train_accuracy'] = [] 
+            self.training = {'beta': self.beta,
+                             'sampling': self.latent_sampling,
+                             'epochs': epochs}
+        else:
+            assert self.beta == self.training['beta']
+            assert self.sampling == self.training['sampling']
+            
         print_results(0, 0, -2, epochs)
-        print_results(0, 0, -1, epochs)        
+        print_results(0, 0, -1, epochs)
 
         for epoch in range(done_epochs, epochs):
 
             t_start_epoch = time.time()
             # test
 
+            num_batch = sample_size // batch_size
             if testset:
-                num_batch = sample_size // batch_size
                 # print(num_batch, sample_size)
                 with torch.no_grad():
                     test_accuracy = self.accuracy(testset,
@@ -442,12 +471,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 with torch.no_grad():
                     train_accuracy = self.accuracy(trainset,
                                                    batch_size=batch_size,
-                                                   num_batch='all',
+                                                   num_batch=num_batch,
                                                    device=device,
                                                    method='all',
                                                    print_result='acc')
 
-                self.train_history['train_accuracy'].append(train_accuracy)
                 
             t_i = time.time()
             t_start_train = t_i
@@ -487,13 +515,15 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if testset:
                 self.train_history['test_accuracy'].append(test_accuracy)
+            if train_accuracy:
+                self.train_history['train_accuracy'].append(train_accuracy)
             self.train_history['train_loss'].append(train_mean_loss)
             self.train_history['epochs'] += 1
+            self.trained += 1
             if save_dir:
                 self.save(save_dir)
 
         print('\nFinished Training')
-        self.trained = trainset.name
 
     def summary(self):
 

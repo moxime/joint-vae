@@ -193,7 +193,7 @@ class ConvDecoder(nn.Module):
         activation_layer = activation_layers[activation]()
         
         self.first_shape = first_shape
-        self.refactor = nn.sequential(nn.Linear(input_dim, np.prod(first_shape)),
+        self.refactor = nn.Sequential(nn.Linear(input_dim, np.prod(first_shape)),
                                       activation_layer)
         self.upsampler = nn.Sequential(*layers)
 

@@ -779,7 +779,8 @@ if __name__ == '__main__':
     # used_config = config['fashion-conv']
     # used_config = config['dense']
     # used_config = config['test']
-
+    used_config = config['autoencoder']
+    
     for k in used_config:
         print(k, used_config[k])
     
@@ -913,9 +914,9 @@ if __name__ == '__main__':
     for net in (jvae, jvae2, jvae3):
         print(net.print_architecture(True, True))
 
-    print(jvae.training)
-    train_the_net(3, latent_sampling=3, beta=2e-5)
     """
+    print(jvae.training)
+    train_the_net(2, latent_sampling=3, beta=2e-5)
     if save_dir is not None:
         jvae.save(save_dir)
 

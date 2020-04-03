@@ -92,8 +92,18 @@ class VGGFeatures(nn.Sequential):
         self.output_shape = (in_channels, h, w)
         return layers
 
+class SimpleFeatures(nn.Sequential):
 
+    def __init__(self, input_shape, channels, activation='relu'):
 
+        channel = input_shape[0]
+        layers = []
+        
+        
+        super(SimpleFeatures, self).__init__(*layers)
+        self.name = 'simple'
+        
+        
 class Encoder(nn.Module):
 
     def __init__(self, input_shape, num_labels,

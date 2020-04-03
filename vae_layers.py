@@ -92,18 +92,51 @@ class VGGFeatures(nn.Sequential):
         self.output_shape = (in_channels, h, w)
         return layers
 
-class SimpleFeatures(nn.Sequential):
 
-    def __init__(self, input_shape, channels, activation='relu'):
 
-        channel = input_shape[0]
+class ConvFeatures(nn.Sequential):
+
+    def __init__(self, input_shape, channels,
+                 padding=1, kernel=4,
+                 activation='relu'):
+
+        assert (kernel == 2 * padding + 2)
+
+        layers = self._make_layers(channels, padding, kernel,
+                                   input_shape, activation)
+        super(ConvFeatures, self).__init__(*layers)
+
+        self.name = 'conv-' + f'p{padding}-'
+        self.name += '-'.join([str(c) for c in channels])
+
+        self.input_shape = input_shape
+        self.channels = channels
+        self.padding = padding
+        self.kernel = kernel
+        self.activation = activation
+
+        self.params_dict = {'input_channels': self.input_shape,
+                            'channels': self.channels,
+                            'padding': self.padding,
+                            'kernel':self.kernel,
+                            'activation':self.activation}
+        
+    def _make_layers(self, channels, padding, kernel, input_shape, activation):
         layers = []
-        
-        
-        super(SimpleFeatures, self).__init__(*layers)
-        self.name = 'simple'
-        
-        
+        in_channels, h, w  = input_shape
+        activation_layer = activation_layers[activation]()
+        for channel in channels:
+            layers.append(nn.Conv2d(in_channels, channel, kernel,
+                                    stride=2, padding=padding))
+            layers.append(activation_layer)
+            h = h//2
+            w = w//2
+            in_channels = channel
+                          
+        self.output_shape = (in_channels, h, w)
+        return layers
+
+                                   
 class Encoder(nn.Module):
 
     def __init__(self, input_shape, num_labels,

@@ -82,6 +82,10 @@ class ClassificationVariationalNetwork(nn.Module):
         # no upsampler if no features
         assert (not upsampler_channels or features)
 
+        features_arch = {'features': features,
+                         'features_channels': features_channels,
+                         'pretrained_features': pretrained_features}
+
         if features:
             if pretrained_features:
                 feat_dict = torch.load(pretrained_features)
@@ -146,7 +150,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.architecture = {'input': input_shape,
                              'labels': num_labels,
-                             'features': features, 
+                             'features': features_arch, 
                              'encoder': encoder_layer_sizes,
                              'activation': activation,
                              'latent_dim': latent_dim,
@@ -633,9 +637,6 @@ class ClassificationVariationalNetwork(nn.Module):
         if dir_name is None:
             dir_name = './jobs/' + self.print_architecture()
 
-        if self.features:
-            features = self.features.name
-
         save_load.save_json(self.architecture, dir_name, 'params.json')
         save_load.save_json(self.training, dir_name, 'train.json')
         save_load.save_json(self.train_history, dir_name, 'history.json')
@@ -676,10 +677,10 @@ class ClassificationVariationalNetwork(nn.Module):
                   latent_sampling=train_params['sampling'],
                   activation=params['activation'],
                   beta=train_params['beta'],
-                  features=params['features'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
-                  verbose=verbose)
+                  verbose=verbose,
+                  **params['features'])
 
         vae.trained = train_history['epochs']
         vae.train_history = train_history
@@ -779,7 +780,7 @@ if __name__ == '__main__':
 
     used_config = config['DEFAULT']
     # used_config = config['svhn-vgg16']
-    # used_config = config['fashion-conv']
+    used_config = config['fashion-conv']
     # used_config = config['dense']
     # used_config = config['test']
     # used_config = config['autoencoder']
@@ -891,13 +892,9 @@ if __name__ == '__main__':
     for o in out:
         print(o.shape)
 
-    # jvae.save('/tmp')
+    jvae.save('/tmp')
 
-    # jvae2 = ClassificationVariationalNetwork.load('/tmp')
-
-    
-
-    
+    jvae2 = ClassificationVariationalNetwork.load('/tmp')
     
     # print('\nTraining\n')
     # print(refit)
@@ -913,7 +910,7 @@ if __name__ == '__main__':
                    kl_loss_weight=None,
                    save_dir='/tmp', **kw)
 
-    train_the_net(100, latent_sampling=128, beta=1e-4)
+    # train_the_net(100, latent_sampling=128, beta=1e-4)
     # jvae3 = ClassificationVariationalNetwork.load('/tmp')
     
     """

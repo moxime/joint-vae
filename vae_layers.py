@@ -61,6 +61,7 @@ vgg_cfg = {
               512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
+
 class VGGFeatures(nn.Sequential):
 
     def __init__(self, vgg_name, input_shape, pretrained=None):
@@ -91,7 +92,6 @@ class VGGFeatures(nn.Sequential):
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         self.output_shape = (in_channels, h, w)
         return layers
-
 
 
 class ConvFeatures(nn.Sequential):

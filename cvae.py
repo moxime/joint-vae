@@ -7,7 +7,7 @@ import argparse, configparser
 import torchvision
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-from vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier
+from vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures
 from vae_layers import onehot_encoding
 
 import data.torch_load as torchdl
@@ -62,6 +62,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  num_labels,
                  features=None,
                  pretrained_features=None,
+                 features_channels=None,
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  decoder_layer_sizes=[36],
@@ -81,15 +82,21 @@ class ClassificationVariationalNetwork(nn.Module):
         # no upsampler if no features
         assert (not upsampler_channels or features)
 
+        features_arch = {'features': features,
+                         'features_channels': features_channels,
+                         'pretrained_features': pretrained_features}
+
         if features:
             if pretrained_features:
-                vgg_dict = torch.load(pretrained_features)
+                feat_dict = torch.load(pretrained_features)
             else:
-                vgg_dict = None
+                feat_dict = None
 
-            self.features = VGGFeatures(features, input_shape,
-                                        pretrained=vgg_dict)
-
+            if features.startswith('vgg'):
+                self.features = VGGFeatures(features, input_shape,
+                                            pretrained=feat_dict)
+            elif features == 'conv':
+                self.features = ConvFeatures(input_shape, features_channels)
             encoder_input_shape = self.features.output_shape
         else:
             encoder_input_shape = input_shape
@@ -143,7 +150,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.architecture = {'input': input_shape,
                              'labels': num_labels,
-                             'features': features, 
+                             'features': features_arch, 
                              'encoder': encoder_layer_sizes,
                              'activation': activation,
                              'latent_dim': latent_dim,
@@ -630,9 +637,6 @@ class ClassificationVariationalNetwork(nn.Module):
         if dir_name is None:
             dir_name = './jobs/' + self.print_architecture()
 
-        if self.features:
-            features = self.features.name
-
         save_load.save_json(self.architecture, dir_name, 'params.json')
         save_load.save_json(self.training, dir_name, 'train.json')
         save_load.save_json(self.train_history, dir_name, 'history.json')
@@ -673,10 +677,10 @@ class ClassificationVariationalNetwork(nn.Module):
                   latent_sampling=train_params['sampling'],
                   activation=params['activation'],
                   beta=train_params['beta'],
-                  features=params['features'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
-                  verbose=verbose)
+                  verbose=verbose,
+                  **params['features'])
 
         vae.trained = train_history['epochs']
         vae.train_history = train_history
@@ -776,10 +780,11 @@ if __name__ == '__main__':
 
     used_config = config['DEFAULT']
     # used_config = config['svhn-vgg16']
-    # used_config = config['fashion-conv']
+    used_config = config['fashion-conv']
     # used_config = config['dense']
     # used_config = config['test']
-
+    # used_config = config['autoencoder']
+    
     for k in used_config:
         print(k, used_config[k])
     
@@ -797,6 +802,9 @@ if __name__ == '__main__':
     features = used_config.get('features', None)
     if features.lower() == 'none':
         features = None
+
+    ls = used_config.get('features_channels', '')
+    features_channels = [int(l) for l in ls.split()]        
 
     upsampler = used_config.get('upsampler', None)
     if upsampler.lower() == 'none':
@@ -849,6 +857,7 @@ if __name__ == '__main__':
         print('Building network...', end=' ')
         jvae = ClassificationVariationalNetwork(input_shape, num_labels,
                                                 features=features,
+                                                features_channels=features_channels,
                                                 # pretrained_features='vgg11.pth',
                                                 encoder_layer_sizes=encoder,
                                                 latent_dim=latent_dim,
@@ -886,10 +895,6 @@ if __name__ == '__main__':
     jvae.save('/tmp')
 
     jvae2 = ClassificationVariationalNetwork.load('/tmp')
-
-    
-
-    
     
     # print('\nTraining\n')
     # print(refit)
@@ -905,17 +910,17 @@ if __name__ == '__main__':
                    kl_loss_weight=None,
                    save_dir='/tmp', **kw)
 
-    train_the_net(1, latent_sampling=3, beta=2e-5)
-    jvae3 = ClassificationVariationalNetwork.load('/tmp')
+    # train_the_net(100, latent_sampling=128, beta=1e-4)
+    # jvae3 = ClassificationVariationalNetwork.load('/tmp')
     
+    """
     for net in (jvae, jvae2, jvae3):
         print(net.print_architecture())
     for net in (jvae, jvae2, jvae3):
         print(net.print_architecture(True, True))
 
     print(jvae.training)
-    train_the_net(3, latent_sampling=3, beta=2e-5)
-    """
+    train_the_net(2, latent_sampling=3, beta=2e-5)
     if save_dir is not None:
         jvae.save(save_dir)
 

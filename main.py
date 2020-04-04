@@ -24,11 +24,13 @@ config_params = config[conf_args.config]
 
 defaults = {'batch_size': 100,
             'epochs':100,
-            'test_sample_size': 1000, 'job_dir': './job'}
+            'test_sample_size': 1000, 'job_dir': './jobs'}
 
 defaults.update(config_params)
 
-for k in ('encoder', 'decoder', 'upsampler', 'classifier'):
+for k in ('encoder', 'features_channels',
+          'decoder', 'upsampler',
+          'classifier'):
      p = defaults.get(k, '')
      defaults[k] = list_of_alphanums(p)
 
@@ -57,7 +59,8 @@ parser.add_argument('--features', metavar='NAME',
 
 parser.add_argument('--no-features', action='store_true')
 
-parser.add_argument('--encoder', type=int, nargs='*')
+parser.add_argument('--encoder', type=int, metavar='H', nargs='*')
+parser.add_argument('--features_channels', type=int, nargs='*')
 parser.add_argument('--decoder', type=int, nargs='*')
 parser.add_argument('--upsampler', type=int, nargs='*')
 parser.add_argument('--classifier', type=int, nargs='*')
@@ -100,8 +103,9 @@ if features.lower() == 'none' or args.no_features:
     features=None
 
 encoder = args.encoder
-decoder= args.decoder
-
+decoder = args.decoder
+upsampler = args.upsampler
+features_channels = args.features_channels
 
 output_activation = args.output_activation
 
@@ -129,8 +133,10 @@ if __name__ == '__main__':
         print('K', latent_dim)
         print('ß', beta)
         print('feat', features)
+        print('features channels', *features_channels)
         print('encoder', *encoder)
         print('decoder', *decoder)
+        print('upsampler', *upsampler)
         print('output_activation', output_activation)
         print('classifier', *classifier)
         print('data', dataset)

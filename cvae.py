@@ -667,7 +667,10 @@ class ClassificationVariationalNetwork(nn.Module):
         if not train_params:
             train_params = {'beta': 1e-4,
                             'sampling': 64}
-        
+
+        if not params['features']:
+            params['features'] = {}
+            
         vae = cls(input_shape=params['input'],
                   num_labels=params['labels'],
                   encoder_layer_sizes=params['encoder'],

@@ -182,6 +182,7 @@ if __name__ == '__main__':
         print('Building network...', end=' ')
         jvae = CVNet(input_shape, num_labels,
                      features=features,
+                     features_channels=features_channels,
                      # pretrained_features='vgg11.pth',
                      encoder_layer_sizes=encoder,
                      latent_dim=latent_dim,

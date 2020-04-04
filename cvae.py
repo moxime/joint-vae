@@ -63,6 +63,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  features=None,
                  pretrained_features=None,
                  features_channels=None,
+                 conv_padding=1,
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  decoder_layer_sizes=[36],
@@ -82,10 +83,6 @@ class ClassificationVariationalNetwork(nn.Module):
         # no upsampler if no features
         assert (not upsampler_channels or features)
 
-        features_arch = {'features': features,
-                         'features_channels': features_channels,
-                         'pretrained_features': pretrained_features}
-
         if features:
             if pretrained_features:
                 feat_dict = torch.load(pretrained_features)
@@ -95,8 +92,19 @@ class ClassificationVariationalNetwork(nn.Module):
             if features.startswith('vgg'):
                 self.features = VGGFeatures(features, input_shape,
                                             pretrained=feat_dict)
+                features_arch = {'features': features,
+                                 'pretrained_features': pretrained_features}
+
             elif features == 'conv':
-                self.features = ConvFeatures(input_shape, features_channels)
+                self.features = ConvFeatures(input_shape,
+                                             features_channels,
+                                             padding=conv_padding,
+                                             kernel=2*conv_padding+2)
+                features_arch = {'features': features,
+                                 'features_channels': features_channels,
+                                 'conv_padding': conv_padding,
+                                 'pretrained_features': pretrained_features}
+
             encoder_input_shape = self.features.output_shape
         else:
             encoder_input_shape = input_shape
@@ -787,6 +795,7 @@ if __name__ == '__main__':
     # used_config = config['dense']
     # used_config = config['test']
     # used_config = config['autoencoder']
+    used_config = config['padding']
     
     for k in used_config:
         print(k, used_config[k])
@@ -807,9 +816,10 @@ if __name__ == '__main__':
         features = None
 
     ls = used_config.get('features_channels', '')
-    features_channels = [int(l) for l in ls.split()]        
+    features_channels = [int(l) for l in ls.split()]
+    conv_padding = used_config.getint('conv_padding', 1)
 
-    upsampler = used_config.get('upsampler', None)
+    upsampler = used_config.get('upsampler', '')
     if upsampler.lower() == 'none':
         upsampler = ''
 
@@ -861,6 +871,7 @@ if __name__ == '__main__':
         jvae = ClassificationVariationalNetwork(input_shape, num_labels,
                                                 features=features,
                                                 features_channels=features_channels,
+                                                conv_padding=conv_padding,
                                                 # pretrained_features='vgg11.pth',
                                                 encoder_layer_sizes=encoder,
                                                 latent_dim=latent_dim,

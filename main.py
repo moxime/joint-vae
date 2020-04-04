@@ -31,8 +31,9 @@ defaults.update(config_params)
 for k in ('encoder', 'features_channels',
           'decoder', 'upsampler',
           'classifier'):
-     p = defaults.get(k, '')
-     defaults[k] = list_of_alphanums(p)
+    p = defaults.get(k, '')
+    defaults[k] = list_of_alphanums(p)
+
 
 
 parser = argparse.ArgumentParser(parents=[conf_parser])
@@ -61,6 +62,7 @@ parser.add_argument('--no-features', action='store_true')
 
 parser.add_argument('--encoder', type=int, metavar='H', nargs='*')
 parser.add_argument('--features_channels', type=int, nargs='*')
+parser.add_argument('--conv_padding', type=int)
 parser.add_argument('--decoder', type=int, nargs='*')
 parser.add_argument('--upsampler', type=int, nargs='*')
 parser.add_argument('--classifier', type=int, nargs='*')
@@ -105,7 +107,9 @@ if features.lower() == 'none' or args.no_features:
 encoder = args.encoder
 decoder = args.decoder
 upsampler = args.upsampler
+conv_padding = args.conv_padding
 features_channels = args.features_channels
+
 
 output_activation = args.output_activation
 
@@ -133,6 +137,7 @@ if __name__ == '__main__':
         print('K', latent_dim)
         print('ß', beta)
         print('feat', features)
+        print('conv padding', conv_padding)
         print('features channels', *features_channels)
         print('encoder', *encoder)
         print('decoder', *decoder)

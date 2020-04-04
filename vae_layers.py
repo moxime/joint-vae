@@ -128,6 +128,7 @@ class ConvFeatures(nn.Sequential):
         for channel in channels:
             layers.append(nn.Conv2d(in_channels, channel, kernel,
                                     stride=2, padding=padding))
+            layers.append(nn.BatchNorm2d(channel))
             layers.append(activation_layer)
             h = h//2
             w = w//2

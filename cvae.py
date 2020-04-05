@@ -794,8 +794,8 @@ if __name__ == '__main__':
     used_config = config['fashion-conv']
     # used_config = config['dense']
     # used_config = config['test']
-    # used_config = config['autoencoder']
-    used_config = config['padding']
+    used_config = config['autoencoder']
+    # used_config = config['padding']
     
     for k in used_config:
         print(k, used_config[k])

@@ -63,18 +63,25 @@ vgg_cfg = {
 
 
 class VGGFeatures(nn.Sequential):
+    
+    def __init__(self, vgg_name, input_shape, channels=None, pretrained=None):
 
-    def __init__(self, vgg_name, input_shape, pretrained=None):
-
-        layers = self._make_layers(vgg_cfg[vgg_name], input_shape)
+        cfg = vgg_cfg.get(vgg_name, channels)
+            
+        layers = self._make_layers(cfg, input_shape)
         super(VGGFeatures, self).__init__(*layers)
+        self.architecture = {'features': vgg_name}
 
         self.pretrained = pretrained
         if pretrained:
             self.load_state_dict(pretrained)
             for p in self.parameters():
                 p.requires_grad_(False)
-        self.name = vgg_name
+        if vgg_name not in vgg_cfg:
+            self.name = 'vgg-' + '-'.join(str(c) for c in channels)
+            self.architecture['features_channels'] = channels
+        else:
+            self.name = vgg_name 
 
     def _make_layers(self, cfg, input_shape):
         layers = []
@@ -82,6 +89,10 @@ class VGGFeatures(nn.Sequential):
         for x in cfg:
             if x == 'M':
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+                h = h // 2
+                w = w // 2
+            elif x == 'A':
+                layers += [nn.AvgPool2d(kernel_size=2, stride=2)]
                 h = h // 2
                 w = w // 2
             else:
@@ -106,6 +117,7 @@ class ConvFeatures(nn.Sequential):
                                    input_shape, activation)
         super(ConvFeatures, self).__init__(*layers)
 
+        
         self.name = 'conv-' + f'p{padding}-'
         self.name += '-'.join([str(c) for c in channels])
 

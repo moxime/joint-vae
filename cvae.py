@@ -17,6 +17,8 @@ import numpy as np
 
 from utils.print_log import print_results
 
+from utils.parameters import alphanum
+
 import os.path
 import time
 
@@ -91,9 +93,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if features.startswith('vgg'):
                 self.features = VGGFeatures(features, input_shape,
+                                            channels=features_channels,
                                             pretrained=feat_dict)
-                features_arch = {'features': features,
-                                 'pretrained_features': pretrained_features}
+                features_arch = self.features.architecture
+                features_arch['pretrained_features'] = pretrained_features
 
             elif features == 'conv':
                 self.features = ConvFeatures(input_shape,
@@ -793,8 +796,8 @@ if __name__ == '__main__':
     # used_config = config['svhn-vgg16']
     used_config = config['fashion-conv']
     # used_config = config['dense']
-    # used_config = config['test']
-    used_config = config['autoencoder']
+    used_config = config['test']
+    # used_config = config['autoencoder']
     # used_config = config['padding']
     
     for k in used_config:
@@ -816,7 +819,7 @@ if __name__ == '__main__':
         features = None
 
     ls = used_config.get('features_channels', '')
-    features_channels = [int(l) for l in ls.split()]
+    features_channels = [alphanum(l) for l in ls.split()]
     conv_padding = used_config.getint('conv_padding', 1)
 
     upsampler = used_config.get('upsampler', '')

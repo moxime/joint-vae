@@ -407,10 +407,18 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_x_loss = x_loss(y, y_estimate, **kw)
         batch_kl_loss = kl_loss(mu_z, log_var_z, **kw)
 
+        batch_loss = 0
+        if mse_loss_weight > 0:
+            batch_loss += mse_loss_weight * batch_mse_loss
+        if x_loss_weight > 0:
+            batch_loss += x_loss_weight * batch_x_loss
+        if kl_loss_weight > 0:
+            batch_loss += kl_loss_weight * batch_kl_loss
+        """
         batch_loss = (mse_loss_weight * batch_mse_loss +
                       x_loss_weight * batch_x_loss +
                       kl_loss_weight * batch_kl_loss)
-
+        """
         if return_all_losses:
             return {'mse': batch_mse_loss, 'x': batch_x_loss,
                     'kl': batch_kl_loss, 'total': batch_loss}
@@ -799,6 +807,7 @@ if __name__ == '__main__':
     used_config = config['test']
     # used_config = config['autoencoder']
     # used_config = config['padding']
+    used_config = config['svhn']
     
     for k in used_config:
         print(k, used_config[k])

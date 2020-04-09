@@ -476,6 +476,7 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             assert self.beta == self.training['beta']
             assert self.latent_sampling == self.training['sampling']
+            assert self.training['set'] == set_name
             
         print_results(0, 0, -2, epochs)
         print_results(0, 0, -1, epochs)

@@ -903,10 +903,16 @@ if __name__ == '__main__':
         print('done.', 'Will be saved in\n' + save_dir)
         """
         
-    print(jvae.print_architecture())
+    arch = jvae.print_architecture()
+    print(arch)
     print(jvae.print_architecture(True, True))
 
     jvae.to(device)
+
+    ae_dir = os.path.join('.', 'jobs', arch,
+                          f'beta={0:.2e}--saampling=1', '00')
+    autoencoder = ClassificationVariationalNetwork.load(jvae.load(ae_dir))
+
 
     out = jvae(x, y)
 

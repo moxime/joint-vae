@@ -17,7 +17,7 @@ import numpy as np
 
 from utils.print_log import print_results
 
-from utils.parameters import alphanum
+from utils.parameters import get_args
 
 import os.path
 import time
@@ -161,7 +161,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.architecture = {'input': input_shape,
                              'labels': num_labels,
-                             'features': features_arch, 
+                             # 'features': features_arch, 
                              'encoder': encoder_layer_sizes,
                              'activation': activation,
                              'latent_dim': latent_dim,
@@ -169,6 +169,9 @@ class ClassificationVariationalNetwork(nn.Module):
                              'upsampler': upsampler_channels,
                              'classifier': classifier_layer_sizes,
                              'output': output_activation}
+
+        if features:
+            self.architecture['features'] = features_arch
 
         self.trained = 0
         self.training = None # {'beta': beta, 'sampling': latent_sampling}
@@ -409,9 +412,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         batch_loss = 0
         if mse_loss_weight > 0:
-            batch_loss += mse_loss_weight * batch_mse_loss
+            batch_loss = mse_loss_weight * batch_mse_loss
         if x_loss_weight > 0:
-            batch_loss += x_loss_weight * batch_x_loss
+            batch_loss = batch_loss + x_loss_weight * batch_x_loss
         if kl_loss_weight > 0:
             batch_loss += kl_loss_weight * batch_kl_loss
         """
@@ -789,67 +792,58 @@ class ClassificationVariationalNetwork(nn.Module):
 
 if __name__ == '__main__':
 
-    default_latent_dim = 40
-    default_latent_sampling = 50
-    default_batch_size = 50
-    default_test_sample_size = 2000
-    default_dataset = 'cifar10'
-    default_epochs = 50
-    default_beta = 1e-4
-    default_job_dir = './jobs'
-
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-
-    used_config = config['DEFAULT']
-    # used_config = config['svhn-vgg16']
-    used_config = config['fashion-conv']
-    # used_config = config['dense']
-    used_config = config['test']
-    # used_config = config['autoencoder']
-    # used_config = config['padding']
-    used_config = config['svhn']
+    argv = ['--debug', '-c', 'svhn',
+            '-j', 'test-jobs']
     
-    for k in used_config:
-        print(k, used_config[k])
+    args = get_args(argv)
+
+    debug = args.debug
+    verbose = args.verbose
+
+    force_cpu = args.force_cpu
+
+    epochs = args.epochs
+    batch_size = args.batch_size
+    test_sample_size = args.test_sample_size
+    beta = args.beta
+
+    latent_sampling = args.latent_sampling
+    latent_dim = args.latent_dim
+
+    features = args.features
+
+    encoder = args.encoder
+    decoder = args.decoder
+    upsampler = args.upsampler
+    conv_padding = args.conv_padding
+    features_channels = args.features_channels
+
+    output_activation = args.output_activation
+
+    classifier = args.classifier
+
+    dataset = args.dataset
+    transformer = args.transformer
+
+    refit = args.refit
+    load_dir = args.load_dir
+    save_dir = load_dir if not refit else None
+    job_dir = args.job_dir
     
-    dataset = used_config['dataset']
-    transformer = used_config['transformer']
-    
-    epochs = int(used_config['epochs'])
-    batch_size = int(used_config['batch_size'])
-    test_sample_size = int(used_config['test_sample_size'])
-    latent_dim = int(used_config['latent_dim'])
-    latent_sampling = int(used_config['latent_sampling'])
-    output_activation = used_config['output_activation']
-    beta = used_config.getfloat('beta')
-
-    features = used_config.get('features', None)
-    if features.lower() == 'none':
-        features = None
-
-    ls = used_config.get('features_channels', '')
-    features_channels = [alphanum(l) for l in ls.split()]
-    conv_padding = used_config.getint('conv_padding', 1)
-
-    upsampler = used_config.get('upsampler', '')
-    if upsampler.lower() == 'none':
-        upsampler = ''
-
-    encoder = [int(l) for l in used_config['encoder'].split()]
-    decoder = [int(l) for l in used_config['decoder'].split()]
-    upsampler = [int(l) for l in upsampler.split()]
-    classifier = [int(l) for l in used_config['classifier'].split()]
-    
-    job_dir = default_job_dir
-
     load_dir = None
     save_dir = load_dir
     rebuild = load_dir is None
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    # device = torch.device('cpu')
+    if debug:
+        for k in vars(args).items():
+            print(*k)
+
+    if force_cpu:
+        device = torch.device('cpu')
+    else:
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Used device:', device)
+
     trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
     _, oodset = torchdl.get_svhn()
 
@@ -885,7 +879,7 @@ if __name__ == '__main__':
                                                 features=features,
                                                 features_channels=features_channels,
                                                 conv_padding=conv_padding,
-                                                # pretrained_features='vgg11.pth',
+                                                pretrained_features='vgg11.pth',
                                                 encoder_layer_sizes=encoder,
                                                 latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
@@ -919,7 +913,6 @@ if __name__ == '__main__':
     for o in out:
         print(o.shape)
 
-    jvae.save('/tmp')
 
     jvae2 = ClassificationVariationalNetwork.load('/tmp')
     

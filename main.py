@@ -32,7 +32,8 @@ features_channels = args.features_channels
 
 output_activation = args.output_activation
 
-classifier = args.classifier
+vae = args.no_classifier
+classifier = args.classifier if not vae else []
 
 dataset = args.dataset
 transformer = args.transformer
@@ -103,9 +104,11 @@ if __name__ == '__main__':
 
     if not save_dir:
 
+        beta_ = 'vae-beta=' if vae else 'beta='
         save_dir_root = os.path.join(job_dir, dataset,
                                      jvae.print_architecture(sampling=False),
-                                     f'{jvae.beta:1.2e}--sampling={latent_sampling}')
+                                     beta_ + f'{jvae.beta:1.2e}' +
+                                     f'--sampling={latent_sampling}')
 
         i = 0
         save_dir = os.path.join(save_dir_root, f'{i:02d}')
@@ -137,7 +140,7 @@ if __name__ == '__main__':
                testset=testset,
                sample_size=test_sample_size,  # 10000,
                mse_loss_weight=None,
-               x_loss_weight=None,
+               x_loss_weight= 0 if vae else None,
                kl_loss_weight=None,
                save_dir=save_dir)
 

@@ -827,6 +827,7 @@ if __name__ == '__main__':
     output_activation = args.output_activation
 
     classifier = args.classifier
+    vae = args.no_classifier
 
     dataset = args.dataset
     transformer = args.transformer
@@ -907,8 +908,7 @@ if __name__ == '__main__':
                 save_dir = os.path.join(save_dir_root, f'{i:02d}')
                 
         print('done.', 'Will be saved in\n' + save_dir)
-    
-        
+            
     arch = jvae.print_architecture()
     print(arch)
     print(jvae.print_architecture(True, True))

@@ -77,6 +77,7 @@ def get_args(argv=None):
     parser.add_argument('--decoder', type=alphanum, nargs='*')
     parser.add_argument('--upsampler', type=alphanum, nargs='*')
     parser.add_argument('--classifier', type=alphanum, nargs='*')
+    parser.add_argument('--no-classifier', action='store_true')
 
     parser.add_argument('--dataset', 
                         choices=['fashion', 'mnist', 'svhn', 'cifar10'])

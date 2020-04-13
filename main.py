@@ -104,8 +104,8 @@ if __name__ == '__main__':
     if not save_dir:
 
         save_dir_root = os.path.join(job_dir, dataset,
-                                     jvae.print_architecture(sampling=True),
-                                     f'{jvae.beta:1.2e}')
+                                     jvae.print_architecture(sampling=False),
+                                     f'{jvae.beta:1.2e}--sampling={latent_sampling}')
 
         i = 0
         save_dir = os.path.join(save_dir_root, f'{i:02d}')

@@ -792,7 +792,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
 if __name__ == '__main__':
 
-    argv = ['--debug', '-c', 'svhn',
+    argv = ['--debug',
+            # '-c', 'svhn',
+            '-c', 'cifar10-vgg16',
+            # '-K', '128',
+            '-L', '50',
+            '-m', '50',
+            '-b', '1e-6',
             '-j', 'test-jobs']
     
     args = get_args(argv)
@@ -879,7 +885,7 @@ if __name__ == '__main__':
                                                 features=features,
                                                 features_channels=features_channels,
                                                 conv_padding=conv_padding,
-                                                pretrained_features='vgg11.pth',
+                                                # pretrained_features='vgg11.pth',
                                                 encoder_layer_sizes=encoder,
                                                 latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
@@ -889,11 +895,11 @@ if __name__ == '__main__':
                                                 beta=beta,
                                                 output_activation=output_activation)
 
-        """
+    
         if not save_dir:
             save_dir_root = os.path.join(job_dir, dataset,
                                          jvae.print_architecture(),
-                                         f'{beta:.2e}')
+                                         f'beta={beta:.2e}--sampling={latent_sampling}--pretrained=decoder')
             i = 0
             save_dir = os.path.join(save_dir_root, f'{i:02d}')
             while os.path.exists(save_dir):
@@ -901,7 +907,7 @@ if __name__ == '__main__':
                 save_dir = os.path.join(save_dir_root, f'{i:02d}')
                 
         print('done.', 'Will be saved in\n' + save_dir)
-        """
+    
         
     arch = jvae.print_architecture()
     print(arch)
@@ -909,22 +915,44 @@ if __name__ == '__main__':
 
     jvae.to(device)
 
-    ae_dir = os.path.join('.', 'jobs', arch,
-                          f'beta={0:.2e}--saampling=1', '00')
-    autoencoder = ClassificationVariationalNetwork.load(jvae.load(ae_dir))
+    ae_dir = os.path.join('.', 'jobs',
+                          testset.name, arch,
+                          f'beta={0:.2e}--sampling=1',
+                          '00')
 
+    print(ae_dir, 'does', '' if os.path.exists(ae_dir) else 'not', 'exist')
+    
+    autoencoder = ClassificationVariationalNetwork.load(ae_dir)
+    feat_dict = autoencoder.features.state_dict()
+    up_dict = autoencoder.imager.upsampler.state_dict()
+    ae_dict = autoencoder.state_dict()
 
+    # jvae.load_state_dict(ae_dict)
+    # jvae.features.load_state_dict(feat_dict)
+    jvae.imager.upsampler.load_state_dict(up_dict)
+
+    """
+    for p in jvae.features.parameters():
+        p.requires_grad_(False)
+
+    """
+    for p in jvae.imager.upsampler.parameters():
+        p.requires_grad_(False)    
+    
+    
     out = jvae(x, y)
 
     for o in out:
         print(o.shape)
 
 
-    jvae2 = ClassificationVariationalNetwork.load('/tmp')
+    # jvae2 = ClassificationVariationalNetwork.load('/tmp')
     
     # print('\nTraining\n')
     # print(refit)
 
+    torch.cuda.empty_cache()
+    
     def train_the_net(epochs=3, **kw):
         jvae.train(trainset, epochs=epochs,
                    batch_size=batch_size,
@@ -934,9 +962,10 @@ if __name__ == '__main__':
                    mse_loss_weight=None,
                    x_loss_weight=None,
                    kl_loss_weight=None,
-                   save_dir='/tmp', **kw)
-
-    # train_the_net(100, latent_sampling=128, beta=1e-4)
+                   save_dir=save_dir,
+                   **kw)
+    
+    train_the_net(500, latent_sampling=latent_sampling, beta=beta)
     # jvae3 = ClassificationVariationalNetwork.load('/tmp')
     
     """

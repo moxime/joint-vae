@@ -3,10 +3,7 @@ import torch.utils.data
 from torch import nn, optim
 # from torch.nn import functional as F
 from utils.losses import x_loss, kl_loss, mse_loss
-import argparse, configparser
-import torchvision
-from torchvision import datasets, transforms
-from torchvision.utils import save_image
+
 from vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures
 from vae_layers import onehot_encoding
 
@@ -22,6 +19,7 @@ from utils.parameters import get_args
 import os.path
 import time
 
+import re
 
 DEFAULT_ACTIVATION = 'relu'
 # DEFAULT_OUTPUT_ACTIVATION = 'sigmoid'
@@ -428,7 +426,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return batch_loss
 
-    def train(self, trainset, optimizer=None, epochs=50,
+    def train(self,
+              trainset=None,
+              optimizer=None,
+              epochs=50,
               batch_size=100, device=None,
               testset=None,
               beta=None,
@@ -443,21 +444,37 @@ class ClassificationVariationalNetwork(nn.Module):
         """
 
         """
-        try:
-            set_name = trainset.name
-        except(AttributeError):
-            set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
-
-        if beta:
-            self.beta = beta
-
-        if latent_sampling:
-            self.latent_sampling = latent_sampling
         
+        assert self.trained or trainset
+        
+        if not self.trained:
+
+            try:
+                set_name = trainset.name
+            except(AttributeError):
+                set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
+
+            self.training = {'beta': beta if beta else self.beta,
+                             'mse_loss_weight': mse_loss_weight,
+                             'x_loss_weight': x_loss_weight,
+                             'kl_loss_weight': kl_loss_weight,
+                             'sampling': latent_sampling if latent_sampling
+                             else self.latent_sampling,
+                             'set': set_name,
+                             'epochs': epochs}
+        if not trainset:
+            set_name = self.training['set']
+            trainset, testset = torchdl.get_dataset(set_name)
+
+        # batch_size and epochs can be overiden
+        self.training['batch_size'] = batch_size
+        self.training['epochs'] = epochs
+
         device = choose_device(device)
 
         if optimizer is None:
             optimizer = self.optimizer
+
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,
                                                   shuffle=True, num_workers=0)
@@ -472,10 +489,6 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_loss'] = []
             self.train_history['test_accuracy'] = []
             self.train_history['train_accuracy'] = [] 
-            self.training = {'beta': self.beta,
-                             'sampling': self.latent_sampling,
-                             'set': set_name,
-                             'epochs': epochs}
             if x_loss_weight is not None:
                 self.training['x_loss_weight'] = x_loss_weight
         else:
@@ -651,6 +664,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if beta:
             s += f'--beta={self.beta:1.2e}'
 
+        if sampling:
+            s += f'--sampling={self.latent_sampling}'
+
         return s
 
     def save(self, dir_name=None):
@@ -673,13 +689,18 @@ class ClassificationVariationalNetwork(nn.Module):
     @classmethod
     def load(cls, dir_name,
              load_state = True,
+             load_train = True,
              verbose=1,
              default_output_activation=DEFAULT_OUTPUT_ACTIVATION):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
         params = save_load.load_json(dir_name, 'params.json')
-        train_params = save_load.load_json(dir_name, 'train.json')
+
+        if load_train:
+            train_params = save_load.load_json(dir_name, 'train.json')
+        else:
+            train_params = {'beta': 1e-4, 'sampling': 64}
 
         if load_state:
             try:
@@ -688,10 +709,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 train_history = {'epochs': 0}
         else:
             train_history = {'epochs': 0}
-
-        if not train_params:
-            train_params = {'beta': 1e-4,
-                            'sampling': 64}
 
         if not params['features']:
             params['features'] = {}
@@ -915,11 +932,15 @@ if __name__ == '__main__':
     print(arch)
     print(jvae.print_architecture(True, True))
 
+    pattern='classifier=([0-9]+\-)*[0-9]+'
+    re.sub(pattern, 'classifier=.', arch)
+    vae_arch = re.sub(arch)   
+    
     jvae.to(device)
 
     ae_dir = os.path.join('.', 'jobs',
-                          testset.name, arch,
-                          f'beta={0:.2e}--sampling=1',
+                          testset.name, vae_arch,
+                          f'beta={beta:.2e}--sampling={latent_sampling}',
                           '00')
 
     print(ae_dir, 'does', '' if os.path.exists(ae_dir) else 'not', 'exist')

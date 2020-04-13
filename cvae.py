@@ -450,7 +450,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if beta:
             self.beta = beta
-        
+
         if latent_sampling:
             self.latent_sampling = latent_sampling
         
@@ -476,6 +476,8 @@ class ClassificationVariationalNetwork(nn.Module):
                              'sampling': self.latent_sampling,
                              'set': set_name,
                              'epochs': epochs}
+            if x_loss_weight is not None:
+                self.training['x_loss_weight'] = x_loss_weight
         else:
             assert self.beta == self.training['beta']
             assert self.latent_sampling == self.training['sampling']

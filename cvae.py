@@ -446,13 +446,15 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         
         assert self.trained or trainset
-        
-        if not self.trained:
 
+        if trainset:
+        
             try:
                 set_name = trainset.name
             except(AttributeError):
                 set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
+
+        if not self.trained:
 
             self.training = {'beta': beta if beta else self.beta,
                              'mse_loss_weight': mse_loss_weight,
@@ -812,11 +814,11 @@ class ClassificationVariationalNetwork(nn.Module):
 if __name__ == '__main__':
 
     argv = ['--debug',
-            # '-c', 'svhn',
-            '-c', 'cifar10-vgg16',
+            '-c', 'svhn',
+            # '-c', 'cifar10-vgg16',
             # '-K', '128',
-            '-L', '50',
-            '-m', '50',
+            # '-L', '50',
+            # '-m', '50',
             '-b', '1e-6',
             '-j', 'test-jobs']
     
@@ -919,7 +921,7 @@ if __name__ == '__main__':
         if not save_dir:
             save_dir_root = os.path.join(job_dir, dataset,
                                          jvae.print_architecture(),
-                                         f'beta={beta:.2e}--sampling={latent_sampling}--pretrained=decoder')
+                                         f'beta={beta:.2e}--sampling={latent_sampling}--pretrained=both')
             i = 0
             save_dir = os.path.join(save_dir_root, f'{i:02d}')
             while os.path.exists(save_dir):
@@ -933,17 +935,16 @@ if __name__ == '__main__':
     print(jvae.print_architecture(True, True))
 
     pattern='classifier=([0-9]+\-)*[0-9]+'
-    re.sub(pattern, 'classifier=.', arch)
-    vae_arch = re.sub(arch)   
+    vae_arch = re.sub(pattern, 'classifier=.', arch)
     
     jvae.to(device)
 
     ae_dir = os.path.join('.', 'jobs',
                           testset.name, vae_arch,
-                          f'beta={beta:.2e}--sampling={latent_sampling}',
+                          f'vae-beta={beta:.2e}--sampling={latent_sampling}',
                           '00')
 
-    print(ae_dir, 'does', '' if os.path.exists(ae_dir) else 'not', 'exist')
+    print(ae_dir, 'does' + ('' if os.path.exists(ae_dir) else ' not'), 'exist')
     
     autoencoder = ClassificationVariationalNetwork.load(ae_dir)
     feat_dict = autoencoder.features.state_dict()
@@ -951,17 +952,17 @@ if __name__ == '__main__':
     ae_dict = autoencoder.state_dict()
 
     # jvae.load_state_dict(ae_dict)
-    # jvae.features.load_state_dict(feat_dict)
+    jvae.features.load_state_dict(feat_dict)
     jvae.imager.upsampler.load_state_dict(up_dict)
 
-    """
     for p in jvae.features.parameters():
         p.requires_grad_(False)
 
-    """
     for p in jvae.imager.upsampler.parameters():
         p.requires_grad_(False)    
     
+    """
+    """
     
     out = jvae(x, y)
 

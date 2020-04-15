@@ -815,7 +815,7 @@ class ClassificationVariationalNetwork(nn.Module):
 if __name__ == '__main__':
 
     argv = ['--debug',
-            '--force_cpu',
+            # '--force_cpu',
             '-c', 'cifar-ola',
             # '-c', 'svhn',
             # '-c', 'cifar10-vgg16',
@@ -966,6 +966,7 @@ if __name__ == '__main__':
         for p in jvae.imager.upsampler.parameters():
             p.requires_grad_(False)    
     else:
+        pass
         warnings.warn('Trained autoencoder does not exist')
     """
     """

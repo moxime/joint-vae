@@ -712,7 +712,7 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             train_history = {'epochs': 0}
 
-        if not params['features']:
+        if not params.get('features', None):
             params['features'] = {}
             
         vae = cls(input_shape=params['input'],
@@ -814,6 +814,7 @@ class ClassificationVariationalNetwork(nn.Module):
 if __name__ == '__main__':
 
     argv = ['--debug',
+            '--force_cpu',
             '-c', 'svhn',
             # '-c', 'cifar10-vgg16',
             # '-K', '128',

@@ -1,3 +1,4 @@
+import warnings
 import torch
 import torch.utils.data
 from torch import nn, optim
@@ -815,12 +816,13 @@ if __name__ == '__main__':
 
     argv = ['--debug',
             '--force_cpu',
-            '-c', 'svhn',
+            '-c', 'cifar-ola',
+            # '-c', 'svhn',
             # '-c', 'cifar10-vgg16',
             # '-K', '128',
             # '-L', '50',
             # '-m', '50',
-            '-b', '1e-6',
+            '-b', '1e-4',
             '-j', 'test-jobs']
     
     args = get_args(argv)
@@ -964,7 +966,7 @@ if __name__ == '__main__':
         for p in jvae.imager.upsampler.parameters():
             p.requires_grad_(False)    
     else:
-        raise Warning('Trained autoencoder does not exist')
+        warnings.warn('Trained autoencoder does not exist')
     """
     """
     

@@ -97,7 +97,7 @@ class VGGFeatures(nn.Sequential):
                 w = w // 2
             else:
                 layers += [nn.Conv2d(in_channels, x, kernel_size=3, padding=1),
-                           nn.BatchNorm2d(x),
+                           # nn.BatchNorm2d(x),
                            nn.ReLU(inplace=True)]
                 in_channels = x
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
@@ -140,7 +140,7 @@ class ConvFeatures(nn.Sequential):
         for channel in channels:
             layers.append(nn.Conv2d(in_channels, channel, kernel,
                                     stride=2, padding=padding))
-            layers.append(nn.BatchNorm2d(channel))
+            # layers.append(nn.BatchNorm2d(channel))
             layers.append(activation_layer)
             h = h//2
             w = w//2
@@ -272,7 +272,7 @@ class ConvDecoder(nn.Module):
         for output_channels in channels:
             layers += [nn.ConvTranspose2d(input_channels, output_channels,
                                           4, stride=2, padding=1),
-                       nn.BatchNorm2d(output_channels),
+                       # nn.BatchNorm2d(output_channels),
                        nn.ReLU(inplace=True)]
             input_channels = output_channels
 

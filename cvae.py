@@ -945,23 +945,26 @@ if __name__ == '__main__':
                           f'vae-beta={beta:.2e}--sampling={latent_sampling}',
                           '00')
 
-    print(ae_dir, 'does' + ('' if os.path.exists(ae_dir) else ' not'), 'exist')
-    
-    autoencoder = ClassificationVariationalNetwork.load(ae_dir)
-    feat_dict = autoencoder.features.state_dict()
-    up_dict = autoencoder.imager.upsampler.state_dict()
-    ae_dict = autoencoder.state_dict()
+    trained_ae_exists = os.path.exists(ae_dir)
+    print(ae_dir, 'does' + ('' if trained_ae_exists else ' not'), 'exist')
 
-    # jvae.load_state_dict(ae_dict)
-    jvae.features.load_state_dict(feat_dict)
-    jvae.imager.upsampler.load_state_dict(up_dict)
+    if trained_ae_exists:
+        autoencoder = ClassificationVariationalNetwork.load(ae_dir)
+        feat_dict = autoencoder.features.state_dict()
+        up_dict = autoencoder.imager.upsampler.state_dict()
+        ae_dict = autoencoder.state_dict()
 
-    for p in jvae.features.parameters():
-        p.requires_grad_(False)
-
-    for p in jvae.imager.upsampler.parameters():
-        p.requires_grad_(False)    
-    
+        # jvae.load_state_dict(ae_dict)
+        jvae.features.load_state_dict(feat_dict)
+        jvae.imager.upsampler.load_state_dict(up_dict)
+        
+        for p in jvae.features.parameters():
+            p.requires_grad_(False)
+            
+        for p in jvae.imager.upsampler.parameters():
+            p.requires_grad_(False)    
+    else:
+        raise Warning('Trained autoencoder does not exist')
     """
     """
     
@@ -976,8 +979,6 @@ if __name__ == '__main__':
     # print('\nTraining\n')
     # print(refit)
 
-    torch.cuda.empty_cache()
-    
     def train_the_net(epochs=3, **kw):
         jvae.train(trainset, epochs=epochs,
                    batch_size=batch_size,
@@ -990,7 +991,7 @@ if __name__ == '__main__':
                    save_dir=save_dir,
                    **kw)
     
-    train_the_net(500, latent_sampling=latent_sampling, beta=beta)
+    # train_the_net(500, latent_sampling=latent_sampling, beta=beta)
     # jvae3 = ClassificationVariationalNetwork.load('/tmp')
     
     """

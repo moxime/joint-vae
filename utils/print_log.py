@@ -67,14 +67,14 @@ def print_results(i, per_epoch, epoch, epochs,
                                 for k in loss_types)
 
     if epoch == -2:
-        length = len('|'.join(f'{k:^8}' for k in acc_methods)) 
+        length = len('|'.join(f'{k:^9}' for k in acc_methods)) 
         acc_str = '|' + f'{"accuracy":_^{length}}'
     elif epoch == -1: 
-        acc_str = '|' + '|'.join(f'{k:^8}' for k in acc_methods)
+        acc_str = '|' + '|'.join(f'{k:^9}' for k in acc_methods)
     elif accuracies:
-        acc_str = '|' + '|'.join(f' {accuracies[k]:6.2%} ' for k in acc_methods)
+        acc_str = '|' + '|'.join(f' {accuracies[k]:7.2%} ' for k in acc_methods)
     else:
-        acc_str = '|' + '|'.join(8 * ' ' for k in acc_methods)
+        acc_str = '|' + '|'.join(9 * ' ' for k in acc_methods)
         
     if time_per_i > 0:
         time_per_i = Time(time_per_i)

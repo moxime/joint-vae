@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import numpy as np
 import torch
 from cvae import ClassificationVariationalNetwork as CVNet
 import data.torch_load as torchdl
@@ -32,8 +33,8 @@ features_channels = args.features_channels
 
 output_activation = args.output_activation
 
-vae = args.no_classifier
-classifier = args.classifier if not vae else []
+train_vae= args.vae
+classifier = args.classifier if not train_vae else []
 
 dataset = args.dataset
 transformer = args.transformer
@@ -56,6 +57,16 @@ if __name__ == '__main__':
     
     trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
 
+    if train_vae:
+        for the_set in (trainset, testset):
+            new_labels = np.zeros(len(the_set))
+            if hasattr(the_set, 'targets'):
+                the_set.targets = new_labels
+            elif hasattr(the_set, 'labels'):
+                the_set.labels = new_labels
+            else:
+                raise AttributeError(f'labels or targets is not an attribute of {the_set.name}')
+                
     trainloader = torch.utils.data.DataLoader(trainset,
                                               batch_size=batch_size,
                                               shuffle=True,
@@ -64,6 +75,7 @@ if __name__ == '__main__':
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                              shuffle=True, num_workers=0)
 
+    
     test_batch = next(iter(testloader))
     x, y = test_batch[0].to(device), test_batch[1].to(device)
 
@@ -104,7 +116,7 @@ if __name__ == '__main__':
 
     if not save_dir:
 
-        beta_ = 'vae-beta=' if vae else 'beta='
+        beta_ = 'vae-beta=' if train_vae else 'beta='
         save_dir_root = os.path.join(job_dir, dataset,
                                      jvae.print_architecture(sampling=False),
                                      beta_ + f'{jvae.beta:1.2e}' +
@@ -140,7 +152,7 @@ if __name__ == '__main__':
                testset=testset,
                sample_size=test_sample_size,  # 10000,
                mse_loss_weight=None,
-               x_loss_weight= 0 if vae else None,
+               x_loss_weight= 0 if train_vae else None,
                kl_loss_weight=None,
                save_dir=save_dir)
 

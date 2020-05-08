@@ -816,8 +816,10 @@ if __name__ == '__main__':
 
     argv = ['--debug',
             # '--force_cpu',
-            '-c', 'cifar-ola',
+            # '-c', 'cifar-ola',
+            '-c', 'fashion-conv-code-linear-decode', 
             # '-c', 'svhn',
+            # '-c', '',
             # '-c', 'cifar10-vgg16',
             # '-K', '128',
             # '-L', '50',
@@ -851,7 +853,7 @@ if __name__ == '__main__':
     output_activation = args.output_activation
 
     classifier = args.classifier
-    vae = args.no_classifier
+    train_vae = args.vae
 
     dataset = args.dataset
     transformer = args.transformer

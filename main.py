@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     if train_vae:
         for the_set in (trainset, testset):
-            new_labels = np.zeros(len(the_set))
+            new_labels = np.zeros(len(the_set), dtype=int)
             if hasattr(the_set, 'targets'):
                 the_set.targets = new_labels
             elif hasattr(the_set, 'labels'):

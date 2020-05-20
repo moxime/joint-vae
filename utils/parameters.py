@@ -60,10 +60,20 @@ def get_args(argv=None):
                         help=help)
 
     parser.add_argument('--force_cpu', action='store_true')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='will show you what it would do')
 
-    parser.add_argument('-b', '--beta', type=float, metavar='ß')
+    parser.add_argument('-b', '--beta',
+                        type = float,
+                        # type=alphanum,
+                        metavar='ß') #,
+                        # nargs='*',
+                        # help='several values can be provided for several trainings')
 
-    parser.add_argument('-K', '--latent_dim', metavar='K', type=int)
+    parser.add_argument('-K', '--latent_dim', metavar='K',
+                        type=int)
+                        # type=alphanum, nargs='*',
+                        # help='several dims can be provided for several trainings')
     parser.add_argument('-L', '--latent_sampling', metavar='L', type=int)
 
     parser.add_argument('--features', metavar='NAME',

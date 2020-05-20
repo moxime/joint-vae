@@ -1,4 +1,4 @@
-import warnings
+import logging
 import torch
 import torch.utils.data
 from torch import nn, optim
@@ -173,8 +173,15 @@ class ClassificationVariationalNetwork(nn.Module):
             self.architecture['features'] = features_arch
 
         self.trained = 0
-        self.training = None # {'beta': beta, 'sampling': latent_sampling}
-        
+        self.training = None # 
+        self.training = {'beta': beta,
+                         'sampling': latent_sampling,
+                         'set': None,
+                         'epochs': 0,
+                         'kl_loss_weight': None,
+                         'mse_loss_weight': None,
+                         'batch_size': None}
+
         # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
 
@@ -192,7 +199,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.mse_loss_weight = 1
 
         self.z_output = False
-
+        
     def forward(self, x, y, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
 
@@ -445,9 +452,9 @@ class ClassificationVariationalNetwork(nn.Module):
         """
 
         """
-        
-        assert self.trained or trainset
-
+        if epochs:
+            self.training['epochs'] = epochs
+            
         if trainset:
         
             try:
@@ -455,23 +462,42 @@ class ClassificationVariationalNetwork(nn.Module):
             except(AttributeError):
                 set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
 
-        if not self.trained:
+        if self.trained:
+            logging.info(f'Network partially trained ({self.trained} epochs)')
+            logging.debug('Ignoring parameters (except for epochs)')
+            mse_loss_weight = self.training['mse_loss_weight']
+            x_loss_weight = self.training['x_loss_weight']
+            kl_loss_weight = self.training['kl_loss_weight']
+            
+        else:
 
-            self.training = {'beta': beta if beta else self.beta,
-                             'mse_loss_weight': mse_loss_weight,
-                             'x_loss_weight': x_loss_weight,
-                             'kl_loss_weight': kl_loss_weight,
-                             'sampling': latent_sampling if latent_sampling
-                             else self.latent_sampling,
-                             'set': set_name,
-                             'epochs': epochs}
-        if not trainset:
-            set_name = self.training['set']
-            trainset, testset = torchdl.get_dataset(set_name)
+            if trainset:
+                self.training['set'] = set_name
+                ss = trainset.data[0].shape
+                ns = self.input_shape
+                logging.debug(f'Shapes : {ss} / {ns}')
+                assert ns == ss or ss == ns[1:]
+        
+            if beta:
+                self.beta = beta
+            self.training['beta'] = self.beta
 
-        # batch_size and epochs can be overiden
-        self.training['batch_size'] = batch_size
-        self.training['epochs'] = epochs
+            if batch_size:
+                self.training['batch_size'] = batch_size
+
+            if latent_sampling:
+                self.latent_sampling = latent_sampling
+            self.training['latent_sampling'] = self.latent_sampling
+
+            self.training['x_loss_weight'] = x_loss_weight
+            self.training['kl_loss_weight'] = kl_loss_weight
+            self.training['mse_loss_weight'] = mse_loss_weight
+        
+        assert self.training['set']
+
+        set_name = self.training['set']
+        logging.debug(f'Loading {set_name}')
+        trainset, testset = torchdl.get_dataset(set_name)
 
         device = choose_device(device)
 
@@ -492,12 +518,6 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_loss'] = []
             self.train_history['test_accuracy'] = []
             self.train_history['train_accuracy'] = [] 
-            if x_loss_weight is not None:
-                self.training['x_loss_weight'] = x_loss_weight
-        else:
-            assert self.beta == self.training['beta']
-            assert self.latent_sampling == self.training['sampling']
-            assert self.training['set'] == set_name
             
         print_results(0, 0, -2, epochs)
         print_results(0, 0, -1, epochs)
@@ -574,11 +594,11 @@ class ClassificationVariationalNetwork(nn.Module):
             if save_dir:
                 self.save(save_dir)
 
-        print('\nFinished Training')
+        logging.info('Finished training')
 
     def summary(self):
 
-        print('SUMMARY FUNCTION NOT IMPLEMENTED')
+        logging.warning('SUMMARY FUNCTION NOT IMPLEMENTED')
 
     @property
     def beta(self):
@@ -617,7 +637,7 @@ class ClassificationVariationalNetwork(nn.Module):
             dir = '.'
 
         def _plot(net):
-            print(f'PLOT HAS TO BE IMPLEMENTED WITH TB')
+            logging.warning(f'PLOT HAS TO BE IMPLEMENTED WITH TB')
             # f_p = save_load.get_path(dir, net.name+suffix)
             # plot_model(net, to_file=f_p, show_shapes=show_shapes,
             #            show_layer_names=show_layer_names,
@@ -639,6 +659,18 @@ class ClassificationVariationalNetwork(nn.Module):
         out = out and self.latent_sampling == other_net.latent_sampling
         # print(out)
         return out
+
+    def print_training(self, epochs=None, set=None):
+
+        done_epochs = self.trained
+        if not epochs:
+            epochs = self.training['epochs']
+        beta = self.training['beta']
+        sampling = self.training['sampling']
+        if not set:
+            set = self.training['set']
+        s = f'{set}: {beta:.1e} -- L={sampling} {done_epochs}/{epochs}'
+        return s
 
     def print_architecture(self, beta=False, sampling=False):
 
@@ -817,7 +849,7 @@ if __name__ == '__main__':
     argv = ['--debug',
             # '--force_cpu',
             # '-c', 'cifar-ola',
-            '-c', 'fashion-conv-code-linear-decode', 
+            # '-c', 'fashion-conv-code-linear-decode', 
             # '-c', 'svhn',
             # '-c', '',
             # '-c', 'cifar10-vgg16',
@@ -826,7 +858,7 @@ if __name__ == '__main__':
             # '-m', '50',
             '-b', '1e-4',
             '-j', 'test-jobs']
-    
+    argv = None
     args = get_args(argv)
 
     debug = args.debug
@@ -860,10 +892,11 @@ if __name__ == '__main__':
 
     refit = args.refit
     load_dir = args.load_dir
+    print(f'**** LOAD {load_dir} ****')
     save_dir = load_dir if not refit else None
     job_dir = args.job_dir
     
-    load_dir = None
+    # load_dir = None
     save_dir = load_dir
     rebuild = load_dir is None
 
@@ -902,6 +935,7 @@ if __name__ == '__main__':
             done_epochs = jvae.train_history['epochs']
             verb = 'resuming' if done_epochs else 'starting'
             print(f'{verb} training since epoch {done_epochs}')
+            print(jvae.print_training())
         except(FileNotFoundError, NameError) as err:
             print(f'*** NETWORK NOT LOADED -- REBUILDING bc of {err} ***')
             rebuild = True
@@ -969,7 +1003,7 @@ if __name__ == '__main__':
             p.requires_grad_(False)    
     else:
         pass
-        warnings.warn('Trained autoencoder does not exist')
+        logging.warning('Trained autoencoder does not exist')
     """
     """
     

@@ -1,7 +1,7 @@
 import os
 import pickle
 import json
-from tensorflow.keras.models import load_model
+
 
 # from cvae import ClassificationVariationalNetwork
 
@@ -23,11 +23,6 @@ def save_net(net, dir_name, file_name):
     file_path = full_path(dir_name, file_name)
     net.save(file_path)
 
-    
-def load_net(dir_name, file_name):
-
-    file_path = full_path(dir_name, file_name)
-    return load_model(file_path)
     
 
 def save_json(d, dir_name, file_name, create_dir=True):
@@ -93,6 +88,7 @@ def get_path_from_input(dir_path=os.getcwd()):
 
 def collect_networks(directory,
                      list_of_vae_by_architectures,
+                     like=None,
                      only_trained=True,
                      testset=None,
                      oodset=None,
@@ -107,6 +103,9 @@ def collect_networks(directory,
     from cvae import ClassificationVariationalNetwork
     from roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
 
+    if like:
+        list_of_vae_by_architectures = [[{'net': like}]]
+    
     def append_by_architecture(net_dict, list_of_lists):
         
         net = net_dict['net']
@@ -131,7 +130,8 @@ def collect_networks(directory,
     try:
         vae = ClassificationVariationalNetwork.load(directory,
                                                     **default_load_paramaters)
-        print('net found in', directory)
+        if verbose:
+            print('net found in', directory)
         vae_dict = {'net': vae}
         vae_dict['beta'] = vae.beta
         vae_dict['dir'] = directory
@@ -225,6 +225,9 @@ def collect_networks(directory,
                          verbose=verbose,
                          **default_load_paramaters)
 
+    if like:
+        list_of_vae_by_architectures[0].pop(0)
+        list_of_vae_by_architectures = [list_of_vae_by_architectures[0]]
         
 def load_and_save(directory, output_directory=None, **kw):
     """ load the incomplete params (with default missing parameter

@@ -25,12 +25,6 @@ beta = args.beta
 latent_sampling = args.latent_sampling
 latent_dim = args.latent_dim
 
-# meta_parameter = []
-# for beta in betas:
-#     for latent_dim in latent_dims:
-#         meta_parameter.append({'beta': beta,
-#                                'latent_dim': latent_dim})
-
 features = args.features
 
 encoder = args.encoder

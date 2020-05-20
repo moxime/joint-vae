@@ -476,7 +476,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 ss = trainset.data[0].shape
                 ns = self.input_shape
                 logging.debug(f'Shapes : {ss} / {ns}')
-                assert ns == ss or ss == ns[1:]
+                # assert ns == ss or ss == ns[1:]
         
             if beta:
                 self.beta = beta

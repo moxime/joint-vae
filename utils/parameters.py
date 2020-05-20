@@ -23,10 +23,12 @@ def get_args(argv=None):
     conf_parser.add_argument('--verbose', '-v', action='count')
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--config', '-c', default='DEFAULT')
+    conf_parser.add_argument('--grid-file', default='grid.ini')
 
     conf_args, remaining_args = conf_parser.parse_known_args(argv)
     config = configparser.ConfigParser()
     config.read(conf_args.config_file)
+
 
     config_params = config[conf_args.config]
 
@@ -111,6 +113,8 @@ def get_args(argv=None):
                         help=help,
                         nargs='?', default=None)
 
+    parser.add_argument('--grid-config', default=None)
+    
     args = parser.parse_args(remaining_args)
 
     args.debug = conf_args.debug
@@ -121,12 +125,35 @@ def get_args(argv=None):
     if args.features.lower() == 'none' or args.no_features:
         args.features=None
 
-    return args
+    if args.grid_config:
+        config = configparser.ConfigParser()
+        config.read(args.grid_file)
+
+        grid_params = config[args.grid_config]
+
+        list_of_args = [args]
+        for param_name in grid_params:
+            final_list_of_args = []
+            # print(param_name)
+            param_values = list_of_alphanums(grid_params[param_name])
+            # print(param_values)
+            for args in list_of_args:
+                for value in param_values:
+                    d = vars(args)
+                    d[param_name] = value
+                    final_list_of_args.append(argparse.Namespace(**d))
+            list_of_args = final_list_of_args.copy()
+        # creates a list of args
+
+        return list_of_args
     
+    return [args]
 
 
 if __name__ == '__main__':
 
-    args = get_args()
-    for k in args.__dict__.items():
-        print(*k)
+    list_of_args = get_args()
+    for args in list_of_args:
+        for k in args.__dict__.items():
+            print(*k)
+

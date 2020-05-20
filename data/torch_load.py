@@ -124,6 +124,13 @@ def get_batch(dataset, shuffle=True, batch_size=100, device=None):
     
     return data[0].to(device), data[1].to(device)
 
+def get_shape(dataset):
+    loader = torch.utils.data.DataLoader(dataset,
+                                         batch_size=1)
+
+    data = next(iter(loader))
+    return tuple(data[0][0].shape)
+
 def show_images(imageset, shuffle=True, num=4, **kw):
 
     loader = torch.utils.data.DataLoader(imageset,

@@ -149,7 +149,20 @@ def get_args(argv=None):
     
     return [args]
 
+def same_dict(d1, d2):
 
+    result = True
+    for k in tuple(d1.keys()) + tuple(d2.keys()):
+        if not d1.get(k, 0):
+            if d2.get(k, 0):
+                return False
+        elif not d2.get(k, 0):
+            return False
+        elif d1[k] != d2[k]:
+            return False
+
+    return True
+        
 if __name__ == '__main__':
 
     list_of_args = get_args()

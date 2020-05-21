@@ -1,5 +1,34 @@
 import argparse
 import configparser
+import logging 
+
+
+def get_log(verbose, debug):
+    
+    log = logging.getLogger('')
+    log.setLevel(0)
+    if (log.hasHandlers()):
+        log.handlers.clear()
+
+    h_formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+    formatter = logging.Formatter('[%(levelname).1s] %(message)s')
+    stream_handler = logging.StreamHandler()
+    log_level = logging.WARNING
+    if verbose:
+        log_level = logging.INFO
+    if debug:
+        log_level = logging.DEBUG
+
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(log_level)
+    log.addHandler(stream_handler)
+
+    log.error('not an error, just showing what logs look like')
+    log.info('Verbose is on')
+    log.debug(f'Debug is on')
+
+    return log
+
 
 def alphanum(x):
     try:
@@ -9,7 +38,6 @@ def alphanum(x):
             return float(x)
         except(ValueError):
             return x
-
 
 def list_of_alphanums(string):
 
@@ -98,13 +126,18 @@ def get_args(argv=None):
                         choices=['simple', 'normal', 'default'],
                         help='transform data, simple : 0--1, normal 0 +/- 1')
 
-    help = 'Force refit of a net with same architecture'
+    help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'
     # help += '(may have a different beta)'
-    parser.add_argument('-F', '--refit', action='store_true')
+    parser.add_argument('-R', '--refit', action='store_true')
 
-    help = 'save train(ing|ed) network in job-r/<architecture/i>'
+    help = 'Find and finish begun trainings'
+    parser.add_argument('-F', '--finish', default=None, const=1,
+                        nargs='?',
+                        type=int, help=help) 
+    
+    help = 'save train(ing|ed) network in DIR/<architecture/i>'
     help += 'unless load_dir is specified'
-    parser.add_argument('-j', '--job_dir',
+    parser.add_argument('-j', '--job_dir', metavar='DIR',
                         help=help)
 
     help = 'where to load the network'

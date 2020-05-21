@@ -129,6 +129,8 @@ def get_shape(dataset):
                                          batch_size=1)
 
     data = next(iter(loader))
+    num_labels = len(torch.unique(data[1]))
+
     return tuple(data[0][0].shape)
 
 def show_images(imageset, shuffle=True, num=4, **kw):

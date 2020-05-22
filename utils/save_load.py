@@ -258,3 +258,37 @@ def load_and_save(directory, output_directory=None, **kw):
             print('L:', d['net'].print_architecture())
             print('S:', v.print_architecture())
     return list_of_vae
+
+
+def load_and_save_json(directory, write_json=False):
+
+    name = os.path.join(directory, 'train.json')
+    if os.path.exists(name):
+        #        print(name)
+        with open(name, 'rb') as f:
+
+            try:
+                t = json.load(f)
+            except json.JSONDecodeError:
+                print(name)
+                t = dict()
+
+        if 'sampling' in t.keys():
+            print(t['sampling'], t.get('latent_sampling', -1))
+            t['latent_sampling'] = t.pop('sampling')
+            print('r', write_json, name, '\n', t)
+
+            if write_json:
+                print('w', name, '\n', t)
+                with open(name, 'w') as f:
+                    json.dump(t, f)
+
+
+    rel_paths = os.listdir(directory)
+    paths = [os.path.join(directory, p) for p in rel_paths]
+
+    dirs = [d for d in paths if os.path.isdir(d)]
+
+    for d in dirs:
+        load_and_save_json(d,write_json=write_json)
+

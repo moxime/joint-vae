@@ -14,8 +14,10 @@ def set_log(verbose, debug):
     formatter = logging.Formatter('[%(levelname).1s] %(message)s')
     stream_handler = logging.StreamHandler()
     file_handler = RotatingFileHandler('./log/train-py.log',
-                                       maxBytes=20000,
+                                       maxBytes=500000,
                                        backupCount=10)
+
+    file_handler.doRollover()
     dump_file_handler = RotatingFileHandler('./log/dump.log',
                                             maxBytes=1, backupCount=20)
     log_level = logging.WARNING
@@ -195,6 +197,8 @@ def get_args(argv=None):
         config.read(args.grid_file)
 
         grid_params = config[args.grid_config]
+
+        args.repeat = grid_params.pop('repeat', 1)
 
         list_of_args = [args]
         for param_name in grid_params:

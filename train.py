@@ -44,6 +44,7 @@ if __name__ == '__main__':
 
         for args in list_of_args:
 
+            args.already_trained = []
             beta = args.beta
 
             latent_sampling = args.latent_sampling
@@ -103,11 +104,15 @@ if __name__ == '__main__':
                               # n['net'].training)
                     if same_arch and same_train:
                         s = 'Found alreay trained '
-                        beta = d_o_n['beta']
-                        epochs = d_o_n['net'].trained
+                        beta = n['beta']
+                        epochs = n['net'].trained
                         s += f'{beta:1.3e} ({epochs} epochs) '
-                        log.info(s)
+                        log.debug(s)
+                        args.already_trained.append({'dir': n['dir'], 'epochs': n['net'].trained})
 
+            sorted(args.already_trained, key=lambda i: i['epochs'], reverse=True)
+            log.info(f'{len(args.already_trained)} already trainend (%s)',
+                     ' '.join([str(i['epochs']) for i in args.already_trained]))
     
     for args in list_of_args:
 
@@ -250,7 +255,7 @@ if __name__ == '__main__':
                        save_dir=save_dir)
             log.info('Done training')
         else:
-            log.info(jvae.print_training(epochs=epochs, set=trainset.name))
+            log.info('Dry-run %s', jvae.print_training(epochs=epochs, set=trainset.name))
 
 
         if save_dir is not None and not dry_run:

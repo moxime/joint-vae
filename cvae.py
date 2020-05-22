@@ -678,7 +678,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         for (t, t_) in ((t1, to), (to, t1)):
             for k in [i for i in t if i not in excludes]:
-                logging.debug(f'*** TBR {k}')
+                # logging.debug(f'*** TBR {k}')
                 if t[k] and t[k] != t_.get(k, None):
                     return False
                 if not t[k] and t_.get(k, None):

@@ -175,7 +175,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.trained = 0
         self.training = None # 
         self.training = {'beta': beta,
-                         'sampling': latent_sampling,
+                         'latent_sampling': latent_sampling,
                          'set': None,
                          'epochs': 0,
                          'kl_loss_weight': None,
@@ -650,23 +650,49 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def has_same_architecture(self, other_net):
 
-        out = True
+        a1 = self.print_architecture(sampling=True)
+        a2 = other_net.print_architecture(sampling=True)
+        # logging.debug(f'Comparing {a1}')
+        # logging.debug(f'with      {a2}')  
 
-        out = out and self.activation == other_net.activation
-        # print(out)
-        out = out and self._sizes_of_layers == other_net._sizes_of_layers
-        # print(out)
-        out = out and self.latent_sampling == other_net.latent_sampling
-        # print(out)
-        return out
+        if self.activation != other_net.activation:
+            return False
+        ls = self._sizes_of_layers
+        ls_ = other_net._sizes_of_layers
+        if len(ls) != len(ls_):
+            return False
+        for s, s_ in zip(ls, ls_):
+            if (np.array(s) != np.array(s_)).any():
+                return False
+        if self.latent_sampling != other_net.latent_sampling:
+            return False
 
+        # logging.debug('And they are the same')
+        return True
+
+    def has_same_training(self, other,
+                          excludes=('epochs', 'batch_size', 'sampling')):
+
+        t1 = self.training
+        to = other.training
+
+        for (t, t_) in ((t1, to), (to, t1)):
+            for k in [i for i in t if i not in excludes]:
+                logging.debug(f'*** TBR {k}')
+                if t[k] and t[k] != t_.get(k, None):
+                    return False
+                if not t[k] and t_.get(k, None):
+                    return False
+
+        return True
+    
     def print_training(self, epochs=None, set=None):
 
         done_epochs = self.trained
         if not epochs:
             epochs = self.training['epochs']
         beta = self.training['beta']
-        sampling = self.training['sampling']
+        sampling = self.training['latent_sampling']
         if not set:
             set = self.training['set']
         s = f'{set}: {beta:.1e} -- L={sampling} {done_epochs}/{epochs}'
@@ -686,8 +712,8 @@ class ClassificationVariationalNetwork(nn.Module):
         s = f'output={self.output_activation}--'
         s += f'activation={self.activation}--'
         s += f'latent-dim={self.latent_dim}--'
-        if sampling:
-            s += f'sampling={self.latent_sampling}--'
+        # if sampling:
+        #    s += f'sampling={self.latent_sampling}--'
         if features:
             s += f'features={features}--'
         s += f'encoder={_l2s(self.encoder_layer_sizes)}--'
@@ -735,7 +761,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if load_train:
             train_params = save_load.load_json(dir_name, 'train.json')
         else:
-            train_params = {'beta': 1e-4, 'sampling': 64}
+            train_params = {'beta': 1e-4, 'latent_sampling': 64}
 
         if load_state:
             try:
@@ -754,7 +780,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   latent_dim=params['latent_dim'],
                   decoder_layer_sizes=params['decoder'],
                   classifier_layer_sizes=params['classifier'],
-                  latent_sampling=train_params['sampling'],
+                  latent_sampling=train_params['latent_sampling'],
                   activation=params['activation'],
                   beta=train_params['beta'],
                   upsampler_channels=params['upsampler'],
@@ -972,9 +998,10 @@ if __name__ == '__main__':
 
     
         if not save_dir:
+            bs = f'beta={beta:.2e}--sampling={latent_sampling}--pretrained=both'
             save_dir_root = os.path.join(job_dir, dataset,
                                          jvae.print_architecture(),
-                                         f'beta={beta:.2e}--sampling={latent_sampling}--pretrained=both')
+                                         bs)
             i = 0
             save_dir = os.path.join(save_dir_root, f'{i:02d}')
             while os.path.exists(save_dir):

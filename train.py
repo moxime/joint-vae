@@ -13,8 +13,6 @@ from utils.save_load import collect_networks
 list_of_args = get_args()
 
 if __name__ == '__main__':
-
-    
     
     args = list_of_args[0]
     
@@ -29,9 +27,21 @@ if __name__ == '__main__':
     find_and_finish = args.finish
     dry_run = args.dry_run
 
-
     if find_and_finish:
-        
+
+        l_o_l_o_d_o_n = []
+        collect_networks(job_dir, l_o_l_o_d_o_n) #, like=dummy_jvae)
+        total = sum(map(len, l_o_l_o_d_o_n))
+        log.debug(f'{total} networks in {len(l_o_l_o_d_o_n)} lists collected:')
+        for (i, l) in enumerate(l_o_l_o_d_o_n):
+            a = l[0]['net'].print_architecture(sampling=True)
+            w = 'networks' if len(l) > 1 else 'network '
+            log.debug(f'|_{len(l)} {w} of type {a}')
+            betas, num = np.unique([n['beta'] for n in l], return_counts=True)
+            beta_s = ' '.join([f'{beta:.3e} ({n})'
+                               for (beta, n) in zip(betas, num)])
+            log.debug(f'| |_ beta={beta_s}')
+
         for args in list_of_args:
 
             beta = args.beta
@@ -72,24 +82,32 @@ if __name__ == '__main__':
                  beta=beta,
                  output_activation=output_activation)
 
-            log.debug('%s %s', 'built',
+            dummy_jvae.training['set'] = dataset
+            log.debug('Built %s with training params %s',
+                      dummy_jvae.print_architecture(),
                       dummy_jvae.print_training())
 
-            log.debug('%s: %s', 'input_shape',
-                      ' '.join(str(i) for i in input_shape))
-            log.debug('%s %s', num_labels, 'labels')
+            log.debug('input shape: %s, labels: %s',
+                      ' '.join(str(i) for i in input_shape),
+                      num_labels)
 
+            if find_and_finish:
+                for n in sum(l_o_l_o_d_o_n, []):                    
+                    same_arch = dummy_jvae.has_same_architecture(n['net'])
+                    same_train = dummy_jvae.has_same_training(n['net'])
+                    log.debug('%s %s %s',
+                              dummy_jvae.print_training(),
+                              # dummy_jvae.training,
+                              '=' if same_train else '!=',
+                              n['net'].print_training())
+                              # n['net'].training)
+                    if same_arch and same_train:
+                        s = 'Found alreay trained '
+                        beta = d_o_n['beta']
+                        epochs = d_o_n['net'].trained
+                        s += f'{beta:1.3e} ({epochs} epochs) '
+                        log.info(s)
 
-            l_o_n = [[{'net': dummy_jvae}]]
-            collect_networks(job_dir, l_o_n) #, like=dummy_jvae)
-            log.debug(f'{len(l_o_n)} list of networks collected:')
-            for l in l_o_n:
-                log.debug(f'{len(l)} networks')
-
-            log.debug(f'I found {len(l_o_n[0])} networks')
-            for i, net in enumerate(l_o_n[0]):
-                arch = net['net'].print_architecture()
-                log.debug(f'{i:2d}: {arch}')
     
     for args in list_of_args:
 

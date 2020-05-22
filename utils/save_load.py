@@ -1,7 +1,7 @@
 import os
 import pickle
 import json
-
+import logging
 
 # from cvae import ClassificationVariationalNetwork
 
@@ -104,7 +104,7 @@ def collect_networks(directory,
     from roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
 
     if like:
-        list_of_vae_by_architectures = [[{'net': like}]]
+        list_of_vae_by_architectures.append([{'net': like}])
     
     def append_by_architecture(net_dict, list_of_lists):
         
@@ -128,10 +128,10 @@ def collect_networks(directory,
     min_stats = min(min_stats, num_batch * batch_size)
 
     try:
+        # logging.debug(f'in {directory}')
         vae = ClassificationVariationalNetwork.load(directory,
                                                     **default_load_paramaters)
-        if verbose:
-            print('net found in', directory)
+        logging.debug(f'net found in {directory}')
         vae_dict = {'net': vae}
         vae_dict['beta'] = vae.beta
         vae_dict['dir'] = directory
@@ -206,8 +206,11 @@ def collect_networks(directory,
                     for rate in true_pos_rates:
                         vae_dict['fpr at tpr'][rate] = None
 
-    except FileNotFoundError:
+    except FileNotFoundError:    
         pass
+    except RuntimeError as e:
+        logging.error(f'error in {directory} see log file')
+
     
     list_dir = [os.path.join(directory, d) for d in os.listdir(directory)]
     sub_dirs = [e for e in list_dir if os.path.isdir(e)]
@@ -226,8 +229,13 @@ def collect_networks(directory,
                          **default_load_paramaters)
 
     if like:
-        list_of_vae_by_architectures[0].pop(0)
+        # list_of_vae_by_architectures[0].pop(0)
         list_of_vae_by_architectures = [list_of_vae_by_architectures[0]]
+
+    # logging.debug(f'{len(list_of_vae_by_architectures[0])} different architectures')
+    # for l in list_of_vae_by_architectures:
+    #     logging.debug(f'{len(l)} networks')
+
         
 def load_and_save(directory, output_directory=None, **kw):
     """ load the incomplete params (with default missing parameter

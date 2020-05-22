@@ -2,6 +2,40 @@ from torchvision import datasets, transforms
 import torchvision
 import torch
 import matplotlib.pyplot as plt
+from contextlib import contextmanager
+import sys
+import os
+import logging
+
+
+class LoggerAsfile(object):
+
+    def write(self, s):
+        logging.debug(s)
+
+laf = LoggerAsfile()
+
+
+@contextmanager
+def suppress_stdout():
+    with open(os.devnull, "w") as dev_null:
+        orig = sys.stdout
+        sys.stdout = dev_null
+        try:
+            yield
+        finally:
+            sys.stdout = orig
+
+@contextmanager
+def stdout_as_debug():
+    orig = sys.stdout
+    sys.stdout = laf
+    try:
+        yield
+    finally:
+        sys.stdout = orig
+
+
 
 def choose_device(device=None):
     """
@@ -59,7 +93,11 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
     if dataset == 'svhn':
 
         def getter(train=True, **kw):
-            return datasets.SVHN(split='train' if train else 'test', **kw)
+            set_ = datasets.SVHN(split='train' if train else 'test', **kw)
+
+            set_.classes = [str(i) for i in range(10)]
+                
+            return set_
 
         if default_transform:
             transform = simple_transform
@@ -77,14 +115,14 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
         elif transformer == 'normal':
             transform = cifar_transform
 
+    with suppress_stdout():
+        trainset = getter(root=root, train=True,
+                          download=True,
+                          transform=transform)
 
-    trainset = getter(root=root, train=True,
-                      download=True,
-                      transform=transform)
-
-    testset = getter(root=root, train=False,
-                     download=True,
-                     transform=transform)
+        testset = getter(root=root, train=False,
+                         download=True,
+                         transform=transform)
 
     trainset.name = dataset
     testset.name = dataset
@@ -99,14 +137,16 @@ def get_mnist(**kw):
 
 def get_fashion_mnist(**kw):
 
-    return get_dataset(dataset='fashion', **kw)
-
+    with suppress_stdout():
+        print('get it')
+        return get_dataset(dataset='fashion', **kw)
+    
 
 def get_svhn(**kw):
 
     return get_dataset(dataset='svhn', **kw)
 
-
+    
 def get_cifar10(**kw):
 
     return get_dataset(dataset='cifar10', **kw)
@@ -129,9 +169,19 @@ def get_shape(dataset):
                                          batch_size=1)
 
     data = next(iter(loader))
-    num_labels = len(torch.unique(data[1]))
 
-    return tuple(data[0][0].shape)
+    num_labels = len(dataset.classes)
+    
+    return tuple(data[0][0].shape), num_labels
+
+def get_shape_by_name(set_name):
+
+    if set_name in ('cifar10', 'svhn'):
+        return (3, 32, 32), 10
+    if set_name in ('fashion', 'mnist'):
+        return (1, 28, 28), 10
+    _, set = get_dataset(set_name)
+    return get_shape(set)
 
 def show_images(imageset, shuffle=True, num=4, **kw):
 

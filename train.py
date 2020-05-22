@@ -7,24 +7,96 @@ import data.torch_load as torchdl
 import os
 import sys
 
-from utils.parameters import alphanum, list_of_alphanums, get_args, get_log
+from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
+from utils.save_load import collect_networks
 
 list_of_args = get_args()
 
 if __name__ == '__main__':
 
-    debug = args[0].debug
-    verbose = args[0].verbose
+    
+    
+    args = list_of_args[0]
+    
+    debug = args.debug
+    verbose = args.verbose
+    log = set_log(verbose, debug)
 
-    log = get_log(verbose, debug)
+    log.debug('$ ' + ' '.join(sys.argv))
 
+    job_dir = args.job_dir
+
+    find_and_finish = args.finish
     dry_run = args.dry_run
 
+
+    if find_and_finish:
+        
+        for args in list_of_args:
+
+            beta = args.beta
+
+            latent_sampling = args.latent_sampling
+            latent_dim = args.latent_dim
+
+            features = args.features
+
+            encoder = args.encoder
+            decoder = args.decoder
+            upsampler = args.upsampler
+            conv_padding = args.conv_padding
+            features_channels = args.features_channels
+
+            output_activation = args.output_activation
+
+            train_vae = args.vae
+            classifier = args.classifier if not train_vae else []
+
+            dataset = args.dataset
+            transformer = args.transformer
+
+            input_shape, num_labels = torchdl.get_shape_by_name(dataset)
+            
+            log.debug('Building dummy network for comparison')
+            dummy_jvae = CVNet(input_shape, num_labels,
+                 features=features,
+                 features_channels=features_channels,
+                 conv_padding=conv_padding,
+                 # pretrained_features='vgg11.pth',
+                 encoder_layer_sizes=encoder,
+                 latent_dim=latent_dim,
+                 latent_sampling=latent_sampling,
+                 decoder_layer_sizes=decoder,
+                 upsampler_channels=upsampler,
+                 classifier_layer_sizes=classifier,
+                 beta=beta,
+                 output_activation=output_activation)
+
+            log.debug('%s %s', 'built',
+                      dummy_jvae.print_training())
+
+            log.debug('%s: %s', 'input_shape',
+                      ' '.join(str(i) for i in input_shape))
+            log.debug('%s %s', num_labels, 'labels')
+
+
+            l_o_n = [[{'net': dummy_jvae}]]
+            collect_networks(job_dir, l_o_n) #, like=dummy_jvae)
+            log.debug(f'{len(l_o_n)} list of networks collected:')
+            for l in l_o_n:
+                log.debug(f'{len(l)} networks')
+
+            log.debug(f'I found {len(l_o_n[0])} networks')
+            for i, net in enumerate(l_o_n[0]):
+                arch = net['net'].print_architecture()
+                log.debug(f'{i:2d}: {arch}')
+    
     for args in list_of_args:
 
         epochs = args.epochs
         batch_size = args.batch_size
         test_sample_size = args.test_sample_size
+
         beta = args.beta
 
         latent_sampling = args.latent_sampling
@@ -51,7 +123,6 @@ if __name__ == '__main__':
         refit = args.refit
         load_dir = args.load_dir
         save_dir = load_dir if not refit else None
-        job_dir = args.job_dir
 
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -62,6 +133,8 @@ if __name__ == '__main__':
 
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
 
+        log.info(f'{trainset.name} dataset loaded')
+        
         if train_vae:
             for the_set in (trainset, testset):
                 new_labels = np.zeros(len(the_set), dtype=int)
@@ -80,28 +153,8 @@ if __name__ == '__main__':
         testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                                  shuffle=True, num_workers=0)
 
-        input_shape = x.shape[1:]
-        num_labels = len(torch.unique(y))
-
-        log.debug('Building dummy network for comparison')
-        dummy_jvae = CVNet(input_shape, num_labels,
-             features=features,
-             features_channels=features_channels,
-             conv_padding=conv_padding,
-             # pretrained_features='vgg11.pth',
-             encoder_layer_sizes=encoder,
-             latent_dim=latent_dim,
-             latent_sampling=latent_sampling,
-             decoder_layer_sizes=decoder,
-             upsampler_channels=upsampler,
-             classifier_layer_sizes=classifier,
-             beta=beta,
-             output_activation=output_activation)
-
-
-        log.debug('%s: %s', 'input_shape',
-                  ' '.join(str(i) for i in input_shape))
-        log.debug('%s %s', num_labels, 'labels')
+        input_shape, num_labels = torchdl.get_shape(trainset)
+        
 
 
 
@@ -159,6 +212,7 @@ if __name__ == '__main__':
 
         jvae.to(device)
 
+        x, y = torchdl.get_batch(trainset, device=device)
         if debug:
             log.debug('Trying a first pass')
             outs = jvae(x, y)

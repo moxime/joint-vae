@@ -1,18 +1,23 @@
 import argparse
 import configparser
 import logging 
+from logging.handlers import RotatingFileHandler
 
-
-def get_log(verbose, debug):
+def set_log(verbose, debug):
     
     log = logging.getLogger('')
     log.setLevel(0)
     if (log.hasHandlers()):
         log.handlers.clear()
 
-    h_formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+    h_formatter = logging.Formatter('%(asctime)s [%(levelname).1s] %(message)s')
     formatter = logging.Formatter('[%(levelname).1s] %(message)s')
     stream_handler = logging.StreamHandler()
+    file_handler = RotatingFileHandler('./log/train-py.log',
+                                       maxBytes=20000,
+                                       backupCount=10)
+    dump_file_handler = RotatingFileHandler('./log/dump.log',
+                                            maxBytes=1, backupCount=20)
     log_level = logging.WARNING
     if verbose:
         log_level = logging.INFO
@@ -23,10 +28,37 @@ def get_log(verbose, debug):
     stream_handler.setLevel(log_level)
     log.addHandler(stream_handler)
 
+    file_handler.setFormatter(h_formatter)
+    file_handler.setLevel(logging.DEBUG)
+    log.addHandler(file_handler)
+
+    dump_file_handler.setFormatter(h_formatter)
+    dump_file_handler.setLevel(logging.DEBUG)
+    log.addHandler(dump_file_handler)
+
+    def dump_filter(record):
+        r = record.getMessage().startswith('DUMPED')
+        # print('dump filter', r)
+        # if r:
+        #    logging.error('An error has been dumped somewhere')  
+        return r
+
+    def no_dump_filter(record):
+        r = record.getMessage().startswith('DUMPED')
+        # print('no dump filter', not r)
+        return not r
+
+    for h in (stream_handler, file_handler):
+        h.addFilter(no_dump_filter)
+        pass #
+
+    dump_file_handler.addFilter(dump_filter)
+    
+
     log.error('not an error, just showing what logs look like')
     log.info('Verbose is on')
     log.debug(f'Debug is on')
-
+    
     return log
 
 
@@ -203,3 +235,4 @@ if __name__ == '__main__':
         for k in args.__dict__.items():
             print(*k)
 
+            

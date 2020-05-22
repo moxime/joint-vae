@@ -768,8 +768,22 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if load_state and vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
-            vae.load_state_dict(torch.load(w_p))
-
+            try:
+                state_dict = torch.load(w_p)
+                vae.load_state_dict(state_dict)
+            except RuntimeError as e:
+                state_dict_vae = vae.state_dict()
+                s = ''
+                for (state, other) in [(state_dict, state_dict_vae),
+                                       (state_dict_vae, state_dict)]:
+                    for k, t in state.items():
+                        s_ = f'{k}: {tuple(t.shape)}'
+                        t_ = other.get(k, torch.Tensor([]))
+                        s += f'{s_:40} === {tuple(t_.shape)}'
+                        s+='\n'
+                    s+='\n'*4    
+                logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{vae}')
+                raise e
         return vae
 
     def log_pxy(self, x, normalize=True, batch_losses=None, **kw):

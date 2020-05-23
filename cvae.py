@@ -662,7 +662,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if len(ls) != len(ls_):
             return False
         for s, s_ in zip(ls, ls_):
-            if (np.array(s) != np.array(s_)).any():
+            if np.any((np.array(s) != np.array(s_))):
                 return False
         if self.latent_sampling != other_net.latent_sampling:
             return False

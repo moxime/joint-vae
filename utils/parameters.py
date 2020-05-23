@@ -20,8 +20,10 @@ def set_log(verbose, debug):
     file_handler.doRollover()
     dump_file_handler = RotatingFileHandler('./log/dump.log',
                                             maxBytes=1, backupCount=20)
-    log_level = logging.WARNING
-    if verbose:
+    log_level = logging.ERROR
+    if verbose == 1:
+        log_level = logging.WARNING
+    if verbose > 1:
         log_level = logging.INFO
     if debug:
         log_level = logging.DEBUG
@@ -162,12 +164,14 @@ def get_args(argv=None):
 
     help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'
     # help += '(may have a different beta)'
-    parser.add_argument('-R', '--refit', action='store_true')
+    parser.add_argument('--refit', action='store_true')
 
     help = 'Find and finish begun trainings'
     parser.add_argument('-F', '--finish', default=None, const=1,
                         nargs='?',
                         type=int, help=help) 
+
+    parser.add_argument('-R', '--repeat', default=1, type=int)
     
     help = 'save train(ing|ed) network in DIR/<architecture/i>'
     help += 'unless load_dir is specified'
@@ -198,7 +202,7 @@ def get_args(argv=None):
 
         grid_params = config[args.grid_config]
 
-        args.repeat = grid_params.pop('repeat', 1)
+        args.repeat = grid_params.getint('repeat', 1)
 
         list_of_args = [args]
         for param_name in grid_params:

@@ -6,6 +6,7 @@ from cvae import ClassificationVariationalNetwork as CVNet
 import data.torch_load as torchdl
 import os
 import sys
+import argparse
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
 from utils.save_load import collect_networks
@@ -24,8 +25,13 @@ if __name__ == '__main__':
 
     job_dir = args.job_dir
 
-    find_and_finish = args.finish
-    dry_run = args.dry_run
+    repeat = args.repeat
+    
+    find_and_finish = args.finish or repeat > 1
+    dry_run = args.dry_run    
+
+    for args in list_of_args:
+        args.already_trained = []
 
     if find_and_finish:
 
@@ -44,7 +50,6 @@ if __name__ == '__main__':
 
         for args in list_of_args:
 
-            args.already_trained = []
             beta = args.beta
 
             latent_sampling = args.latent_sampling
@@ -92,29 +97,49 @@ if __name__ == '__main__':
                       ' '.join(str(i) for i in input_shape),
                       num_labels)
 
-            if find_and_finish:
-                for n in sum(l_o_l_o_d_o_n, []):                    
-                    same_arch = dummy_jvae.has_same_architecture(n['net'])
-                    same_train = dummy_jvae.has_same_training(n['net'])
-                    log.debug('%s %s %s',
-                              dummy_jvae.print_training(),
-                              # dummy_jvae.training,
-                              '=' if same_train else '!=',
-                              n['net'].print_training())
-                              # n['net'].training)
-                    if same_arch and same_train:
-                        s = 'Found alreay trained '
-                        beta = n['beta']
-                        epochs = n['net'].trained
-                        s += f'{beta:1.3e} ({epochs} epochs) '
-                        log.debug(s)
-                        args.already_trained.append({'dir': n['dir'], 'epochs': n['net'].trained})
+            for i, n in enumerate(sum(l_o_l_o_d_o_n, [])):                    
+                same_arch = dummy_jvae.has_same_architecture(n['net'])
+                same_train = dummy_jvae.has_same_training(n['net'])
+                log.debug('(%2s) %s %s %s', i,
+                          dummy_jvae.print_training(),
+                          # dummy_jvae.training,
+                          '==' if same_train else '!=',
+                          n['net'].print_training())
+                          # n['net'].training)
+                if same_arch and same_train:
+                    s = 'Found alreay trained '
+                    beta = n['beta']
+                    epochs = n['net'].trained
+                    s += f'{beta:1.3e} ({epochs} epochs) '
+                    log.debug(s)
+                    args.already_trained.append({'dir': n['dir'], 'epochs': n['net'].trained})
 
-            sorted(args.already_trained, key=lambda i: i['epochs'], reverse=True)
+            args.already_trained.sort(key=lambda i: i['epochs'], reverse=True)
             log.info(f'{len(args.already_trained)} already trainend (%s)',
                      ' '.join([str(i['epochs']) for i in args.already_trained]))
-    
+            args.already_trained = args.already_trained[:repeat]
+
     for args in list_of_args:
+        while len(args.already_trained) < repeat:
+            args.already_trained.append({'dir': None, 'epochs': 0})
+            
+    args_to_be_done = []
+
+    for _ in range(repeat):
+        for args in list_of_args:
+
+            dir = args.already_trained.pop(0)
+            args_dir = argparse.Namespace(**vars(args))
+            args_dir.load_dir = dir['dir']
+            args_dir.epochs_to_be_done = max(0, args.epochs - dir['epochs'])
+            args_to_be_done.append(args_dir)
+
+    total_epochs = sum([a.epochs_to_be_done for a in args_to_be_done])
+    to_be_finished = sum([a.epochs_to_be_done > 0 for a in args_to_be_done])
+    log.info('%s total nets (%s epochs) to be trained', to_be_finished,
+             total_epochs)
+    
+    for args in args_to_be_done:
 
         epochs = args.epochs
         batch_size = args.batch_size
@@ -178,19 +203,21 @@ if __name__ == '__main__':
 
         input_shape, num_labels = torchdl.get_shape(trainset)
         
-
-
-
         rebuild = load_dir is None
 
         if not rebuild:
             try:
-                log.info('Loading network')
+                log.info('Loading network in %s', load_dir)
                 jvae = CVNet.load(load_dir, load_state=not refit)
                 log.info(f'Network loaded')
                 done_epochs = jvae.train_history['epochs']
-                verb = 'Will resume' if done_epochs else 'Will start'
-                log.info(f'{verb} training since epoch {done_epochs}')
+                if done_epochs == 0:
+                    verb = 'will start from scratch.'
+                elif done_epochs < epochs:
+                    verb = f'will resume from {epochs}.'
+                else:
+                    verb = 'is already done.'
+                log.info(f'Training {verb}')
             except(FileNotFoundError, NameError) as err:
                 log.warning(f'NETWORK NOT LOADED -- REBUILDING bc of {err}')
                 rebuild = True
@@ -256,7 +283,7 @@ if __name__ == '__main__':
             log.info('Done training')
         else:
             log.info('Dry-run %s', jvae.print_training(epochs=epochs, set=trainset.name))
-
+            
 
         if save_dir is not None and not dry_run:
             jvae.save(save_dir)

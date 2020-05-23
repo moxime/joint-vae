@@ -209,7 +209,7 @@ def collect_networks(directory,
     except FileNotFoundError:    
         pass
     except RuntimeError as e:
-        logging.error(f'Load error in {directory} see log file')
+        logging.warning(f'Load error in {directory} see log file')
 
     
     list_dir = [os.path.join(directory, d) for d in os.listdir(directory)]

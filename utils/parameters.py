@@ -86,7 +86,7 @@ def get_args(what_for='train', argv=None):
 
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument('--debug', action='store_true')
-    conf_parser.add_argument('--verbose', '-v', action='count')
+    conf_parser.add_argument('--verbose', '-v', action='count', default=0)
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--config', '-c', default='DEFAULT')
 

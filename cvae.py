@@ -1,4 +1,5 @@
 import logging
+import copy
 import torch
 import torch.utils.data
 from torch import nn, optim
@@ -182,6 +183,7 @@ class ClassificationVariationalNetwork(nn.Module):
                          'mse_loss_weight': None,
                          'batch_size': None}
 
+        self.testing = dict()
         # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
 
@@ -322,15 +324,23 @@ class ClassificationVariationalNetwork(nn.Module):
         if method == 'loss':
             return losses.argmin(0)
 
-    def accuracy(self, testset, batch_size=100, num_batch='all', method='mean',
-                 device=None, return_mismatched=False, print_result=False):
+    def accuracy(self, testset,
+                 batch_size=100,
+                 num_batch='all',
+                 method='mean',
+                 device=None,
+                 return_mismatched=False,
+                 print_result=False,
+                 update_self_testing=True,
+                 log=True):
+
         """return detection rate. If return_mismatched is True, indices of
         mismatched are also retuned.
         method can be a list of methods
 
         """
         if method == 'all':
-            method = self.predict_methods
+            methods = self.predict_methods
         if type(method) is str:
             methods = [method]
             only_one_method = True
@@ -348,45 +358,82 @@ class ClassificationVariationalNetwork(nn.Module):
             device = torch.device('cuda' if has_cuda else 'cpu')
 
         self.to(device)
+
+        if testset.name not in self.testing:
+            self.testing[testset.name] = dict()
+        set_testing = self.testing[testset.name]
+        if not update_self_testing:
+            set_testing = copy.deepcopy(set_testing)
+        
+        null_test = {'n': 0, 'epochs': 0, 'accuracy':0}
+        for m in [_ for _ in methods if _ not in set_testing]:
+            set_testing[m] = null_test.copy()
+
+        n_tested = min(set_testing[m]['n'] for m in methods)
+        epochs_tested = min(set_testing[m]['epochs'] for m in methods)
+                                                  
         testloader = torch.utils.data.DataLoader(testset,
                                                  shuffle=shuffle,
                                                  batch_size=batch_size)
-        n_err = dict()
-        mismatched = dict()
-        acc = dict()
-        for m in methods:
-            n_err[m] = 0
-            mismatched[m] = []
-        n = 0.0
-        iter_ = iter(testloader)
-        start = time.time()
 
-        mean_loss = {'mse': 0, 'x': 0., 'kl': 0., 'total': 0.} 
-        total_loss = mean_loss.copy()
-        for i in range(num_batch):
-            data = next(iter_)
-            x_test, y_test = data[0].to(device), data[1].to(device)
-            _, y_est, batch_losses = self.evaluate(x_test,
-                                                   return_all_losses=True)
-            for k in batch_losses:
-                total_loss[k] += batch_losses[k].mean().item()
-                mean_loss[k] = total_loss[k] / (i + 1)
+        compute = (not update_self_testing or
+                   self.trained > epochs_tested or
+                   num_batch * batch_size > n_tested)
+
+        if compute:
+        
+            n_err = dict()
+            mismatched = dict()
+            acc = dict()
             for m in methods:
-                y_pred = self.predict_after_evaluate(y_est,
-                                                     batch_losses['total'],
-                                                     method=m)
-                n_err[m] += (y_pred != y_test).sum().item()
-                mismatched[m] += [torch.where(y_test != y_pred)[0]]
-            n += len(y_test)
-            time_per_i = (time.time() - start) / (i + 1)
+                n_err[m] = 0
+                mismatched[m] = []
+            n = 0.0
+            iter_ = iter(testloader)
+            start = time.time()
+
+            mean_loss = {'mse': 0, 'x': 0., 'kl': 0., 'total': 0.} 
+            total_loss = mean_loss.copy()
+            for i in range(num_batch):
+                data = next(iter_)
+                x_test, y_test = data[0].to(device), data[1].to(device)
+                _, y_est, batch_losses = self.evaluate(x_test,
+                                                       return_all_losses=True)
+                for k in batch_losses:
+                    total_loss[k] += batch_losses[k].mean().item()
+                    mean_loss[k] = total_loss[k] / (i + 1)
+                for m in methods:
+                    y_pred = self.predict_after_evaluate(y_est,
+                                                         batch_losses['total'],
+                                                         method=m)
+                    n_err[m] += (y_pred != y_test).sum().item()
+                    mismatched[m] += [torch.where(y_test != y_pred)[0]]
+                n += len(y_test)
+                time_per_i = (time.time() - start) / (i + 1)
+                for m in methods:
+                    acc[m] = 1 - n_err[m] / n
+                if print_result:
+                    print_results(i, num_batch, 0, 0,
+                                  losses=mean_loss, accuracies=acc,
+                                  time_per_i=time_per_i,
+                                  batch_size=batch_size,
+                                  preambule=print_result)
+
             for m in methods:
-                acc[m] = 1 - n_err[m] / n
-            if print_result:
-                print_results(i, num_batch, 0, 0,
-                              losses=mean_loss, accuracies=acc,
-                              time_per_i=time_per_i,
-                              batch_size=batch_size,
-                              preambule=print_result)
+                if (set_testing[m]['n'] < n
+                    or set_testing[m]['epochs'] < self.trained):
+                    if log:
+                        logged = 'Updating accuracy %s for method %s (%s, %s) -> (%s, %s)'
+                        logging.debug(logged,
+                                      acc[m],
+                                      set_testing[m]['n'],
+                                      set_testing[m]['epochs'],
+                                      n, self.trained)
+
+                elif log:
+                    logging.debug('Accuracies already computed, skipping')
+        
+        
 
         if return_mismatched:
             if only_one_method:
@@ -536,6 +583,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   num_batch=num_batch,
                                                   device=device,
                                                   method='all',
+                                                  log=False,
                                                   print_result='test')
             # train
             if train_accuracy:
@@ -545,6 +593,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                                    num_batch=num_batch,
                                                    device=device,
                                                    method='all',
+                                                   update_self_testing=False,
+                                                   log=False,
                                                    print_result='acc')
 
                 
@@ -741,6 +791,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         save_load.save_json(self.architecture, dir_name, 'params.json')
         save_load.save_json(self.training, dir_name, 'train.json')
+        save_load.save_json(self.testing, dir_name, 'test.json')
         save_load.save_json(self.train_history, dir_name, 'history.json')
         
         if self.trained:
@@ -749,8 +800,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
     @classmethod
     def load(cls, dir_name,
-             load_state = True,
-             load_train = True,
+             load_state=True,
+             load_train=True,
+             load_test=True,
              verbose=1,
              default_output_activation=DEFAULT_OUTPUT_ACTIVATION):
         """dir_name : where params.json is (and weigths.h5 if applicable)
@@ -758,10 +810,20 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         params = save_load.load_json(dir_name, 'params.json')
 
-        if load_train:
+        loaded_test = False
+        try:
+            testing = save_load.load_json(dir_name, 'test.json')
+            loaded_test = load_test
+        except(FileNotFoundError):
+            pass
+
+        loaded_train = False
+        try:
             train_params = save_load.load_json(dir_name, 'train.json')
-        else:
-            train_params = {'beta': 1e-4, 'latent_sampling': 64}
+            loaded_train = load_train
+        except(FileNotFoundError):
+            pass
+
 
         if load_state:
             try:
@@ -791,7 +853,9 @@ class ClassificationVariationalNetwork(nn.Module):
         vae.trained = train_history['epochs']
         vae.train_history = train_history
         vae.training = train_params
-
+        if loaded_test:
+            vae.testing = testing
+        
         if load_state and vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:

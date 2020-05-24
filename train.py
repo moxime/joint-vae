@@ -214,7 +214,7 @@ if __name__ == '__main__':
                 if done_epochs == 0:
                     verb = 'will start from scratch.'
                 elif done_epochs < epochs:
-                    verb = f'will resume from {epochs}.'
+                    verb = f'will resume from {jvae.trained}.'
                 else:
                     verb = 'is already done.'
                 log.info(f'Training {verb}')
@@ -269,18 +269,21 @@ if __name__ == '__main__':
             log.debug([u.shape for u in outs])
 
         if not dry_run:
-            log.info('Starting training')
+            if jvae.trained < epochs:
+                log.info('Training of %s', jvae.print_architecture())
 
-            jvae.train(trainset, epochs=epochs,
-                       batch_size=batch_size,
-                       device=device,
-                       testset=testset,
-                       sample_size=test_sample_size,  # 10000,
-                       mse_loss_weight=None,
-                       x_loss_weight= 0 if train_vae else None,
-                       kl_loss_weight=None,
-                       save_dir=save_dir)
-            log.info('Done training')
+                jvae.train(trainset, epochs=epochs,
+                           batch_size=batch_size,
+                           device=device,
+                           testset=testset,
+                           sample_size=test_sample_size,  # 10000,
+                           mse_loss_weight=None,
+                           x_loss_weight= 0 if train_vae else None,
+                           kl_loss_weight=None,
+                           save_dir=save_dir)
+                log.info('Done training')
+            else:
+                log.info('No need to train %s', jvae.print_architecture())
         else:
             log.info('Dry-run %s', jvae.print_training(epochs=epochs, set=trainset.name))
             

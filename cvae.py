@@ -341,7 +341,8 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         if method == 'all':
             methods = self.predict_methods
-        if type(method) is str:
+            only_one_method = False
+        elif type(method) is str:
             methods = [method]
             only_one_method = True
         else:
@@ -388,7 +389,7 @@ class ClassificationVariationalNetwork(nn.Module):
             for m in methods:
                 n_err[m] = 0
                 mismatched[m] = []
-            n = 0.0
+            n = 0
             iter_ = iter(testloader)
             start = time.time()
 
@@ -406,6 +407,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     y_pred = self.predict_after_evaluate(y_est,
                                                          batch_losses['total'],
                                                          method=m)
+
                     n_err[m] += (y_pred != y_test).sum().item()
                     mismatched[m] += [torch.where(y_test != y_pred)[0]]
                 n += len(y_test)
@@ -426,9 +428,13 @@ class ClassificationVariationalNetwork(nn.Module):
                         logged = 'Updating accuracy %s for method %s (%s, %s) -> (%s, %s)'
                         logging.debug(logged,
                                       acc[m],
+                                      m,
                                       set_testing[m]['n'],
                                       set_testing[m]['epochs'],
                                       n, self.trained)
+                    set_testing[m]['epochs'] = self.trained
+                    set_testing[m]['n'] = n
+                    set_testing[m]['accuracy'] = acc[m] 
 
                 elif log:
                     logging.debug('Accuracies already computed, skipping')
@@ -583,8 +589,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   num_batch=num_batch,
                                                   device=device,
                                                   method='all',
-                                                  log=False,
+                                                  # log=False,
                                                   print_result='test')
+                if save_dir: self.save(save_dir)
             # train
             if train_accuracy:
                 with torch.no_grad():
@@ -644,7 +651,20 @@ class ClassificationVariationalNetwork(nn.Module):
             if save_dir:
                 self.save(save_dir)
 
-        logging.info('Finished training')
+        if testset:
+            # print(num_batch, sample_size)
+            with torch.no_grad():
+                test_accuracy = self.accuracy(testset,
+                                              batch_size=batch_size,
+                                              # num_batch=num_batch,
+                                              device=device,
+                                              method='all',
+                                              # log=False,
+                                              print_result='TEST')
+            if save_dir:
+                self.save(save_dir)
+
+        logging.debug('Finished training')
 
     def summary(self):
 

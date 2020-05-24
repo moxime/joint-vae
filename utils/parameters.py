@@ -129,13 +129,13 @@ def get_args(what_for='train', argv=None):
     parser.add_argument('-m', '--batch-size', type=int, metavar='M')
 
     help = 'Num of samples to compute test accuracy'
-    parser.add_argument('-t', '--test_sample_size', type=int,
+    parser.add_argument('-t', '--test-sample-size', type=int,
                         metavar='N',
                         help=help)
 
     if for_test:
         help = 'Minimum accepted before retesting'
-        parser.add_argument('-T', '--min-test-samplesize',
+        parser.add_argument('-T', '--min-test-sample-size',
                             type=int, metavar='N0', default=0)
 
     parser.add_argument('--force_cpu', action='store_true')

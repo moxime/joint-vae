@@ -3,7 +3,7 @@ import configparser
 import logging 
 from logging.handlers import RotatingFileHandler
 
-def set_log(verbose, debug):
+def set_log(verbose, debug, name='train'):
     
     log = logging.getLogger('')
     log.setLevel(0)
@@ -13,7 +13,7 @@ def set_log(verbose, debug):
     h_formatter = logging.Formatter('%(asctime)s [%(levelname).1s] %(message)s')
     formatter = logging.Formatter('[%(levelname).1s] %(message)s')
     stream_handler = logging.StreamHandler()
-    file_handler = RotatingFileHandler('./log/train-py.log',
+    file_handler = RotatingFileHandler(f'./log/{name}.log',
                                        maxBytes=500000,
                                        backupCount=10)
 
@@ -138,7 +138,7 @@ def get_args(what_for='train', argv=None):
         parser.add_argument('-T', '--min-test-sample-size',
                             type=int, metavar='N0', default=0)
 
-    parser.add_argument('--force_cpu', action='store_true')
+    parser.add_argument('--force-cpu', action='store_true')
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 

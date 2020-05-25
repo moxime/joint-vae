@@ -378,6 +378,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                  batch_size=batch_size)
 
         compute = (not update_self_testing or
+                   return_mismatched or
                    self.trained > epochs_tested or
                    num_batch * batch_size > n_tested)
 
@@ -439,7 +440,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 elif log:
                     logging.debug('Accuracies already computed, skipping')
         
-        
+        else:
+            acc = {m: set_testing[m]['accuracy'] for m in methods}
 
         if return_mismatched:
             if only_one_method:

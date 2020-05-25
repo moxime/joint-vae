@@ -3,7 +3,7 @@ import configparser
 import logging 
 from logging.handlers import RotatingFileHandler
 
-def set_log(verbose, debug):
+def set_log(verbose, debug, name='train'):
     
     log = logging.getLogger('')
     log.setLevel(0)
@@ -13,7 +13,7 @@ def set_log(verbose, debug):
     h_formatter = logging.Formatter('%(asctime)s [%(levelname).1s] %(message)s')
     formatter = logging.Formatter('[%(levelname).1s] %(message)s')
     stream_handler = logging.StreamHandler()
-    file_handler = RotatingFileHandler('./log/train-py.log',
+    file_handler = RotatingFileHandler(f'./log/{name}.log',
                                        maxBytes=500000,
                                        backupCount=10)
 
@@ -79,27 +79,32 @@ def list_of_alphanums(string):
 
     return [alphanum(a) for a in string.split()]
 
+def get_args(what_for='train', argv=None):
 
-def get_args(argv=None):
+    for_train = what_for == 'train'
+    for_test = not for_train
 
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument('--debug', action='store_true')
-    conf_parser.add_argument('--verbose', '-v', action='count')
+    conf_parser.add_argument('--verbose', '-v', action='count', default=0)
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--config', '-c', default='DEFAULT')
-    conf_parser.add_argument('--grid-file', default='grid.ini')
+
+    if for_train:
+        conf_parser.add_argument('--grid-file', default='grid.ini')
 
     conf_args, remaining_args = conf_parser.parse_known_args(argv)
     config = configparser.ConfigParser()
     config.read(conf_args.config_file)
 
-
     config_params = config[conf_args.config]
 
+    default_test_sample_size = 1000 if for_train else 10000
     defaults = {'batch_size': 100,
                 'epochs':100,
-                'test_sample_size': 1000, 'job_dir': './jobs'}
-
+                'test_sample_size': default_test_sample_size,
+                'job_dir': './jobs'}
+    
     defaults.update(config_params)
 
     alphanum_keys = ('encoder',
@@ -117,15 +122,23 @@ def get_args(argv=None):
 
     parser.set_defaults(**defaults)
 
-    parser.add_argument('--epochs', type=int)
+    help = 'epochs for training' if for_train else 'min epochs for testing'
+
+    parser.add_argument('--epochs', type=int, help=help)
+
     parser.add_argument('-m', '--batch-size', type=int, metavar='M')
 
     help = 'Num of samples to compute test accuracy'
-    parser.add_argument('-t', '--test_sample_size', type=int,
+    parser.add_argument('-t', '--test-sample-size', type=int,
                         metavar='N',
                         help=help)
 
-    parser.add_argument('--force_cpu', action='store_true')
+    if for_test:
+        help = 'Minimum accepted before retesting'
+        parser.add_argument('-T', '--min-test-sample-size',
+                            type=int, metavar='N0', default=0)
+
+    parser.add_argument('--force-cpu', action='store_true')
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 
@@ -162,16 +175,17 @@ def get_args(argv=None):
                         choices=['simple', 'normal', 'default'],
                         help='transform data, simple : 0--1, normal 0 +/- 1')
 
-    help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'
-    # help += '(may have a different beta)'
-    parser.add_argument('--refit', action='store_true')
+    if for_train:
+        help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'
+        # help += '(may have a different beta)'
+        parser.add_argument('--refit', action='store_true')
 
-    help = 'Find and finish begun trainings'
-    parser.add_argument('-F', '--finish', default=None, const=1,
-                        nargs='?',
-                        type=int, help=help) 
+        help = 'Find and finish begun trainings'
+        parser.add_argument('-F', '--finish', default=None, const=1,
+                            nargs='?',
+                            type=int, help=help) 
 
-    parser.add_argument('-R', '--repeat', default=1, type=int)
+        parser.add_argument('-R', '--repeat', default=1, type=int)
     
     help = 'save train(ing|ed) network in DIR/<architecture/i>'
     help += 'unless load_dir is specified'
@@ -184,10 +198,14 @@ def get_args(argv=None):
                         help=help,
                         nargs='?', default=None)
 
-    parser.add_argument('--grid-config', default=None)
+    if for_train:
+        parser.add_argument('--grid-config', default=None)
     
     args = parser.parse_args(remaining_args)
 
+    if for_test:
+        args.grid_config = False
+    
     args.debug = conf_args.debug
     args.verbose = conf_args.verbose
     args.config_file = conf_args.config_file

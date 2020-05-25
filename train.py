@@ -25,8 +25,15 @@ if __name__ == '__main__':
 
     job_dir = args.job_dir
 
+    if not args.force_cpu:
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        log.info(f'Used device: {device}')
+    else:
+        device = torch.device('cpu')
+        log.info(f'Used device: {device}')
+        log.debug(f'CPU asked by user')
+        
     repeat = args.repeat
-    
     find_and_finish = args.finish or repeat > 1
     dry_run = args.dry_run    
 
@@ -172,16 +179,13 @@ if __name__ == '__main__':
         load_dir = args.load_dir
         save_dir = load_dir if not refit else None
 
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
         for k in args.__dict__.items():
             log.debug('%s: %s', *k)
 
-        log.info(f'Used device: {device}')
 
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
 
-        log.info(f'{trainset.name} dataset loaded')
+        log.debug(f'{trainset.name} dataset loaded')
         
         if train_vae:
             for the_set in (trainset, testset):
@@ -209,7 +213,7 @@ if __name__ == '__main__':
             try:
                 log.info('Loading network in %s', load_dir)
                 jvae = CVNet.load(load_dir, load_state=not refit)
-                log.info(f'Network loaded')
+                log.debug(f'Network loaded')
                 done_epochs = jvae.train_history['epochs']
                 if done_epochs == 0:
                     verb = 'will start from scratch.'

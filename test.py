@@ -124,16 +124,18 @@ if __name__ == '__main__':
                               method='all')
         n['net'].save(n['dir'])
         n['acc'] = n['net'].testing[trained_set][method]['accuracy']
-
+        n['arch'] = n['net'].print_architecture(excludes=['latent_dim'])
+        n['K'] = n['net'].latent_dim
+        n['L'] = n['net'].latent_sampling
+        
     sorting_key = lambda n: (n['set'],
                              n['net'].depth,
                              n['net'].width,
-                             n['net'].print_architecture(excludes=['latent_dim']),
-                             n['net'].latent_dim,
-                             n['net'].training['latent_sampling'],
+                             n['arch'],
+                             n['K'],
+                             n['L'],
                              n['beta'],
                              n['acc'])
-
     
     to_be_tested.sort(key=sorting_key)
 
@@ -142,31 +144,37 @@ if __name__ == '__main__':
     for s, group in grouped_by_set:
 
         string = f'Networks trained for {s}'
-        print(f'{string:_<{4 + 10 * len(betas)}}')
-        header = ' i   D  W    K     \ß'
-        print(f'{header:<15}', end='')
-        for beta in sorted(betas):
-            print(f'{beta: ^10.2e}', end='')
-        print()
+        print(f'{string:_^120}')
 
         grouped_by_arch = groupby(group, key=lambda n: n['arch'])
-        i_a = 0
-        for a, g in grouped_by_arch:
-            i_a += 1
-            lg = list(g)
-            n = lg[0]['net']
-            header = f'{i_a:3} {n.depth:2} {n.width:4} {n.latent_dim:4} '
+
+        for a, arch_group in grouped_by_arch:
+
+            print(a)
+
+            header = '   K   L '
             print(f'{header:<15}', end='')
-            beta_g = [n['beta'] for n in lg]
-            is_in_betas = [(n['beta'] in betas) for n in lg]
-            log.debug('Printing results for %s %s (%s)',
-                      a, beta_g, sum(is_in_betas))
-            for beta in betas:
-                acc_beta = [n['acc'] for n in lg if n['beta'] == beta]
+            for beta in sorted(betas):
+                print(f'{beta: ^10.2e}', end='')
+            print()
 
-                if len(acc_beta) == 0:
-                    print(' ' * 10, end='')
-                else:
-                        print(f'   {max(acc_beta):7.1%}', end='')
+            grouped_by_k_l = groupby(arch_group,
+                                     key = lambda n: (n['K'], n['L']))
+            
+            for (K, L), k_l_group in grouped_by_k_l: 
+                lg = list(k_l_group)
+                n = lg[0]['net']
+                header = f'{K:4} {L:4} '
+                print(f'{header:<15}', end='')
+                beta_g = [n['beta'] for n in lg]
+                is_in_betas = [(n['beta'] in betas) for n in lg]
+                log.debug('Printing results for %s %s (%s)',
+                          a, beta_g, sum(is_in_betas))
+                for beta in betas:
+                    acc_beta = [n['acc'] for n in lg if n['beta'] == beta]
 
-            print('    ', n.print_architecture(excludes=['latent_dim']))
+                    if len(acc_beta) == 0:
+                        print(' ' * 10, end='')
+                    else:
+                        print(f' {max(acc_beta):7.1%}  ', end='')
+                print()

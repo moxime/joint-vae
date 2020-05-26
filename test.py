@@ -155,7 +155,7 @@ if __name__ == '__main__':
             header = '   K   L '
             print(f'{header:<15}', end='')
             for beta in sorted(betas):
-                print(f'{beta: ^10.2e}', end='')
+                print(f'{beta: ^12.2e}', end='')
             print()
 
             grouped_by_k_l = groupby(arch_group,
@@ -174,7 +174,7 @@ if __name__ == '__main__':
                     acc_beta = [n['acc'] for n in lg if n['beta'] == beta]
 
                     if len(acc_beta) == 0:
-                        print(' ' * 10, end='')
+                        print(' ' * 12, end='')
                     else:
-                        print(f' {max(acc_beta):7.1%}  ', end='')
+                        print(f'  {max(acc_beta):7.1%}   ', end='')
                 print(f'\n{"":_^120}')

@@ -169,4 +169,4 @@ if __name__ == '__main__':
                 else:
                         print(f'   {max(acc_beta):7.1%}', end='')
 
-            print()
+            print('    ', n.print_architecture(excludes=['latent_dim']))

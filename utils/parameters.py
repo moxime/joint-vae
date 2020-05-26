@@ -59,7 +59,7 @@ def set_log(verbose, debug, name='train'):
     dump_file_handler.addFilter(dump_filter)
     
 
-    log.error('not an error, just showing what logs look like')
+    # log.error('not an error, just showing what logs look like')
     log.info('Verbose is on')
     log.debug(f'Debug is on')
     

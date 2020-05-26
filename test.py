@@ -67,15 +67,16 @@ if __name__ == '__main__':
 
     for n in sum(l_o_l_o_d_o_n, []):
 
-        log.debug('Cuda me: %s', torch.cuda.memory_allocated())
+        # log.debug('Cuda me: %s', torch.cuda.memory_allocated())
         net = n['net']
         is_trained = net.trained >= net.training['epochs']
         is_tested = False
         if is_trained:
             to_be_tested.append(n)
             trained_set = net.training['set']
+
             testsets.add(trained_set)
-            testings_by_method = net.training.get(trained_set,
+            testings_by_method = net.testing.get(trained_set,
                                         {None: {'epochs': 0, 'n':0}})
             enough_samples = True
             is_tested = True
@@ -83,12 +84,16 @@ if __name__ == '__main__':
                 enough_samples = (enough_samples and
                                   testings_by_method[m]['n'] > min_test_sample_size)
                 is_tested = is_tested and testings_by_method[m]['epochs'] == net.trained
+                # log.debug('Tested at %s epochs (trained with %s) for %s',
+                #           testings_by_method[m]['epochs'],
+                #           net.trained,
+                #           m)
         log.info('%s%s %s', 
                  '*' if is_trained else '|',
                  '*' if is_tested else '|',
                  n['dir'])
         n_tested = n_tested + is_tested
-        n_trained = n_trained + 1
+        n_trained = n_trained + is_trained
 
     log.info('||')
     log.info('|%s tested', n_tested)

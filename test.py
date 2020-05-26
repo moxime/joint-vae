@@ -109,7 +109,7 @@ if __name__ == '__main__':
         dict_of_sets[s] = testset
         log.debug(testset)
 
-    nets_by_archs = {trained_set: {b:[] for b in betas} for s in testsets}
+    archs_by_set = {trained_set: dict() for s in testsets}
     
     for n in to_be_tested:
         
@@ -124,28 +124,29 @@ if __name__ == '__main__':
         arch = n['net'].print_architecture()
         beta = n['beta']
         if arch not in archs_by_set[trained_set]:
-            archs_by_set[trained_set][arch] = dict()
-        if n['beta'] not in archs_by_set[trained_set][arch]:
-            archs_by_set[trained_set][arch][beta] = []
+            archs_by_set[trained_set][arch] = {b: [] for b in betas}
+
         archs_by_set[trained_set][arch][beta].append(n)
 
     method = 'loss'
         
     for s in archs_by_set:
-        print(f'Networks trained for {s:_<20}')
-        print('  ', end='')
+        string = f'Networks trained for {s}'
+        print(f'{string:_<{4 + 10 * len(betas)}}')
+        print(' a\ß', end='')
         for beta in sorted(betas):
-            print(f'{beta:_^10.2e}', end='')
+            print(f'{beta: ^10.2e}', end='')
+        print()
         for i, arch in enumerate(archs_by_set[s]):
-            print(f'{i:2}', end='')
-            for beta is sorted(betas):
+            print(f'{i:2}  ', end='')
+            for beta in sorted(betas):
                 max_acc = 0
                 list_of_n = archs_by_set[s][arch][beta]
                 for n in list_of_n:
-                    acc = n['acc'].get(method, 0)
+                    acc = n['net'].testing[s][method]['accuracy']
                     if acc > max_acc: max_acc = acc
                 
                 print(f' {max_acc:7.2%}  ' if max_acc else ' ' * 10,
                       end='')
-
+            print()
                     

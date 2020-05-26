@@ -109,7 +109,7 @@ if __name__ == '__main__':
         dict_of_sets[s] = testset
         log.debug(testset)
 
-    archs_by_set = {trained_set: dict() for s in testsets}
+    archs_by_set = {s: dict() for s in testsets}
     
     for n in to_be_tested:
         

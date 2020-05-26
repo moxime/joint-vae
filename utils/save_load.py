@@ -88,7 +88,6 @@ def get_path_from_input(dir_path=os.getcwd()):
 
 def collect_networks(directory,
                      list_of_vae_by_architectures,
-                     like=None,
                      only_trained=True,
                      testset=None,
                      oodset=None,
@@ -102,9 +101,6 @@ def collect_networks(directory,
 
     from cvae import ClassificationVariationalNetwork
     from roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
-
-    if like:
-        list_of_vae_by_architectures.append([{'net': like}])
     
     def append_by_architecture(net_dict, list_of_lists):
         
@@ -132,9 +128,10 @@ def collect_networks(directory,
         vae = ClassificationVariationalNetwork.load(directory,
                                                     **default_load_paramaters)
         logging.debug(f'net found in {directory}')
-        vae_dict = {'net': vae}
-        vae_dict['beta'] = vae.beta
-        vae_dict['dir'] = directory
+        vae_dict = {'net': vae,
+                    'beta': vae.beta,
+                    'dir': directory,
+                    'arch': vae.print_architecture()}
         if vae.trained or not only_trained:
             append_by_architecture(vae_dict, list_of_vae_by_architectures)
 
@@ -227,10 +224,6 @@ def collect_networks(directory,
                          device=device,
                          verbose=verbose,
                          **default_load_paramaters)
-
-    if like:
-        # list_of_vae_by_architectures[0].pop(0)
-        list_of_vae_by_architectures = [list_of_vae_by_architectures[0]]
 
     # logging.debug(f'{len(list_of_vae_by_architectures[0])} different architectures')
     # for l in list_of_vae_by_architectures:

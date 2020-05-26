@@ -64,6 +64,7 @@ if __name__ == '__main__':
     n_trained = 0
     n_tested = 0
     testsets = set()
+    betas = set()
 
     for n in sum(l_o_l_o_d_o_n, []):
 
@@ -74,6 +75,7 @@ if __name__ == '__main__':
         if is_trained:
             to_be_tested.append(n)
             trained_set = net.training['set']
+            betas.add(n['beta'])
 
             testsets.add(trained_set)
             testings_by_method = net.testing.get(trained_set,
@@ -92,6 +94,7 @@ if __name__ == '__main__':
                  '*' if is_trained else '|',
                  '*' if is_tested else '|',
                  n['dir'])
+        
         n_tested = n_tested + is_tested
         n_trained = n_trained + is_trained
 
@@ -106,6 +109,8 @@ if __name__ == '__main__':
         dict_of_sets[s] = testset
         log.debug(testset)
 
+    nets_by_archs = {trained_set: {b:[] for b in betas} for s in testsets}
+    
     for n in to_be_tested:
         
         trained_set = n['net'].training['set']
@@ -116,9 +121,31 @@ if __name__ == '__main__':
                               batch_size=batch_size, device=device,
                               method='all')
         n['net'].save(n['dir'])
-        
-             
-    
+        arch = n['net'].print_architecture()
+        beta = n['beta']
+        if arch not in archs_by_set[trained_set]:
+            archs_by_set[trained_set][arch] = dict()
+        if n['beta'] not in archs_by_set[trained_set][arch]:
+            archs_by_set[trained_set][arch][beta] = []
+        archs_by_set[trained_set][arch][beta].append(n)
 
+    method = 'loss'
         
-        
+    for s in archs_by_set:
+        print(f'Networks trained for {s:_<20}')
+        print('  ', end='')
+        for beta in sorted(betas):
+            print(f'{beta:_^10.2e}', end='')
+        for i, arch in enumerate(archs_by_set[s]):
+            print(f'{i:2}', end='')
+            for beta is sorted(betas):
+                max_acc = 0
+                list_of_n = archs_by_set[s][arch][beta]
+                for n in list_of_n:
+                    acc = n['acc'].get(method, 0)
+                    if acc > max_acc: max_acc = acc
+                
+                print(f' {max_acc:7.2%}  ' if max_acc else ' ' * 10,
+                      end='')
+
+                    

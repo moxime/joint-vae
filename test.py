@@ -177,4 +177,4 @@ if __name__ == '__main__':
                         print(' ' * 10, end='')
                     else:
                         print(f' {max(acc_beta):7.1%}  ', end='')
-                print()
+                print(f'{"":_120})

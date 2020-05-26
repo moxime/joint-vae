@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+from itertools import groupby
 import numpy as np
 import torch
 from cvae import ClassificationVariationalNetwork as CVNet
@@ -75,6 +76,7 @@ if __name__ == '__main__':
         if is_trained:
             to_be_tested.append(n)
             trained_set = net.training['set']
+            n['set'] = trained_set
             betas.add(n['beta'])
 
             testsets.add(trained_set)
@@ -109,8 +111,8 @@ if __name__ == '__main__':
         dict_of_sets[s] = testset
         log.debug(testset)
 
-    archs_by_set = {s: dict() for s in testsets}
-    
+    method = 'loss'
+
     for n in to_be_tested:
         
         trained_set = n['net'].training['set']
@@ -121,32 +123,50 @@ if __name__ == '__main__':
                               batch_size=batch_size, device=device,
                               method='all')
         n['net'].save(n['dir'])
-        arch = n['net'].print_architecture()
-        beta = n['beta']
-        if arch not in archs_by_set[trained_set]:
-            archs_by_set[trained_set][arch] = {b: [] for b in betas}
+        n['acc'] = n['net'].testing[trained_set][method]['accuracy']
 
-        archs_by_set[trained_set][arch][beta].append(n)
+    sorting_key = lambda n: (n['set'],
+                             n['net'].depth,
+                             n['net'].width,
+                             n['net'].print_architecture(excludes=['latent_dim']),
+                             n['net'].latent_dim,
+                             n['net'].training['latent_sampling'],
+                             n['beta'],
+                             n['acc'])
 
-    method = 'loss'
-        
-    for s in archs_by_set:
+    
+    to_be_tested.sort(key=sorting_key)
+
+    grouped_by_set = groupby(to_be_tested, key=lambda n: n['set'])
+
+    for s, group in grouped_by_set:
+
         string = f'Networks trained for {s}'
         print(f'{string:_<{4 + 10 * len(betas)}}')
-        print(' a\ß', end='')
+        header = ' i   D  W    K     \ß'
+        print(f'{header:<15}', end='')
         for beta in sorted(betas):
             print(f'{beta: ^10.2e}', end='')
         print()
-        for i, arch in enumerate(archs_by_set[s]):
-            print(f'{i:2}  ', end='')
-            for beta in sorted(betas):
-                max_acc = 0
-                list_of_n = archs_by_set[s][arch][beta]
-                for n in list_of_n:
-                    acc = n['net'].testing[s][method]['accuracy']
-                    if acc > max_acc: max_acc = acc
-                
-                print(f' {max_acc:7.2%}  ' if max_acc else ' ' * 10,
-                      end='')
+
+        grouped_by_arch = groupby(group, key=lambda n: n['arch'])
+        i_a = 0
+        for a, g in grouped_by_arch:
+            i_a += 1
+            lg = list(g)
+            n = lg[0]['net']
+            header = f'{i_a:3} {n.depth:2} {n.width:4} {n.latent_dim:4} '
+            print(f'{header:<15}', end='')
+            beta_g = [n['beta'] for n in lg]
+            is_in_betas = [(n['beta'] in betas) for n in lg]
+            log.debug('Printing results for %s %s (%s)',
+                      a, beta_g, sum(is_in_betas))
+            for beta in betas:
+                acc_beta = [n['acc'] for n in lg if n['beta'] == beta]
+
+                if len(acc_beta) == 0:
+                    print(' ' * 10, end='')
+                else:
+                        print(f'   {max(acc_beta):7.1%}', end='')
+
             print()
-                    

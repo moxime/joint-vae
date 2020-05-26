@@ -170,6 +170,14 @@ class ClassificationVariationalNetwork(nn.Module):
                              'classifier': classifier_layer_sizes,
                              'output': output_activation}
 
+        self.depth = (len(encoder_layer_sizes)
+                      + len(decoder_layer_sizes)
+                      + len(classifier_layer_sizes))
+        
+        self.width = (sum(encoder_layer_sizes)
+                      + sum(decoder_layer_sizes)
+                      + sum(classifier_layer_sizes)) 
+        
         if features:
             self.architecture['features'] = features_arch
 
@@ -770,7 +778,7 @@ class ClassificationVariationalNetwork(nn.Module):
         s = f'{set}: {beta:.1e} -- L={sampling} {done_epochs}/{epochs}'
         return s
 
-    def print_architecture(self, beta=False, sampling=False):
+    def print_architecture(self, beta=False, sampling=False, excludes=[]):
 
         def _l2s(l, c='-', empty='.'):
             if l:
@@ -780,10 +788,11 @@ class ClassificationVariationalNetwork(nn.Module):
         features = None
         if self.features:
             features = self.features.name
-
-        s = f'output={self.output_activation}--'
-        s += f'activation={self.activation}--'
-        s += f'latent-dim={self.latent_dim}--'
+        if 'activation' not in excludes:
+            s = f'output={self.output_activation}--'
+            s += f'activation={self.activation}--'
+        if 'latent_dim' not in excludes: 
+            s += f'latent-dim={self.latent_dim}--'
         # if sampling:
         #    s += f'sampling={self.latent_sampling}--'
         if features:

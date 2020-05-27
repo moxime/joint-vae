@@ -54,6 +54,7 @@ if __name__ == '__main__':
         w = 'networks' if len(l) > 1 else 'network '
         log.debug(f'|_{len(l)} {w} of type {a}')
         betas, num = np.unique([n['beta'] for n in l], return_counts=True)
+
         beta_s = ' '.join([f'{beta:.3e} ({n})'
                            for (beta, n) in zip(betas, num)])
         log.debug(f'| |_ beta={beta_s}')
@@ -150,31 +151,46 @@ if __name__ == '__main__':
 
         for a, arch_group in grouped_by_arch:
 
-            print(a)
+            print(f'{a:=^120}')
 
             header = '   K   L '
             print(f'{header:<15}', end='')
             for beta in sorted(betas):
-                print(f'{beta: ^12.2e}', end='')
+                print(f'{beta:^12.2e}', end='')
             print()
 
             grouped_by_k_l = groupby(arch_group,
                                      key = lambda n: (n['K'], n['L']))
             
             for (K, L), k_l_group in grouped_by_k_l: 
-                lg = list(k_l_group)
-                n = lg[0]['net']
+
+                # lg = list(k_l_group)
+                grouped_by_beta = groupby(k_l_group,
+                                          key=lambda n: n['beta'])
+                
                 header = f'{K:4} {L:4} '
                 print(f'{header:<15}', end='')
-                beta_g = [n['beta'] for n in lg]
-                is_in_betas = [(n['beta'] in betas) for n in lg]
-                log.debug('Printing results for %s %s (%s)',
-                          a, beta_g, sum(is_in_betas))
-                for beta in betas:
-                    acc_beta = [n['acc'] for n in lg if n['beta'] == beta]
 
-                    if len(acc_beta) == 0:
-                        print(' ' * 12, end='')
+                d_beta_acc = dict()
+                acc_max = 0
+                for beta, beta_group in grouped_by_beta:
+                    acc_max_beta = max(n['acc'] for n in beta_group)
+                    d_beta_acc[beta] = acc_max_beta
+                    if acc_max_beta > acc_max:
+                        acc_max = acc_max_beta
+                        d_beta_acc['max'] = beta
+
+                for beta in sorted(betas):
+
+                    if beta in d_beta_acc:
+                        if d_beta_acc['max'] == beta:
+                            fo, fc = '\033[1m', '\033[0m'
+                            # fo, fc = '*', '*'
+                        else:
+                            fo, fc = '', ''
+                        print(f'  {fo}{d_beta_acc[beta]:7.2%}{fc}   ', end='')
                     else:
-                        print(f'  {max(acc_beta):7.1%}   ', end='')
-                print(f'\n{"":_^120}')
+                        print(' ' * 12, end='')
+                print()
+            print(f'{"":_^120}')
+

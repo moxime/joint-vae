@@ -39,6 +39,8 @@ if __name__ == '__main__':
     epochs = args.epochs
     min_test_sample_size = args.min_test_sample_size
 
+    latex_formatting = args.tex
+    
     for k in vars(args).items():
         log.debug('%s: %s', *k)
     
@@ -145,7 +147,7 @@ if __name__ == '__main__':
     for s, group in grouped_by_set:
 
         string = f'Networks trained for {s}'
-        print(f'{string:_^120}')
+        print(f'\n{string:_^120}')
 
         grouped_by_arch = groupby(group, key=lambda n: n['arch'])
 
@@ -157,7 +159,7 @@ if __name__ == '__main__':
             print(f'{header:<15}', end='')
             for beta in sorted(betas):
                 print(f'{beta:^12.2e}', end='')
-            print()
+            print('\n') #, 120*'_')
 
             grouped_by_k_l = groupby(arch_group,
                                      key = lambda n: (n['K'], n['L']))
@@ -188,7 +190,7 @@ if __name__ == '__main__':
                             # fo, fc = '*', '*'
                         else:
                             fo, fc = '', ''
-                        print(f'  {fo}{d_beta_acc[beta]:7.2%}{fc}   ', end='')
+                        print(f'  {fo}{d_beta_acc[beta]:7.1%}{fc}   ', end='')
                     else:
                         print(' ' * 12, end='')
                 print()

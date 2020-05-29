@@ -200,17 +200,24 @@ def get_args(what_for='train', argv=None):
 
     if for_train:
         parser.add_argument('--grid-config', default=None)
-    
+
+
+    if for_test:
+        parser.add_argument('--latex', action='store_true')
+        
     args = parser.parse_args(remaining_args)
 
     if for_test:
         args.grid_config = False
-    
+
+        
     args.debug = conf_args.debug
     args.verbose = conf_args.verbose
     args.config_file = conf_args.config_file
     args.config = conf_args.config
 
+
+    
     if args.features.lower() == 'none' or args.no_features:
         args.features=None
 

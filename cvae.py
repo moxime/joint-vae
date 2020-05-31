@@ -587,6 +587,24 @@ class ClassificationVariationalNetwork(nn.Module):
 
         for epoch in range(done_epochs, epochs):
 
+            # alpha = 1 classification
+            # alpha = 0 vae
+            # alpha = 0.5 jvae
+            alpha_start = 0
+            alpha_target = 0.5
+            flat = 50
+            prog = min(max(epoch - flat, 0) / (epochs - 2 * flat), 1)
+            alpha = alpha_start + prog * (alpha_target - alpha_start)
+
+            mse_loss_weight = 1 - alpha
+            x_loss_weight = alpha * 2 * self.beta
+            kl_loss_weight = (1 - alpha) * 2 * self.beta
+
+            logging.debug('loss weights updated to %1.2e %1.2e %1.2e alpha=%1.2e',
+                          mse_loss_weight,
+                          x_loss_weight,
+                          kl_loss_weight, alpha)
+
             t_start_epoch = time.time()
             # test
 

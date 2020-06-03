@@ -39,7 +39,7 @@ if __name__ == '__main__':
     epochs = args.epochs
     min_test_sample_size = args.min_test_sample_size
 
-    latex_formatting = args.tex
+    latex_formatting = args.latex
     
     for k in vars(args).items():
         log.debug('%s: %s', *k)

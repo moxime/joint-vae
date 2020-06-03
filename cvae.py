@@ -855,7 +855,6 @@ class ClassificationVariationalNetwork(nn.Module):
         except(FileNotFoundError):
             pass
 
-
         if load_state:
             try:
                 train_history = save_load.load_json(dir_name, 'history.json')
@@ -866,7 +865,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if not params.get('features', None):
             params['features'] = {}
-            
+
         vae = cls(input_shape=params['input'],
                   num_labels=params['labels'],
                   encoder_layer_sizes=params['encoder'],
@@ -981,6 +980,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
 if __name__ == '__main__':
 
+    dir = save_load.get_path_by_input()
     argv = ['--debug',
             # '--force_cpu',
             # '-c', 'cifar-ola',

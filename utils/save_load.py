@@ -62,26 +62,52 @@ def full_path(dir_name, file_name):
     return os.path.join(os.path.realpath(dir_name), file_name)
 
 
-def get_path_from_input(dir_path=os.getcwd()):
+def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
 
     rel_paths = os.listdir(dir_path)
-    abs_path = [os.path.join(dir_path, d) for d in rel_paths]
-    sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_path) if os.path.isdir(d)]
-    print(f' 0: choose {dir_path}')
-    for i, d in enumerate(sub_dirs_rel_paths):
-        print(f'{i+1:2d}: enter {d}')
+    abs_paths = [os.path.join(dir_path, d) for d in rel_paths]
+    sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_paths) if os.path.isdir(d)]
+    print(f'<enter>: choose {dir_path}', end='')
+    if count_nets:
+        lists_of_nets = []
+        collect_networks(dir_path, lists_of_nets, only_trained=False)
+        num_of_nets = len(sum(lists_of_nets, []))
+        print(f' ({num_of_nets} networks)')
+    else:
+        print()
 
+    for i, d in enumerate(sub_dirs_rel_paths):
+        print(f'{i+1:2d}: enter {d}', end='')
+        if count_nets:
+            lists_of_nets = []
+            collect_networks(os.path.join(dir_path, d),
+                             lists_of_nets, only_trained=False)
+            num_of_nets = len(sum(lists_of_nets, []))
+            print(f' ({num_of_nets} networks)')
+        else:
+            print()
+
+    print(' p: return to ..')
+    input_string = input('Your choice: ')
     try:
-        i = int(input('Your choice: '))
+        i = int(input_string)
+        is_int = True
     except ValueError:
+        i = input_string
+        is_int = False
+
+    if is_int:
+        if 0 < i < len(sub_dirs_rel_paths) + 1:
+            return get_path_from_input(dir_path=os.path.join(dir_path,
+                                                             sub_dirs_rel_paths[i-1]))
+        else:
+            return get_path_from_input(dir_path)
+    elif i == '':
+        return dir_path
+    elif i == 'p':
         path = os.path.join(dir_path, os.pardir)
         path = os.path.abspath(path)
         return get_path_from_input(path)
-    if i == 0:
-        return dir_path
-    elif 0 < i < len(sub_dirs_rel_paths) + 1:
-        return get_path_from_input(dir_path=os.path.join(dir_path,
-                                                         sub_dirs_rel_paths[i-1]))
     else:
         return get_path_from_input(dir_path)
 

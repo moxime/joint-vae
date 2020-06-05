@@ -67,7 +67,8 @@ class VGGFeatures(nn.Sequential):
     def __init__(self, vgg_name, input_shape, channels=None, pretrained=None):
 
         cfg = vgg_cfg.get(vgg_name, channels)
-            
+        print(channels)
+        
         layers = self._make_layers(cfg, input_shape)
         super(VGGFeatures, self).__init__(*layers)
         self.architecture = {'features': vgg_name}

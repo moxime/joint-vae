@@ -172,7 +172,7 @@ def get_args(what_for='train', argv=None):
                         choices=['fashion', 'mnist', 'svhn', 'cifar10'])
 
     parser.add_argument('--transformer',
-                        choices=['simple', 'normal', 'default'],
+                        choices=['simple', 'normal', 'default', 'pad'],
                         help='transform data, simple : 0--1, normal 0 +/- 1')
 
     if for_train:

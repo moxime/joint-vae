@@ -90,6 +90,15 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
 
             transform = pad_transform
 
+
+    if dataset == 'fashion32':
+
+        getter = datasets.FashionMNIST
+        if default_transform:
+            transform = pad_transform
+        elif transformer == 'simple':
+            transform = pad_transform
+            
     if dataset == 'svhn':
 
         def getter(train=True, **kw):
@@ -174,12 +183,17 @@ def get_shape(dataset):
     
     return tuple(data[0][0].shape), num_labels
 
-def get_shape_by_name(set_name):
+def get_shape_by_name(set_name, transform='default'):
 
     if set_name in ('cifar10', 'svhn'):
         return (3, 32, 32), 10
     if set_name in ('fashion', 'mnist'):
-        return (1, 28, 28), 10
+        if transform == 'pad':
+            return (1, 32, 32), 10
+        else:
+            return (1, 28, 28), 10
+    if set_name in ('fashion32', 'mnist32'):
+        return (1, 32, 32), 10
     _, set = get_dataset(set_name)
     return get_shape(set)
 

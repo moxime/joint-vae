@@ -80,6 +80,7 @@ if __name__ == '__main__':
         is_tested = False
         will_be_tested = False
         enough_epochs = net.trained >= epochs
+
         if is_trained or unfinished_training:
             to_be_tested.append(n)
             trained_set = net.training['set']
@@ -112,6 +113,7 @@ if __name__ == '__main__':
         n_to_be_tested = n_to_be_tested + will_be_tested
 
     log.info('|||')
+    log.info('||%s to be tested', n_to_be_tested)
     log.info('|%s tested', n_tested)
     log.info('%s trained', n_trained)
 

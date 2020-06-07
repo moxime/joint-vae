@@ -101,7 +101,7 @@ def get_args(what_for='train', argv=None):
 
     default_test_sample_size = 1000 if for_train else 10000
     defaults = {'batch_size': 100,
-                'epochs':100,
+                'epochs':100 if for_train else 0,
                 'test_sample_size': default_test_sample_size,
                 'job_dir': './jobs'}
     
@@ -121,6 +121,10 @@ def get_args(what_for='train', argv=None):
     # description=__doc__)
 
     parser.set_defaults(**defaults)
+
+    logging.debug('Defaults:')
+    for k in defaults:
+        logging.debug(k, defaults[k])
 
     help = 'epochs for training' if for_train else 'min epochs for testing'
 

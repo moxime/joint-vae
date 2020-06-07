@@ -38,7 +38,8 @@ if __name__ == '__main__':
     dry_run = args.dry_run
     epochs = args.epochs
     min_test_sample_size = args.min_test_sample_size
-
+    unfinished_training = args.unfinished
+    
     latex_formatting = args.latex
     
     for k in vars(args).items():
@@ -67,6 +68,7 @@ if __name__ == '__main__':
     to_be_tested = []
     n_trained = 0
     n_tested = 0
+    n_to_be_tested = 0
     testsets = set()
     betas = set()
 
@@ -76,7 +78,9 @@ if __name__ == '__main__':
         net = n['net']
         is_trained = net.trained >= net.training['epochs']
         is_tested = False
-        if is_trained:
+        will_be_tested = False
+        enough_epochs = net.trained >= epochs
+        if is_trained or unfinished_training:
             to_be_tested.append(n)
             trained_set = net.training['set']
             n['set'] = trained_set
@@ -95,15 +99,19 @@ if __name__ == '__main__':
                 #           testings_by_method[m]['epochs'],
                 #           net.trained,
                 #           m)
-        log.info('%s%s %s', 
+            will_be_tested = enough_epochs and not is_tested
+        log.info('%s%s%s %3d epochs for %s', 
                  '*' if is_trained else '|',
                  '*' if is_tested else '|',
+                 '*' if will_be_tested else '|',
+                 net.trained,
                  n['dir'])
         
         n_tested = n_tested + is_tested
         n_trained = n_trained + is_trained
+        n_to_be_tested = n_to_be_tested + will_be_tested
 
-    log.info('||')
+    log.info('|||')
     log.info('|%s tested', n_tested)
     log.info('%s trained', n_trained)
 

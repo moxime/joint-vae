@@ -157,14 +157,11 @@ class Encoder(nn.Module):
                  latent_dim=32,
                  intermediate_dims=[64],
                  name='encoder',
-                 beta=0,
                  activation='relu',
                  sampling_size=10,
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
-        self.beta = beta
-        self.kl_loss_weight = 2 * beta
 
         if activation == 'relu':
             self.activation = F.relu

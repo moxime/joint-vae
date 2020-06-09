@@ -57,11 +57,13 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
 
-    predict_methods = ['mean', 'loss']
+    cvae_predict_methods = ['mean', 'loss']
+    vib_predict_methods = ['esty']
 
     def __init__(self,
                  input_shape,
                  num_labels,
+                 type_of_net = 'jvae', # or 'vib' 
                  features=None,
                  pretrained_features=None,
                  features_channels=None,
@@ -76,12 +78,15 @@ class ClassificationVariationalNetwork(nn.Module):
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
                  beta=1e-6,
-                 verbose=1,
                  *args, **kw):
 
         super().__init__(*args, **kw)
         self.name = name
 
+        assert type_of_net in ('jvae', 'vib')
+        self.type = type_of_net
+        self.is_jvae = type_of_net == 'jvae'
+        
         # no upsampler if no features
         assert (not upsampler_channels or features)
 
@@ -119,29 +124,31 @@ class ClassificationVariationalNetwork(nn.Module):
                                activation=activation)
 
         activation_layer = activation_layers[activation]()
-        decoder_layers = []
-        input_dim = latent_dim
-        for output_dim in decoder_layer_sizes:
-            decoder_layers += [nn.Linear(input_dim, output_dim) ,
-                               activation_layer]
-            input_dim = output_dim
-            
-        self.decoder = nn.Sequential(*decoder_layers)
 
-        imager_input_dim = input_dim
-        if upsampler_channels:
-            upsampler_first_shape = self.features.output_shape
-            self.imager = ConvDecoder(imager_input_dim,
-                                      upsampler_first_shape,
-                                      upsampler_channels,
-                                      output_activation=output_activation)
+        if self.is_vae:
+            decoder_layers = []
+            input_dim = latent_dim
+            for output_dim in decoder_layer_sizes:
+                decoder_layers += [nn.Linear(input_dim, output_dim) ,
+                                   activation_layer]
+                input_dim = output_dim
 
-        else:
-            upsampler_channels = None
-            activation_layer = activation_layers[output_activation]()
-            self.imager = nn.Sequential(nn.Linear(imager_input_dim,
-                                                  np.prod(input_shape)),
-                                        activation_layer)
+            self.decoder = nn.Sequential(*decoder_layers)
+
+            imager_input_dim = input_dim
+            if upsampler_channels:
+                upsampler_first_shape = self.features.output_shape
+                self.imager = ConvDecoder(imager_input_dim,
+                                          upsampler_first_shape,
+                                          upsampler_channels,
+                                          output_activation=output_activation)
+
+            else:
+                upsampler_channels = None
+                activation_layer = activation_layers[output_activation]()
+                self.imager = nn.Sequential(nn.Linear(imager_input_dim,
+                                                      np.prod(input_shape)),
+                                            activation_layer)
 
         self.classifier = Classifier(latent_dim, num_labels,
                                      classifier_layer_sizes,
@@ -161,6 +168,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.architecture = {'input': input_shape,
                              'labels': num_labels,
+                             'type': type_of_net,
                              # 'features': features_arch, 
                              'encoder': encoder_layer_sizes,
                              'activation': activation,
@@ -171,11 +179,11 @@ class ClassificationVariationalNetwork(nn.Module):
                              'output': output_activation}
 
         self.depth = (len(encoder_layer_sizes)
-                      + len(decoder_layer_sizes)
+                      + len(decoder_layer_sizes) * (self.is_jvae)
                       + len(classifier_layer_sizes))
         
         self.width = (sum(encoder_layer_sizes)
-                      + sum(decoder_layer_sizes)
+                      + sum(decoder_layer_sizes) * (self.is_jvae)
                       + sum(classifier_layer_sizes)) 
         
         if features:
@@ -206,7 +214,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.activation = activation
         self.output_activation = output_activation
 
-        self.mse_loss_weight = 1
+        self.mse_loss_weight = 1 if self.is_jvae else 0
 
         self.z_output = False
         
@@ -238,15 +246,19 @@ class ClassificationVariationalNetwork(nn.Module):
         z_mean, z_log_var, z = self.encoder(x_, y_onehot)
         # z of size LxN1x...xNgxK
 
-        u = self.decoder(z)
-        # x_output of size LxN1x...xKgxD
-        x_output = self.imager(u)
+        if self.is_jvae:
+            u = self.decoder(z)
+            # x_output of size LxN1x...xKgxD
+            x_output = self.imager(u)
         
         y_output = self.classifier(z)
         # y_output of size LxN1x...xKgxC
 
-        out = (x_output.reshape((self.latent_sampling,) + reco_batch_shape),
-               y_output)
+        out = ()
+        if self.is_jvae:
+            out += (x_output.reshape((self.latent_sampling,) + reco_batch_shape),)
+        out += (y_output,)
+
         if z_output:
             out += (z_mean, z_log_var, z)
 
@@ -275,7 +287,7 @@ class ClassificationVariationalNetwork(nn.Module):
             
         # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
 
-        C = self.num_labels
+        C = self.num_labels if self.is_jvae else 1
         s_f = x_features.shape
         
         s_f = (1, ) + s_f
@@ -293,9 +305,14 @@ class ClassificationVariationalNetwork(nn.Module):
             y[c] = c  # maybe a way to accelerate this ?
 
         if self.features:
-            x_reco, y_est, mu, log_var, z = self.forward_features(f_repeated, y)
+            *out, mu, log_var, z = self.forward_features(f_repeated, y)
         else:
-            x_reco, y_est, mu, log_var, z = self.forward(f_repeated, y)
+            *out, mu, log_var, z = self.forward(f_repeated, y)
+
+        if self.is_jvae:
+            (x_reco, y_est) = out
+        else:
+            (x_reco, y_est) = (x, *out)
             
         batch_losses = self.loss(x, y,
                                  x_reco, y_est,
@@ -510,8 +527,7 @@ class ClassificationVariationalNetwork(nn.Module):
               kl_loss_weight=None,
               sample_size=1000,
               train_accuracy=False,
-              save_dir=None,
-              verbose=1):
+              save_dir=None):
         """
 
         """
@@ -688,9 +704,11 @@ class ClassificationVariationalNetwork(nn.Module):
     @beta.setter
     def beta(self, value):
         self._beta = value
-        self.encoder.beta = value
-        self.kl_loss_weight = 2 * value
-        self.x_entropy_loss_weight = 2 * value
+        if self.is_jvae:
+            self.x_entropy_loss_weight = 2 * value
+            self.kl_loss_weight = 2 * value
+        else:
+            self.kl_loss_weight = value
 
     @property
     def kl_loss_weight(self):
@@ -699,7 +717,6 @@ class ClassificationVariationalNetwork(nn.Module):
     @kl_loss_weight.setter
     def kl_loss_weight(self, value):
         self._kl_loss_weight = value
-        self.encoder.kl_loss_weight = value
 
     @property
     def latent_sampling(self):
@@ -798,9 +815,10 @@ class ClassificationVariationalNetwork(nn.Module):
         if features:
             s += f'features={features}--'
         s += f'encoder={_l2s(self.encoder_layer_sizes)}--'
-        s += f'decoder={_l2s(self.decoder_layer_sizes)}--'
-        if self.upsampler_channels:
-            s += f'upsampler={_l2s(self.upsampler_channels)}--'
+        if 'decoder' not in excludes:
+            s += f'decoder={_l2s(self.decoder_layer_sizes)}--'
+            if self.upsampler_channels:
+                s += f'upsampler={_l2s(self.upsampler_channels)}--'
         s += f'classifier={_l2s(self.classifier_layer_sizes)}'
 
         if beta:
@@ -834,7 +852,6 @@ class ClassificationVariationalNetwork(nn.Module):
              load_state=True,
              load_train=True,
              load_test=True,
-             verbose=1,
              default_output_activation=DEFAULT_OUTPUT_ACTIVATION):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
@@ -877,7 +894,6 @@ class ClassificationVariationalNetwork(nn.Module):
                   beta=train_params['beta'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
-                  verbose=verbose,
                   **params['features'])
 
         vae.trained = train_history['epochs']

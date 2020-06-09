@@ -125,7 +125,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         activation_layer = activation_layers[activation]()
 
-        if self.is_vae:
+        if self.is_jvae:
             decoder_layers = []
             input_dim = latent_dim
             for output_dim in decoder_layer_sizes:
@@ -215,6 +215,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self.output_activation = output_activation
 
         self.mse_loss_weight = 1 if self.is_jvae else 0
+        self.x_entropy_loss_weight = 2 * beta if self.is_jvae else 1
+        self.kl_loss_weight = 2 * beta if self.is_jvae else beta
 
         self.z_output = False
         
@@ -856,8 +858,13 @@ class ClassificationVariationalNetwork(nn.Module):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
-        params = save_load.load_json(dir_name, 'params.json')
 
+        # default
+        params = {'type': 'jvae'}
+        loaded_params = save_load.load_json(dir_name, 'params.json')
+
+        params.update(loaded_params)
+        
         loaded_test = False
         try:
             testing = save_load.load_json(dir_name, 'test.json')
@@ -885,6 +892,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         vae = cls(input_shape=params['input'],
                   num_labels=params['labels'],
+                  type_of_net=params['type'],
                   encoder_layer_sizes=params['encoder'],
                   latent_dim=params['latent_dim'],
                   decoder_layer_sizes=params['decoder'],

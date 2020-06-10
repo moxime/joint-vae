@@ -547,6 +547,7 @@ class ClassificationVariationalNetwork(nn.Module):
               epochs=50,
               batch_size=100, device=None,
               testset=None,
+              acc_methods=None,
               beta=None,
               latent_sampling=None,
               mse_loss_weight=None,
@@ -624,11 +625,14 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_loss'] = []
             self.train_history['test_accuracy'] = []
             self.train_history['train_accuracy'] = [] 
-            
+
+        if not acc_methods:
+            acc_methods = self.predict_methods
+        
         print_results(0, 0, -2, epochs,
-                      acc_methods=methods)
+                      acc_methods=acc_methods)
         print_results(0, 0, -1, epochs,
-                      acc_methods=methods)
+                      acc_methods=acc_methods)
 
         for epoch in range(done_epochs, epochs):
 
@@ -643,7 +647,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   batch_size=batch_size,
                                                   num_batch=num_batch,
                                                   device=device,
-                                                  method='all',
+                                                  method=acc_methods,
                                                   # log=False,
                                                   print_result='test')
                 if save_dir: self.save(save_dir)
@@ -654,7 +658,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                    batch_size=batch_size,
                                                    num_batch=num_batch,
                                                    device=device,
-                                                   method='all',
+                                                   method=acc_methods,
                                                    update_self_testing=False,
                                                    log=False,
                                                    print_result='acc')
@@ -696,7 +700,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 t_per_i = (time.time() - t_start_train) / (i + 1)
                 print_results(i, per_epoch, epoch + 1, epochs,
                               preambule='train',
-                              acc_methods=methods,
+                              acc_methods=acc_methods,
                               losses=train_mean_loss,
                               time_per_i=t_per_i,
                               batch_size=batch_size,
@@ -719,7 +723,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                               batch_size=batch_size,
                                               # num_batch=num_batch,
                                               device=device,
-                                              method='all',
+                                              method=acc_methods,
                                               # log=False,
                                               print_result='TEST')
             if save_dir:

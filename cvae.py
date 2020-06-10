@@ -86,7 +86,20 @@ class ClassificationVariationalNetwork(nn.Module):
         assert type_of_net in ('jvae', 'vib')
         self.type = type_of_net
         self.is_jvae = type_of_net == 'jvae'
+        self.is_vib = type_of_net == 'vib'
+        self.is_vae = type_of_net == 'vae'
         
+        if self.is_jvae:
+            self.predict_methods = self.cvae_predict_methods
+        elif self.is_vib:
+            decoder_layer_sizes = []
+            self.predict_methods = self.vib_predict_methods
+        elif self.is_vae:
+            classifier_layer_sizes = []
+            self.predict_methods = []
+        else:
+            raise ValueError('Type {type_of_net} of net unknown')
+            
         # no upsampler if no features
         assert (not upsampler_channels or features)
 
@@ -120,7 +133,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.encoder = Encoder(encoder_input_shape, num_labels, latent_dim,
                                encoder_layer_sizes,
-                               beta=beta, sampling_size=latent_sampling,
+                               sampling_size=latent_sampling,
                                activation=activation)
 
         activation_layer = activation_layers[activation]()
@@ -233,9 +246,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if x_features is None:
             x_features = self.features(x.view(-1, *self.input_shape))
 
-        return self.forward_features(x_features, y, **kw)
-            
-    def forward_features(self, x_features, y, z_output=True):
+        return self.forward_features(x_features, y, x, **kw)
+
+    def forward_features(self, x_features, y, x, z_output=True):
 
         batch_shape = x_features.shape
         batch_size = batch_shape[:-len(self.encoder.input_shape)]  # N1 x...xNg
@@ -245,7 +258,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         y_onehot = onehot_encoding(y, self.num_labels).float()
 
-        z_mean, z_log_var, z = self.encoder(x_, y_onehot)
+        z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.is_jvae)
         # z of size LxN1x...xNgxK
 
         if self.is_jvae:
@@ -256,9 +269,11 @@ class ClassificationVariationalNetwork(nn.Module):
         y_output = self.classifier(z)
         # y_output of size LxN1x...xKgxC
 
-        out = ()
         if self.is_jvae:
-            out += (x_output.reshape((self.latent_sampling,) + reco_batch_shape),)
+            out = (x_output.reshape((self.latent_sampling,) + reco_batch_shape),)
+        else:
+            out = (x,)
+
         out += (y_output,)
 
         if z_output:
@@ -307,21 +322,19 @@ class ClassificationVariationalNetwork(nn.Module):
             y[c] = c  # maybe a way to accelerate this ?
 
         if self.features:
-            *out, mu, log_var, z = self.forward_features(f_repeated, y)
+            x_reco, y_est, mu, log_var, z = self.forward_features(f_repeated, y, x)
         else:
-            *out, mu, log_var, z = self.forward(f_repeated, y)
+            x_reco, y_est, mu, log_var, z = self.forward(f_repeated, y)
 
         if self.is_jvae:
-            (x_reco, y_est) = out
-        else:
-            (x_reco, y_est) = (x, *out)
-            
+            x_reco = x_reco.mean(0)
+
         batch_losses = self.loss(x, y,
                                  x_reco, y_est,
                                  mu, log_var,
                                  batch_mean=False, **kw)
 
-        return x_reco.mean(0), y_est.mean(0), batch_losses
+        return x_reco, y_est.mean(0), batch_losses
 
     def predict(self, x, method='mean', **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
@@ -340,7 +353,10 @@ class ClassificationVariationalNetwork(nn.Module):
         # print('cvae l. 192', x.device, batch_losses.device)
         return self.predict_after_evaluate(y_est, batch_losses, method=method)
 
-    def predict_after_evaluate(self, y_est, losses, method='mean'):
+    def predict_after_evaluate(self, y_est, losses, method='default'):
+
+        if method == 'default':
+            method = 'mean' if self.is_jvae else 'esty'
 
         if method is None:
             return y_est
@@ -350,6 +366,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if method == 'loss':
             return losses.argmin(0)
+
+        if method == 'esty':
+            return y_est.argmax(-1)
+
+        raise ValueError(f'Unknown method {method}')
 
     def accuracy(self, testset,
                  batch_size=100,
@@ -428,6 +449,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 x_test, y_test = data[0].to(device), data[1].to(device)
                 _, y_est, batch_losses = self.evaluate(x_test,
                                                        return_all_losses=True)
+
                 for k in batch_losses:
                     total_loss[k] += batch_losses[k].mean().item()
                     mean_loss[k] = total_loss[k] / (i + 1)
@@ -445,6 +467,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if print_result:
                     print_results(i, num_batch, 0, 0,
                                   losses=mean_loss, accuracies=acc,
+                                  acc_methods=methods,
                                   time_per_i=time_per_i,
                                   batch_size=batch_size,
                                   preambule=print_result)
@@ -495,9 +518,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         batch_mse_loss = mse_loss(x, x_reconstructed,
                                   ndim=len(self.input_shape), **kw)
-        batch_x_loss = x_loss(y, y_estimate, **kw)
+        
         batch_kl_loss = kl_loss(mu_z, log_var_z, **kw)
 
+        batch_x_loss = x_loss(y, y_estimate, **kw)
+                        
         batch_loss = 0
         if mse_loss_weight > 0:
             batch_loss = mse_loss_weight * batch_mse_loss
@@ -655,6 +680,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                        kl_loss_weight=kl_loss_weight,
                                        return_all_losses=True)
                 batch_loss['total'].backward()
+                logging.debug('Max gradient: %s',
+                              max([p.grad.max() for p in self.parameters()]))
                 optimizer.step()
 
                 for k in batch_loss:

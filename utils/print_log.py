@@ -1,6 +1,7 @@
 import time
 import numpy as np
-
+import logging
+import torch
 
 def print_epoch(i, per_epoch, epoch, epochs, loss,
                 snake='=>', blinker='o ', line_length=50,
@@ -97,7 +98,13 @@ def print_results(i, per_epoch, epoch, epochs,
         with open('train.log', 'a') as f:
             f.write(preambule + loss_str  + acc_str + eta_str + end_esc + '\n')
 
-    
+def debug_nan(value, inspected, name):
+
+    if torch.isnan(value).any():
+        for i in inspected:
+            logging.error('%s : %s', name, torch.isnan(i).any().item())
+        raise ValueError(name)
+            
 def progress_bar(i, per_epoch, width=20):
 
     N = width ** 2

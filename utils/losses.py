@@ -1,6 +1,6 @@
 import torch
 from torch.nn import functional as F
-import time
+import time, logging
 import numpy as np
 
 def compare_dims(small_dim, large_dim):
@@ -41,14 +41,12 @@ def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
     assert x_output.shape[sampling_dims:] == x_target.shape
     sampling_dims_ = [_ for _ in range(sampling_dims)]
 
-    # print('sampling_dims: ', sampling_dims)
-    
     if sampling_dims > 0:
         mean_output_sampling = x_output.mean(sampling_dims_)
         var_output_sampling = x_output.var(sampling_dims_, unbiased=False)
     else:
         mean_output_sampling = x_output
-        var_output_sampling = torch.zeros(x_output.shape)
+        var_output_sampling = torch.zeros(x_output.shape, device=x_output.device)
         
     if batch_mean:
         return F.mse_loss(mean_output_sampling,
@@ -61,14 +59,14 @@ def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
                      x_target, reduction='none').mean(mean_dims)
 
     # print('l.py l. 61:\n',
-    #       'x_out', x_output.shape, '\n',
-    #       'x_tar', x_target.shape, '\n',
+    #       'x_out', x_output.device, '\n',
+    #       'x_tar', x_target.device, '\n',
     #       'batch_ndim', batch_ndim, '\n',
     #       'mean_dims', mean_dims, '\n',
-    #       'mse', mse.shape, '\n',
-    #       'mean_out', mean_output_sampling.shape, '\n',
-    #       'var_out', var_output_sampling.shape)
-    
+    #       'mse', mse.device, '\n',
+    #       'mean_out', mean_output_sampling.device, '\n',
+    #       'var_out', var_output_sampling.device)
+    # 
     return mse + var_output_sampling.mean(mean_dims)
 
 
@@ -76,6 +74,14 @@ def kl_loss(mu_z, log_var_z, batch_mean=True):
 
     loss = -0.5 * (1 + log_var_z - mu_z.pow(2) - log_var_z.exp()).sum(-1)
 
+    # if torch.isnan(loss).any():
+    #     for l in log_var_z:
+    #         logging.error(l.sum().item())
+    #     for l in mu_z:
+    #         logging.error(l.sum().item())
+    #     for l in loss:
+    #         logging.error(l.item())
+    
     if batch_mean:
         return loss.mean()
     # print('losses l.76 | kl_loss', loss.shape)

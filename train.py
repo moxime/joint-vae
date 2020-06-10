@@ -82,18 +82,19 @@ if __name__ == '__main__':
             
             log.debug('Building dummy network for comparison')
             dummy_jvae = CVNet(input_shape, num_labels,
-                 features=features,
-                 features_channels=features_channels,
-                 conv_padding=conv_padding,
-                 # pretrained_features='vgg11.pth',
-                 encoder_layer_sizes=encoder,
-                 latent_dim=latent_dim,
-                 latent_sampling=latent_sampling,
-                 decoder_layer_sizes=decoder,
-                 upsampler_channels=upsampler,
-                 classifier_layer_sizes=classifier,
-                 beta=beta,
-                 output_activation=output_activation)
+                               features=features,
+                               type_of_net=args.type,
+                               features_channels=features_channels,
+                               conv_padding=conv_padding,
+                               # pretrained_features='vgg11.pth',
+                               encoder_layer_sizes=encoder,
+                               latent_dim=latent_dim,
+                               latent_sampling=latent_sampling,
+                               decoder_layer_sizes=decoder,
+                               upsampler_channels=upsampler,
+                               classifier_layer_sizes=classifier,
+                               beta=beta,
+                               output_activation=output_activation)
 
             dummy_jvae.training['set'] = dataset
             log.debug('Built %s with training params %s',
@@ -229,6 +230,7 @@ if __name__ == '__main__':
         if rebuild:
             log.info('Building network...')
             jvae = CVNet(input_shape, num_labels,
+                         type_of_net=args.type,
                          features=features,
                          features_channels=features_channels,
                          conv_padding=conv_padding,

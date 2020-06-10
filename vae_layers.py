@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 from torch.nn import functional as F
-
+from utils.print_log import debug_nan
 
 def onehot_encoding(y, C):
 
@@ -216,9 +216,13 @@ class Encoder(nn.Module):
         u[:, D:] = y.reshape(N, C)
         u = u.reshape(s)
 
+        debug_nan(u, u, 'u1')
         u = self.dense_projs(u)
+        debug_nan(u, self.dense_projs.parameters(), 'dpp')
         z_mean = self.dense_mean(u)
+        debug_nan(z_mean, u, 'µz')
         z_log_var = self.dense_log_var(u)
+        debug_nan(z_log_var, z_mean, 'sigz')
         z = self.sampling(z_mean, z_log_var)
 
         return z_mean, z_log_var, z

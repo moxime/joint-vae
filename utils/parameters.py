@@ -75,9 +75,11 @@ def alphanum(x):
         except(ValueError):
             return x
 
+
 def list_of_alphanums(string):
 
     return [alphanum(a) for a in string.split()]
+
 
 def get_args(what_for='train', argv=None):
 
@@ -147,6 +149,8 @@ def get_args(what_for='train', argv=None):
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 
+    parser.add_argument('--type', choices=['jvae', 'vib'])
+    
     parser.add_argument('-b', '--beta',
                         type = float,
                         # type=alphanum,
@@ -174,7 +178,7 @@ def get_args(what_for='train', argv=None):
     parser.add_argument('--vae', action='store_true')
 
     parser.add_argument('--dataset', 
-                        choices=['fashion', 'mnist', 'svhn', 'cifar10'])
+                        choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10'])
 
     parser.add_argument('--transformer',
                         choices=['simple', 'normal', 'default'],

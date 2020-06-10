@@ -88,7 +88,7 @@ def kl_loss(mu_z, log_var_z, batch_mean=True):
     return loss
 
 
-def x_loss(y_target, y_output, sampling_dims=1, batch_mean=True):
+def x_loss(y_target, logits, sampling_dims=1, batch_mean=True):
 
     """ Cross entropy
 
@@ -96,19 +96,19 @@ def x_loss(y_target, y_output, sampling_dims=1, batch_mean=True):
     - y_output of dims L1,.., Lf x N1 x...x Ng x C
 
     """
-    C = y_output.shape[-1]
+    C = logits.shape[-1]
     
     sampling_dims_ = [_ for _ in range(sampling_dims)]    
-    output_log_probas = y_output.log().mean(sampling_dims_).reshape(-1, C)
+    logits_ = logits.mean(sampling_dims_).reshape(-1, C)
 
     if batch_mean:
 
-        return F.nll_loss(output_log_probas, y_target.reshape(-1))
+        return F.cross_entropy(logits_, y_target.reshape(-1))
 
     shape = y_target.shape
-    return F.nll_loss(output_log_probas,
-                      y_target.reshape(-1),
-                      reduction='none').reshape(shape)
+    return F.cross_entropy(logits_,
+                           y_target.reshape(-1),
+                           reduction='none').reshape(shape)
 
     
 def x_loss_pushy(y_target, y_output, sampling_dims=1, batch_mean=True):

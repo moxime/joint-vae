@@ -3,7 +3,7 @@ import copy
 import torch
 import torch.utils.data
 from torch import nn, optim, autograd
-# from torch.nn import functional as F
+from torch.nn import functional as F
 from utils.losses import x_loss, kl_loss, mse_loss
 
 from vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures
@@ -348,12 +348,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
 
-        _, y_est, batch_losses = self.evaluate(x)
+        _, logits, batch_losses = self.evaluate(x)
 
         # print('cvae l. 192', x.device, batch_losses.device)
-        return self.predict_after_evaluate(y_est, batch_losses, method=method)
+        return self.predict_after_evaluate(logits, batch_losses, method=method)
 
-    def predict_after_evaluate(self, y_est, losses, method='default'):
+    def predict_after_evaluate(self, logits, losses, method='default'):
 
         if method == 'default':
             method = 'mean' if self.is_jvae else 'esty'
@@ -362,13 +362,13 @@ class ClassificationVariationalNetwork(nn.Module):
             return y_est
 
         if method == 'mean':
-            return y_est.mean(0).argmax(-1)
+            return F.softmax(logits, -1).mean(0).argmax(-1)
 
         if method == 'loss':
             return losses.argmin(0)
 
         if method == 'esty':
-            return y_est.argmax(-1)
+            return F.softmax(logits, -1).argmax(-1)
 
         raise ValueError(f'Unknown method {method}')
 

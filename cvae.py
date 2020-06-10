@@ -2,7 +2,7 @@ import logging
 import copy
 import torch
 import torch.utils.data
-from torch import nn, optim
+from torch import nn, optim, autograd
 # from torch.nn import functional as F
 from utils.losses import x_loss, kl_loss, mse_loss
 
@@ -14,7 +14,7 @@ from data.torch_load import choose_device
 from utils import save_load
 import numpy as np
 
-from utils.print_log import print_results
+from utils.print_log import print_results, debug_nan
 
 from utils.parameters import get_args
 
@@ -625,8 +625,10 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['test_accuracy'] = []
             self.train_history['train_accuracy'] = [] 
             
-        print_results(0, 0, -2, epochs)
-        print_results(0, 0, -1, epochs)
+        print_results(0, 0, -2, epochs,
+                      acc_methods=methods)
+        print_results(0, 0, -1, epochs,
+                      acc_methods=methods)
 
         for epoch in range(done_epochs, epochs):
 
@@ -679,9 +681,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                        x_loss_weight=x_loss_weight,
                                        kl_loss_weight=kl_loss_weight,
                                        return_all_losses=True)
+
+                # with autograd.detect_anomaly():
                 batch_loss['total'].backward()
-                logging.debug('Max gradient: %s',
-                              max([p.grad.max() for p in self.parameters()]))
+                for p in self.parameters():
+                    if torch.isnan(p).any() or torch.isinf(p).any():
+                        print('GRAD NAN')
                 optimizer.step()
 
                 for k in batch_loss:
@@ -691,6 +696,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 t_per_i = (time.time() - t_start_train) / (i + 1)
                 print_results(i, per_epoch, epoch + 1, epochs,
                               preambule='train',
+                              acc_methods=methods,
                               losses=train_mean_loss,
                               time_per_i=t_per_i,
                               batch_size=batch_size,

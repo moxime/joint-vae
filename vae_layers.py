@@ -363,7 +363,7 @@ class Classifier(nn.Sequential):
             input_dim = d
             
         layers.append(nn.Linear(input_dim, num_labels))
-        layers.append(nn.Softmax(dim=-1))
+        # layers.append(nn.Softmax(dim=-1))
         super().__init__(*layers, **kwargs)
         self.name = name
         

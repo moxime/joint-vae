@@ -124,7 +124,7 @@ if __name__ == '__main__':
         dict_of_sets[s] = testset
         log.debug(testset)
 
-    method = 'loss'
+    method = 'esty'
 
     for n in to_be_tested:
         

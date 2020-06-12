@@ -83,6 +83,7 @@ class ClassificationVariationalNetwork(nn.Module):
         super().__init__(*args, **kw)
         self.name = name
 
+        
         assert type_of_net in ('jvae', 'vib', 'vae')
         self.type = type_of_net
         self.is_jvae = type_of_net == 'jvae'
@@ -139,7 +140,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         activation_layer = activation_layers[activation]()
 
-        if self.is_jvae:
+        if self.is_jvae or self.is_vae:
             decoder_layers = []
             input_dim = latent_dim
             for output_dim in decoder_layer_sizes:
@@ -161,7 +162,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 upsampler_channels = None
                 activation_layer = activation_layers[output_activation]()
                 self.imager = nn.Sequential(nn.Linear(imager_input_dim,
-                                                      np.prod(input_shape)),
+                                                    np.prod(input_shape)),
                                             activation_layer)
 
         self.classifier = Classifier(latent_dim, num_labels,
@@ -193,11 +194,11 @@ class ClassificationVariationalNetwork(nn.Module):
                              'output': output_activation}
 
         self.depth = (len(encoder_layer_sizes)
-                      + len(decoder_layer_sizes) * (self.is_jvae)
+                      + len(decoder_layer_sizes) 
                       + len(classifier_layer_sizes))
         
         self.width = (sum(encoder_layer_sizes)
-                      + sum(decoder_layer_sizes) * (self.is_jvae)
+                      + sum(decoder_layer_sizes)
                       + sum(classifier_layer_sizes)) 
         
         if features:
@@ -228,9 +229,20 @@ class ClassificationVariationalNetwork(nn.Module):
         self.activation = activation
         self.output_activation = output_activation
 
-        self.mse_loss_weight = 1 if self.is_jvae else 0
-        self.x_entropy_loss_weight = 2 * beta if self.is_jvae else 1
-        self.kl_loss_weight = 2 * beta if self.is_jvae else beta
+        if self.is_vae:
+            self.mse_loss_weight = 1
+            self.x_entropy_loss_weight = 0
+            self.kl_loss_weight = 2 * beta
+            
+        elif self.is_jvae:
+            self.mse_loss_weight = 1
+            self.x_entropy_loss_weight = 2 * beta
+            self.kl_loss_weight = 2 * beta 
+            
+        elif self.is_vib:
+            self.mse_loss_weight = 0
+            self.x_entropy_loss_weight = 1
+            self.kl_loss_weight = beta
 
         self.z_output = False
         
@@ -262,7 +274,7 @@ class ClassificationVariationalNetwork(nn.Module):
         z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.is_jvae)
         # z of size LxN1x...xNgxK
 
-        if self.is_jvae:
+        if self.is_jvae or self.is_vae:
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
             x_output = self.imager(u)
@@ -270,7 +282,7 @@ class ClassificationVariationalNetwork(nn.Module):
         y_output = self.classifier(z)
         # y_output of size LxN1x...xKgxC
 
-        if self.is_jvae:
+        if self.is_jvae or self.is_vae:
             out = (x_output.reshape((self.latent_sampling,) + reco_batch_shape),)
         else:
             out = (x,)
@@ -327,7 +339,7 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             x_reco, y_est, mu, log_var, z = self.forward(f_repeated, y)
 
-        if self.is_jvae:
+        if self.is_jvae or self.is_vae:
             x_reco = x_reco.mean(0)
 
         batch_losses = self.loss(x, y,
@@ -524,14 +536,21 @@ class ClassificationVariationalNetwork(nn.Module):
 
         batch_x_loss = x_loss(y, y_estimate, **kw)
                         
-        batch_loss = 0
+        batch_loss = torch.zeros_like(batch_x_loss)
+        
         if mse_loss_weight > 0:
-            batch_loss = mse_loss_weight * batch_mse_loss
+            batch_loss = batch_loss + mse_loss_weight * batch_mse_loss
         if x_loss_weight > 0:
             batch_loss = batch_loss + x_loss_weight * batch_x_loss
         if kl_loss_weight > 0:
             batch_loss += kl_loss_weight * batch_kl_loss
+
         """
+        print('****')
+        print('all', *batch_loss.shape)
+        print('kl', *batch_kl_loss.shape, kl_loss_weight)
+        print('mse', *batch_mse_loss.shape, mse_loss_weight)
+        print('x', *batch_x_loss.shape, x_loss_weight)
         batch_loss = (mse_loss_weight * batch_mse_loss +
                       x_loss_weight * batch_x_loss +
                       kl_loss_weight * batch_kl_loss)
@@ -747,9 +766,12 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.is_jvae:
             self.x_entropy_loss_weight = 2 * value
             self.kl_loss_weight = 2 * value
-        else:
+        elif self.is_vib:
             self.kl_loss_weight = value
+        elif self.is_vae:
+            self.kl_loss_weight = 2 * value
 
+            
     @property
     def kl_loss_weight(self):
         return self._kl_loss_weight

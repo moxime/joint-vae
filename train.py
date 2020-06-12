@@ -63,6 +63,7 @@ if __name__ == '__main__':
             latent_dim = args.latent_dim
 
             features = args.features
+            pretrained_features = args.pretrained_features
 
             encoder = args.encoder
             decoder = args.decoder
@@ -86,7 +87,7 @@ if __name__ == '__main__':
                                type_of_net=args.type,
                                features_channels=features_channels,
                                conv_padding=conv_padding,
-                               # pretrained_features='vgg11.pth',
+                               pretrained_features=pretrained_features,
                                encoder_layer_sizes=encoder,
                                latent_dim=latent_dim,
                                latent_sampling=latent_sampling,
@@ -159,6 +160,7 @@ if __name__ == '__main__':
         latent_dim = args.latent_dim
 
         features = args.features
+        pretrained_features = args.pretrained_features
 
         encoder = args.encoder
         decoder = args.decoder
@@ -234,7 +236,7 @@ if __name__ == '__main__':
                          features=features,
                          features_channels=features_channels,
                          conv_padding=conv_padding,
-                         # pretrained_features='vgg11.pth',
+                         pretrained_features=pretrained_features,
                          encoder_layer_sizes=encoder,
                          latent_dim=latent_dim,
                          latent_sampling=latent_sampling,

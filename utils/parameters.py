@@ -149,7 +149,7 @@ def get_args(what_for='train', argv=None):
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 
-    parser.add_argument('--type', choices=['jvae', 'vib'], default='jvae')
+    parser.add_argument('--type', choices=['jvae', 'vib', 'vae'], default='jvae')
     
     parser.add_argument('-b', '--beta',
                         type = float,
@@ -167,6 +167,7 @@ def get_args(what_for='train', argv=None):
     parser.add_argument('--features', metavar='NAME',
                         choices=['vgg11', 'vgg16', 'conv', 'none'])
 
+    parser.add_argument('--pretrained-features')
     parser.add_argument('--no-features', action='store_true')
 
     parser.add_argument('--encoder', type=alphanum, metavar='W', nargs='*')

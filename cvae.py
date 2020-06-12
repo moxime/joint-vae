@@ -83,7 +83,7 @@ class ClassificationVariationalNetwork(nn.Module):
         super().__init__(*args, **kw)
         self.name = name
 
-        assert type_of_net in ('jvae', 'vib')
+        assert type_of_net in ('jvae', 'vib', 'vae')
         self.type = type_of_net
         self.is_jvae = type_of_net == 'jvae'
         self.is_vib = type_of_net == 'vib'
@@ -96,7 +96,8 @@ class ClassificationVariationalNetwork(nn.Module):
             self.predict_methods = self.vib_predict_methods
         elif self.is_vae:
             classifier_layer_sizes = []
-            self.predict_methods = []
+            self.predict_methods = self.cvae_predict_methods
+
         else:
             raise ValueError('Type {type_of_net} of net unknown')
             

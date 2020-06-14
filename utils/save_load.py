@@ -311,3 +311,33 @@ def load_and_save_json(directory, write_json=False):
     for d in dirs:
         load_and_save_json(d,write_json=write_json)
 
+        
+def strip_json(directory, write_json=False):
+
+    name = os.path.join(directory, 'test.json')
+
+    if os.path.exists(name):
+        with open(name, 'rb') as f:
+
+            try:
+                t = json.load(f)
+                loaded = True
+            except json.JSONDecodeError:
+                print(name, 'not loaded')
+                loaded = False
+
+        if loaded:
+
+            t_ = next(iter(t.values()))
+            print('w', name, '\n', t, '\n', t_)
+            if write_json:
+                with open(name, 'w') as f:
+                    json.dump(t_, f)
+
+    rel_paths = os.listdir(directory)
+    paths = [os.path.join(directory, p) for p in rel_paths]
+    dirs = [d for d in paths if os.path.isdir(d)]
+
+    for d in dirs:
+
+        strip_json(d,write_json=write_json)

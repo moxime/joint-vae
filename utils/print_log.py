@@ -2,6 +2,7 @@ import time
 import numpy as np
 import logging
 import torch
+import pandas as pd
 
 def print_epoch(i, per_epoch, epoch, epochs, loss,
                 snake='=>', blinker='o ', line_length=50,
@@ -128,15 +129,7 @@ def progress_bar(i, per_epoch, width=20):
     print(str)
     return step, mss, lss
 
-def test_pb(N, w, sleep=0.2):
 
-    for i in range(N):
-
-        print(progress_bar(i, N, w), end='|\r')
-        time.sleep(sleep)
-    
-    
-    
 class Time(float):
 
     def __str__(self, max=2):
@@ -212,7 +205,7 @@ class Time(float):
 
         return str(self).__format__(*a, **k)
 
-
+    
 if __name__ == '__main__':
         
     epochs = 10

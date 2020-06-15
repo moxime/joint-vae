@@ -2,6 +2,7 @@ import os
 import pickle
 import json
 import logging
+import pandas as pd
 
 # from cvae import ClassificationVariationalNetwork
 
@@ -114,15 +115,6 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
 
 def collect_networks(directory,
                      list_of_vae_by_architectures,
-                     only_trained=True,
-                     testset=None,
-                     oodset=None,
-                     true_pos_rates=[95, 98],
-                     batch_size=100,
-                     num_batch=5,
-                     min_stats=None,
-                     device=None,
-                     verbose=0,
                      **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
@@ -144,90 +136,27 @@ def collect_networks(directory,
 
         return added
 
-    if min_stats is None:
-        min_stats = num_batch * batch_size
-
-    min_stats = min(min_stats, num_batch * batch_size)
-
     try:
         # logging.debug(f'in {directory}')
         vae = ClassificationVariationalNetwork.load(directory,
                                                     **default_load_paramaters)
         logging.debug(f'net found in {directory}')
         vae_dict = {'net': vae,
-                    'beta': vae.beta,
+                    'type': vae.type,
+                    'arch': vae.print_architecture(),
                     'dir': directory,
-                    'arch': vae.print_architecture()}
-        if vae.trained or not only_trained:
-            append_by_architecture(vae_dict, list_of_vae_by_architectures)
-
-        vae_dict['acc'] = dict()
-        compute_accuracies = False
-
-        if vae.trained:
-            for method in vae.predict_methods:
-                results_path_file = os.path.join(directory,
-                                                 'test_accuracy_' + method) 
-                try: # get result from file
-                    with open(results_path_file, 'r') as f:
-                        vae_dict['acc'][method] = float(f.read())
-
-                except FileNotFoundError:
-                    compute_accuracies = True
-                    vae_dict['acc'][method] = None
-
-            if compute_accuracies and testset:
-                acc = vae.accuracy(testset,
-                                   batch_size=batch_size,
-                                   num_batch='all',
-                                   method='all',
-                                   device=device)
-                for method in vae.predict_methods:
-                    results_path_file = os.path.join(directory,
-                                                     'test_accuracy_' +
-                                                     method) 
-                    with open(results_path_file, 'w+') as f:
-                        f.write(str(acc[method]) + '\n')            
-                vae_dict['acc'] = acc
-
-            compute_oodroc = False
-            derailed_file = os.path.join(directory, 'derailed')
-            vae_dict['fpr at tpr'] = {rate: None for rate in true_pos_rates}
-            if oodset:
-                for rate in true_pos_rates:
-                    ood_file_name = f'ood_{oodset.name}_fpr_at_tpr={rate}'
-                    # ood_file_name = 'ood_fpr_at_tpr.json'
-                    results_path_file = os.path.join(directory, ood_file_name)
-                    n, fp, tp = load_roc(results_path_file)
-                    assert(tp == rate/100 or tp == 0.)
-                    vae_dict['fpr at tpr'][rate] = fp
-                    if n < min_stats:
-                        print(f'{n} < {min_stats} for tpr {rate}')
-                        compute_oodroc = True
-                    is_derailed = os.path.exists(derailed_file)
-
-            if compute_oodroc and not is_derailed:
-                if verbose > 0:
-                    print('Computing fprs for', vae_dict['dir'])
-                try: 
-                    fpr, tpr = ood_roc(vae, testset, oodset,
-                                       batch_size=batch_size,
-                                       num_batch=num_batch,
-                                       device=device)
-                    print(f'fprs: {len(fpr)}')
-                    for rate in true_pos_rates:
-                        ood_file_name = f'ood_{oodset.name}_fpr_at_tpr={rate}'
-                        results_path_file = os.path.join(directory,
-                                                         ood_file_name)
-                        fp = save_roc(results_path_file, fpr, tpr,
-                                      rate/100, num_batch * batch_size)
-                        vae_dict['fpr at tpr'][rate] = fp
-                except ValueError as err:
-                    print('ValueError', err)
-                    with open(derailed_file, 'w+') as f:
-                        f.write('network has derailed')
-                    for rate in true_pos_rates:
-                        vae_dict['fpr at tpr'][rate] = None
+                    'set': vae.training['set'],
+                    'beta': vae.beta,
+                    'epochs': vae.trained,
+                    'n_tested': min(vae.testing[m]['n'] for m in vae.testing),
+                    'epochs_tested': min(vae.testing[m]['epochs'] for m in vae.testing),
+                    'acc': {m: vae.testing[m]['accuracy'] for m in vae.testing},
+                    'K': vae.latent_dim,
+                    'L': vae.latent_sampling,
+                    'depth': vae.depth,
+                    'width': vae.width,
+        }
+        append_by_architecture(vae_dict, list_of_vae_by_architectures)
 
     except FileNotFoundError:    
         pass
@@ -241,14 +170,6 @@ def collect_networks(directory,
     for d in sub_dirs:
         collect_networks(d,
                          list_of_vae_by_architectures,
-                         only_trained=only_trained,
-                         testset=testset,
-                         oodset=oodset,
-                         true_pos_rates=true_pos_rates,
-                         batch_size=batch_size,
-                         num_batch=num_batch,
-                         device=device,
-                         verbose=verbose,
                          **default_load_paramaters)
 
     # logging.debug(f'{len(list_of_vae_by_architectures[0])} different architectures')
@@ -277,6 +198,36 @@ def load_and_save(directory, output_directory=None, **kw):
             print('L:', d['net'].print_architecture())
             print('S:', v.print_architecture())
     return list_of_vae
+
+
+def data_frame_results(nets):
+    """
+    nets : list of dicts n
+    n['net'] : the network
+    n['beta']
+    n['arch']
+    n['set']
+    n['K']
+    n['L']
+    n['acc'] : {m: acc for m in methods}
+    """
+
+    indices = ['set', 'type', 'arch', 'beta']
+    columns = indices + ['acc']
+
+    df = pd.DataFrame.from_records(nets, columns=columns)
+    
+    df2 = df.drop('acc', axis=1).join(pd.DataFrame(df.acc.values.tolist()))
+
+    df2.set_index(indices, inplace=True)
+
+    df = df2.groupby(level=indices)[df2.columns].max()
+    sdf = df.stack().rename('method', level=-1)
+    df = sdf.unstack(level='beta')
+    
+    
+    return df
+
 
 
 def load_and_save_json(directory, write_json=False):

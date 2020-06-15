@@ -11,7 +11,7 @@ import argparse
 import logging
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
-from utils.save_load import collect_networks
+from utils.save_load import collect_networks, data_frame_results
 
 
 def test_net_if(jvae=None,
@@ -136,16 +136,18 @@ if __name__ == '__main__':
         # log.debug('Cuda me: %s', torch.cuda.memory_allocated())
         net = n['net']
         is_tested = test_net_if(jvae=net,
-                                     dry_run=True,
-                                     min_test_sample_size=min_test_sample_size,
-                                     unfinished=unfinished_training,
-                                     min_epochs=epochs)
+                                dry_run=True,
+                                min_test_sample_size=min_test_sample_size,
+                                unfinished=unfinished_training,
+                                min_epochs=epochs)
         
         is_enough_trained = is_tested is not None
         will_be_tested = is_enough_trained and not is_tested
 
         if is_enough_trained:
             enough_trained.append(n)
+            betas.add(n['beta'])
+            testsets.add(n['set'])
 
         log.info('%s%s%s %3d epochs for %s', 
                  '*' if is_enough_trained else '|',
@@ -184,77 +186,14 @@ if __name__ == '__main__':
                     print_result=True,
                     device=device,
                     method='all')
-
-        n['net'].save(n['dir'])
-        n['acc'] = {m: n['net'].testing[m]['accuracy']
-                    for m in n['net'].predict_methods }
-        n['arch'] = n['net'].print_architecture(excludes=['latent_dim'])
-        n['K'] = n['net'].latent_dim
-        n['L'] = n['net'].latent_sampling
         
-    sorting_key = lambda n: (n['set'],
-                             n['net'].depth,
-                             n['net'].width,
-                             n['arch'],
-                             n['K'],
-                             n['L'],
-                             n['beta'],
-                             # n['acc'],
-    )
-    
-    to_be_tested.sort(key=sorting_key)
-
-    grouped_by_set = groupby(to_be_tested, key=lambda n: n['set'])
-
-    for s, group in grouped_by_set:
-
-        string = f'Networks trained for {s}'
-        print(f'\n{string:_^120}')
-
-        grouped_by_arch = groupby(group, key=lambda n: n['arch'])
-
-        for a, arch_group in grouped_by_arch:
-
-            print(f'{a:=^120}')
-
-            header = '   K   L '
-            print(f'{header:<15}', end='')
-            for beta in sorted(betas):
-                print(f'{beta:^12.2e}', end='')
-            print('\n') #, 120*'_')
-
-            grouped_by_k_l = groupby(arch_group,
-                                     key = lambda n: (n['K'], n['L']))
+        n['net'].save(n['dir'])
             
-            for (K, L), k_l_group in grouped_by_k_l: 
+    df = data_frame_results(enough_trained)
 
-                # lg = list(k_l_group)
-                grouped_by_beta = groupby(k_l_group,
-                                          key=lambda n: n['beta'])
-                
-                header = f'{K:4} {L:4} '
-                print(f'{header:<15}', end='')
-
-                d_beta_acc = dict()
-                acc_max = 0
-                for beta, beta_group in grouped_by_beta:
-                    acc_max_beta = max(n['acc'] for n in beta_group)
-                    d_beta_acc[beta] = acc_max_beta
-                    if acc_max_beta > acc_max:
-                        acc_max = acc_max_beta
-                        d_beta_acc['max'] = beta
-
-                for beta in sorted(betas):
-
-                    if beta in d_beta_acc:
-                        if d_beta_acc['max'] == beta:
-                            fo, fc = '\033[1m', '\033[0m'
-                            # fo, fc = '*', '*'
-                        else:
-                            fo, fc = '', ''
-                        print(f'  {fo}{d_beta_acc[beta]:7.1%}{fc}   ', end='')
-                    else:
-                        print(' ' * 12, end='')
-                print()
-            print(f'{"":_^120}')
-
+    formatter = lambda u: '' if np.isnan(u) is str else '{:.1%}'.format(u)
+    formatter = lambda u: '-{}-'.format(u) if type(u) is float else ''
+    formatter = lambda u: '-' if np.isnan(u) else '{:.1%}'.format(u)
+    if verbose:
+        print('\n' * 2)
+    print(df.to_string(na_rep='', decimal=',', float_format=formatter))

@@ -143,7 +143,8 @@ def get_args(what_for='train', argv=None):
         help = 'Minimum accepted before retesting'
         parser.add_argument('-T', '--min-test-sample-size',
                             type=int, metavar='N0', default=0)
-        parser.add_argument('-u', '--unfinished', action='store_true')
+        parser.add_argument('-u', '--unfinished', action='store_true',
+                            help='Even unfinished training')
 
     parser.add_argument('--force-cpu', action='store_true')
     parser.add_argument('--dry-run', action='store_true',

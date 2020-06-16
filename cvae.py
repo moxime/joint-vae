@@ -846,31 +846,36 @@ class ClassificationVariationalNetwork(nn.Module):
         s = f'{set}: {beta:.1e} -- L={sampling} {done_epochs}/{epochs}'
         return s
 
-    def print_architecture(self, beta=False, sampling=False, excludes=[]):
+    def print_architecture(self, beta=False, sampling=False, excludes=[], short=False):
 
         def _l2s(l, c='-', empty='.'):
             if l:
                 return c.join(str(_) for _ in l)
             return empty
 
+        def s_(s):
+            return s[0] if short else s
+        
         features = None
         if self.features:
             features = self.features.name
+        s = ''
         if 'activation' not in excludes:
-            s = f'output={self.output_activation}--'
-            s += f'activation={self.activation}--'
+            if not self.is_vib:
+                s = s_('output') + f'={self.output_activation}--'
+            s += s_('activation') + f'={self.activation}--'
         if 'latent_dim' not in excludes: 
-            s += f'latent-dim={self.latent_dim}--'
+            s += s_('latent-dim') + f'={self.latent_dim}--'
         # if sampling:
         #    s += f'sampling={self.latent_sampling}--'
         if features:
-            s += f'features={features}--'
-        s += f'encoder={_l2s(self.encoder_layer_sizes)}--'
+            s += s_('features') + f'={features}--'
+        s += s_('encoder') + f'={_l2s(self.encoder_layer_sizes)}--'
         if 'decoder' not in excludes:
-            s += f'decoder={_l2s(self.decoder_layer_sizes)}--'
+            s += s_('decoder') + f'={_l2s(self.decoder_layer_sizes)}--'
             if self.upsampler_channels:
-                s += f'upsampler={_l2s(self.upsampler_channels)}--'
-        s += f'classifier={_l2s(self.classifier_layer_sizes)}'
+                s += s_('upsampler') + f'={_l2s(self.upsampler_channels)}--'
+        s += s_('classifier') + f'={_l2s(self.classifier_layer_sizes)}'
 
         if beta:
             s += f'--beta={self.beta:1.2e}'

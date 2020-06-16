@@ -143,7 +143,7 @@ def collect_networks(directory,
         logging.debug(f'net found in {directory}')
         vae_dict = {'net': vae,
                     'type': vae.type,
-                    'arch': vae.print_architecture(),
+                    'arch': vae.print_architecture(short=True, excludes=('latent_dim')),
                     'dir': directory,
                     'set': vae.training['set'],
                     'beta': vae.beta,
@@ -212,7 +212,7 @@ def data_frame_results(nets):
     n['acc'] : {m: acc for m in methods}
     """
 
-    indices = ['set', 'type', 'arch', 'beta']
+    indices = ['set', 'type', 'arch', 'K', 'L', 'beta']
     columns = indices + ['acc']
 
     df = pd.DataFrame.from_records(nets, columns=columns)
@@ -224,10 +224,8 @@ def data_frame_results(nets):
     df = df2.groupby(level=indices)[df2.columns].max()
     sdf = df.stack().rename('method', level=-1)
     df = sdf.unstack(level='beta')
-    
-    
-    return df
 
+    return df
 
 
 def load_and_save_json(directory, write_json=False):

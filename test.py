@@ -197,3 +197,4 @@ if __name__ == '__main__':
     if verbose:
         print('\n' * 2)
     print(df.to_string(na_rep='', decimal=',', float_format=formatter))
+    #print(df.to_string())

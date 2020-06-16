@@ -10,6 +10,8 @@ import sys
 import argparse
 import logging
 
+import pandas as pd
+
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
 from utils.save_load import collect_networks, data_frame_results
 
@@ -196,5 +198,6 @@ if __name__ == '__main__':
     formatter = lambda u: '-' if np.isnan(u) else '{:.1%}'.format(u)
     if verbose:
         print('\n' * 2)
+    pd.set_option('max_colwidth', 30)
     print(df.to_string(na_rep='', decimal=',', float_format=formatter))
     #print(df.to_string())

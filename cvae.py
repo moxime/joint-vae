@@ -563,6 +563,7 @@ class ClassificationVariationalNetwork(nn.Module):
               x_loss_weight=None,
               kl_loss_weight=None,
               sample_size=1000,
+              full_test_every=20,
               train_accuracy=False,
               save_dir=None):
         """
@@ -651,10 +652,11 @@ class ClassificationVariationalNetwork(nn.Module):
             num_batch = sample_size // batch_size
             if testset:
                 # print(num_batch, sample_size)
+                full_test = (epoch and epoch % full_test_every == 0)
                 with torch.no_grad():
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=batch_size,
-                                                  num_batch=num_batch,
+                                                  num_batch='all' if full_test else num_batch,
                                                   device=device,
                                                   method=acc_methods,
                                                   # log=False,

@@ -212,19 +212,24 @@ def data_frame_results(nets):
     n['acc'] : {m: acc for m in methods}
     """
 
-    indices = ['set', 'type', 'arch', 'K', 'L', 'beta']
-    columns = indices + ['acc']
+    set_arch, K_L = ['set', 'type', 'arch'], ['K', 'L', 'beta']
+    columns = set_arch + K_L + ['acc']
 
     df = pd.DataFrame.from_records(nets, columns=columns)
     
     df2 = df.drop('acc', axis=1).join(pd.DataFrame(df.acc.values.tolist()))
 
-    df2.set_index(indices, inplace=True)
+    df2.set_index(set_arch + K_L, inplace=True)
 
-    df = df2.groupby(level=indices)[df2.columns].max()
-    sdf = df.stack().rename('method', level=-1)
+    df = df2.groupby(level=set_arch + K_L)[df2.columns].max()
+    sdf = df.stack()
+    sdf.index.rename('method', level=-1, inplace=True)
     df = sdf.unstack(level='beta')
+    #df = df.reset_index()
+    df = df.reorder_levels(set_arch + ['method'] + K_L[:-1])
 
+    df.sort_values(set_arch + ['method'] + K_L[:-1], inplace=True)
+    
     return df
 
 

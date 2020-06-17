@@ -198,6 +198,6 @@ if __name__ == '__main__':
     formatter = lambda u: '-' if np.isnan(u) else '{:.1%}'.format(u)
     if verbose:
         print('\n' * 2)
-    pd.set_option('max_colwidth', 30)
+    pd.set_option('max_colwidth', 15)
     print(df.to_string(na_rep='', decimal=',', float_format=formatter))
     #print(df.to_string())

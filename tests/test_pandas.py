@@ -16,24 +16,27 @@ for i in range(N):
     animals.append({'specy': choose(species),
                     'color': choose(colors),
                     'habitat': choose(habitats),
-                    'siz': {'legs': np.random.rand(),
+                    'size': {'legs': np.random.rand(),
                             'head': np.random.rand()}})
 
     animals.append({'specy': choose(species),
                     'color': choose(colors),
                     'habitat': choose(habitats),
-                    'siz': {'paw': np.random.rand()}})
+                    'size': {'paw': np.random.rand()}})
 
 
     
-df = pd.DataFrame.from_records(animals, columns=('specy', 'color', 'habitat', 'siz'))
+df = pd.DataFrame.from_records(animals, columns=('specy', 'color', 'habitat', 'size'))
     
 
-df2 = df.drop('siz', axis=1).join(pd.DataFrame(df.siz.values.tolist()))
+df2 = df.drop('size', axis=1).join(pd.DataFrame(df['size'].values.tolist()))
 
-df2.style.apply('font-weight: bold')
+df2.set_index(['specy', 'color', 'habitat'], inplace=True)
+
+print(df2)
+df2 = df2.reorder_levels(['color', 'habitat', 'specy'])
 
 print(df2)
 
-pd.set_option('max_colwidth', 5)
-print(df2.to_string())
+# pd.set_option('max_colwidth', 10)
+# print(df2.to_string())

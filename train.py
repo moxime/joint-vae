@@ -11,21 +11,26 @@ import argparse
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
 from utils.save_load import collect_networks
 
-list_of_args = get_args()
 
 if __name__ == '__main__':
     
-    args = list_of_args[0]
+    list_of_args = get_args()
     
-    debug = args.debug
-    verbose = args.verbose
+    generic_arg = list_of_args[0]
+
+    
+    debug = generic_arg.debug
+    verbose = generic_arg.verbose
     log = set_log(verbose, debug)
 
     log.debug('$ ' + ' '.join(sys.argv))
 
-    job_dir = args.job_dir
+    for k in generic_arg.__dict__.items():
+        log.debug('%s: %s', *k)
 
-    if not args.force_cpu:
+    job_dir = generic_arg.job_dir
+
+    if not genric_arg.force_cpu:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         log.info(f'Used device: {device}')
     else:
@@ -33,71 +38,58 @@ if __name__ == '__main__':
         log.info(f'Used device: {device}')
         log.debug(f'CPU asked by user')
         
-    repeat = args.repeat
-    find_and_finish = args.finish or repeat > 1
-    dry_run = args.dry_run    
+    repeat = generic_arg.repeat
+    find_and_finish = generic_arg.finish or repeat > 1
+    dry_run = generic_arg.dry_run    
 
     for args in list_of_args:
         args.already_trained = []
 
+    if generic_arg.load_dir:
+        list_of_args = [generic_arg]
+        log.debug('Finishing', generic_arg.load_dir)
+        find_and_finish = False
+        
     if find_and_finish:
 
-        l_o_l_o_d_o_n = []
-        collect_networks(job_dir, l_o_l_o_d_o_n) #, like=dummy_jvae)
-        total = sum(map(len, l_o_l_o_d_o_n))
-        log.debug(f'{total} networks in {len(l_o_l_o_d_o_n)} lists collected:')
-        for (i, l) in enumerate(l_o_l_o_d_o_n):
-            a = l[0]['net'].print_architecture(sampling=True)
-            w = 'networks' if len(l) > 1 else 'network '
-            log.debug(f'|_{len(l)} {w} of type {a}')
+        nets_in_jobdir = []
+        collect_networks(job_dir, nets_in_jobdir)
+
+        num_of_nets = sum(map(len, nets_in_jobdir))
+        num_of_archs = len(nets_in_jobdir)
+        log.debug(f'{num_of_nets} networks with {num_of_archs}'
+                  'different architectures:')
+
+        for (i, nets_of_arch) in enumerate(nets_in_jobdir):
+            arch = nets_of_arch[0]['net'].print_architecture(sampling=True, short=True)
+            w = 'networks' if len(nets_of_arch) > 1 else 'network '
+            log.debug(f'|_{len(l)} {w} of type {arch}')
             betas, num = np.unique([n['beta'] for n in l], return_counts=True)
             beta_s = ' '.join([f'{beta:.3e} ({n})'
                                for (beta, n) in zip(betas, num)])
             log.debug(f'| |_ beta={beta_s}')
 
-        for args in list_of_args:
+        for a in list_of_args:
 
-            beta = args.beta
-
-            latent_sampling = args.latent_sampling
-            latent_dim = args.latent_dim
-
-            features = args.features
-            pretrained_features = args.pretrained_features
-
-            encoder = args.encoder
-            decoder = args.decoder
-            upsampler = args.upsampler
-            conv_padding = args.conv_padding
-            features_channels = args.features_channels
-
-            output_activation = args.output_activation
-
-            train_vae = args.vae
-            classifier = args.classifier if not train_vae else []
-
-            dataset = args.dataset
-            transformer = args.transformer
-
-            input_shape, num_labels = torchdl.get_shape_by_name(dataset)
+            input_shape, num_labels = torchdl.get_shape_by_name(a.dataset)
             
             log.debug('Building dummy network for comparison')
             dummy_jvae = CVNet(input_shape, num_labels,
-                               features=features,
-                               type_of_net=args.type,
-                               features_channels=features_channels,
-                               conv_padding=conv_padding,
-                               pretrained_features=pretrained_features,
-                               encoder_layer_sizes=encoder,
-                               latent_dim=latent_dim,
-                               latent_sampling=latent_sampling,
-                               decoder_layer_sizes=decoder,
-                               upsampler_channels=upsampler,
-                               classifier_layer_sizes=classifier,
-                               beta=beta,
-                               output_activation=output_activation)
+                               features=a.features,
+                               type_of_net=a.type,
+                               features_channels=a.features_channels,
+                               conv_padding=a.conv_padding,
+                               pretrained_features=a.pretrained_features,
+                               encoder_layer_sizes=a.encoder,
+                               latent_dim=a.latent_dim,
+                               latent_sampling=a.latent_sampling,
+                               decoder_layer_sizes=a.decoder,
+                               upsampler_channels=a.upsampler,
+                               classifier_layer_sizes=a.classifier,
+                               beta=a.beta,
+                               output_activation=a.output_activation)
 
-            dummy_jvae.training['set'] = dataset
+            dummy_jvae.training['set'] = a.dataset
             log.debug('Built %s with training params %s',
                       dummy_jvae.print_architecture(),
                       dummy_jvae.print_training())
@@ -106,7 +98,7 @@ if __name__ == '__main__':
                       ' '.join(str(i) for i in input_shape),
                       num_labels)
 
-            for i, n in enumerate(sum(l_o_l_o_d_o_n, [])):                    
+            for i, n in enumerate(sum(nets_in_jobdir, [])):                    
                 same_arch = dummy_jvae.has_same_architecture(n['net'])
                 same_train = dummy_jvae.has_same_training(n['net'])
                 log.debug('(%2s) %s %s %s', i,
@@ -118,15 +110,15 @@ if __name__ == '__main__':
                 if same_arch and same_train:
                     s = 'Found alreay trained '
                     beta = n['beta']
-                    epochs = n['net'].trained
+                    epochs = n['epochs']
                     s += f'{beta:1.3e} ({epochs} epochs) '
                     log.debug(s)
-                    args.already_trained.append({'dir': n['dir'], 'epochs': n['net'].trained})
+                    a.already_trained.append({'dir': n['dir'], 'epochs': n['epochs']})
 
-            args.already_trained.sort(key=lambda i: i['epochs'], reverse=True)
+            a.already_trained.sort(key=lambda i: i['epochs'], reverse=True)
             log.info(f'{len(args.already_trained)} already trainend (%s)',
                      ' '.join([str(i['epochs']) for i in args.already_trained]))
-            args.already_trained = args.already_trained[:repeat]
+            a.already_trained = args.already_trained[:repeat]
 
     for args in list_of_args:
         while len(args.already_trained) < repeat:
@@ -180,6 +172,7 @@ if __name__ == '__main__':
 
         refit = args.refit
         load_dir = args.load_dir
+
         save_dir = load_dir if not refit else None
 
         for k in args.__dict__.items():

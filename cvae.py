@@ -660,7 +660,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   device=device,
                                                   method=acc_methods,
                                                   # log=False,
-                                                  print_result='test')
+                                                  print_result='TEST' if full_test else 'test')
                 if save_dir: self.save(save_dir)
             # train
             if train_accuracy:

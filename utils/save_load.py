@@ -63,6 +63,14 @@ def full_path(dir_name, file_name):
     return os.path.join(os.path.realpath(dir_name), file_name)
 
 
+def shorten_path(path, max_length=30):
+
+    if len(path) > max_length:
+        return (path[:max_length // 2 - 2] +
+                '...' + path[-max_length // 2 + 2:])
+
+    return path
+    
 def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
 
     rel_paths = os.listdir(dir_path)
@@ -140,14 +148,15 @@ def collect_networks(directory,
         # logging.debug(f'in {directory}')
         vae = ClassificationVariationalNetwork.load(directory,
                                                     **default_load_paramaters)
-        logging.debug(f'net found in {directory}')
+        logging.debug(f'net found in {shorten_path(directory)}')
         vae_dict = {'net': vae,
                     'type': vae.type,
                     'arch': vae.print_architecture(short=True, excludes=('latent_dim')),
                     'dir': directory,
                     'set': vae.training['set'],
                     'beta': vae.beta,
-                    'epochs': vae.trained,
+                    'done': vae.trained,
+                    'epochs': vae.training['epochs'],
                     'n_tested': min(vae.testing[m]['n'] for m in vae.testing),
                     'epochs_tested': min(vae.testing[m]['epochs'] for m in vae.testing),
                     'acc': {m: vae.testing[m]['accuracy'] for m in vae.testing},
@@ -162,7 +171,6 @@ def collect_networks(directory,
         pass
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
-
     
     list_dir = [os.path.join(directory, d) for d in os.listdir(directory)]
     sub_dirs = [e for e in list_dir if os.path.isdir(e)]
@@ -172,9 +180,11 @@ def collect_networks(directory,
                          list_of_vae_by_architectures,
                          **default_load_paramaters)
 
-    # logging.debug(f'{len(list_of_vae_by_architectures[0])} different architectures')
-    # for l in list_of_vae_by_architectures:
-    #     logging.debug(f'{len(l)} networks')
+    num_of_archs = len(list_of_vae_by_architectures)
+    num_of_nets = len(sum(list_of_vae_by_architectures, []))
+
+    logging.debug(f'{num_of_nets} nets in {num_of_archs} different architectures'
+                  f'found in {shorten_path(directory)}')
 
         
 def load_and_save(directory, output_directory=None, **kw):

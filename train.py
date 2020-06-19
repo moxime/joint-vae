@@ -16,51 +16,74 @@ if __name__ == '__main__':
     
     list_of_args = get_args()
     
-    generic_arg = list_of_args[0]
-
+    common_args = list_of_args[0]
     
-    debug = generic_arg.debug
-    verbose = generic_arg.verbose
+    debug = common_args.debug
+    verbose = common_args.verbose
+    repeat = common_args.repeat
     log = set_log(verbose, debug)
 
     log.debug('$ ' + ' '.join(sys.argv))
 
-    for k in generic_arg.__dict__.items():
+    for k in common_args.__dict__.items():
         log.debug('%s: %s', *k)
 
-    job_dir = generic_arg.job_dir
+    job_dir = common_args.job_dir
 
-    if not genric_arg.force_cpu:
+    if not common_args.force_cpu:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         log.info(f'Used device: {device}')
     else:
         device = torch.device('cpu')
         log.info(f'Used device: {device}')
         log.debug(f'CPU asked by user')
-        
-    repeat = generic_arg.repeat
-    find_and_finish = generic_arg.finish or repeat > 1
-    dry_run = generic_arg.dry_run    
+
+    batch_size = common_args.batch_size
+    test_sample_size = common_args.test_sample_size
+    dry_run = common_args.dry_run    
+    load_dir = common_args.load_dir    
+    find_and_finish = (common_args.finish or repeat > 1) and not load_dir
 
     for args in list_of_args:
         args.already_trained = []
 
-    if generic_arg.load_dir:
-        list_of_args = [generic_arg]
-        log.debug('Finishing', generic_arg.load_dir)
-        find_and_finish = False
-        
-    if find_and_finish:
+    if load_dir:
 
-        nets_in_jobdir = []
-        collect_networks(job_dir, nets_in_jobdir)
+        repeat = 1
+        list_of_args = []
+        nets_in_dir = []
 
-        num_of_nets = sum(map(len, nets_in_jobdir))
-        num_of_archs = len(nets_in_jobdir)
+        collect_networks(load_dir,
+                         nets_in_dir)
+
+        for n in sum(nets_in_dir, []):
+            a_ = argparse.Namespace(**vars(common_args))
+            a_ = argparse.Namespace()
+            a_.epochs = common_args.epochs
+            a_.batch_size = common_args.batch_size
+            to_be_finished = {'dir': n['dir'], 'done': n['done']}
+
+            if to_be_finished['done'] < a_.epochs:
+                log.debug('Will finish training of net in %s (%s epochs done',
+                          n['dir'], n['done'])
+                a_.dataset = n['set']
+                a_.transformer = n['net'].training.get('transformer', 'default')
+                a_.load_dir = n['dir']
+                a_.already_trained = [to_be_finished]
+                list_of_args.append(a_)
+
+    elif find_and_finish:
+
+        nets_in_dir = []
+        collect_networks(job_dir,
+                         nets_in_dir)
+
+        num_of_nets = sum(map(len, nets_in_dir))
+        num_of_archs = len(nets_in_dir)
         log.debug(f'{num_of_nets} networks with {num_of_archs}'
                   'different architectures:')
 
-        for (i, nets_of_arch) in enumerate(nets_in_jobdir):
+        for (i, nets_of_arch) in enumerate(nets_in_dir):
             arch = nets_of_arch[0]['net'].print_architecture(sampling=True, short=True)
             w = 'networks' if len(nets_of_arch) > 1 else 'network '
             log.debug(f'|_{len(l)} {w} of type {arch}')
@@ -98,7 +121,7 @@ if __name__ == '__main__':
                       ' '.join(str(i) for i in input_shape),
                       num_labels)
 
-            for i, n in enumerate(sum(nets_in_jobdir, [])):                    
+            for i, n in enumerate(sum(nets_in_dir, [])):                    
                 same_arch = dummy_jvae.has_same_architecture(n['net'])
                 same_train = dummy_jvae.has_same_training(n['net'])
                 log.debug('(%2s) %s %s %s', i,
@@ -110,111 +133,70 @@ if __name__ == '__main__':
                 if same_arch and same_train:
                     s = 'Found alreay trained '
                     beta = n['beta']
-                    epochs = n['epochs']
+                    epochs = n['done']
                     s += f'{beta:1.3e} ({epochs} epochs) '
                     log.debug(s)
-                    a.already_trained.append({'dir': n['dir'], 'epochs': n['epochs']})
+                    a.already_trained.append({'dir': n['dir'], 'done': n['done']})
 
-            a.already_trained.sort(key=lambda i: i['epochs'], reverse=True)
+            a.already_trained.sort(key=lambda i: i['done'], reverse=True)
             log.info(f'{len(args.already_trained)} already trainend (%s)',
-                     ' '.join([str(i['epochs']) for i in args.already_trained]))
+                     ' '.join([str(i['done']) for i in args.already_trained]))
             a.already_trained = args.already_trained[:repeat]
 
     for args in list_of_args:
         while len(args.already_trained) < repeat:
-            args.already_trained.append({'dir': None, 'epochs': 0})
+            args.already_trained.append({'dir': None,
+                                         'done': 0,})
             
     args_to_be_done = []
 
     for _ in range(repeat):
-        for args in list_of_args:
+        for a in list_of_args:
 
-            dir = args.already_trained.pop(0)
-            args_dir = argparse.Namespace(**vars(args))
-            args_dir.load_dir = dir['dir']
-            args_dir.epochs_to_be_done = max(0, args.epochs - dir['epochs'])
-            args_to_be_done.append(args_dir)
+            to_be_finished = a.already_trained.pop(0)
+            a_ = argparse.Namespace(**vars(a))
+            a_.load_dir = to_be_finished['dir']
+            a_.epochs_to_be_done = max(0, args.epochs - to_be_finished['done'])
+            args_to_be_done.append(a_)
 
     total_epochs = sum([a.epochs_to_be_done for a in args_to_be_done])
     to_be_finished = sum([a.epochs_to_be_done > 0 for a in args_to_be_done])
     log.info('%s total nets (%s epochs) to be trained', to_be_finished,
              total_epochs)
     
-    for args in args_to_be_done:
+    for a in args_to_be_done:
 
-        epochs = args.epochs
-        batch_size = args.batch_size
-        test_sample_size = args.test_sample_size
+        save_dir = a.load_dir
 
-        beta = args.beta
-
-        latent_sampling = args.latent_sampling
-        latent_dim = args.latent_dim
-
-        features = args.features
-        pretrained_features = args.pretrained_features
-
-        encoder = args.encoder
-        decoder = args.decoder
-        upsampler = args.upsampler
-        conv_padding = args.conv_padding
-        features_channels = args.features_channels
-
-        output_activation = args.output_activation
-
-        train_vae= args.vae
-        classifier = args.classifier if not train_vae else []
-
-        dataset = args.dataset
-        transformer = args.transformer
-
-        dry_run = args.dry_run
-
-        refit = args.refit
-        load_dir = args.load_dir
-
-        save_dir = load_dir if not refit else None
-
-        for k in args.__dict__.items():
+        for k in a.__dict__.items():
             log.debug('%s: %s', *k)
 
-
-        trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
+        trainset, testset = torchdl.get_dataset(a.dataset, transformer=a.transformer)
 
         log.debug(f'{trainset.name} dataset loaded')
         
-        if train_vae:
-            for the_set in (trainset, testset):
-                new_labels = np.zeros(len(the_set), dtype=int)
-                if hasattr(the_set, 'targets'):
-                    the_set.targets = new_labels
-                elif hasattr(the_set, 'labels'):
-                    the_set.labels = new_labels
-                else:
-                    raise AttributeError(f'labels or targets is not an attribute of {the_set.name}')
-
         trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=batch_size,
+                                                  batch_size=a.batch_size,
                                                   shuffle=True,
                                                   num_workers=0)
 
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=a.batch_size,
                                                  shuffle=True, num_workers=0)
 
         input_shape, num_labels = torchdl.get_shape(trainset)
         
-        rebuild = load_dir is None
+        rebuild = a.load_dir is None
 
         if not rebuild:
             try:
-                log.info('Loading network in %s', load_dir)
-                jvae = CVNet.load(load_dir, load_state=not refit)
+                log.info('Loading network in %s', a.load_dir)
+                jvae = CVNet.load(a.load_dir, load_state=True)
                 log.debug(f'Network loaded')
-                done_epochs = jvae.train_history['epochs']
+                done_epochs = jvae.trained
                 if done_epochs == 0:
                     verb = 'will start from scratch.'
-                elif done_epochs < epochs:
-                    verb = f'will resume from {jvae.trained}.'
+                elif done_epochs < a.epochs:
+                    verb = f'will resume from {done_epochs}.'
                 else:
                     verb = 'is already done.'
                 log.info(f'Training {verb}')
@@ -225,28 +207,26 @@ if __name__ == '__main__':
         if rebuild:
             log.info('Building network...')
             jvae = CVNet(input_shape, num_labels,
-                         type_of_net=args.type,
-                         features=features,
-                         features_channels=features_channels,
-                         conv_padding=conv_padding,
-                         pretrained_features=pretrained_features,
-                         encoder_layer_sizes=encoder,
-                         latent_dim=latent_dim,
-                         latent_sampling=latent_sampling,
-                         decoder_layer_sizes=decoder,
-                         upsampler_channels=upsampler,
-                         classifier_layer_sizes=classifier,
-                         beta=beta,
-                         output_activation=output_activation)
+                         type_of_net=a.type,
+                         features=a.features,
+                         features_channels=a.features_channels,
+                         conv_padding=a.conv_padding,
+                         pretrained_features=a.pretrained_features,
+                         encoder_layer_sizes=a.encoder,
+                         latent_dim=a.latent_dim,
+                         latent_sampling=a.latent_sampling,
+                         decoder_layer_sizes=a.decoder,
+                         upsampler_channels=a.upsampler,
+                         classifier_layer_sizes=a.classifier,
+                         beta=a.beta,
+                         output_activation=a.output_activation)
 
         if not save_dir:
 
-            beta_ = 'vae-beta=' if train_vae else 'beta='
-            save_dir_root = os.path.join(job_dir, dataset,
+            save_dir_root = os.path.join(job_dir, a.dataset,
                                          jvae.print_architecture(sampling=False),
-                                         beta_ + f'{jvae.beta:1.2e}' +
-                                         f'--sampling={latent_sampling}')
-
+                                         f'beta={a.beta:1.2e}' +
+                                         f'--sampling={a.latent_sampling}')
             i = 0
             save_dir = os.path.join(save_dir_root, f'{i:02d}')
 
@@ -270,16 +250,16 @@ if __name__ == '__main__':
             log.debug([u.shape for u in outs])
 
         if not dry_run:
-            if jvae.trained < epochs:
+            if jvae.trained < a.epochs:
                 log.info('Training of %s', jvae.print_architecture())
 
-                jvae.train(trainset, epochs=epochs,
+                jvae.train(trainset, epochs=a.epochs,
                            batch_size=batch_size,
                            device=device,
                            testset=testset,
                            sample_size=test_sample_size,  # 10000,
                            mse_loss_weight=None,
-                           x_loss_weight= 0 if train_vae else None,
+                           x_loss_weight=None,
                            kl_loss_weight=None,
                            save_dir=save_dir)
                 log.info('Done training')

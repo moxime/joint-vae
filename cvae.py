@@ -552,6 +552,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def train(self,
               trainset=None,
+              transformer='default',
               optimizer=None,
               epochs=50,
               batch_size=100, device=None,
@@ -590,6 +591,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if trainset:
                 self.training['set'] = set_name
+                self.training['transformer'] = transformer
                 ss = trainset.data[0].shape
                 ns = self.input_shape
                 logging.debug(f'Shapes : {ss} / {ns}')
@@ -613,6 +615,7 @@ class ClassificationVariationalNetwork(nn.Module):
         assert self.training['set']
 
         set_name = self.training['set']
+        
         logging.debug(f'Loading {set_name}')
         trainset, testset = torchdl.get_dataset(set_name)
 

@@ -75,7 +75,8 @@ def test_net_if(jvae=None,
 if __name__ == '__main__':
 
     list_of_args = get_args('test')
-    args = list_of_args[0]
+
+    first_args = list_of_args[0]
     
     debug = args.debug
     verbose = args.verbose
@@ -89,7 +90,6 @@ if __name__ == '__main__':
         device = torch.device('cpu')
         log.info(f'Used device: {device}')
         log.debug(f'CPU asked by user')
-
 
     batch_size = args.batch_size
     job_dir = args.job_dir

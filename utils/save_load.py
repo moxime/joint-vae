@@ -149,9 +149,14 @@ def collect_networks(directory,
         vae = ClassificationVariationalNetwork.load(directory,
                                                     **default_load_paramaters)
         logging.debug(f'net found in {shorten_path(directory)}')
+        arch =  vae.print_architecture(excludes=('latent_dim'))
+        arch_code = hex(hash(arch))[2:10]
+        pretrained_features =  str(None if not vae.features else vae.features.pretrained)
+        
         vae_dict = {'net': vae,
                     'type': vae.type,
-                    'arch': vae.print_architecture(short=True, excludes=('latent_dim')),
+                    'arch': arch,
+                    'arch_code': arch_code,
                     'dir': directory,
                     'set': vae.training['set'],
                     'beta': vae.beta,
@@ -162,6 +167,7 @@ def collect_networks(directory,
                     'acc': {m: vae.testing[m]['accuracy'] for m in vae.testing},
                     'K': vae.latent_dim,
                     'L': vae.latent_sampling,
+                    'pretrained_features': pretrained_features,
                     'depth': vae.depth,
                     'width': vae.width,
         }
@@ -222,23 +228,26 @@ def data_frame_results(nets):
     n['acc'] : {m: acc for m in methods}
     """
 
-    set_arch, K_L = ['set', 'type', 'arch'], ['K', 'L', 'beta']
-    columns = set_arch + K_L + ['acc']
+    set_arch_index = ['set', 'type', 'pretrained_features', 'arch_code']
+    # set_arch_index = ['set', 'type', 'arch_code']
+
+    K_L_index = ['K', 'L', 'beta']
+    columns = set_arch_index + K_L_index + ['acc']
 
     df = pd.DataFrame.from_records(nets, columns=columns)
     
     df2 = df.drop('acc', axis=1).join(pd.DataFrame(df.acc.values.tolist()))
 
-    df2.set_index(set_arch + K_L, inplace=True)
+    df2.set_index(set_arch_index + K_L_index, inplace=True)
 
-    df = df2.groupby(level=set_arch + K_L)[df2.columns].max()
+    df = df2.groupby(level=set_arch_index + K_L_index)[df2.columns].max()
     sdf = df.stack()
     sdf.index.rename('method', level=-1, inplace=True)
     df = sdf.unstack(level='beta')
     #df = df.reset_index()
-    df = df.reorder_levels(set_arch + ['method'] + K_L[:-1])
+    df = df.reorder_levels(set_arch_index + ['method'] + K_L_index[:-1])
 
-    df.sort_values(set_arch + ['method'] + K_L[:-1], inplace=True)
+    df.sort_values(set_arch_index + ['method'] + K_L_index[:-1], inplace=True)
     
     return df
 

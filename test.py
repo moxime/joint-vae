@@ -132,7 +132,8 @@ if __name__ == '__main__':
     n_to_be_tested = 0
     testsets = set()
     betas = set()
-
+    archs = set()
+    
     for n in sum(l_o_l_o_d_o_n, []):
 
         # log.debug('Cuda me: %s', torch.cuda.memory_allocated())
@@ -152,10 +153,12 @@ if __name__ == '__main__':
                 enough_trained.append(n)
                 betas.add(n['beta'])
                 testsets.add(n['set'])
+                archs.add(n['arch'])
             except ValueError:
                 d = n['dir']
+                is_enough_trained = False
+                will_be_tested = False
                 log.warning(f'Better get rid of net in {d}')
-
 
         log.info('%s%s%s %3d epochs for %s', 
                  '*' if is_enough_trained else '|',
@@ -196,7 +199,7 @@ if __name__ == '__main__':
                     method='all')
 
         n['net'].save(n['dir'])
-            
+
     df = data_frame_results(enough_trained)
 
     formatter = lambda u: '' if np.isnan(u) is str else '{:.1%}'.format(u)
@@ -206,4 +209,7 @@ if __name__ == '__main__':
         print('\n' * 2)
     pd.set_option('max_colwidth', 15)
     print(df.to_string(na_rep='', decimal=',', float_format=formatter))
+
+    for a in archs:
+        print(hex(hash(a))[2:10],':\n', a)
     #print(df.to_string())

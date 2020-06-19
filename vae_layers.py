@@ -109,6 +109,7 @@ class ConvFeatures(nn.Sequential):
 
     def __init__(self, input_shape, channels,
                  padding=1, kernel=4,
+                 pretrained=None,
                  activation='relu'):
 
         assert (kernel == 2 * padding + 2)
@@ -121,6 +122,7 @@ class ConvFeatures(nn.Sequential):
         self.name = 'conv-' + f'p{padding}-'
         self.name += '-'.join([str(c) for c in channels])
 
+        self.pretrained = pretrained
         self.input_shape = input_shape
         self.channels = channels
         self.padding = padding
@@ -216,13 +218,13 @@ class Encoder(nn.Module):
         u[:, D:] = y.reshape(N, C)
         u = u.reshape(s)
 
-        debug_nan(u, u, 'u1')
+        # debug_nan(u, u, 'u1')
         u = self.dense_projs(u)
         if torch.isnan(u).any():
-            for p in self.dense_projs.parameters():
-                print(torch.isnan(p).sum().item(), 'nans in',
-                      'parameters of size',
-                      *p.shape)
+            # for p in self.dense_projs.parameters():
+            #     print(torch.isnan(p).sum().item(), 'nans in',
+            #           'parameters of size',
+            #          *p.shape)  
             raise ValueError('ERROR')
         # debug_nan(u, self.dense_projs.parameters(), 'dpp')
         z_mean = self.dense_mean(u)

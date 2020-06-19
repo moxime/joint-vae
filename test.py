@@ -147,9 +147,15 @@ if __name__ == '__main__':
         will_be_tested = is_enough_trained and not is_tested
 
         if is_enough_trained:
-            enough_trained.append(n)
-            betas.add(n['beta'])
-            testsets.add(n['set'])
+            try:
+                net.evaluate(torch.randn(1, *net.input_shape))
+                enough_trained.append(n)
+                betas.add(n['beta'])
+                testsets.add(n['set'])
+            except ValueError:
+                d = n['dir']
+                log.warning(f'Better get rid of net in {d}')
+
 
         log.info('%s%s%s %3d epochs for %s', 
                  '*' if is_enough_trained else '|',
@@ -188,7 +194,7 @@ if __name__ == '__main__':
                     print_result=True,
                     device=device,
                     method='all')
-        
+
         n['net'].save(n['dir'])
             
     df = data_frame_results(enough_trained)

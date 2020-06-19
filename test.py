@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     list_of_args = get_args('test')
 
-    first_args = list_of_args[0]
+    args = list_of_args[0]
     
     debug = args.debug
     verbose = args.verbose

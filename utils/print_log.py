@@ -74,7 +74,12 @@ def print_results(i, per_epoch, epoch, epochs,
     elif epoch == -1: 
         acc_str = '|' + '|'.join(f'{k:^9}' for k in acc_methods)
     elif accuracies:
-        acc_str = '|' + '|'.join(f' {accuracies[k]:7.2%} ' for k in acc_methods)
+        acc_str_ = []
+        for k in acc_methods:
+
+            acc_str_.append(f' {accuracies[k]:5.1f}dB ' if k == 'snr' else
+                            f' {accuracies[k]:7.2%} ')
+        acc_str = '|' + '|'.join(acc_str_)
     else:
         acc_str = '|' + '|'.join(9 * ' ' for k in acc_methods)
         

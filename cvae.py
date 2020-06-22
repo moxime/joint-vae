@@ -57,8 +57,8 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
 
-    cvae_predict_methods = ['mean', 'loss']
-    vib_predict_methods = ['esty']
+    cvae_predict_methods = ['mean', 'loss', 'snr']
+    vib_predict_methods = ['esty', 'snr']
 
     def __init__(self,
                  input_shape,
@@ -433,9 +433,14 @@ class ClassificationVariationalNetwork(nn.Module):
         mismatched = dict()
         acc = dict()
         for m in methods:
-            n_err[m] = 0
-            mismatched[m] = []
+            if m != 'snr':
+                n_err[m] = 0
+                mismatched[m] = []
         n = 0
+        mse = 0
+        total_x_pow = 0
+        x_pow = 0
+        
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
                                                  shuffle=True)
@@ -454,16 +459,24 @@ class ClassificationVariationalNetwork(nn.Module):
                 total_loss[k] += batch_losses[k].mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
             for m in methods:
-                y_pred = self.predict_after_evaluate(y_est,
-                                                     batch_losses['total'],
-                                                     method=m)
+                if m == 'snr':
+                    mse = total_loss['mse']
+                    x_pow += x_test.pow(2).mean()
+                    snr = x_pow / mse
+                else:
+                    y_pred = self.predict_after_evaluate(y_est,
+                                                         batch_losses['total'],
+                                                         method=m)
 
-                n_err[m] += (y_pred != y_test).sum().item()
-                mismatched[m] += [torch.where(y_test != y_pred)[0]]
+                    n_err[m] += (y_pred != y_test).sum().item()
+                    mismatched[m] += [torch.where(y_test != y_pred)[0]]
             n += len(y_test)
             time_per_i = (time.time() - start) / (i + 1)
             for m in methods:
-                acc[m] = 1 - n_err[m] / n
+                if m == 'snr':
+                    acc[m] = 10 * snr.log10().item()
+                else:
+                    acc[m] = 1 - n_err[m] / n
             if print_result:
                 print_results(i, num_batch, 0, 0,
                               losses=mean_loss, accuracies=acc,

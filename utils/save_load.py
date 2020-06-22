@@ -242,13 +242,17 @@ def data_frame_results(nets):
     df2.set_index(set_arch_index + K_L_index, inplace=True)
 
     df = df2.groupby(level=set_arch_index + K_L_index)[df2.columns].max()
-    sdf = df.stack()
-    sdf.index.rename('method', level=-1, inplace=True)
-    df = sdf.unstack(level='beta')
-    #df = df.reset_index()
-    df = df.reorder_levels(set_arch_index + ['method'] + K_L_index[:-1])
+    df = df.stack()
+    df.index.rename('method', level=-1, inplace=True)
+    df.index.rename('pre_feat', level='pretrained_features', inplace=True)
 
-    df.sort_values(set_arch_index + ['method'] + K_L_index[:-1], inplace=True)
+    df = df.unstack(level=('beta', 'method'))
+    
+    # df = sdf.unstack(level='beta')
+    #df = df.reset_index()
+    # df = df.reorder_levels(set_arch_index + ['method'] + K_L_index[:-1])
+
+    # df.sort_values(set_arch_index + ['method'] + K_L_index[:-1], inplace=True)
     
     return df
 

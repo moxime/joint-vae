@@ -202,13 +202,31 @@ if __name__ == '__main__':
 
     df = data_frame_results(enough_trained)
 
-    formatter = lambda u: '' if np.isnan(u) is str else '{:.1%}'.format(u)
-    formatter = lambda u: '-{}-'.format(u) if type(u) is float else ''
-    formatter = lambda u: '-' if np.isnan(u) else '{:.1%}'.format(u)
+    formats = []
+
+    def finite(u, f):
+        if np.isnan(u):
+            return ''
+        if np.isinf(u):
+            return 'inf'
+        return f.format(u)
+
+    def f_pc(u):
+        return finite(100 * u, '{:.1f}')
+
+    def f_db(u):
+        return finite(u, '{:.1f}')
+    
+    for (b, m) in df.columns:
+
+        formats.append(f_db if m == 'snr' else f_pc)
+    
+    for fun in formats:
+        print(fun(0.456763))
     if verbose:
         print('\n' * 2)
     pd.set_option('max_colwidth', 15)
-    print(df.to_string(na_rep='', decimal=',', float_format=formatter))
+    print(df.to_string(na_rep='', decimal=',', formatters=formats))
 
     for a in archs:
         print(hex(hash(a))[2:10],':\n', a)

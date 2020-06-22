@@ -86,8 +86,8 @@ if __name__ == '__main__':
         for (i, nets_of_arch) in enumerate(nets_in_dir):
             arch = nets_of_arch[0]['net'].print_architecture(sampling=True, short=True)
             w = 'networks' if len(nets_of_arch) > 1 else 'network '
-            log.debug(f'|_{len(l)} {w} of type {arch}')
-            betas, num = np.unique([n['beta'] for n in l], return_counts=True)
+            log.debug(f'|_{len(nets_of_arch)} {w} of type {arch}')
+            betas, num = np.unique([n['beta'] for n in nets_of_arch], return_counts=True)
             beta_s = ' '.join([f'{beta:.3e} ({n})'
                                for (beta, n) in zip(betas, num)])
             log.debug(f'| |_ beta={beta_s}')

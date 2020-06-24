@@ -328,3 +328,53 @@ def strip_json(directory, write_json=False):
     for d in dirs:
 
         strip_json(d,write_json=write_json)
+
+
+def json_pretrained_from_params_to_train(directory, write_json=False):
+
+    params_json = os.path.join(directory, 'params.json')
+    train_json = os.path.join(directory, 'train.json')
+
+    if os.path.exists(params_json) and os.path.exists(train_json):
+
+        with open(params_json, 'rb') as f:
+
+            try:
+                params = json.load(f)
+                loaded = True
+            except json.JSONDecodeError:
+                print(params_json, 'not loaded')
+                loaded = False
+
+        with open(train_json, 'rb') as f:
+
+            try:
+                train = json.load(f)
+            except json.JSONDecodeError:
+                print(params_json, 'not loaded')
+                loaded = False
+                
+        if loaded:
+
+            if 'features' in params.keys():
+                features = params['features'].pop('pretrained_features', None)
+                upsampler = params.pop('pretrained_upsampler', None)
+                train['pretrained_features'] = features
+                train['pretrained_upsampler'] = upsampler
+                print(directory, '\n', params, train)
+                if write_json:
+
+                    with open(train_json, 'w') as f:
+                        json.dump(train, f)
+                        print('w', train_json)
+                    with open(params_json, 'w') as f:
+                        json.dump(params, f)
+                        print('w', params_json)
+                
+    rel_paths = os.listdir(directory)
+    paths = [os.path.join(directory, p) for p in rel_paths]
+    dirs = [d for d in paths if os.path.isdir(d)]
+
+    for d in dirs:
+        json_pretrained_from_params_to_train(d, write_json=write_json)
+

@@ -221,8 +221,6 @@ if __name__ == '__main__':
 
         formats.append(f_db if m == 'snr' else f_pc)
     
-    for fun in formats:
-        print(fun(0.456763))
     if verbose:
         print('\n' * 2)
     pd.set_option('max_colwidth', 15)

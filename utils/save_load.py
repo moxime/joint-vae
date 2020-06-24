@@ -152,8 +152,8 @@ def collect_networks(directory,
         arch =  vae.print_architecture(excludes=('latent_dim'))
         arch_code = hex(hash(arch))[2:10]
         pretrained_features =  (None if not vae.features
-                                else vae.train['pretrained_features'])
-        pretrained_upsampler = vae.train.get('pretrained_upsampler', None)),
+                                else vae.training['pretrained_features'])
+        pretrained_upsampler = vae.training.get('pretrained_upsampler', None)
         methods = vae.predict_methods
         vae_dict = {'net': vae,
                     'type': vae.type,

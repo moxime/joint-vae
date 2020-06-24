@@ -151,8 +151,8 @@ def collect_networks(directory,
         logging.debug(f'net found in {shorten_path(directory)}')
         arch =  vae.print_architecture(excludes=('latent_dim'))
         arch_code = hex(hash(arch))[2:10]
-        pretrained_features =  str(None if not vae.features
-                                   else vae.architecture['features']['pretrained_features'])
+        pretrained_features =  (None if not vae.features
+                                else vae.architecture['features']['pretrained_features'])
         
         vae_dict = {'net': vae,
                     'type': vae.type,
@@ -168,7 +168,8 @@ def collect_networks(directory,
                     'acc': {m: vae.testing[m]['accuracy'] for m in vae.testing},
                     'K': vae.latent_dim,
                     'L': vae.latent_sampling,
-                    'pretrained_features': pretrained_features,
+                    'pretrained_features': str(pretrained_features),
+                    'pretrained_upsampler': str(vae.architecture['pretrained_upsampler']),
                     'depth': vae.depth,
                     'width': vae.width,
         }
@@ -229,32 +230,39 @@ def data_frame_results(nets):
     n['acc'] : {m: acc for m in methods}
     """
 
-    set_arch_index = ['set', 'type', 'pretrained_features', 'arch_code']
-    # set_arch_index = ['set', 'type', 'arch_code']
+    set_arch_index = ['set', 'type', 'arch_code',
+                      'pretrained_features',
+                      'pretrained_upsampler',
+    ]
 
     K_L_index = ['K', 'L', 'beta']
     columns = set_arch_index + K_L_index + ['acc']
 
     df = pd.DataFrame.from_records(nets, columns=columns)
-    
-    df2 = df.drop('acc', axis=1).join(pd.DataFrame(df.acc.values.tolist()))
 
-    df2.set_index(set_arch_index + K_L_index, inplace=True)
+    df = df.drop('acc', axis=1).join(pd.DataFrame(df.acc.values.tolist()))
 
-    df = df2.groupby(level=set_arch_index + K_L_index)[df2.columns].max()
+    df.set_index(set_arch_index + K_L_index, inplace=True)
+
+    # for pre in 'pretrained_features', 'pretrained_upsampler':
+    #     for i, l in enumerate(df.index.names):
+    #         if l==pre:
+    #             level=i
+    #     idx = df.index
+    #     levels=idx.levels[level] #.astype(str)
+    #     print(levels)
+    #     idx.set_levels(level=level, levels=levels, inplace=True)
+        
+    df = df.groupby(level=set_arch_index + K_L_index)[df.columns].max()
     df = df.stack()
+
     df.index.rename('method', level=-1, inplace=True)
     df.index.rename('pre_feat', level='pretrained_features', inplace=True)
+    df.index.rename('pre_up', level='pretrained_upsampler', inplace=True)
 
     df = df.unstack(level=('beta', 'method'))
-    
-    # df = sdf.unstack(level='beta')
-    #df = df.reset_index()
-    # df = df.reorder_levels(set_arch_index + ['method'] + K_L_index[:-1])
-
-    # df.sort_values(set_arch_index + ['method'] + K_L_index[:-1], inplace=True)
-    
-    return df
+    # return df
+    return df.reindex(sorted(df.columns), axis=1)
 
 
 def load_and_save_json(directory, write_json=False):

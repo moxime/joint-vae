@@ -72,6 +72,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  latent_dim=32,
                  decoder_layer_sizes=[36],
                  upsampler_channels=None,
+                 pretrained_upsampler=None,
                  classifier_layer_sizes=[36],
                  name='joint-vae',
                  activation=DEFAULT_ACTIVATION,
@@ -153,9 +154,14 @@ class ClassificationVariationalNetwork(nn.Module):
             imager_input_dim = input_dim
             if upsampler_channels:
                 upsampler_first_shape = self.features.output_shape
+                if pretrained_upsampler:
+                    upsampler_dict = torch.load(pretrained_upsampler)
+                else:
+                    upsampler_dict = None
                 self.imager = ConvDecoder(imager_input_dim,
                                           upsampler_first_shape,
                                           upsampler_channels,
+                                          upsampler_dict=upsampler_dict,
                                           output_activation=output_activation)
 
             else:
@@ -190,6 +196,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'latent_dim': latent_dim,
                              'decoder': decoder_layer_sizes,
                              'upsampler': upsampler_channels,
+                             'pretrained_upsampler': pretrained_upsampler,
                              'classifier': classifier_layer_sizes,
                              'output': output_activation}
 
@@ -932,7 +939,8 @@ class ClassificationVariationalNetwork(nn.Module):
         """
 
         # default
-        params = {'type': 'jvae'}
+        params = {'type': 'jvae',
+                  'pretrained_upsampler':None}
         loaded_params = save_load.load_json(dir_name, 'params.json')
 
         params.update(loaded_params)

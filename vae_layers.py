@@ -250,6 +250,7 @@ class ConvDecoder(nn.Module):
     
     def __init__(self, input_dim, first_shape, channels,
                  output_activation='linear',
+                 upsampler_dict=None,
                  activation='relu',
                  **kwargs):
 
@@ -262,6 +263,8 @@ class ConvDecoder(nn.Module):
         self.refactor = nn.Sequential(nn.Linear(input_dim, np.prod(first_shape)),
                                       activation_layer)
         self.upsampler = nn.Sequential(*layers)
+        if upsampler_dict:
+            self.upsampler.load_state_dict(upsampler_dict)
 
     def forward(self, z):
 

@@ -151,7 +151,9 @@ if __name__ == '__main__':
 
         if is_enough_trained:
             try:
+                log.debug('Evaluation of one sample...')
                 net.evaluate(torch.randn(1, *net.input_shape))
+                log.debug('...done')
                 enough_trained.append(n)
                 betas.add(n['beta'])
                 testsets.add(n['set'])

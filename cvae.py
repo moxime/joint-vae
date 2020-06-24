@@ -118,7 +118,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                             channels=features_channels,
                                             pretrained=feat_dict)
                 features_arch = self.features.architecture
-                features_arch['pretrained_features'] = pretrained_features
 
             elif features == 'conv':
                 self.features = ConvFeatures(input_shape,
@@ -127,8 +126,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                              kernel=2*conv_padding+2)
                 features_arch = {'features': features,
                                  'features_channels': features_channels,
-                                 'conv_padding': conv_padding,
-                                 'pretrained_features': pretrained_features}
+                                 'conv_padding': conv_padding,}
 
             encoder_input_shape = self.features.output_shape
         else:
@@ -197,7 +195,6 @@ class ClassificationVariationalNetwork(nn.Module):
                              'latent_dim': latent_dim,
                              'decoder': decoder_layer_sizes,
                              'upsampler': upsampler_channels,
-                             'pretrained_upsampler': pretrained_upsampler,
                              'classifier': classifier_layer_sizes,
                              'output': output_activation}
 
@@ -217,6 +214,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self.training = {'beta': beta,
                          'latent_sampling': latent_sampling,
                          'set': None,
+                         'pretrained_features': pretrained_features,
+                         'pretrained_upsampler': pretrained_upsampler,
                          'epochs': 0,
                          'kl_loss_weight': None,
                          'mse_loss_weight': None,
@@ -940,8 +939,8 @@ class ClassificationVariationalNetwork(nn.Module):
         """
 
         # default
-        params = {'type': 'jvae',
-                  'pretrained_upsampler':None}
+        params = {'type': 'jvae'}
+
         loaded_params = save_load.load_json(dir_name, 'params.json')
 
         params.update(loaded_params)

@@ -57,8 +57,9 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
 
-    cvae_predict_methods = ['mean', 'loss', 'snr']
-    vib_predict_methods = ['esty', 'snr']
+    jvae_predict_methods = ['mean', 'loss', 'snr']
+    vae_predict_methods = ['snr']
+    vib_predict_methods = ['esty']
 
     def __init__(self,
                  input_shape,
@@ -92,13 +93,13 @@ class ClassificationVariationalNetwork(nn.Module):
         self.is_vae = type_of_net == 'vae'
         
         if self.is_jvae:
-            self.predict_methods = self.cvae_predict_methods
+            self.predict_methods = self.jvae_predict_methods
         elif self.is_vib:
             decoder_layer_sizes = []
             self.predict_methods = self.vib_predict_methods
         elif self.is_vae:
             classifier_layer_sizes = []
-            self.predict_methods = self.cvae_predict_methods
+            self.predict_methods = self.vae_predict_methods
 
         else:
             raise ValueError('Type {type_of_net} of net unknown')

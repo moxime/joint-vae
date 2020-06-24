@@ -35,7 +35,9 @@ def test_net_if(jvae=None,
         except FileNotFoundError:
             logging.warning(f'Has been asked to load lent in {directory}'
                             'none found')
-            
+
+    jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods}
+    
     is_trained = jvae.trained >= jvae.training['epochs']
     enough_trained_epochs = jvae.trained >= min_epochs
 

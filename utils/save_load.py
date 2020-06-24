@@ -153,7 +153,8 @@ def collect_networks(directory,
         arch_code = hex(hash(arch))[2:10]
         pretrained_features =  (None if not vae.features
                                 else vae.architecture['features']['pretrained_features'])
-        
+
+        methods = vae.predict_methods
         vae_dict = {'net': vae,
                     'type': vae.type,
                     'arch': arch,
@@ -163,9 +164,9 @@ def collect_networks(directory,
                     'beta': vae.beta,
                     'done': vae.trained,
                     'epochs': vae.training['epochs'],
-                    'n_tested': min(vae.testing[m]['n'] for m in vae.testing),
-                    'epochs_tested': min(vae.testing[m]['epochs'] for m in vae.testing),
-                    'acc': {m: vae.testing[m]['accuracy'] for m in vae.testing},
+                    'n_tested': min(vae.testing[m]['n'] for m in methods),
+                    'epochs_tested': min(vae.testing[m]['epochs'] for m in methods),
+                    'acc': {m: vae.testing[m]['accuracy'] for m in methods},
                     'K': vae.latent_dim,
                     'L': vae.latent_sampling,
                     'pretrained_features': str(pretrained_features),

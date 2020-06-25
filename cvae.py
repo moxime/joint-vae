@@ -940,6 +940,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         # default
         params = {'type': 'jvae'}
+        train_params = {'pretrained_features': None,
+                        'pretrained_upsampler': None}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
 
@@ -954,7 +956,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         loaded_train = False
         try:
-            train_params = save_load.load_json(dir_name, 'train.json')
+            train_params.update(save_load.load_json(dir_name, 'train.json'))
             loaded_train = load_train
         except(FileNotFoundError):
             pass
@@ -970,6 +972,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not params.get('features', None):
             params['features'] = {}
 
+
         vae = cls(input_shape=params['input'],
                   num_labels=params['labels'],
                   type_of_net=params['type'],
@@ -982,6 +985,8 @@ class ClassificationVariationalNetwork(nn.Module):
                   beta=train_params['beta'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
+                  pretrained_features=train_params['pretrained_features'],
+                  pretrained_upsampler=train_params['pretrained_upsampler'],
                   **params['features'])
 
         vae.trained = train_history['epochs']

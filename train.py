@@ -213,6 +213,7 @@ if __name__ == '__main__':
                          features_channels=a.features_channels,
                          conv_padding=a.conv_padding,
                          pretrained_features=a.pretrained_features,
+                         pretrained_upsampler=a.pretrained_upsampler,
                          encoder_layer_sizes=a.encoder,
                          latent_dim=a.latent_dim,
                          latent_sampling=a.latent_sampling,

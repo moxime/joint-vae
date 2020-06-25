@@ -123,6 +123,11 @@ class ConvFeatures(nn.Sequential):
         self.name += '-'.join([str(c) for c in channels])
 
         self.pretrained = pretrained
+        if pretrained:
+            self.load_state_dict(pretrained)
+            for p in self.parameters():
+                p.requires_grad_(False)
+
         self.input_shape = input_shape
         self.channels = channels
         self.padding = padding
@@ -265,6 +270,9 @@ class ConvDecoder(nn.Module):
         self.upsampler = nn.Sequential(*layers)
         if upsampler_dict:
             self.upsampler.load_state_dict(upsampler_dict)
+            for p in self.upsampler.parameters():
+                p.requires_grad_(False)
+
 
     def forward(self, z):
 

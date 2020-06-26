@@ -219,7 +219,8 @@ class ClassificationVariationalNetwork(nn.Module):
                          'epochs': 0,
                          'kl_loss_weight': None,
                          'mse_loss_weight': None,
-                         'batch_size': None}
+                         'batch_size': None,
+                         'fine_tuning': []}
 
         self.testing = {m: {'n':0, 'epochs':0, 'accuracy':0}
                         for m in self.predict_methods}
@@ -579,6 +580,7 @@ class ClassificationVariationalNetwork(nn.Module):
               testset=None,
               acc_methods=None,
               beta=None,
+              fine_tuning=False,
               latent_sampling=None,
               mse_loss_weight=None,
               x_loss_weight=None,
@@ -667,6 +669,21 @@ class ClassificationVariationalNetwork(nn.Module):
         print_results(0, 0, -1, epochs,
                       acc_methods=acc_methods)
 
+        if fine_tuning:
+
+            if self.features:
+                for p in self.features.parameters():
+                    if not p.requires_grad:
+                        # print('**** turn on grad')
+                        p.requires_grad_(True)
+
+            if self.is_jvae or self.is_vib:
+                for p in self.features.parameters():
+                    if not p.requires_grad:
+                        # print('**** turn on grad')
+                        p.requires_grad_(True)
+
+
         for epoch in range(done_epochs, epochs):
 
             t_start_epoch = time.time()
@@ -696,7 +713,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                                    update_self_testing=False,
                                                    log=False,
                                                    print_result='acc')
-
                 
             t_i = time.time()
             t_start_train = t_i
@@ -747,6 +763,9 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_loss'].append(train_mean_loss)
             self.train_history['epochs'] += 1
             self.trained += 1
+            if fine_tuning:
+                self.training['fine_tuning'].append(epoch)
+
             if save_dir:
                 self.save(save_dir)
 
@@ -941,7 +960,8 @@ class ClassificationVariationalNetwork(nn.Module):
         # default
         params = {'type': 'jvae'}
         train_params = {'pretrained_features': None,
-                        'pretrained_upsampler': None}
+                        'pretrained_upsampler': None,
+                        'fine_tuning': []}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
 

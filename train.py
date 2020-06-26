@@ -61,6 +61,7 @@ if __name__ == '__main__':
             a_ = argparse.Namespace()
             a_.epochs = common_args.epochs
             a_.batch_size = common_args.batch_size
+            a_.fine_tuning = common_args.fine_tuning
             to_be_finished = {'dir': n['dir'], 'done': n['done']}
 
             if to_be_finished['done'] < a_.epochs:
@@ -246,6 +247,7 @@ if __name__ == '__main__':
         jvae.to(device)
 
         x, y = torchdl.get_batch(trainset, device=device)
+
         if debug:
             log.debug('Trying a first pass')
             outs = jvae(x, y)
@@ -259,6 +261,7 @@ if __name__ == '__main__':
                            batch_size=batch_size,
                            device=device,
                            testset=testset,
+                           fine_tuning=a.fine_tuning,
                            sample_size=test_sample_size,  # 10000,
                            mse_loss_weight=None,
                            x_loss_weight=None,

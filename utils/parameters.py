@@ -173,6 +173,8 @@ def get_args(what_for='train', argv=None):
 
     parser.add_argument('--pretrained-upsampler')
 
+    parser.add_argument('--fine-tuning', action='store_true')
+
     parser.add_argument('--encoder', type=alphanum, metavar='W', nargs='*')
     parser.add_argument('--features_channels', type=alphanum, nargs='*')
     parser.add_argument('--conv_padding', type=alphanum)

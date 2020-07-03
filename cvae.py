@@ -14,6 +14,8 @@ from data.torch_load import choose_device
 from utils import save_load
 import numpy as np
 
+from roc_curves import ood_roc, fpr_at_tpr
+
 from utils.print_log import print_results, debug_nan
 
 from utils.parameters import get_args
@@ -60,6 +62,8 @@ class ClassificationVariationalNetwork(nn.Module):
     jvae_predict_methods = ['mean', 'loss', 'snr']
     vae_predict_methods = ['snr']
     vib_predict_methods = ['esty']
+
+    ood_methods = ['px']
 
     def __init__(self,
                  input_shape,
@@ -398,7 +402,6 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_size=100,
                  num_batch='all',
                  method='all',
-                 device=None,
                  return_mismatched=False,
                  print_result=False,
                  update_self_testing=True,
@@ -410,6 +413,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
 
+        device = next(self.parameters()).device
+        
         if not testset:
             testset_name=self.training['set']
             _, testset = torchdl.get_dataset(testset_name)
@@ -430,12 +435,6 @@ class ClassificationVariationalNetwork(nn.Module):
         if num_batch == 'all':
             num_batch = len(testset) // batch_size
             shuffle = False
-
-        if device is None:
-            has_cuda = torch.cuda.is_available
-            device = torch.device('cuda' if has_cuda else 'cpu')
-
-        self.to(device)
 
         n_err = dict()
         mismatched = dict()
@@ -522,6 +521,65 @@ class ClassificationVariationalNetwork(nn.Module):
             return acc, mismatched
 
         return acc[m] if only_one_method else acc
+
+
+    def ood_detection_rates(self, oodset,
+                           testset=None,
+                           batch_size=100,
+                           num_batch='all',
+                           method='all',
+                           device=None,
+                           print_result=False,
+                           update_self_ood=True,
+                           log=True):
+
+        if not testset:
+            testset_name=self.training['set']
+            _, testset = torchdl.get_dataset(testset_name)
+        
+        if method=='all':
+            methods = ood_methods
+
+        if type(method) is str:
+
+            assert method in ood_methods
+            methods = [method]
+            
+        else:
+            try:
+                method.__iter__()
+                methods = method
+            except AttributeError:
+                raise ValueError(f'{method} is not a '
+                                 'valid method / list of method')
+
+        device = next(self.parameters()).device
+
+        tpr = [_ for _ in range(90, 100)]
+        no_result = {'epochs': 0,
+                     'n': 0,
+                     'auc': 0,
+                     'tpr': tpr,
+                     'fpr': [100 for _ in tpr],
+                     'thresholds':[None for _ in tpr]}
+                     
+        ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
+
+        for m in methods:
+
+            fpr, tpr, thresholds = ood_roc(self, testset, oodset,
+                                           method=m, batch_size=batch_size,
+                                           num_batch=num_batch, device=device)
+
+            if type(num_batch) is int:
+                n = batch_size * num_batch
+            else:
+                n = min(len(oodset), len(testset))
+
+            fpr_at_tpr
+            result = {'epochs': self.trained,
+                      'n': n}
+
 
     def loss(self, x, y,
              x_reconstructed, y_estimate,

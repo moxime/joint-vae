@@ -1,4 +1,3 @@
-from cvae import ClassificationVariationalNetwork
 from sklearn.metrics import roc_curve
 from data.torch_load import choose_device, get_fashion_mnist, get_mnist
 import torch
@@ -7,11 +6,8 @@ import json
 import matplotlib.pyplot as plt
 
 def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all',
-            verbose=0, device=None):
+            device=None):
     
-    test_n_batch = len(testset) // batch_size
-    ood_n_batch = len(oodset) // batch_size
-
     shuffle = False
     test_n_batch = len(testset) // batch_size
     ood_n_batch = len(oodset) // batch_size
@@ -55,7 +51,10 @@ def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all',
 
     fpr, tpr, thresholds =  roc_curve(label_ood, -log_px)
     # return label_ood, log_px
-    return fpr, tpr
+
+    n = batch_size * min(test_n_batch, ood_n_batch)
+    
+    return fpr, tpr, -thresholds
     
 
 def miss_roc(vae, testset, batch_size=100, num_batch='all',
@@ -115,12 +114,28 @@ def miss_roc(vae, testset, batch_size=100, num_batch='all',
     return fpr, tpr
 
 
-def fpr_at_tpr(fpr, tpr, a):
+def fpr_at_tpr(fpr, tpr, a, thresholds=None,
+               return_index=False,
+               true_is_bigger=True):
+
+    """fpr and tpr have to be in ascending order
+
+    """
+    assert(not return_index or thresholds is not None) 
 
     as_tpr = np.asarray(tpr)
     as_fpr = np.asarray(fpr)
-    i_tpr = np.where(as_tpr >= a)[0]
-    return as_fpr[i_tpr].min()
+    i_ = np.where(as_tpr >= a)[0].min()
+
+    fpr_ = as_fpr[i_]
+    
+    if not return_index:
+        return fpr_
+    
+    thr_ = thresholds[i_]
+
+    return fpr_, thr_
+
 
 
 def tpr_at_fpr(fpr, tpr, a):

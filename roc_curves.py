@@ -115,8 +115,7 @@ def miss_roc(vae, testset, batch_size=100, num_batch='all',
 
 
 def fpr_at_tpr(fpr, tpr, a, thresholds=None,
-               return_index=False,
-               true_is_bigger=True):
+               return_threshold=False):
 
     """fpr and tpr have to be in ascending order
 
@@ -129,7 +128,7 @@ def fpr_at_tpr(fpr, tpr, a, thresholds=None,
 
     fpr_ = as_fpr[i_]
     
-    if not return_index:
+    if not return_threshold:
         return fpr_
     
     thr_ = thresholds[i_]

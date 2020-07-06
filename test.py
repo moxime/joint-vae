@@ -16,15 +16,15 @@ from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
 from utils.save_load import collect_networks, data_frame_results
 
 
-def test_net_if(jvae=None,
-                directory=None,
-                testset=None,
-                test_sample_size='all',
-                unfinished=False,
-                dry_run=False,
-                min_epochs=0,
-                min_test_sample_size=1000,
-                **kw,
+def test_accuracy_if(jvae=None,
+                     directory=None,
+                     testset=None,
+                     test_sample_size='all',
+                     unfinished=False,
+                     dry_run=False,
+                     min_epochs=0,
+                     min_test_sample_size=1000,
+                     **kw,
                       ):
 
     assert jvae or directory
@@ -36,6 +36,7 @@ def test_net_if(jvae=None,
             logging.warning(f'Has been asked to load lent in {directory}'
                             'none found')
 
+    # deleting old testing methods
     jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods}
     
     is_trained = jvae.trained >= jvae.training['epochs']
@@ -68,8 +69,74 @@ def test_net_if(jvae=None,
         else:
             num_batch = test_sample_size // batch_sizez
         with torch.no_grad():
-            jvae.accuracy(testset,
-                          **kw)
+            jvae.accuracy(testset, **kw)
+
+    return jvae.testing
+
+
+def test_ood_if(jvae=None,
+                directory=None,
+                testset=None,
+                oodsets=None,
+                test_sample_size='all',
+                unfinished=False,
+                dry_run=False,
+                min_epochs=0,
+                min_test_sample_size=1000,
+                **kw,
+                      ):
+
+    assert jvae or directory
+
+    if not jvae:
+        try:
+            jvae = CVNet.load(directory)
+        except FileNotFoundError:
+            logging.warning(f'Has been asked to load lent in {directory}'
+                            'none found')
+
+    assert jvae.training['set']
+
+    if not testset:
+        testset_name = jvae.training['set']
+        testset = torchdl.get_dataset(testset_name)
+
+    if not oodsets:
+        
+        testset = torchdl.get_dataset(testset_name)
+        
+    
+    is_trained = jvae.trained >= jvae.training['epochs']
+    enough_trained_epochs = jvae.trained >= min_epochs
+
+    min_tested_epochs = min(d['epochs'] for d in jvae.testing.values())
+    min_tested_sample_size = min(d['n'] for d in jvae.testing.values())
+    enough_samples = min_tested_sample_size >= min_test_sample_size
+    enough_epochs = min_tested_epochs >= min_epochs
+    
+    if not is_trained and not unfinished:
+        logging.debug(f'Net in {directory} not trained, will not be tested')
+        return None
+
+    if not enough_trained_epochs:
+        logging.debug(f'Net in {directory} not trained enough, will not be tested')
+        return None
+    
+    has_been_tested = enough_epochs and enough_samples
+
+    if dry_run:
+        return has_been_tested
+
+    if not has_been_tested:
+
+        if not testset:
+            _, testset = torchdl.get_dataset(jvae.training['set'])
+        if test_sample_size == 'all':
+            num_batch = 'all'
+        else:
+            num_batch = test_sample_size // batch_sizez
+        with torch.no_grad():
+            jvae.accuracy(testset, **kw)
 
     return jvae.testing
         
@@ -140,7 +207,7 @@ if __name__ == '__main__':
 
         # log.debug('Cuda me: %s', torch.cuda.memory_allocated())
         net = n['net']
-        is_tested = test_net_if(jvae=net,
+        is_tested = test_accuracy_if(jvae=net,
                                 dry_run=True,
                                 min_test_sample_size=min_test_sample_size,
                                 unfinished=unfinished_training,
@@ -151,9 +218,10 @@ if __name__ == '__main__':
 
         if is_enough_trained:
             try:
-                log.debug('Evaluation of one sample...')
-                net.evaluate(torch.randn(1, *net.input_shape))
-                log.debug('...done')
+                if not args.fast:
+                    log.debug('Evaluation of one sample...')
+                    net.evaluate(torch.randn(1, *net.input_shape))
+                    log.debug('...done')
                 enough_trained.append(n)
                 betas.add(n['beta'])
                 testsets.add(n['set'])
@@ -192,14 +260,14 @@ if __name__ == '__main__':
         trained_set = n['net'].training['set']
         log.info('Test %s with %s', n['dir'], trained_set)
 
-        test_net_if(n['net'],
+        test_accuracy_if(n['net'],
                     testset=dict_of_sets[trained_set],
                     unfinished=unfinished_training,
                     min_epochs=epochs,
                     min_test_sample_size=min_test_sample_size,
                     batch_size=batch_size,
                     print_result=True,
-                    device=device,
+                    # device=device,
                     method='all')
 
         n['net'].save(n['dir'])

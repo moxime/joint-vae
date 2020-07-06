@@ -567,6 +567,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         for m in methods:
 
+            result = ood_results[m]
+            
             fpr, tpr, thresholds = ood_roc(self, testset, oodset,
                                            method=m, batch_size=batch_size,
                                            num_batch=num_batch, device=device)
@@ -575,11 +577,17 @@ class ClassificationVariationalNetwork(nn.Module):
                 n = batch_size * num_batch
             else:
                 n = min(len(oodset), len(testset))
+                
+            results.update({'epochs': self.trained,
+                            'n': n})
 
-            fpr_at_tpr
-            result = {'epochs': self.trained,
-                      'n': n}
+            for i, t  in enumerate(tpr):
 
+                r_ = fpr_at_tpr(fpr, tpr, t, thresholds, True)
+                result['fpr'][i], result['thresholds'][i] = r_
+
+        if update_self_ood:
+            self.ood_results[oodset.name] = ood_results
 
     def loss(self, x, y,
              x_reconstructed, y_estimate,

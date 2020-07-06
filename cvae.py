@@ -671,17 +671,19 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if fine_tuning:
 
-            if self.features:
-                for p in self.features.parameters():
-                    if not p.requires_grad:
-                        # print('**** turn on grad')
-                        p.requires_grad_(True)
+            for p in self.parameters():
+                p.requires_grad_(True)
+            # if self.features:
+            #     for p in self.features.parameters():
+            #         if not p.requires_grad:
+            #             # print('**** turn on grad')
+            #             p.requires_grad_(True)
 
-            if self.is_jvae or self.is_vib:
-                for p in self.features.parameters():
-                    if not p.requires_grad:
-                        # print('**** turn on grad')
-                        p.requires_grad_(True)
+            # if self.is_jvae or self.is_vae:
+            #     for p in self.features.parameters():
+            #         if not p.requires_grad:
+            #             # print('**** turn on grad')
+            #             p.requires_grad_(True)
 
 
         for epoch in range(done_epochs, epochs):
@@ -692,7 +694,8 @@ class ClassificationVariationalNetwork(nn.Module):
             num_batch = sample_size // batch_size
             if testset:
                 # print(num_batch, sample_size)
-                full_test = (epoch and epoch % full_test_every == 0)
+                full_test = ((epoch - done_epochs) and
+                             epoch % full_test_every == 0)
                 with torch.no_grad():
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=batch_size,

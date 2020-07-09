@@ -14,6 +14,9 @@ from data.torch_load import choose_device
 from utils import save_load
 import numpy as np
 
+from roc_curves import ood_roc, fpr_at_tpr
+from sklearn.metrics import auc
+
 from utils.print_log import print_results, debug_nan
 
 from utils.parameters import get_args
@@ -60,6 +63,8 @@ class ClassificationVariationalNetwork(nn.Module):
     jvae_predict_methods = ['mean', 'loss', 'snr']
     vae_predict_methods = ['snr']
     vib_predict_methods = ['esty']
+
+    ood_methods = ['px']
 
     def __init__(self,
                  input_shape,
@@ -225,6 +230,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.testing = {m: {'n':0, 'epochs':0, 'accuracy':0}
                         for m in self.predict_methods}
         # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
+
+        self.ood_results = {}
+
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
 
         self.train_history = {'epochs': 0}
@@ -398,7 +406,6 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_size=100,
                  num_batch='all',
                  method='all',
-                 device=None,
                  return_mismatched=False,
                  print_result=False,
                  update_self_testing=True,
@@ -410,6 +417,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
 
+        device = next(self.parameters()).device
+        
         if not testset:
             testset_name=self.training['set']
             _, testset = torchdl.get_dataset(testset_name)
@@ -430,12 +439,6 @@ class ClassificationVariationalNetwork(nn.Module):
         if num_batch == 'all':
             num_batch = len(testset) // batch_size
             shuffle = False
-
-        if device is None:
-            has_cuda = torch.cuda.is_available
-            device = torch.device('cuda' if has_cuda else 'cpu')
-
-        self.to(device)
 
         n_err = dict()
         mismatched = dict()
@@ -522,6 +525,84 @@ class ClassificationVariationalNetwork(nn.Module):
             return acc, mismatched
 
         return acc[m] if only_one_method else acc
+
+
+    def ood_detection_rates(self, oodset,
+                           testset=None,
+                           batch_size=100,
+                           num_batch='all',
+                           method='all',
+                           device=None,
+                           print_result=False,
+                           update_self_ood=True,
+                           log=True):
+
+        if not testset:
+            testset_name=self.training['set']
+            _, testset = torchdl.get_dataset(testset_name)
+        
+        if method=='all':
+            method = self.ood_methods
+
+        if type(method) is str:
+            assert method in self.ood_methods
+            methods = [method]
+            
+        else:
+            try:
+                method.__iter__()
+                methods = method
+            except AttributeError:
+                raise ValueError(f'{method} is not a '
+                                 'valid method / list of method')
+
+        device = next(self.parameters()).device
+
+        keeped_tpr = [pc / 100 for pc in range(90, 100)]
+
+        no_result = {'epochs': 0,
+                     'n': 0,
+                     'auc': 0,
+                     'tpr': keeped_tpr,
+                     'fpr': [1 for _ in keeped_tpr],
+                     'thresholds':[None for _ in keeped_tpr]}
+                     
+        ood_results = {m: copy.deepcopy(no_result) for m in methods}
+
+        for m in methods:
+
+            if print_result:
+                print(m, ': ', end='')
+            result = ood_results[m]
+            
+            fpr, tpr, thresholds = ood_roc(self, testset, oodset,
+                                           method=m, batch_size=batch_size,
+                                           num_batch=num_batch,
+                                           print_result=print_result,
+                                           device=device)
+
+            auc_ = auc(fpr, tpr)
+            result['auc'] = auc_
+            n = min(len(oodset), len(testset))
+            if type(num_batch) is int:
+                n = min(n, batch_size * num_batch)
+                
+            result.update({'epochs': self.trained,
+                            'n': n})
+
+            str_res = []
+            for i, t  in enumerate(keeped_tpr):
+
+                r_ = fpr_at_tpr(fpr, tpr, t, thresholds, True)
+
+                result['fpr'][i], result['thresholds'][i] = r_
+                str_res.append(f'{t:.0%}:{r_[0]:.1%}')
+
+            if print_result:
+                print('--'.join(str_res + [f'auc:{auc_}']))
+
+        if update_self_ood:
+            self.ood_results[oodset.name] = ood_results
 
     def loss(self, x, y,
              x_reconstructed, y_estimate,
@@ -944,6 +1025,7 @@ class ClassificationVariationalNetwork(nn.Module):
         save_load.save_json(self.architecture, dir_name, 'params.json')
         save_load.save_json(self.training, dir_name, 'train.json')
         save_load.save_json(self.testing, dir_name, 'test.json')
+        save_load.save_json(self.ood_results, dir_name, 'ood.json')
         save_load.save_json(self.train_history, dir_name, 'history.json')
         
         if self.trained:
@@ -977,6 +1059,13 @@ class ClassificationVariationalNetwork(nn.Module):
         except(FileNotFoundError):
             pass
 
+        loaded_ood = False
+        try:
+            ood_results = save_load.load_json(dir_name, 'ood.json')
+            loaded_ood = True
+        except(FileNotFoundError):
+            pass
+        
         loaded_train = False
         try:
             train_params.update(save_load.load_json(dir_name, 'train.json'))
@@ -1017,7 +1106,10 @@ class ClassificationVariationalNetwork(nn.Module):
         vae.training = train_params
         if loaded_test:
             vae.testing.update(testing)
-        
+
+        if load_test and loaded_ood:
+            vae.ood_results = ood_results
+            
         if load_state and vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:

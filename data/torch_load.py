@@ -77,7 +77,19 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
         if default_transform:
             transform = simple_transform
         elif transformer == 'simple':
-            transform = simple_transform
+            transform = simple_transfor
+
+        same_size = ['fashion']
+
+    if dataset == 'mnist32':
+
+        getter = datasets.MNIST
+        if default_transform:
+            transform = pad_transform
+        elif transformer == 'simple':
+            transform = pad_transform
+
+        same_size = ['fashion32']
 
     if dataset == 'fashion':
 
@@ -87,9 +99,9 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
         elif transformer == 'simple':
             transform = simple_transform
         elif transformer == 'pad':
-
             transform = pad_transform
 
+        same_size = ['mnist']
 
     if dataset == 'fashion32':
 
@@ -98,7 +110,9 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
             transform = pad_transform
         elif transformer == 'simple':
             transform = pad_transform
-            
+
+        same_size = ['mnist32']
+        
     if dataset == 'svhn':
 
         def getter(train=True, **kw):
@@ -113,6 +127,8 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
         elif transformer == 'simple':
             transform = simple_transform
 
+        same_size = ['cifar10']        
+
     if dataset == 'cifar10':
         
         getter = datasets.CIFAR10
@@ -124,6 +140,8 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
         elif transformer == 'normal':
             transform = cifar_transform
 
+        same_size = ['svhn']
+            
     with suppress_stdout():
         trainset = getter(root=root, train=True,
                           download=True,
@@ -134,7 +152,9 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
                          transform=transform)
 
     trainset.name = dataset
+    trainset.same_size = same_size
     testset.name = dataset
+    testset.same_size = same_size
     
     return trainset, testset
 

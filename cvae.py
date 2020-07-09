@@ -596,10 +596,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 r_ = fpr_at_tpr(fpr, tpr, t, thresholds, True)
 
                 result['fpr'][i], result['thresholds'][i] = r_
-                str_res.append(f'{t:.0%}:{r_[0]:.1%}')
+                str_res.append(f'{t:.0%}:{r_[0]:.2%}')
 
             if print_result:
-                print('--'.join(str_res + [f'auc:{auc_}']))
+                print('--'.join(str_res + [f'auc:{auc_:.2%}']))
 
         if update_self_ood:
             self.ood_results[oodset.name] = ood_results

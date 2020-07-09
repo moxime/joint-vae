@@ -44,7 +44,8 @@ def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all',
             for batch in range(num_batch):
                 if print_result:
                     print(f'{method}: batch {batch:3d}/{num_batch} of',
-                          f'{"ood" if is_ood else "test"}set', end='\r')
+                          f'{"ood" if is_ood else "test"}set',
+                          ' ' * 20, end='\r')
                 data = next(iter_)
                 x = data[0].to(device)
                 log_px[i: i + batch_size] = vae.log_px(x).cpu() #.detach().numpy()

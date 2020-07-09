@@ -191,21 +191,21 @@ if __name__ == '__main__':
                            for (beta, n) in zip(betas, num)])
         log.debug(f'| |_ beta={beta_s}')
 
-    log.info('Is trained')
-    log.info('|Is tested')
-    log.info('||Will be tested')
-    log.info('|||')
+    log.info('Is trained and is tested (*) or will be (o)')
+    log.info('|ood is tested (*) or will be (o)')
+    log.info('||')
     enough_trained = []
     n_trained = 0
     n_tested = 0
     n_to_be_tested = 0
+    n_ood_computed = 0
+    n_ood_to_be_computed = 0
     testsets = set()
     betas = set()
     archs = set()
     
     for n in sum(l_o_l_o_d_o_n, []):
 
-        # log.debug('Cuda me: %s', torch.cuda.memory_allocated())
         net = n['net']
         is_tested = test_accuracy_if(jvae=net,
                                 dry_run=True,
@@ -216,37 +216,68 @@ if __name__ == '__main__':
         is_enough_trained = is_tested is not None
         will_be_tested = is_enough_trained and not is_tested
 
+        ood_are_tested = test_ood_if(jvae=net,
+                                     dry_run=True,
+                                     min_test_sample_size=min_test_sample_size,
+                                     unfinished=unfinished_training,
+                                     min_epochs=epochs)
+
+        ood_will_be_computed = is_enough_trained and not ood_are_tested
+        is_derailed = False
+        
         if is_enough_trained:
-            try:
-                if not args.fast:
+            d = n['dir']
+            derailed = os.path.join(d, 'derailed')
+            if not args.fast:
+                try:
                     log.debug('Evaluation of one sample...')
                     net.evaluate(torch.randn(1, *net.input_shape))
                     log.debug('...done')
+                except ValueError:
+                    open(derailed, 'a').close()
+                    log.debug(f'Net in {d} has been marked as derailed')
+
+            is_derailed = os.path.exists(derailed)
+            if not is_derailed:
                 enough_trained.append(n)
                 betas.add(n['beta'])
                 testsets.add(n['set'])
                 archs.add(n['arch'])
-            except ValueError:
-                d = n['dir']
+            else:
                 is_enough_trained = False
                 will_be_tested = False
-                log.warning(f'Better get rid of net in {d}')
+                ood_will_be_computed = False
 
-        log.info('%s%s%s %3d epochs for %s', 
-                 '*' if is_enough_trained else '|',
-                 '*' if is_tested else '|',
-                 '*' if will_be_tested else '|',
-                 net.trained,
-                 n['dir'])
+        if is_derailed:
+            train_mark = '+'
+            ood_mark = '+'
+            log.info('++ Derailed net in %s',
+                     n['dir'])
+        else:
+            if not is_enough_trained:
+                train_mark = '|'
+                ood_mark = '|'
+            else:
+                train_mark = '*' if is_tested else 'o'
+                ood_mark = '*' if ood_are_tested else 'o'
+
+            log.info('%s%s %3d epochs for %s', 
+                     train_mark,
+                     ood_mark,
+                     net.trained,
+                     n['dir'])
         
-        n_tested = n_tested + (is_tested is True)
-        n_trained = n_trained + is_enough_trained
-        n_to_be_tested = n_to_be_tested + will_be_tested
+        n_trained += is_enough_trained
+        n_tested += (is_tested is True)
+        n_to_be_tested += will_be_tested
+        n_ood_computed += (ood_are_tested is True)
+        n_ood_to_be_computed += ood_will_be_computed
 
-    log.info('|||')
-    log.info('||%s to be tested', n_to_be_tested)
-    log.info('|%s tested', n_tested)
-    log.info('%s trained (enough)', n_trained)
+    log.info('||')
+    log.info('|%s ood to be computed', n_ood_to_be_computed)
+    log.info('%s tested nets (%s tests to be done)',
+             n_trained,
+             n_to_be_tested)
 
     dict_of_sets = dict()
     for s in testsets:

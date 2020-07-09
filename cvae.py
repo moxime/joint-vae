@@ -229,6 +229,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.testing = {m: {'n':0, 'epochs':0, 'accuracy':0}
                         for m in self.predict_methods}
         # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
+
+        self.ood_results = {}
+
         self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
 
         self.train_history = {'epochs': 0}
@@ -578,7 +581,7 @@ class ClassificationVariationalNetwork(nn.Module):
             else:
                 n = min(len(oodset), len(testset))
                 
-            results.update({'epochs': self.trained,
+            result.update({'epochs': self.trained,
                             'n': n})
 
             for i, t  in enumerate(tpr):
@@ -1007,6 +1010,7 @@ class ClassificationVariationalNetwork(nn.Module):
         save_load.save_json(self.architecture, dir_name, 'params.json')
         save_load.save_json(self.training, dir_name, 'train.json')
         save_load.save_json(self.testing, dir_name, 'test.json')
+        save_load.save_json(self.ood_results, dir_name, 'ood.json')
         save_load.save_json(self.train_history, dir_name, 'history.json')
         
         if self.trained:
@@ -1040,6 +1044,13 @@ class ClassificationVariationalNetwork(nn.Module):
         except(FileNotFoundError):
             pass
 
+        loaded_ood = False
+        try:
+            ood_results = save_load.load_json(dir_name, 'ood.json')
+            loaded_ood = True
+        except(FileNotFoundError):
+            pass
+        
         loaded_train = False
         try:
             train_params.update(save_load.load_json(dir_name, 'train.json'))
@@ -1080,7 +1091,10 @@ class ClassificationVariationalNetwork(nn.Module):
         vae.training = train_params
         if loaded_test:
             vae.testing.update(testing)
-        
+
+        if load_test and loaded_ood:
+            vae.ood_results = ood_results
+            
         if load_state and vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:

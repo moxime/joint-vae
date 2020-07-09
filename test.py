@@ -160,7 +160,7 @@ def test_ood_if(jvae=None,
             jvae.ood_detection_rates(oodset, testset,
                                      batch_size=batch_size,
                                      num_batch=num_batch,
-                                     print_result='OOD')
+                                     **kw)
     if dry_run:
         return has_been_tested
     return jvae.ood_results
@@ -329,6 +329,8 @@ if __name__ == '__main__':
         for n in enough_trained:
 
             trained_set = n['net'].training['set']
+            n['net'].to(device)
+            
             log.info('Test %s with %s', n['dir'], trained_set)
 
             testset=dict_of_sets[trained_set]
@@ -339,8 +341,7 @@ if __name__ == '__main__':
                              min_test_sample_size=min_test_sample_size,
                              batch_size=batch_size,
                              print_result=True,
-                             # device=device,
-                                method='all')
+                             method='all')
             oodsets = [dict_of_sets[n] for n in testset.same_size]
             test_ood_if(jvae=n['net'],
                         testset=testset,
@@ -349,7 +350,6 @@ if __name__ == '__main__':
                         min_test_sample_size=min_test_sample_size,
                         batch_size=batch_size,
                         print_result=True,
-                        # device=device,
                         method='all')
 
             

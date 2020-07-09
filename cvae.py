@@ -532,7 +532,6 @@ class ClassificationVariationalNetwork(nn.Module):
                            batch_size=100,
                            num_batch='all',
                            method='all',
-                           device=None,
                            print_result=False,
                            update_self_ood=True,
                            log=True):
@@ -574,12 +573,13 @@ class ClassificationVariationalNetwork(nn.Module):
             if print_result:
                 print(m, ': ', end='')
             result = ood_results[m]
-            
-            fpr, tpr, thresholds = ood_roc(self, testset, oodset,
-                                           method=m, batch_size=batch_size,
-                                           num_batch=num_batch,
-                                           print_result=print_result,
-                                           device=device)
+
+            with torch.no_grad():
+                fpr, tpr, thresholds = ood_roc(self, testset, oodset,
+                                               method=m, batch_size=batch_size,
+                                               num_batch=num_batch,
+                                               print_result=print_result,
+                                               device=device)
 
             auc_ = auc(fpr, tpr)
             result['auc'] = auc_

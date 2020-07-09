@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all',
             print_result=False,
             device=None):
-    
+
+    # print('*****', device)
     shuffle = False
     test_n_batch = len(testset) // batch_size
     ood_n_batch = len(oodset) // batch_size
@@ -42,12 +43,11 @@ def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all',
             iter_ = iter(loader)
             for batch in range(num_batch):
                 if print_result:
-                    print(f'batch {batch:3d}/{num_batch} of',
+                    print(f'{method}: batch {batch:3d}/{num_batch} of',
                           f'{"ood" if is_ood else "test"}set', end='\r')
                 data = next(iter_)
                 x = data[0].to(device)
-                with torch.no_grad():
-                    log_px[i: i + batch_size] = vae.log_px(x).cpu() #.detach().numpy()
+                log_px[i: i + batch_size] = vae.log_px(x).cpu() #.detach().numpy()
                 label_ood[i: i + batch_size] = is_ood
                 i += batch_size
 

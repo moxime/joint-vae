@@ -152,6 +152,7 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
                          transform=transform)
 
     trainset.name = dataset
+    trainset.same_size = same_size
     testset.name = dataset
     testset.same_size = same_size
     

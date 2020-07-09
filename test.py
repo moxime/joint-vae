@@ -20,6 +20,7 @@ def test_accuracy_if(jvae=None,
                      directory=None,
                      testset=None,
                      test_sample_size='all',
+                     batch_size=100,
                      unfinished=False,
                      dry_run=False,
                      min_epochs=0,
@@ -29,6 +30,10 @@ def test_accuracy_if(jvae=None,
 
     assert jvae or directory
 
+    num_batch = test_sample_size
+    if type(test_sample_size) is int:
+        num_batch = test_sample_size // batch_size
+    
     if not jvae:
         try:
             jvae = CVNet.load(directory)
@@ -45,17 +50,19 @@ def test_accuracy_if(jvae=None,
     min_tested_epochs = min(d['epochs'] for d in jvae.testing.values())
     min_tested_sample_size = min(d['n'] for d in jvae.testing.values())
     enough_samples = min_tested_sample_size >= min_test_sample_size
-    enough_epochs = min_tested_epochs >= min_epochs
-    
+    enough_tested_epochs = min_tested_epochs >= jvae.trained
+
+    desc = 'in ' + directory if directory else jvae.print_architecture()
+
     if not is_trained and not unfinished:
-        logging.debug(f'Net in {directory} not trained, will not be tested')
+        logging.debug(f'Net {desc} not trained, will not be tested')
         return None
 
     if not enough_trained_epochs:
-        logging.debug(f'Net in {directory} not trained enough, will not be tested')
+        logging.debug(f'Net {desc} not trained enough, will not be tested')
         return None
     
-    has_been_tested = enough_epochs and enough_samples
+    has_been_tested = enough_tested_epochs and enough_samples
 
     if dry_run:
         return has_been_tested
@@ -67,9 +74,13 @@ def test_accuracy_if(jvae=None,
         if test_sample_size == 'all':
             num_batch = 'all'
         else:
-            num_batch = test_sample_size // batch_sizez
+            num_batch = test_sample_size // batch_size
         with torch.no_grad():
-            jvae.accuracy(testset, **kw)
+            jvae.accuracy(testset,
+                          batch_size=batch_size,
+                          num_batch=num_batch,
+                          print_result = 'TEST',
+                          **kw)
 
     return jvae.testing
 
@@ -77,8 +88,9 @@ def test_accuracy_if(jvae=None,
 def test_ood_if(jvae=None,
                 directory=None,
                 testset=None,
-                oodsets=None,
+                oodsets=[],
                 test_sample_size='all',
+                batch_size=100,
                 unfinished=False,
                 dry_run=False,
                 min_epochs=0,
@@ -87,6 +99,10 @@ def test_ood_if(jvae=None,
                       ):
 
     assert jvae or directory
+
+    num_batch = test_sample_size
+    if type(test_sample_size) is int:
+        num_batch = test_sample_size // batch_size
 
     if not jvae:
         try:
@@ -99,46 +115,55 @@ def test_ood_if(jvae=None,
 
     if not testset:
         testset_name = jvae.training['set']
-        testset = torchdl.get_dataset(testset_name)
+        _, testset = torchdl.get_dataset(testset_name)
 
     if not oodsets:
-        
-        testset = torchdl.get_dataset(testset_name)
-        
+
+        oodsets_names = testset.same_size
+        oodsets = []
+        for name in oodsets_names:
+            _, oodset = torchdl.get_dataset(name)
+            oodsets.append(oodset)
     
     is_trained = jvae.trained >= jvae.training['epochs']
     enough_trained_epochs = jvae.trained >= min_epochs
 
-    min_tested_epochs = min(d['epochs'] for d in jvae.testing.values())
-    min_tested_sample_size = min(d['n'] for d in jvae.testing.values())
-    enough_samples = min_tested_sample_size >= min_test_sample_size
-    enough_epochs = min_tested_epochs >= min_epochs
-    
+    desc = 'in ' + directory if directory else jvae.print_architecture()
     if not is_trained and not unfinished:
-        logging.debug(f'Net in {directory} not trained, will not be tested')
+        logging.debug(f'Net {desc} not trained, will not be tested')
         return None
 
     if not enough_trained_epochs:
-        logging.debug(f'Net in {directory} not trained enough, will not be tested')
+        logging.debug(f'Net {desc} not trained enough, will not be tested')
         return None
     
-    has_been_tested = enough_epochs and enough_samples
+    min_tested_epochs = {}
+    min_tested_sample_size = {}
+    enough_tested_samples = {}
+    enough_tested_epochs = {}
+    has_been_tested = {}
+    zero = {'epochs': 0, 'n': 0}
+    zeros = {m: zero for m in jvae.ood_methods}
+    for oodset in oodsets:
+        n = oodset.name
+        ood_result = jvae.ood_results.get(n, zeros)
+        tested_epochs = [ood_result.get(m, zero)['epochs'] for m in jvae.ood_methods]
+        min_tested_epochs = min(tested_epochs)
+        tested_sample_size = [ood_result.get(m, zero)['n'] for m in jvae.ood_methods]
+        min_tested_sample_size = min(tested_sample_size)
+        enough_tested_samples = min_tested_sample_size >= min_test_sample_size
+        enough_tested_epochs = min_tested_epochs >= jvae.trained
+    
+        has_been_tested[n] = enough_tested_epochs and enough_tested_samples
 
+        if not dry_run and not has_been_tested[n]:
+            jvae.ood_detection_rates(oodset, testset,
+                                     batch_size=batch_size,
+                                     num_batch=num_batch,
+                                     print_result='OOD')
     if dry_run:
         return has_been_tested
-
-    if not has_been_tested:
-
-        if not testset:
-            _, testset = torchdl.get_dataset(jvae.training['set'])
-        if test_sample_size == 'all':
-            num_batch = 'all'
-        else:
-            num_batch = test_sample_size // batch_sizez
-        with torch.no_grad():
-            jvae.accuracy(testset, **kw)
-
-    return jvae.testing
+    return jvae.ood_results
         
     
 if __name__ == '__main__':
@@ -191,8 +216,8 @@ if __name__ == '__main__':
                            for (beta, n) in zip(betas, num)])
         log.debug(f'| |_ beta={beta_s}')
 
-    log.info('Is trained and is tested (*) or will be (o)')
-    log.info('|ood is tested (*) or will be (o)')
+    log.info('Is trained and is tested (*) or will be (.)')
+    log.info('|ood is tested (*) or will be (.)')
     log.info('||')
     enough_trained = []
     n_trained = 0
@@ -208,10 +233,11 @@ if __name__ == '__main__':
 
         net = n['net']
         is_tested = test_accuracy_if(jvae=net,
-                                dry_run=True,
-                                min_test_sample_size=min_test_sample_size,
-                                unfinished=unfinished_training,
-                                min_epochs=epochs)
+                                     dry_run=True,
+                                     min_test_sample_size=min_test_sample_size,
+                                     batch_size=batch_size,
+                                     unfinished=unfinished_training,
+                                     min_epochs=epochs)
         
         is_enough_trained = is_tested is not None
         will_be_tested = is_enough_trained and not is_tested
@@ -219,10 +245,15 @@ if __name__ == '__main__':
         ood_are_tested = test_ood_if(jvae=net,
                                      dry_run=True,
                                      min_test_sample_size=min_test_sample_size,
+                                     batch_size=batch_size,
                                      unfinished=unfinished_training,
                                      min_epochs=epochs)
 
-        ood_will_be_computed = is_enough_trained and not ood_are_tested
+        if is_enough_trained:
+            ood_will_be_computed = sum([not v for v in ood_are_tested.values()])
+        else:
+            ood_will_be_computed = 0
+            
         is_derailed = False
         
         if is_enough_trained:
@@ -246,7 +277,7 @@ if __name__ == '__main__':
             else:
                 is_enough_trained = False
                 will_be_tested = False
-                ood_will_be_computed = False
+                ood_will_be_computed = 0
 
         if is_derailed:
             train_mark = '+'
@@ -258,8 +289,8 @@ if __name__ == '__main__':
                 train_mark = '|'
                 ood_mark = '|'
             else:
-                train_mark = '*' if is_tested else 'o'
-                ood_mark = '*' if ood_are_tested else 'o'
+                train_mark = '*' if is_tested else '.'
+                ood_mark = '*' if not ood_will_be_computed else '.'
 
             log.info('%s%s %3d epochs for %s', 
                      train_mark,
@@ -280,28 +311,49 @@ if __name__ == '__main__':
              n_to_be_tested)
 
     dict_of_sets = dict()
+    testsets_ = testsets.copy()
     for s in testsets:
         log.debug('Get %s dataset', s)
         _, testset = torchdl.get_dataset(s)
         dict_of_sets[s] = testset
-        log.debug(testset)
+        for n in testset.same_size:
+            testsets_.add(n)
 
-    for n in enough_trained:
+    for s in testsets_.difference(testset):
+        log.debug('Get %s dataset', s)
+        _, oodset = torchdl.get_dataset(s)
+        dict_of_sets[s] = oodset
+
         
-        trained_set = n['net'].training['set']
-        log.info('Test %s with %s', n['dir'], trained_set)
+    if not dry_run:
+        for n in enough_trained:
 
-        test_accuracy_if(n['net'],
-                    testset=dict_of_sets[trained_set],
-                    unfinished=unfinished_training,
-                    min_epochs=epochs,
-                    min_test_sample_size=min_test_sample_size,
-                    batch_size=batch_size,
-                    print_result=True,
-                    # device=device,
-                    method='all')
+            trained_set = n['net'].training['set']
+            log.info('Test %s with %s', n['dir'], trained_set)
 
-        n['net'].save(n['dir'])
+            testset=dict_of_sets[trained_set]
+            test_accuracy_if(jvae=n['net'],
+                             testset=testset,
+                             unfinished=unfinished_training,
+                             min_epochs=epochs,
+                             min_test_sample_size=min_test_sample_size,
+                             batch_size=batch_size,
+                             print_result=True,
+                             # device=device,
+                                method='all')
+            oodsets = [dict_of_sets[n] for n in testset.same_size]
+            test_ood_if(jvae=n['net'],
+                        testset=testset,
+                        unfinished=unfinished_training,
+                        min_epochs=epochs,
+                        min_test_sample_size=min_test_sample_size,
+                        batch_size=batch_size,
+                        print_result=True,
+                        # device=device,
+                        method='all')
+
+            
+            n['net'].save(n['dir'])
 
     df = data_frame_results(enough_trained)
 

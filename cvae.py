@@ -15,6 +15,7 @@ from utils import save_load
 import numpy as np
 
 from roc_curves import ood_roc, fpr_at_tpr
+from sklearn.metrics import auc
 
 from utils.print_log import print_results, debug_nan
 
@@ -541,11 +542,10 @@ class ClassificationVariationalNetwork(nn.Module):
             _, testset = torchdl.get_dataset(testset_name)
         
         if method=='all':
-            methods = ood_methods
+            method = self.ood_methods
 
         if type(method) is str:
-
-            assert method in ood_methods
+            assert method in self.ood_methods
             methods = [method]
             
         else:
@@ -558,36 +558,48 @@ class ClassificationVariationalNetwork(nn.Module):
 
         device = next(self.parameters()).device
 
-        tpr = [_ for _ in range(90, 100)]
+        keeped_tpr = [pc / 100 for pc in range(90, 100)]
+
         no_result = {'epochs': 0,
                      'n': 0,
                      'auc': 0,
-                     'tpr': tpr,
-                     'fpr': [100 for _ in tpr],
-                     'thresholds':[None for _ in tpr]}
+                     'tpr': keeped_tpr,
+                     'fpr': [1 for _ in keeped_tpr],
+                     'thresholds':[None for _ in keeped_tpr]}
                      
-        ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
+        ood_results = {m: copy.deepcopy(no_result) for m in methods}
 
         for m in methods:
 
+            if print_result:
+                print(m, ': ', end='')
             result = ood_results[m]
             
             fpr, tpr, thresholds = ood_roc(self, testset, oodset,
                                            method=m, batch_size=batch_size,
-                                           num_batch=num_batch, device=device)
+                                           num_batch=num_batch,
+                                           print_result=print_result,
+                                           device=device)
 
+            auc_ = auc(fpr, tpr)
+            result['auc'] = auc_
+            n = min(len(oodset), len(testset))
             if type(num_batch) is int:
-                n = batch_size * num_batch
-            else:
-                n = min(len(oodset), len(testset))
+                n = min(n, batch_size * num_batch)
                 
             result.update({'epochs': self.trained,
                             'n': n})
 
-            for i, t  in enumerate(tpr):
+            str_res = []
+            for i, t  in enumerate(keeped_tpr):
 
                 r_ = fpr_at_tpr(fpr, tpr, t, thresholds, True)
+
                 result['fpr'][i], result['thresholds'][i] = r_
+                str_res.append(f'{t:.0%}:{r_[0]:.1%}')
+
+            if print_result:
+                print('--'.join(str_res + [f'auc:{auc_}']))
 
         if update_self_ood:
             self.ood_results[oodset.name] = ood_results

@@ -6,6 +6,7 @@ import json
 import matplotlib.pyplot as plt
 
 def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all',
+            print_result=False,
             device=None):
     
     shuffle = False
@@ -40,12 +41,13 @@ def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all',
                                              (False, True)):
             iter_ = iter(loader)
             for batch in range(num_batch):
-                if verbose > 1:
+                if print_result:
                     print(f'batch {batch:3d}/{num_batch} of',
                           f'{"ood" if is_ood else "test"}set', end='\r')
                 data = next(iter_)
                 x = data[0].to(device)
-                log_px[i: i + batch_size] = vae.log_px(x).cpu() #.detach().numpy()
+                with torch.no_grad():
+                    log_px[i: i + batch_size] = vae.log_px(x).cpu() #.detach().numpy()
                 label_ood[i: i + batch_size] = is_ood
                 i += batch_size
 
@@ -120,7 +122,7 @@ def fpr_at_tpr(fpr, tpr, a, thresholds=None,
     """fpr and tpr have to be in ascending order
 
     """
-    assert(not return_index or thresholds is not None) 
+    assert(not return_threshold or thresholds is not None) 
 
     as_tpr = np.asarray(tpr)
     as_fpr = np.asarray(fpr)

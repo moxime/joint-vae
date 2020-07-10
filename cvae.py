@@ -781,7 +781,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=batch_size,
                                                   num_batch='all' if full_test else num_batch,
-                                                  device=device,
+                                                  # device=device,
                                                   method=acc_methods,
                                                   # log=False,
                                                   print_result='TEST' if full_test else 'test')

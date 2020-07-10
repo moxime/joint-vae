@@ -344,7 +344,6 @@ if __name__ == '__main__':
                              min_epochs=epochs,
                              min_test_sample_size=min_test_sample_size,
                              batch_size=batch_size,
-                             print_result=True,
                              method='all')
 
             if ood_sample_size:
@@ -356,7 +355,6 @@ if __name__ == '__main__':
                             test_sample_size=ood_sample_size,
                             min_test_sample_size=min_test_sample_size,
                             batch_size=batch_size,
-                            print_result=True,
                             method='all')
             
             n['net'].save(n['dir'])

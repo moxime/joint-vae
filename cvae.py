@@ -667,7 +667,7 @@ class ClassificationVariationalNetwork(nn.Module):
               x_loss_weight=None,
               kl_loss_weight=None,
               sample_size=1000,
-              full_test_every=20,
+              full_test_every=10,
               train_accuracy=False,
               save_dir=None):
         """
@@ -859,7 +859,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 test_accuracy = self.accuracy(testset,
                                               batch_size=batch_size,
                                               # num_batch=num_batch,
-                                              device=device,
+                                              # device=device,
                                               method=acc_methods,
                                               # log=False,
                                               print_result='TEST')

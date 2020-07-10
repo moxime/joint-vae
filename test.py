@@ -162,6 +162,7 @@ def test_ood_if(jvae=None,
             jvae.ood_detection_rates(oodset, testset,
                                      batch_size=batch_size,
                                      num_batch=num_batch,
+                                     print_result='OOD',
                                      **kw)
     if dry_run:
         return has_been_tested

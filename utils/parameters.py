@@ -146,6 +146,8 @@ def get_args(what_for='train', argv=None):
         parser.add_argument('-u', '--unfinished', action='store_true',
                             help='Even unfinished training')
         parser.add_argument('--fast', action='store_true')
+        parser.add_argument('-o', '--ood', type=int, nargs='?',
+                            const=-1, default=0)
 
     parser.add_argument('--force-cpu', action='store_true')
     parser.add_argument('--dry-run', action='store_true',
@@ -225,6 +227,8 @@ def get_args(what_for='train', argv=None):
 
     if for_test:
         args.grid_config = False
+        if args.ood == -1:
+            args.ood = args.test_sample_size
 
         
     args.debug = conf_args.debug

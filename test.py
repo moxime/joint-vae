@@ -33,6 +33,7 @@ def test_accuracy_if(jvae=None,
     num_batch = test_sample_size
     if type(test_sample_size) is int:
         num_batch = test_sample_size // batch_size
+        min_test_sample_size = min(test_sample_size, min_test_sample_size)
     
     if not jvae:
         try:
@@ -103,6 +104,7 @@ def test_ood_if(jvae=None,
     num_batch = test_sample_size
     if type(test_sample_size) is int:
         num_batch = test_sample_size // batch_size
+        min_test_sample_size = min(test_sample_size, min_test_sample_size)
 
     if not jvae:
         try:
@@ -190,6 +192,8 @@ if __name__ == '__main__':
     load_dir = args.load_dir
     dry_run = args.dry_run
     epochs = args.epochs
+    test_sample_size = args.test_sample_size
+    ood_sample_size = args.ood
     min_test_sample_size = args.min_test_sample_size
     unfinished_training = args.unfinished
     
@@ -216,7 +220,7 @@ if __name__ == '__main__':
                            for (beta, n) in zip(betas, num)])
         log.debug(f'| |_ beta={beta_s}')
 
-    log.info('Is trained and is tested (*) or will be (.)')
+        log.info('Is trained and is tested (*) or will be (.)')
     log.info('|ood is tested (*) or will be (.)')
     log.info('||')
     enough_trained = []
@@ -342,16 +346,18 @@ if __name__ == '__main__':
                              batch_size=batch_size,
                              print_result=True,
                              method='all')
-            oodsets = [dict_of_sets[n] for n in testset.same_size]
-            test_ood_if(jvae=n['net'],
-                        testset=testset,
-                        unfinished=unfinished_training,
-                        min_epochs=epochs,
-                        min_test_sample_size=min_test_sample_size,
-                        batch_size=batch_size,
-                        print_result=True,
-                        method='all')
 
+            if ood_sample_size:
+                oodsets = [dict_of_sets[n] for n in testset.same_size]
+                test_ood_if(jvae=n['net'],
+                            testset=testset,
+                            unfinished=unfinished_training,
+                            min_epochs=epochs,
+                            test_sample_size=ood_sample_size,
+                            min_test_sample_size=min_test_sample_size,
+                            batch_size=batch_size,
+                            print_result=True,
+                            method='all')
             
             n['net'].save(n['dir'])
 

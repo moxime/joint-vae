@@ -33,6 +33,9 @@ def ood_roc(vae, testset, oodset, method='px', batch_size=100, num_batch='all',
 
     if method == 'px':
 
+        if vae.is_vib:
+            return [0., 1.], [0., 1.], [None, None]
+
         log_px = np.ndarray(batch_size * (test_n_batch + ood_n_batch))
         label_ood = np.ndarray(batch_size * (test_n_batch + ood_n_batch))
         i = 0

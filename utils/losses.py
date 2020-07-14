@@ -31,43 +31,23 @@ def compare_dims(small_dim, large_dim):
     return f + 1, t, ok
 
 
-
-def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
+def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
     """
     x_target of size (N1, .. ,Ng, D1, D2,..., Dt) 
-    x_output of size (L, N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
+    x_output of size (L, (C,), N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
     """
-    sampling_dims = x_output.dim() - x_target.dim()
-    assert x_output.shape[sampling_dims:] == x_target.shape
-    sampling_dims_ = [_ for _ in range(sampling_dims)]
 
-    if sampling_dims > 0:
-        mean_output_sampling = x_output.mean(sampling_dims_)
-        var_output_sampling = x_output.var(sampling_dims_, unbiased=False)
-    else:
-        mean_output_sampling = x_output
-        var_output_sampling = torch.zeros(x_output.shape, device=x_output.device)
-        
+    output_dims_ = tuple(_ for _ in range(x_output.dim()))
+    sampling_dims_ = output_dims_[:sampling_dims]
+    batch_dims_ = output_dims_[-x_target.dim():-ndim]
+    input_dims_ = output_dims_[-ndim:]
+    
+    mean_dims = sampling_dims_ + input_dims_
     if batch_mean:
-        return F.mse_loss(mean_output_sampling,
-                          x_target) + var_output_sampling.mean()
+        mean_dims += batch_dims_
 
-    batch_ndim = x_target.dim()
-    mean_dims = [_ for _ in range(batch_ndim - ndim, batch_ndim)]
-
-    mse = F.mse_loss(mean_output_sampling,
-                     x_target, reduction='none').mean(mean_dims)
-
-    # print('l.py l. 61:\n',
-    #       'x_out', x_output.device, '\n',
-    #       'x_tar', x_target.device, '\n',
-    #       'batch_ndim', batch_ndim, '\n',
-    #       'mean_dims', mean_dims, '\n',
-    #       'mse', mse.device, '\n',
-    #       'mean_out', mean_output_sampling.device, '\n',
-    #       'var_out', var_output_sampling.device)
-    # 
-    return mse + var_output_sampling.mean(mean_dims)
+    # print('****', mean_dims)
+    return (x_target - x_output).pow(2).mean(mean_dims)
 
 
 def kl_loss(mu_z, log_var_z, batch_mean=True):

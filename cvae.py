@@ -298,6 +298,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         y_output = self.classifier(z)
         # y_output of size LxN1x...xKgxC
+        # print('**** y_out', y_output.shape)
 
         if self.is_jvae or self.is_vae:
             out = (x_output.reshape((self.latent_sampling,) + reco_batch_shape),)
@@ -356,14 +357,16 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             x_reco, y_est, mu, log_var, z = self.forward(f_repeated, y)
 
-        if self.is_jvae or self.is_vae:
-            x_reco = x_reco.mean(0)
-
         batch_losses = self.loss(x, y,
                                  x_reco, y_est,
                                  mu, log_var,
                                  batch_mean=False, **kw)
 
+        if self.is_jvae or self.is_vae:
+            pass
+            # print('******* x_', x_reco.shape)
+            x_reco = x_reco.mean(0)
+              
         return x_reco, y_est.mean(0), batch_losses
 
     def predict(self, x, method='mean', **kw):
@@ -466,8 +469,12 @@ class ClassificationVariationalNetwork(nn.Module):
             _, y_est, batch_losses = self.evaluate(x_test,
                                                    return_all_losses=True)
 
+            ind = y_test.unsqueeze(0)
             for k in batch_losses:
-                total_loss[k] += batch_losses[k].mean().item()
+                # print('*****', ind.shape)
+                # print('*****', k, batch_losses[k].shape)
+                loss_y = batch_losses[k].gather(0, ind)
+                total_loss[k] += loss_y.mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
             for m in methods:
                 if m == 'snr':

@@ -6,8 +6,8 @@ from itertools import product
 
 C = 2
 D = (1, 28, 28)
-K = 7
-L = 11
+K = 10
+L = 3
 
 N = (5,)
 

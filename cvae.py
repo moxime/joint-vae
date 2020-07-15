@@ -365,9 +365,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.is_jvae or self.is_vae:
             pass
             # print('******* x_', x_reco.shape)
-            x_reco = x_reco.mean(0)
+            # x_reco = x_reco.mean(0)
               
-        return x_reco, y_est.mean(0), batch_losses
+        return x_reco, y_est, batch_losses
 
     def predict(self, x, method='mean', **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 

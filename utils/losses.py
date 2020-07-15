@@ -68,27 +68,31 @@ def kl_loss(mu_z, log_var_z, batch_mean=True):
     return loss
 
 
-def x_loss(y_target, logits, sampling_dims=1, batch_mean=True):
+def x_loss(y_target, logits, batch_mean=True):
 
     """ Cross entropy
 
     - y_target of dims N1 x....x Ng(x1)
-    - y_output of dims L1,.., Lf x N1 x...x Ng x C
+    - logits of dims L x N1 x...x Ng x C
 
     """
-    C = logits.shape[-1]
+
+    logits_dims_ = tuple(_ for _ in range(logits.dim()))
+    batch_dims_ = logits_dims_[1:-1]
     
-    sampling_dims_ = [_ for _ in range(sampling_dims)]    
-    logits_ = logits.mean(sampling_dims_).reshape(-1, C)
+    C = logits.shape[-1]
+    L = logits.shape[0]
 
+    y_ = y_target.reshape(1, -1).repeat(L ,1).reshape(-1)
+    logits_ = logits.reshape(-1, C)
+        
     if batch_mean:
+        return F.cross_entropy(logits_, y_)
 
-        return F.cross_entropy(logits_, y_target.reshape(-1))
-
-    shape = y_target.shape
+    shape = (L,) + y_target.shape
     return F.cross_entropy(logits_,
-                           y_target.reshape(-1),
-                           reduction='none').reshape(shape)
+                           y_,
+                           reduction='none').reshape(shape).mean(0)
 
     
 def x_loss_pushy(y_target, y_output, sampling_dims=1, batch_mean=True):

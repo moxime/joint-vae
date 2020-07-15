@@ -6,10 +6,10 @@ from itertools import product
 
 C = 2
 D = (1, 28, 28)
-K = 10
-L = 3
+K = 9
+L = int(1e4)
 
-N = (5,)
+N = (4,)
 
 
 x = torch.randn(*N, *D)
@@ -28,3 +28,5 @@ loss_ = net.loss(x, y, _x_, y_, mu_z, lv_z, return_all_losses=True)
 
 _x, logit, loss = net.evaluate(x, return_all_losses=True)
 print(logit.shape)
+
+Elog_p_y = logit.softmax(-1).log().mean(0)

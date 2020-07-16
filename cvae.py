@@ -389,10 +389,11 @@ class ClassificationVariationalNetwork(nn.Module):
     def predict_after_evaluate(self, logits, losses, method='default'):
 
         if method == 'default':
-            method = 'mean' if self.is_jvae else 'esty'
+            method = self.predict_methods[0]
+            # method = 'mean' if self.is_jvae else 'esty'
 
         if method is None:
-            return y_est
+            return F.softmax(logits, -1)
 
         if method == 'mean':
             return F.softmax(logits, -1).mean(0).argmax(-1)
@@ -401,7 +402,8 @@ class ClassificationVariationalNetwork(nn.Module):
             return losses.argmin(0)
 
         if method == 'esty':
-            return F.softmax(logits, -1).argmax(-1)
+            # return F.softmax(logits, -1).argmax(-1)
+            return logits.argmax(-1)
 
         raise ValueError(f'Unknown method {method}')
 
@@ -469,11 +471,15 @@ class ClassificationVariationalNetwork(nn.Module):
             _, y_est, batch_losses = self.evaluate(x_test,
                                                    return_all_losses=True)
 
-            ind = y_test.unsqueeze(0)
+            if self.is_jvae:
+                ind = y_test.unsqueeze(0)
             for k in batch_losses:
                 # print('*****', ind.shape)
                 # print('*****', k, batch_losses[k].shape)
-                loss_y = batch_losses[k].gather(0, ind)
+                if self.is_jvae:
+                    loss_y = batch_losses[k].gather(0, ind)
+                else:
+                    loss_y = batch_losses[k].mean(0)
                 total_loss[k] += loss_y.mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
             for m in methods:

@@ -60,7 +60,7 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
 
-    jvae_predict_methods = ['mean', 'loss', 'snr']
+    jvae_predict_methods = ['loss', 'mean', 'snr']
     vae_predict_methods = ['snr']
     vib_predict_methods = ['esty']
 

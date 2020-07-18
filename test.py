@@ -324,7 +324,7 @@ if __name__ == '__main__':
         for n in testset.same_size:
             testsets_.add(n)
 
-    for s in testsets_.difference(testset):
+    for s in testsets_.difference(testsets):
         log.debug('Get %s dataset', s)
         _, oodset = torchdl.get_dataset(s)
         dict_of_sets[s] = oodset

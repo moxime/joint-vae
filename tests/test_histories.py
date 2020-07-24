@@ -1,3 +1,5 @@
+from utils.save_load import collect_networks
+
 nets = []
 
 collect_networks('jobs/fashion', nets)

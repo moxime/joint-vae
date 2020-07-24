@@ -248,9 +248,12 @@ def plot_fpr(list_of_vae, ax, tpr, semilog=True, verbose=0):
     return beta_sorted, fpr_sorted
     
 
-def print_train(net, tprs=[0.95, 0.98]):
+def print_train(net, tprs=[0.95, 0.98], min_epochs=1, min_accuracy=0.):
 
     epochs = net.trained
+
+    if epochs < min_epochs:
+        return
     
     test_accuracy = net.train_history['test_accuracy']
     train_loss = net.train_history['train_loss']
@@ -274,8 +277,8 @@ def print_train(net, tprs=[0.95, 0.98]):
             print()
         else:
             print(f'to {f[-1]}')
-        print('Latent dimension:', net.latent_dim,
-          'sampling:', net.latent_sampling)
+    print('Latent dimension:', net.latent_dim,
+      'sampling:', net.latent_sampling)
 
     print(f'Results ({trainset})')
     if net.type != 'vae':
@@ -298,7 +301,7 @@ def print_train(net, tprs=[0.95, 0.98]):
             print(f'OOD ({oodset})')
             for t in sorted(tprs):
                 print(f'|        {t}%: {fpr[t]:.1%}')
-                print(f'| AUC: {auc}')
+            print(f'| AUC: {auc:.2%}')
 
     acc_methods = list(test_accuracy[0].keys())
     loss_types = list(train_loss[0].keys())
@@ -309,6 +312,25 @@ def print_train(net, tprs=[0.95, 0.98]):
     print_results(0, 0, -1, epochs,
                   loss_types=loss_types,
                   acc_methods=acc_methods)
+
+    # print_results(0, 0, 0, epochs,
+    #               losses = train_loss[0],
+    #               loss_types=loss_types,
+    #               acc_methods=acc_methods)
+
+    print_results(0, 0, 1, epochs,
+                  losses = train_loss[0],
+                  accuracies=test_accuracy[0],
+                  loss_types=loss_types,
+                  acc_methods=acc_methods,
+                  preambule=' ')
+
+    print_results(0, 0, epochs, epochs,
+                  losses = train_loss[-1],
+                  accuracies=test_accuracy[-1],
+                  loss_types=loss_types,
+                  acc_methods=acc_methods,
+                  preambule=' ')
 
         
 if __name__ == '__main__':

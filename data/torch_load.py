@@ -77,7 +77,7 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
         if default_transform:
             transform = simple_transform
         elif transformer == 'simple':
-            transform = simple_transfor
+            transform = simple_transform
 
         same_size = ['fashion']
 

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from cvae import ClassificationVariationalNetwork
 from data import torch_load as torchdl
 from utils.save_load import collect_networks, get_path_from_input
+from utils.print_log import print_results
 from roc_curves import ood_roc, miss_roc, fpr_at_tpr, tpr_at_fpr, plot_roc
 import argparse
 import torch
@@ -247,6 +248,91 @@ def plot_fpr(list_of_vae, ax, tpr, semilog=True, verbose=0):
     return beta_sorted, fpr_sorted
     
 
+def print_train(net, tprs=[0.95, 0.98], min_epochs=1, min_accuracy=0.):
+
+    epochs = net.trained
+
+    if epochs < min_epochs:
+        return
+    
+    test_accuracy = net.train_history['test_accuracy']
+    train_loss = net.train_history['train_loss']
+
+    if net.type != 'vae':
+        method = net.predict_methods[0]
+        accuracy = net.testing[method]['accuracy']
+    
+    if net.type != 'vib':
+
+        snr = net.testing['snr']['accuracy']
+
+    trainset = net.training['set']
+    print('Type', net.type, net.print_architecture())
+    print('Beta', net.beta)
+    print(f'Trained {epochs} epochs on {trainset}')
+    fine_tuned =  net.training['fine_tuning']
+    if fine_tuned:
+        print(f'Fine tuned from {fine_tuned[0]}', end='')
+        if f[-1] >= epochs:
+            print()
+        else:
+            print(f'to {f[-1]}')
+    print('Latent dimension:', net.latent_dim,
+      'sampling:', net.latent_sampling)
+
+    print(f'Results ({trainset})')
+    if net.type != 'vae':
+        print(f'| Accuracy: {accuracy:.1%}')
+    if net.type != 'vib':
+        print(f'| SNR: {snr:.1f}dB')
+        for oodset in net.ood_results:
+            ood_results = net.ood_results[oodset]['px']
+            auc = ood_results['auc']
+            fpr = {}
+
+            for target in tprs:
+                tpr_iter = iter(ood_results['tpr'])
+                fpr_iter = iter(ood_results['fpr'])
+                tpr = 0.
+                while tpr < target:
+                    tpr = next(tpr_iter)
+                    fpr[target] = next(fpr_iter)
+
+            print(f'OOD ({oodset})')
+            for t in sorted(tprs):
+                print(f'|        {t}%: {fpr[t]:.1%}')
+            print(f'| AUC: {auc:.2%}')
+
+    acc_methods = list(test_accuracy[0].keys())
+    loss_types = list(train_loss[0].keys())
+    print_results(0, 0, -2, epochs,
+                  loss_types=loss_types,
+                  acc_methods=acc_methods)
+
+    print_results(0, 0, -1, epochs,
+                  loss_types=loss_types,
+                  acc_methods=acc_methods)
+
+    # print_results(0, 0, 0, epochs,
+    #               losses = train_loss[0],
+    #               loss_types=loss_types,
+    #               acc_methods=acc_methods)
+
+    print_results(0, 0, 1, epochs,
+                  losses = train_loss[0],
+                  accuracies=test_accuracy[0],
+                  loss_types=loss_types,
+                  acc_methods=acc_methods,
+                  preambule=' ')
+
+    print_results(0, 0, epochs, epochs,
+                  losses = train_loss[-1],
+                  accuracies=test_accuracy[-1],
+                  loss_types=loss_types,
+                  acc_methods=acc_methods,
+                  preambule=' ')
+
+        
 if __name__ == '__main__':
 
     description="show results of networks in directory"

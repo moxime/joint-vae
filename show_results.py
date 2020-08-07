@@ -248,7 +248,11 @@ def plot_fpr(list_of_vae, ax, tpr, semilog=True, verbose=0):
     return beta_sorted, fpr_sorted
     
 
-def print_train(net, tprs=[0.95, 0.98], min_epochs=1, min_accuracy=0.):
+def print_train(net, tprs=[0.95, 0.98],
+                min_epochs=1,
+                min_accuracy=0.,
+                latex_formatting=False,
+):
 
     epochs = net.trained
 

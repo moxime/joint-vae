@@ -59,6 +59,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
     """
 
+    loss_types = ('mse', '-logpx', 'x', 'kl', 'total', '-elbo')
+    
 
     jvae_predict_methods = ['loss', 'mean', 'snr']
     vae_predict_methods = ['snr']
@@ -463,7 +465,8 @@ class ClassificationVariationalNetwork(nn.Module):
         iter_ = iter(testloader)
         start = time.time()
 
-        mean_loss = {'mse': 0, 'x': 0., 'kl': 0., 'total': 0.} 
+        mean_loss = {k: 0. for k in self.loss_types}
+
         total_loss = mean_loss.copy()
         for i in range(num_batch):
             data = next(iter_)
@@ -660,8 +663,18 @@ class ClassificationVariationalNetwork(nn.Module):
                       kl_loss_weight * batch_kl_loss)
         """
         if return_all_losses:
-            return {'mse': batch_mse_loss, 'x': batch_x_loss,
-                    'kl': batch_kl_loss, 'total': batch_loss}
+            D = np.prod(self.input_shape)
+            beta = self.beta
+            batch_logpx = (- D / 2 * np.log(D * beta * np.pi)
+                           - 1 / beta * batch_mse_loss)
+            batch_elbo = batch_logpx - batch_x_loss - batch_kl_loss  
+            # print('*** -logpx', -batch_logpx.mean().item() )
+            return {'mse': batch_mse_loss,
+                    '-logpx': -batch_logpx,
+                    'x': batch_x_loss,
+                    'kl': batch_kl_loss,
+                    'total': batch_loss,
+                    '-elbo': -batch_elbo}
 
         return batch_loss
 
@@ -813,7 +826,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 
             t_i = time.time()
             t_start_train = t_i
-            train_mean_loss = {'mse': 0.0, 'x': 0.0, 'kl': 0.0, 'total': 0.0}
+            train_mean_loss = {k: 0. for k in self.loss_types}
             train_total_loss = train_mean_loss.copy()
             
             for i, data in enumerate(trainloader, 0):

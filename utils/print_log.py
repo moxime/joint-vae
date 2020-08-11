@@ -24,7 +24,7 @@ def print_epoch(i, per_epoch, epoch, epochs, loss,
 
 def print_results(i, per_epoch, epoch, epochs,
                   losses=None, accuracies=None,
-                  loss_types=('mse', 'x', 'kl', 'total'),
+                  loss_types=('mse', '-logpx', 'x', 'kl', 'total', '-elbo'),
                   acc_methods = ('mean', 'loss'),
                   time_per_i=0, batch_size=100,
                   preambule='',

@@ -59,10 +59,16 @@ class ClassificationVariationalNetwork(nn.Module):
 
     """
 
-    loss_types = ('mse', '-logpx', 'x', 'kl', 'total', '-elbo')
+    loss_types_per_type = {'mse': ('vae', 'jvae', 'cvae'),
+                           '-logpx': ('vae', 'jvae', 'cvae'),
+                           'x': ('jvae', 'cvae', 'vib'),
+                           'kl': ('vae', 'jvae', 'cvae', 'vib'),
+                           'total': ('vae', 'jvae', 'cvae', 'vib'),
+                           '-elbo':('vae', 'jvae', 'cvae', 'vib')}
     
 
     jvae_predict_methods = ['loss', 'mean', 'snr']
+    cvae_predict_methods = ['loss', 'closest', 'snr']
     vae_predict_methods = ['snr']
     vib_predict_methods = ['esty']
 
@@ -71,7 +77,7 @@ class ClassificationVariationalNetwork(nn.Module):
     def __init__(self,
                  input_shape,
                  num_labels,
-                 type_of_net = 'jvae', # or 'vib' 
+                 type_of_net = 'jvae', # or 'vib' or cvae or vae
                  features=None,
                  pretrained_features=None,
                  features_channels=None,
@@ -93,14 +99,23 @@ class ClassificationVariationalNetwork(nn.Module):
         self.name = name
 
         
-        assert type_of_net in ('jvae', 'vib', 'vae')
+        assert type_of_net in ('jvae', 'cvae', 'vib', 'vae')
         self.type = type_of_net
+
+        self.loss_types = [l for (l, ts)
+                           in self.loss_types_per_type.items()
+                           if type_of_net in ts] 
+        
         self.is_jvae = type_of_net == 'jvae'
         self.is_vib = type_of_net == 'vib'
         self.is_vae = type_of_net == 'vae'
+        self.is_cvae = type_of_net == 'cvae'
         
         if self.is_jvae:
             self.predict_methods = self.jvae_predict_methods
+        elif self.is_cvae:
+            decoder_layer_sizes = []
+            self.predict_methods = self.cvae_predict_methods
         elif self.is_vib:
             decoder_layer_sizes = []
             self.predict_methods = self.vib_predict_methods
@@ -252,17 +267,26 @@ class ClassificationVariationalNetwork(nn.Module):
             self.mse_loss_weight = 1
             self.x_entropy_loss_weight = 0
             self.kl_loss_weight = 2 * beta
+            self.latent_distance_weight = 0
             
         elif self.is_jvae:
             self.mse_loss_weight = 1
             self.x_entropy_loss_weight = 2 * beta
             self.kl_loss_weight = 2 * beta 
+            self.latent_distance_weight = 0
+
+        elif self.is_cvae:
+            self.mse_loss_weight = 1
+            self.x_entropy_loss_weight = 2 * beta
+            self.kl_loss_weight = 2 * beta 
+            self.latent_distance_weight = 2 * beta
             
         elif self.is_vib:
             self.mse_loss_weight = 0
             self.x_entropy_loss_weight = 1
             self.kl_loss_weight = beta
-
+            self.latent_distance_weight = 0
+            
         self.z_output = False
         
     def forward(self, x, y, x_features=None, **kw):

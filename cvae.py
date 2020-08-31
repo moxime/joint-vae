@@ -59,18 +59,20 @@ class ClassificationVariationalNetwork(nn.Module):
 
     """
 
-    loss_types_per_type = {'mse': ('vae', 'jvae', 'cvae'),
-                           '-logpx': ('vae', 'jvae', 'cvae'),
-                           'x': ('jvae', 'cvae', 'vib'),
-                           'kl': ('vae', 'jvae', 'cvae', 'vib'),
-                           'total': ('vae', 'jvae', 'cvae', 'vib'),
-                           '-elbo':('vae', 'jvae', 'cvae', 'vib')}
+    loss_components_per_type = {'jvae': ('-logpx', 'kl', 'x', 'total'),
+                                'cvae': ('-logpx', 'kl', 'total'),
+                                'vae': ('-logpx', 'kl', 'total'),
+                                'vib': ('-logpx', 'kl', 'total')}
     
+    predict_methods_per_type = {'jvae': ('loss', 'mean'),
+                                'cvae': ('loss', 'closest'),
+                                'vae': (),
+                                'vib': ('esty')}
 
-    jvae_predict_methods = ['loss', 'mean', 'snr']
-    cvae_predict_methods = ['loss', 'closest', 'snr']
-    vae_predict_methods = ['snr']
-    vib_predict_methods = ['esty']
+    metrics_per_type = {'jvae': ('xpow', 'mse', 'snr',),
+                        'cvae': ('xpow', 'mse', 'snr', 'zdist'),
+                        'vae': ('xpow', 'mse', 'snr'),
+                        'vib': ()}
 
     ood_methods = ['px']
 
@@ -102,29 +104,23 @@ class ClassificationVariationalNetwork(nn.Module):
         assert type_of_net in ('jvae', 'cvae', 'vib', 'vae')
         self.type = type_of_net
 
-        self.loss_types = [l for (l, ts)
-                           in self.loss_types_per_type.items()
-                           if type_of_net in ts] 
+        self.loss_components = self.loss_components_per_type[self.type]
+        self.metrics = self.metrics_per_type[self.type]
+        self.predict_methods = self.predict_methods_per_type[self.type]
         
         self.is_jvae = type_of_net == 'jvae'
         self.is_vib = type_of_net == 'vib'
         self.is_vae = type_of_net == 'vae'
         self.is_cvae = type_of_net == 'cvae'
         
-        if self.is_jvae:
-            self.predict_methods = self.jvae_predict_methods
-        elif self.is_cvae:
-            decoder_layer_sizes = []
-            self.predict_methods = self.cvae_predict_methods
+        if self.is_cvae:
+            classifier_layer_sizes = []
         elif self.is_vib:
             decoder_layer_sizes = []
-            self.predict_methods = self.vib_predict_methods
         elif self.is_vae:
             classifier_layer_sizes = []
-            self.predict_methods = self.vae_predict_methods
-
-        else:
-            raise ValueError('Type {type_of_net} of net unknown')
+        elif not self.is_jvae:
+            raise ValueError(f'Type {type_of_net} of net unknown')
             
         # no upsampler if no features
         assert (not upsampler_channels or features)
@@ -162,7 +158,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         activation_layer = activation_layers[activation]()
 
-        if self.is_jvae or self.is_vae:
+        if not self.is_vib:
             decoder_layers = []
             input_dim = latent_dim
             for output_dim in decoder_layer_sizes:
@@ -263,23 +259,15 @@ class ClassificationVariationalNetwork(nn.Module):
         self.activation = activation
         self.output_activation = output_activation
 
-        if self.is_vae:
+        if self.is_vae or self.is_cvae:
             self.mse_loss_weight = 1
             self.x_entropy_loss_weight = 0
             self.kl_loss_weight = 2 * beta
-            self.latent_distance_weight = 0
             
         elif self.is_jvae:
             self.mse_loss_weight = 1
             self.x_entropy_loss_weight = 2 * beta
             self.kl_loss_weight = 2 * beta 
-            self.latent_distance_weight = 0
-
-        elif self.is_cvae:
-            self.mse_loss_weight = 1
-            self.x_entropy_loss_weight = 2 * beta
-            self.kl_loss_weight = 2 * beta 
-            self.latent_distance_weight = 2 * beta
             
         elif self.is_vib:
             self.mse_loss_weight = 0
@@ -302,9 +290,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if x_features is None:
             x_features = self.features(x.view(-1, *self.input_shape))
 
-        return self.forward_features(x_features, y, x, **kw)
+        return self.forward_from_features(x_features, y, x, **kw)
 
-    def forward_features(self, x_features, y, x, z_output=True):
+    def forward_from_features(self, x_features, y, x, z_output=True):
 
         batch_shape = x_features.shape
         batch_size = batch_shape[:-len(self.encoder.input_shape)]  # N1 x...xNg
@@ -317,7 +305,7 @@ class ClassificationVariationalNetwork(nn.Module):
         z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.is_jvae)
         # z of size LxN1x...xNgxK
 
-        if self.is_jvae or self.is_vae:
+        if not self.is_vib:
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
             x_output = self.imager(u)
@@ -326,10 +314,10 @@ class ClassificationVariationalNetwork(nn.Module):
         # y_output of size LxN1x...xKgxC
         # print('**** y_out', y_output.shape)
 
-        if self.is_jvae or self.is_vae:
-            out = (x_output.reshape((self.latent_sampling,) + reco_batch_shape),)
-        else:
+        if self.is_vib:
             out = (x,)
+        else:
+            out = (x_output.reshape((self.latent_sampling,) + reco_batch_shape),)
 
         out += (y_output,)
 
@@ -338,7 +326,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return out
 
-    def evaluate(self, x, **kw):
+    def evaluate(self, x,
+                 batch=0,
+                 current_losses=None,
+                 current_metrics=None,
+                 **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
 
         creates a x of size C * N1, ..., D1, ...., Dt)
@@ -351,6 +343,9 @@ class ClassificationVariationalNetwork(nn.Module):
         y_est (C,N1,...,C) tensor, 
 
         batch_losses (C, N1,...N) tensor
+        total_losses
+        batch_metrics
+        total_metrics
 
         """
 
@@ -361,7 +356,10 @@ class ClassificationVariationalNetwork(nn.Module):
             
         # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
 
-        C = self.num_labels if self.is_jvae else 1
+        if self.is_jvae or self.cvae:
+            C = self.num_labels
+        else C = 1
+        
         s_f = x_features.shape
         
         s_f = (1, ) + s_f
@@ -370,16 +368,14 @@ class ClassificationVariationalNetwork(nn.Module):
         f_repeated = x_features.reshape(s_f).repeat(rep_dims)
 
         # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
-
         s_y = f_repeated.shape[:-len(self.input_shape)]
 
         y = torch.zeros(s_y, dtype=int, device=x.device)
-
         for c in range(C):
             y[c] = c  # maybe a way to accelerate this ?
 
         if self.features:
-            x_reco, y_est, mu, log_var, z = self.forward_features(f_repeated, y, x)
+            x_reco, y_est, mu, log_var, z = self.forward_from_features(f_repeated, y, x)
         else:
             x_reco, y_est, mu, log_var, z = self.forward(f_repeated, y)
 
@@ -388,6 +384,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                  mu, log_var,
                                  batch_mean=False, **kw)
 
+
+        
         if self.is_jvae or self.is_vae:
             pass
             # print('******* x_', x_reco.shape)
@@ -433,6 +431,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         raise ValueError(f'Unknown method {method}')
 
+    
     def accuracy(self, testset=None,
                  batch_size=100,
                  num_batch='all',
@@ -455,15 +454,15 @@ class ClassificationVariationalNetwork(nn.Module):
             _, testset = torchdl.get_dataset(testset_name)
         
         if method == 'all':
-            methods = self.predict_methods
+            predict_methods = self.predict_methods
             only_one_method = False
 
             
         elif type(method) is str:
-            methods = [method]
+            predict_methods = [method]
             only_one_method = True
         else:
-            methods = method
+            predict_methods = method
             only_one_method = False
 
         shuffle = True
@@ -474,7 +473,7 @@ class ClassificationVariationalNetwork(nn.Module):
         n_err = dict()
         mismatched = dict()
         acc = dict()
-        for m in methods:
+        for m in predict_methods:
             if m != 'snr':
                 n_err[m] = 0
                 mismatched[m] = []
@@ -503,13 +502,13 @@ class ClassificationVariationalNetwork(nn.Module):
             for k in batch_losses:
                 # print('*****', ind.shape)
                 # print('*****', k, batch_losses[k].shape)
-                if self.is_jvae:
+                if self.is_jvae or self.is_cvae:
                     loss_y = batch_losses[k].gather(0, ind)
                 else:
                     loss_y = batch_losses[k].mean(0)
                 total_loss[k] += loss_y.mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
-            for m in methods:
+            for m in predict_methods:
                 if m == 'snr':
                     mse = total_loss['mse']
                     x_pow += x_test.pow(2).mean()
@@ -523,7 +522,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     mismatched[m] += [torch.where(y_test != y_pred)[0]]
             n += len(y_test)
             time_per_i = (time.time() - start) / (i + 1)
-            for m in methods:
+            for m in predict_methods:
                 if m == 'snr':
                     acc[m] = 10 * snr.log10().item()
                 else:
@@ -531,12 +530,12 @@ class ClassificationVariationalNetwork(nn.Module):
             if print_result:
                 print_results(i, num_batch, 0, 0,
                               losses=mean_loss, accuracies=acc,
-                              acc_methods=methods,
+                              acc_methods=predict_methods,
                               time_per_i=time_per_i,
                               batch_size=batch_size,
                               preambule=print_result)
 
-        for m in methods:
+        for m in predict_methods:
 
             update_self_testing_method = (update_self_testing and
                                           (self.trained > self.testing[m]['epochs']

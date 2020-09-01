@@ -426,8 +426,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.is_vib:
             batch_mse = batch_quants['mse']
             D = np.prod(self.input_shape)
-            beta = self.beta
-            batch_logpx = (- D / 2 * np.log(D * beta * np.pi)
+            beta = self._beta
+            batch_logpx = (- D / 2 * torch.log(D * beta * np.pi)
                            - 1 / beta * batch_mse)
             batch_losses['cross_x'] = - batch_logpx
 
@@ -990,12 +990,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
     @property
     def beta(self):
-        return self._beta
+        return self._beta.detach().item()
 
     # decorator to change beta in the decoder if changed in the vae.
     @beta.setter
     def beta(self, value):
-        self._beta = value
+        self._beta = torch.nn.Parameter(torch.tensor(value), requires_grad=True)
+
         if self.is_jvae:
             self.x_entropy_loss_weight = 2 * value
             self.kl_loss_weight = 2 * value

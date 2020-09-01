@@ -50,7 +50,7 @@ def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
     return (x_target - x_output).pow(2).mean(mean_dims)
 
 
-def kl_loss(mu_z, log_var_z, batch_mean=True):
+def kl_loss(mu_z, log_var_z, latent_dictionary=None, batch_mean=True):
 
     loss = -0.5 * (1 + log_var_z - mu_z.pow(2) - log_var_z.exp()).sum(-1)
 

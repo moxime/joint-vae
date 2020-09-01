@@ -59,19 +59,19 @@ class ClassificationVariationalNetwork(nn.Module):
 
     """
 
-    loss_components_per_type = {'jvae': ('-logpx', 'kl', 'x', 'total'),
-                                'cvae': ('-logpx', 'kl', 'total'),
-                                'vae': ('-logpx', 'kl', 'total'),
-                                'vib': ('-logpx', 'kl', 'total')}
+    loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
+                                'cvae': ('cross_x', 'kl', 'total'),
+                                'vae': ('cross_x', 'kl', 'total'),
+                                'vib': ('cross_y', 'kl', 'total')}
     
     predict_methods_per_type = {'jvae': ('loss', 'mean'),
                                 'cvae': ('loss', 'closest'),
                                 'vae': (),
-                                'vib': ('esty')}
+                                'vib': ('esty',)}
 
-    metrics_per_type = {'jvae': ('xpow', 'mse', 'snr',),
-                        'cvae': ('xpow', 'mse', 'snr', 'zdist'),
-                        'vae': ('xpow', 'mse', 'snr'),
+    metrics_per_type = {'jvae': ('mse', 'snr',),
+                        'cvae': ('mse', 'snr', 'zdist'),
+                        'vae': ('mse', 'snr'),
                         'vib': ()}
 
     ood_methods = ['px']
@@ -327,9 +327,9 @@ class ClassificationVariationalNetwork(nn.Module):
         return out
 
     def evaluate(self, x,
+                 y=None,
                  batch=0,
-                 current_losses=None,
-                 current_metrics=None,
+                 current_measures=None,
                  **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
 
@@ -348,51 +348,103 @@ class ClassificationVariationalNetwork(nn.Module):
         total_metrics
 
         """
-
+        y_in_input = y is not None
+        
         if self.features:
-            x_features = self.features(x)
+            t = self.features(x)
         else:
-            x_features = x
+            t = x
             
         # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
-
-        if self.is_jvae or self.cvae:
+        if y_in_input or self.is_cvae or self.is_vae:
+            C = 1
+        else:
             C = self.num_labels
-        else C = 1
         
-        s_f = x_features.shape
-        
-        s_f = (1, ) + s_f
-        rep_dims = (C, ) + tuple([1 for _ in s_f[1:]])
+        t_shape = t.shape
+        t_shape = (1, ) + t_shape
+        rep_dims = (C, ) + tuple([1 for _ in t_shape[1:]])
 
-        f_repeated = x_features.reshape(s_f).repeat(rep_dims)
+        t_repeated = t.reshape(t_shape).repeat(rep_dims)
 
         # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
-        s_y = f_repeated.shape[:-len(self.input_shape)]
-
-        y = torch.zeros(s_y, dtype=int, device=x.device)
-        for c in range(C):
-            y[c] = c  # maybe a way to accelerate this ?
-
+        if not y_in_input:
+            s_y = t_repeated.shape[:-len(self.input_shape)]
+            y = torch.zeros(s_y, dtype=int, device=x.device)
+            for c in range(C):
+                y[c] = c  # maybe a way to accelerate this ?
+            
         if self.features:
-            x_reco, y_est, mu, log_var, z = self.forward_from_features(f_repeated, y, x)
+            x_reco, y_est, mu, log_var, z = self.forward_from_features(t_repeated, y, x)
         else:
-            x_reco, y_est, mu, log_var, z = self.forward(f_repeated, y)
+            x_reco, y_est, mu, log_var, z = self.forward(t_repeated, y)
 
-        batch_losses = self.loss(x, y,
-                                 x_reco, y_est,
-                                 mu, log_var,
-                                 batch_mean=False, **kw)
+        batch_quants = {}
+        batch_losses = {}
+        total_measures = {}
 
+        if not current_measures:
+            current_measures =  {k: 0.
+                                for k in ('xpow',
+                                          'mse', 
+                                          'snr',
+                                          'zdist')}
+            
+        current_measures['beta'] = self.beta
 
+        if not self.is_vib:
+            batch_quants['mse'] = mse_loss(x, x_reco,
+                                           ndim=len(self.input_shape),
+                                           batch_mean=False)
+
+            batch_quants['xpow'] = x.pow(2).mean().item()
+            total_measures['xpow'] = (current_measures['xpow'] * batch 
+                                     + batch_quants['xpow']) / (batch + 1)
+
+            mse = batch_quants['mse'].mean().item()
+            total_measures['mse'] = (current_measures['mse'] * batch
+                                    + mse) / (batch + 1)
+
+            snr = total_measures['xpow'] / total_measures['mse']
+            total_measures['snr'] = 10 * np.log10(snr)
+            
+        if not (self.is_cvae or self.is_vae):
+            batch_quants['cross_y'] = x_loss(y, y_est,
+                                             batch_mean=False)
+
+        dictionary = self.encoder.latent_dictionary if self.is_cvae else None
         
-        if self.is_jvae or self.is_vae:
+        batch_quants['latent_kl'] = kl_loss(mu, log_var,
+                                            latent_dictionary=dictionary,
+                                            batch_mean=False)
+
+        batch_losses['total'] = 0.0
+
+        if not self.is_vib:
+            batch_mse = batch_quants['mse']
+            D = np.prod(self.input_shape)
+            beta = self.beta
+            batch_logpx = (- D / 2 * np.log(D * beta * np.pi)
+                           - 1 / beta * batch_mse)
+            batch_losses['cross_x'] = - batch_logpx
+
+            batch_losses['total'] += batch_losses['cross_x'] 
+            
+        if not (self.is_cvae or self.is_vae):
+            batch_losses['cross_y'] = batch_quants['cross_y']
+            batch_losses['total'] += batch_losses['cross_y']
+
+        batch_losses['kl'] = batch_quants['latent_kl']
+        batch_losses['total'] += batch_losses['kl']
+
+        if not self.is_vib:
             pass
             # print('******* x_', x_reco.shape)
             x_reco = x_reco.mean(0)
               
-        return x_reco, y_est.mean(0), batch_losses
+        return x_reco, y_est.mean(0), batch_losses, total_measures
 
+    
     def predict(self, x, method='mean', **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
 
@@ -405,7 +457,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
 
-        _, logits, batch_losses = self.evaluate(x)
+        _, logits, batch_losses, measures = self.evaluate(x)
 
         # print('cvae l. 192', x.device, batch_losses.device)
         return self.predict_after_evaluate(logits, batch_losses, method=method)
@@ -457,7 +509,6 @@ class ClassificationVariationalNetwork(nn.Module):
             predict_methods = self.predict_methods
             only_one_method = False
 
-            
         elif type(method) is str:
             predict_methods = [method]
             only_one_method = True
@@ -474,13 +525,9 @@ class ClassificationVariationalNetwork(nn.Module):
         mismatched = dict()
         acc = dict()
         for m in predict_methods:
-            if m != 'snr':
-                n_err[m] = 0
-                mismatched[m] = []
+            n_err[m] = 0
+            mismatched[m] = []
         n = 0
-        mse = 0
-        total_x_pow = 0
-        x_pow = 0
         
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
@@ -488,49 +535,51 @@ class ClassificationVariationalNetwork(nn.Module):
         iter_ = iter(testloader)
         start = time.time()
 
-        mean_loss = {k: 0. for k in self.loss_types}
+        total_loss = {k: 0. for k in self.loss_components}
+        mean_loss = total_loss.copy()
 
-        total_loss = mean_loss.copy()
+        current_measures = {}
+        
         for i in range(num_batch):
             data = next(iter_)
             x_test, y_test = data[0].to(device), data[1].to(device)
-            _, y_est, batch_losses = self.evaluate(x_test,
-                                                   return_all_losses=True)
+            (_, y_est,
+             batch_losses, measures) = self.evaluate(x_test, batch=0,
+                                                    current_measures=current_measures)
+            current_measures = measures
 
-            if self.is_jvae:
+            if self.is_jvae or self.is_cvae:
                 ind = y_test.unsqueeze(0)
+            
             for k in batch_losses:
                 # print('*****', ind.shape)
                 # print('*****', k, batch_losses[k].shape)
                 if self.is_jvae or self.is_cvae:
-                    loss_y = batch_losses[k].gather(0, ind)
+                    batch_loss_y = batch_losses[k].gather(0, ind)
                 else:
-                    loss_y = batch_losses[k].mean(0)
-                total_loss[k] += loss_y.mean().item()
+                    batch_loss_y = batch_losses[k].mean(0)
+                total_loss[k] += batch_loss_y.mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
-            for m in predict_methods:
-                if m == 'snr':
-                    mse = total_loss['mse']
-                    x_pow += x_test.pow(2).mean()
-                    snr = x_pow / mse
-                else:
-                    y_pred = self.predict_after_evaluate(y_est,
-                                                         batch_losses['total'],
-                                                         method=m)
 
-                    n_err[m] += (y_pred != y_test).sum().item()
-                    mismatched[m] += [torch.where(y_test != y_pred)[0]]
+            for m in predict_methods:
+                y_pred = self.predict_after_evaluate(y_est,
+                                                     batch_losses['total'],
+                                                     method=m)
+
+                n_err[m] += (y_pred != y_test).sum().item()
+                mismatched[m] += [torch.where(y_test != y_pred)[0]]
             n += len(y_test)
             time_per_i = (time.time() - start) / (i + 1)
             for m in predict_methods:
-                if m == 'snr':
-                    acc[m] = 10 * snr.log10().item()
-                else:
-                    acc[m] = 1 - n_err[m] / n
+                acc[m] = 1 - n_err[m] / n
             if print_result:
                 print_results(i, num_batch, 0, 0,
-                              losses=mean_loss, accuracies=acc,
+                              loss_components=self.loss_components,
+                              losses=mean_loss,
                               acc_methods=predict_methods,
+                              accuracies=acc,
+                              metrics=self.metrics,
+                              measures=measures,
                               time_per_i=time_per_i,
                               batch_size=batch_size,
                               preambule=print_result)
@@ -795,8 +844,12 @@ class ClassificationVariationalNetwork(nn.Module):
             acc_methods = self.predict_methods
         
         print_results(0, 0, -2, epochs,
+                      metrics=self.metrics,
+                      loss_components=self.loss_components,
                       acc_methods=acc_methods)
         print_results(0, 0, -1, epochs,
+                      metrics=self.metrics,
+                      loss_components=self.loss_components,
                       acc_methods=acc_methods)
 
         if fine_tuning:
@@ -814,7 +867,6 @@ class ClassificationVariationalNetwork(nn.Module):
             #         if not p.requires_grad:
             #             # print('**** turn on grad')
             #             p.requires_grad_(True)
-
 
         for epoch in range(done_epochs, epochs):
 
@@ -849,8 +901,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 
             t_i = time.time()
             t_start_train = t_i
-            train_mean_loss = {k: 0. for k in self.loss_types}
+            train_mean_loss = {k: 0. for k in self.loss_components}
             train_total_loss = train_mean_loss.copy()
+
+            current_measures = {}
             
             for i, data in enumerate(trainloader, 0):
 
@@ -860,31 +914,32 @@ class ClassificationVariationalNetwork(nn.Module):
                 optimizer.zero_grad()
 
                 # forward + backward + optimize
-                x_reco, y_est, mu_z, log_var_z, z = self.forward(x, y)
+                (_, y_est,
+                 batch_losses, measures) = self.evaluate(x, y,
+                                                         current_measures=current_measures)
 
-                batch_loss = self.loss(x, y, x_reco, y_est, mu_z,
-                                       log_var_z,
-                                       mse_loss_weight=mse_loss_weight,
-                                       x_loss_weight=x_loss_weight,
-                                       kl_loss_weight=kl_loss_weight,
-                                       return_all_losses=True)
+                current_measures = measures
+                batch_loss = batch_losses['total'].mean()
 
                 # with autograd.detect_anomaly():
-                batch_loss['total'].backward()
+                batch_loss.backward()
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         print('GRAD NAN')
                 optimizer.step()
 
-                for k in batch_loss:
-                    train_total_loss[k] += batch_loss[k].item()
+                for k in batch_losses:
+                    train_total_loss[k] += batch_losses[k].mean().item()
                     train_mean_loss[k] = train_total_loss[k] / (i + 1)
 
                 t_per_i = (time.time() - t_start_train) / (i + 1)
                 print_results(i, per_epoch, epoch + 1, epochs,
                               preambule='train',
                               acc_methods=acc_methods,
+                              loss_components=self.loss_components,
                               losses=train_mean_loss,
+                              metrics=self.metrics,
+                              measures=measures,
                               time_per_i=t_per_i,
                               batch_size=batch_size,
                               end_of_epoch='\n')
@@ -1182,7 +1237,7 @@ class ClassificationVariationalNetwork(nn.Module):
     def log_pxy(self, x, normalize=True, batch_losses=None, **kw):
 
         if batch_losses is None:
-            _, _, batch_losses = self.evaluate(x, **kw)
+            _, _, batch_losses, measures = self.evaluate(x, **kw)
 
         normalized_log_pxy = - batch_losses / (2 * self.beta)
 
@@ -1201,7 +1256,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         if batch_losses is None:
-            _, _, batch_losses = self.evaluate(x, **kw)
+            _, _, batch_losses, _ = self.evaluate(x, **kw)
 
         log_pxy = - batch_losses / (2 * self.beta)
 
@@ -1226,7 +1281,7 @@ class ClassificationVariationalNetwork(nn.Module):
     def log_py_x(self, x, batch_losses=None, **kw):
 
         if batch_losses is None:
-            _, _, batch_losses = self.evaluate(x, **kw)
+            _, _, batch_losses, _ = self.evaluate(x, **kw)
 
         # batch_losses is C * N1 * ... *
         log_pxy = - batch_losses / (2 * self.beta)

@@ -82,6 +82,10 @@ def x_loss(y_target, logits, batch_mean=True):
     
     C = logits.shape[-1]
     L = logits.shape[0]
+    # print('*** klsde ***',
+    #       'y_target', *y_target.shape,
+    #       'logits',
+    #       *logits.shape)
 
     y_ = y_target.reshape(1, -1).repeat(L ,1).reshape(-1)
     logits_ = logits.reshape(-1, C)

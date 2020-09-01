@@ -69,10 +69,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vae': (),
                                 'vib': ('esty',)}
 
-    metrics_per_type = {'jvae': ('mse', 'snr',),
-                        'cvae': ('mse', 'snr', 'zdist'),
-                        'vae': ('mse', 'snr'),
-                        'vib': ()}
+    metrics_per_type = {'jvae': ('mse', 'snr', 'beta'),
+                        'cvae': ('mse', 'snr', 'zdist', 'beta'),
+                        'vae': ('mse', 'snr', 'beta'),
+                        'vib': ('beta',)}
 
     ood_methods = ['px']
 
@@ -356,7 +356,7 @@ class ClassificationVariationalNetwork(nn.Module):
             t = x
             
         # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
-        if y_in_input or self.is_cvae or self.is_vae:
+        if y_in_input or self.is_vib or self.is_vae:
             C = 1
         else:
             C = self.num_labels
@@ -390,7 +390,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           'snr',
                                           'zdist')}
             
-        current_measures['beta'] = self.beta
+        total_measures['beta'] = self.beta
 
         if not self.is_vib:
             batch_quants['mse'] = mse_loss(x, x_reco,
@@ -411,6 +411,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if not (self.is_cvae or self.is_vae):
             batch_quants['cross_y'] = x_loss(y, y_est,
                                              batch_mean=False)
+            # print('*** odvsd ***',
+            #       'xloss',
+            #       *batch_quants['cross_y'].shape)
 
         dictionary = self.encoder.latent_dictionary if self.is_cvae else None
         
@@ -418,7 +421,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                             latent_dictionary=dictionary,
                                             batch_mean=False)
 
-        batch_losses['total'] = 0.0
+        batch_losses['total'] = torch.zeros_like(batch_quants['latent_kl'])
 
         if not self.is_vib:
             batch_mse = batch_quants['mse']
@@ -433,9 +436,18 @@ class ClassificationVariationalNetwork(nn.Module):
         if not (self.is_cvae or self.is_vae):
             batch_losses['cross_y'] = batch_quants['cross_y']
             batch_losses['total'] += batch_losses['cross_y']
-
+                
         batch_losses['kl'] = batch_quants['latent_kl']
-        batch_losses['total'] += batch_losses['kl']
+        
+        if self.is_vib:
+            batch_losses['total'] += self.beta * batch_losses['kl']
+        else:
+            batch_losses['total'] += batch_losses['kl']
+            
+        # print('***fcdf***', 'T:', *batch_losses['total'].shape,
+        #       'Xy:', *batch_losses['cross_y'].shape,
+        #       'kl:', *batch_losses['kl'].shape)
+        
 
         if not self.is_vib:
             pass

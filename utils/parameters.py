@@ -153,7 +153,7 @@ def get_args(what_for='train', argv=None):
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 
-    parser.add_argument('--type', choices=['jvae', 'vib', 'vae'], default='jvae')
+    parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae'], default='jvae')
     
     parser.add_argument('-b', '--beta',
                         type = float,

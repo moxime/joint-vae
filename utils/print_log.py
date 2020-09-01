@@ -94,11 +94,11 @@ def print_results(i, per_epoch, epoch, epochs,
             else:
                 formatted = {k: num_format.get(k, num_format['default'])
                              for k in loss_components}
-                value = {k: measures.get(k, np.nan)
+                value = {k: losses.get(k, np.nan)
                          for k in loss_components}
             
                 loss_str = '|'.join(formatted[k].format(value[k])
-                                   for k in metrics)
+                                    for k in loss_components)
         else: loss_str = ''
         if metrics:
             if no_metrics:
@@ -137,7 +137,7 @@ def print_results(i, per_epoch, epoch, epochs,
             eta_str += f' total: {time_per_i * per_epoch:<9}'
        
     else:
-        eta_str = ''
+        eta_str = ' '
 
     strings = [s for s in [preambule,
                            loss_str,

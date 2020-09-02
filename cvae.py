@@ -69,9 +69,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vae': (),
                                 'vib': ('esty',)}
 
-    metrics_per_type = {'jvae': ('mse', 'snr', 'beta'),
-                        'cvae': ('mse', 'snr', 'zdist', 'beta'),
-                        'vae': ('mse', 'snr', 'beta'),
+    metrics_per_type = {'jvae': ('std', 'snr', 'beta'),
+                        'cvae': ('std', 'snr', 'zdist', 'beta'),
+                        'vae': ('std', 'snr', 'beta'),
                         'vib': ('beta',)}
 
     ood_methods = ['px']
@@ -405,6 +405,7 @@ class ClassificationVariationalNetwork(nn.Module):
             total_measures['mse'] = (current_measures['mse'] * batch
                                     + mse) / (batch + 1)
 
+            total_measures['std'] = np.sqrt(total_measures['mse'])
             snr = total_measures['xpow'] / total_measures['mse']
             total_measures['snr'] = 10 * np.log10(snr)
             
@@ -427,8 +428,8 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_mse = batch_quants['mse']
             D = np.prod(self.input_shape)
             beta = self._beta
-            batch_logpx = (- D / 2 * torch.log(D * beta * np.pi)
-                           - 1 / beta * batch_mse)
+            batch_logpx = (- D / 2 * torch.log(beta**2 * np.pi)
+                           - D / (2 * beta**2) * batch_mse)
             batch_losses['cross_x'] = - batch_logpx
 
             batch_losses['total'] += batch_losses['cross_x'] 

@@ -208,21 +208,20 @@ class Encoder(nn.Module):
         self._sampling_size = v
         self.sampling.sampling_size = v
 
-
-    def capacity():
-    """ 
-    Approximation (upper-bound) of I(Z ; Y)
-    """
-    m = self.latent_dictionary
-    # K = self.latent_dim
-    C = self.num_labels
-    # E = np.exp(1)
+    def capacity(self):
+        """ 
+        Approximation (upper-bound) of I(Z ; Y)
+        """
+        m = self.latent_dictionary
+        # K = self.latent_dim
+        C = self.num_labels
+        # E = np.exp(1)
     
-    cdm = torch.cdist(m, m)
-    I = np.log(C) - 1 / C * torch.exp(-cdm.pow(2)/4).sum(0).log().sum()
-    # + K/2 * np.log(2 / E) 
+        cdm = torch.cdist(m, m)
+        I = np.log(C) - 1 / C * torch.exp(-cdm.pow(2)/4).sum(0).log().sum()
+        # + K/2 * np.log(2 / E) 
 
-    
+        return I
         
     def forward(self, x, y):
         """ 

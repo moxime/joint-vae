@@ -70,7 +70,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vib': ('esty',)}
 
     metrics_per_type = {'jvae': ('std', 'snr', 'sigma'),
-                        'cvae': ('std', 'snr', 'zdist', 'sigma'),
+                        'cvae': ('std', 'snr', 'zdist', 'imut-zy', 'ld-norm', 'sigma'),
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
@@ -388,7 +388,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                 for k in ('xpow',
                                           'mse', 
                                           'snr',
-                                          'Izy',
+                                          'imut-zy',
+                                          'ld-norm',
                                           'zdist')}
             
         total_measures['sigma'] = self.sigma
@@ -438,7 +439,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if self.is_cvae:
             # batch_losses['zdist'] = 0
-            pass
+            batch_quants['imut-zy'] = self.encoder.capacity()
+            batch_quants['ld-norm'] = self.encoder.latent_dictionary.pow(2).mean()
+            for k in ('ld-norm', 'imut-zy'):
+                total_measures[k] = (current_measures[k] * batch +
+                                     batch_quants[k].item()) / (batch + 1)
+        
         
         if not self.is_vib:
             batch_mse = batch_quants['mse']
@@ -576,7 +582,7 @@ class ClassificationVariationalNetwork(nn.Module):
             data = next(iter_)
             x_test, y_test = data[0].to(device), data[1].to(device)
             (_, y_est,
-             batch_losses, measures) = self.evaluate(x_test, batch=0,
+             batch_losses, measures) = self.evaluate(x_test, batch=i,
                                                     current_measures=current_measures)
             current_measures = measures
 
@@ -617,6 +623,8 @@ class ClassificationVariationalNetwork(nn.Module):
                               time_per_i=time_per_i,
                               batch_size=batch_size,
                               preambule=print_result)
+
+        self._measures = measures
 
         for m in predict_methods:
 
@@ -872,8 +880,10 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history = {'epochs': 0}  # will not be returned
             self.train_history['train_loss'] = []
             self.train_history['test_accuracy'] = []
-            self.train_history['train_accuracy'] = [] 
-
+            self.train_history['train_accuracy'] = []
+            self.train_history['train_measures'] = []
+            self.train_history['test_measures'] = []
+            
         if not acc_methods:
             acc_methods = self.predict_methods
         
@@ -921,6 +931,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   # log=False,
                                                   print_result='TEST' if full_test else 'test')
                 if save_dir: self.save(save_dir)
+                test_measures = self._measures.copy()
             # train
             if train_accuracy:
                 with torch.no_grad():
@@ -983,11 +994,14 @@ class ClassificationVariationalNetwork(nn.Module):
                               batch_size=batch_size,
                               end_of_epoch='\n')
 
+            train_measures = self._measures.copy()
             if testset:
                 self.train_history['test_accuracy'].append(test_accuracy)
+                self.train_history['test_measures'].append(test_measures)
             if train_accuracy:
                 self.train_history['train_accuracy'].append(train_accuracy)
             self.train_history['train_loss'].append(train_mean_loss)
+            self.train_history['train_measures'].append(train_measures)
             self.train_history['epochs'] += 1
             self.trained += 1
             if fine_tuning:
@@ -1132,9 +1146,11 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.features:
             features = self.features.name
         s = ''
+        if 'type' not in excludes:
+            s += s_('type') + f'={self.type}--'
         if 'activation' not in excludes:
             if not self.is_vib:
-                s = s_('output') + f'={self.output_activation}--'
+                s += s_('output') + f'={self.output_activation}--'
             s += s_('activation') + f'={self.activation}--'
         if 'latent_dim' not in excludes: 
             s += s_('latent-dim') + f'={self.latent_dim}--'
@@ -1150,9 +1166,11 @@ class ClassificationVariationalNetwork(nn.Module):
         s += s_('classifier') + f'={_l2s(self.classifier_layer_sizes)}'
 
         if sigma:
+            s += s_('sigma')
             s += f'--sigma={self.sigma:1.2e}'
 
         if sampling:
+            s += s_('sampling')
             s += f'--sampling={self.latent_sampling}'
 
         return s

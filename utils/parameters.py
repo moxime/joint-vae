@@ -155,7 +155,7 @@ def get_args(what_for='train', argv=None):
 
     parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae'], default='jvae')
     
-    parser.add_argument('-b', '--beta',
+    parser.add_argument('-s', '--sigma',
                         type = float,
                         # type=alphanum,
                         metavar='ß') #,
@@ -195,7 +195,7 @@ def get_args(what_for='train', argv=None):
 
     if for_train:
         help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'
-        # help += '(may have a different beta)'
+        # help += '(may have a different sigma)'
         parser.add_argument('--refit', action='store_true')
 
         help = 'Find and finish begun trainings'

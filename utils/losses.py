@@ -57,8 +57,8 @@ def kl_loss(mu_z, log_var_z, y=None, latent_dictionary=None, batch_mean=True, ou
     loss = -0.5 * (1 + log_var_z - log_var_z.exp()).sum(-1)
 
     if y is None:
-        distances = 0.5 * mu_z.pow(2).sum(-1)
-        loss += distences
+        distances = mu_z.pow(2).sum(-1)
+        loss += 0.5 * distances
         
     else:
 

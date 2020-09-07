@@ -69,10 +69,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vae': (),
                                 'vib': ('esty',)}
 
-    metrics_per_type = {'jvae': ('std', 'snr', 'beta'),
-                        'cvae': ('std', 'snr', 'zdist', 'beta'),
-                        'vae': ('std', 'snr', 'beta'),
-                        'vib': ('beta',)}
+    metrics_per_type = {'jvae': ('std', 'snr', 'sigma'),
+                        'cvae': ('std', 'snr', 'zdist', 'sigma'),
+                        'vae': ('std', 'snr', 'sigma'),
+                        'vib': ('sigma',)}
 
     ood_methods = ['px']
 
@@ -94,7 +94,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
-                 beta=1e-6,
+                 sigma=1e-6,
                  *args, **kw):
 
         super().__init__(*args, **kw)
@@ -196,7 +196,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.num_labels = num_labels
         self.input_dims = (input_shape, num_labels)
 
-        self.beta = beta
+        self.sigma = sigma
 
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder_layer_sizes, latent_dim,
@@ -229,7 +229,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.trained = 0
         self.training = None # 
-        self.training = {'beta': beta,
+        self.training = {'sigma': sigma,
                          'latent_sampling': latent_sampling,
                          'set': None,
                          'pretrained_features': pretrained_features,
@@ -262,17 +262,17 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.is_vae or self.is_cvae:
             self.mse_loss_weight = 1
             self.x_entropy_loss_weight = 0
-            self.kl_loss_weight = 2 * beta
+            self.kl_loss_weight = 2 * sigma
             
         elif self.is_jvae:
             self.mse_loss_weight = 1
-            self.x_entropy_loss_weight = 2 * beta
-            self.kl_loss_weight = 2 * beta 
+            self.x_entropy_loss_weight = 2 * sigma
+            self.kl_loss_weight = 2 * sigma 
             
         elif self.is_vib:
             self.mse_loss_weight = 0
             self.x_entropy_loss_weight = 1
-            self.kl_loss_weight = beta
+            self.kl_loss_weight = sigma
             self.latent_distance_weight = 0
             
         self.z_output = False
@@ -388,9 +388,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                 for k in ('xpow',
                                           'mse', 
                                           'snr',
+                                          'Izy',
                                           'zdist')}
             
-        total_measures['beta'] = self.beta
+        total_measures['sigma'] = self.sigma
 
         if not self.is_vib:
             batch_quants['mse'] = mse_loss(x, x_reco,
@@ -442,9 +443,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.is_vib:
             batch_mse = batch_quants['mse']
             D = np.prod(self.input_shape)
-            beta = self._beta
-            batch_logpx = (- D / 2 * torch.log(beta**2 * np.pi)
-                           - D / (2 * beta**2) * batch_mse)
+            sigma = self._sigma
+            batch_logpx = (- D / 2 * torch.log(sigma**2 * np.pi)
+                           - D / (2 * sigma**2) * batch_mse)
             batch_losses['cross_x'] = - batch_logpx
 
             batch_losses['total'] += batch_losses['cross_x'] 
@@ -456,7 +457,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_losses['kl'] = batch_quants['latent_kl']
         
         if self.is_vib:
-            batch_losses['total'] += self.beta * batch_losses['kl']
+            batch_losses['total'] += self.sigma * batch_losses['kl']
         else:
             batch_losses['total'] += batch_losses['kl']
             
@@ -769,9 +770,9 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         if return_all_losses:
             D = np.prod(self.input_shape)
-            beta = self.beta
-            batch_logpx = (- D / 2 * np.log(D * beta * np.pi)
-                           - 1 / beta * batch_mse_loss)
+            sigma = self.sigma
+            batch_logpx = (- D / 2 * np.log(D * sigma * np.pi)
+                           - 1 / sigma * batch_mse_loss)
             batch_elbo = batch_logpx - batch_x_loss - batch_kl_loss  
             # print('*** -logpx', -batch_logpx.mean().item() )
             return {'mse': batch_mse_loss,
@@ -791,7 +792,7 @@ class ClassificationVariationalNetwork(nn.Module):
               batch_size=100, device=None,
               testset=None,
               acc_methods=None,
-              beta=None,
+              sigma=None,
               fine_tuning=False,
               latent_sampling=None,
               mse_loss_weight=None,
@@ -831,9 +832,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.debug(f'Shapes : {ss} / {ns}')
                 # assert ns == ss or ss == ns[1:]
         
-            if beta:
-                self.beta = beta
-            self.training['beta'] = self.beta
+            if sigma:
+                self.sigma = sigma
+            self.training['sigma'] = self.sigma
 
             if batch_size:
                 self.training['batch_size'] = batch_size
@@ -959,7 +960,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         print('GRAD NAN')
-                # self._beta.grad *= 1e-10
+                # self._sigma.grad *= 1e-10
                 optimizer.step()
 
                 for k in batch_losses:
@@ -1015,13 +1016,13 @@ class ClassificationVariationalNetwork(nn.Module):
         logging.warning('SUMMARY FUNCTION NOT IMPLEMENTED')
 
     @property
-    def beta(self):
-        return self._beta.detach().item()
+    def sigma(self):
+        return self._sigma.detach().item()
 
-    # decorator to change beta in the decoder if changed in the vae.
-    @beta.setter
-    def beta(self, value):
-        self._beta = torch.nn.Parameter(torch.tensor(value), requires_grad=False)
+    # decorator to change sigma in the decoder if changed in the vae.
+    @sigma.setter
+    def sigma(self, value):
+        self._sigma = torch.nn.Parameter(torch.tensor(value), requires_grad=False)
 
         if self.is_jvae:
             self.x_entropy_loss_weight = 2 * value
@@ -1110,14 +1111,14 @@ class ClassificationVariationalNetwork(nn.Module):
         done_epochs = self.trained
         if not epochs:
             epochs = self.training['epochs']
-        beta = self.training['beta']
+        sigma = self.training['sigma']
         sampling = self.training['latent_sampling']
         if not set:
             set = self.training['set']
-        s = f'{set}: {beta:.1e} -- L={sampling} {done_epochs}/{epochs}'
+        s = f'{set}: {sigma:.1e} -- L={sampling} {done_epochs}/{epochs}'
         return s
 
-    def print_architecture(self, beta=False, sampling=False, excludes=[], short=False):
+    def print_architecture(self, sigma=False, sampling=False, excludes=[], short=False):
 
         def _l2s(l, c='-', empty='.'):
             if l:
@@ -1148,8 +1149,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 s += s_('upsampler') + f'={_l2s(self.upsampler_channels)}--'
         s += s_('classifier') + f'={_l2s(self.classifier_layer_sizes)}'
 
-        if beta:
-            s += f'--beta={self.beta:1.2e}'
+        if sigma:
+            s += f'--sigma={self.sigma:1.2e}'
 
         if sampling:
             s += f'--sampling={self.latent_sampling}'
@@ -1237,7 +1238,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   classifier_layer_sizes=params['classifier'],
                   latent_sampling=train_params['latent_sampling'],
                   activation=params['activation'],
-                  beta=train_params['beta'],
+                  sigma=train_params['sigma'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
                   pretrained_features=train_params['pretrained_features'],
@@ -1278,7 +1279,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if batch_losses is None:
             _, _, batch_losses, measures = self.evaluate(x, **kw)
 
-        normalized_log_pxy = - batch_losses / (2 * self.beta)
+        normalized_log_pxy = - batch_losses / (2 * self.sigma)
 
         if normalize:
             return normalized_log_pxy
@@ -1297,7 +1298,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if batch_losses is None:
             _, _, batch_losses, _ = self.evaluate(x, **kw)
 
-        log_pxy = - batch_losses / (2 * self.beta)
+        log_pxy = - batch_losses / (2 * self.sigma)
 
         m_log_pxy = log_pxy.max(0)[0]
         d_log_pxy = log_pxy - m_log_pxy
@@ -1323,7 +1324,7 @@ class ClassificationVariationalNetwork(nn.Module):
             _, _, batch_losses, _ = self.evaluate(x, **kw)
 
         # batch_losses is C * N1 * ... *
-        log_pxy = - batch_losses / (2 * self.beta)
+        log_pxy = - batch_losses / (2 * self.sigma)
 
         m_log_pxy = log_pxy.max(0)[0]
         d_log_pxy = log_pxy - m_log_pxy
@@ -1371,7 +1372,7 @@ if __name__ == '__main__':
     epochs = args.epochs
     batch_size = args.batch_size
     test_sample_size = args.test_sample_size
-    beta = args.beta
+    sigma = args.sigma
 
     latent_sampling = args.latent_sampling
     latent_dim = args.latent_dim
@@ -1455,12 +1456,12 @@ if __name__ == '__main__':
                                                 decoder_layer_sizes=decoder,
                                                 upsampler_channels=upsampler,
                                                 classifier_layer_sizes=classifier,
-                                                beta=beta,
+                                                sigma=sigma,
                                                 output_activation=output_activation)
 
     
         if not save_dir:
-            bs = f'beta={beta:.2e}--sampling={latent_sampling}--pretrained=both'
+            bs = f'sigma={sigma:.2e}--sampling={latent_sampling}--pretrained=both'
             save_dir_root = os.path.join(job_dir, dataset,
                                          jvae.print_architecture(),
                                          bs)
@@ -1483,7 +1484,7 @@ if __name__ == '__main__':
 
     ae_dir = os.path.join('.', 'jobs',
                           testset.name, vae_arch,
-                          f'vae-beta={beta:.2e}--sampling={latent_sampling}',
+                          f'vae-sigma={sigma:.2e}--sampling={latent_sampling}',
                           '00')
 
     trained_ae_exists = os.path.exists(ae_dir)
@@ -1533,7 +1534,7 @@ if __name__ == '__main__':
                    save_dir=save_dir,
                    **kw)
     
-    # train_the_net(500, latent_sampling=latent_sampling, beta=beta)
+    # train_the_net(500, latent_sampling=latent_sampling, sigma=sigma)
     # jvae3 = ClassificationVariationalNetwork.load('/tmp')
     
     """
@@ -1543,7 +1544,7 @@ if __name__ == '__main__':
         print(net.print_architecture(True, True))
 
     print(jvae.training)
-    train_the_net(2, latent_sampling=3, beta=2e-5)
+    train_the_net(2, latent_sampling=3, sigma=2e-5)
     if save_dir is not None:
         jvae.save(save_dir)
 

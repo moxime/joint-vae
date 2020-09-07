@@ -161,7 +161,7 @@ def collect_networks(directory,
                     'arch_code': arch_code,
                     'dir': directory,
                     'set': vae.training['set'],
-                    'beta': vae.beta,
+                    'sigma': vae.sigma,
                     'done': vae.trained,
                     'epochs': vae.training['epochs'],
                     'n_tested': min(vae.testing[m]['n'] for m in methods),
@@ -223,7 +223,7 @@ def data_frame_results(nets):
     """
     nets : list of dicts n
     n['net'] : the network
-    n['beta']
+    n['sigma']
     n['arch']
     n['set']
     n['K']
@@ -236,7 +236,7 @@ def data_frame_results(nets):
                       'pretrained_upsampler',
     ]
 
-    K_L_index = ['K', 'L', 'beta']
+    K_L_index = ['K', 'L', 'sigma']
     columns = set_arch_index + K_L_index + ['acc']
 
     df = pd.DataFrame.from_records(nets, columns=columns)
@@ -261,7 +261,7 @@ def data_frame_results(nets):
     df.index.rename('pre_feat', level='pretrained_features', inplace=True)
     df.index.rename('pre_up', level='pretrained_upsampler', inplace=True)
 
-    df = df.unstack(level=('beta', 'method'))
+    df = df.unstack(level=('sigma', 'method'))
     # return df
     return df.reindex(sorted(df.columns), axis=1)
 

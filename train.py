@@ -88,10 +88,10 @@ if __name__ == '__main__':
             arch = nets_of_arch[0]['net'].print_architecture(sampling=True, short=True)
             w = 'networks' if len(nets_of_arch) > 1 else 'network '
             log.debug(f'|_{len(nets_of_arch)} {w} of type {arch}')
-            betas, num = np.unique([n['beta'] for n in nets_of_arch], return_counts=True)
-            beta_s = ' '.join([f'{beta:.3e} ({n})'
-                               for (beta, n) in zip(betas, num)])
-            log.debug(f'| |_ beta={beta_s}')
+            sigmas, num = np.unique([n['sigma'] for n in nets_of_arch], return_counts=True)
+            sigma_s = ' '.join([f'{sigma:.3e} ({n})'
+                               for (sigma, n) in zip(sigmas, num)])
+            log.debug(f'| |_ sigma={sigma_s}')
 
         for a in list_of_args:
 
@@ -111,7 +111,7 @@ if __name__ == '__main__':
                                decoder_layer_sizes=a.decoder,
                                upsampler_channels=a.upsampler,
                                classifier_layer_sizes=a.classifier,
-                               beta=a.beta,
+                               sigma=a.sigma,
                                output_activation=a.output_activation)
 
             dummy_jvae.training['set'] = a.dataset
@@ -134,9 +134,9 @@ if __name__ == '__main__':
                           # n['net'].training)
                 if same_arch and same_train:
                     s = 'Found alreay trained '
-                    beta = n['beta']
+                    sigma = n['sigma']
                     epochs = n['done']
-                    s += f'{beta:1.3e} ({epochs} epochs) '
+                    s += f'{sigma:1.3e} ({epochs} epochs) '
                     log.debug(s)
                     a.already_trained.append({'dir': n['dir'], 'done': n['done']})
 
@@ -221,14 +221,14 @@ if __name__ == '__main__':
                          decoder_layer_sizes=a.decoder,
                          upsampler_channels=a.upsampler,
                          classifier_layer_sizes=a.classifier,
-                         beta=a.beta,
+                         sigma=a.sigma,
                          output_activation=a.output_activation)
 
         if not save_dir:
 
             save_dir_root = os.path.join(job_dir, a.dataset,
                                          jvae.print_architecture(sampling=False),
-                                         f'beta={a.beta:1.2e}' +
+                                         f'sigma={a.sigma:1.2e}' +
                                          f'--sampling={a.latent_sampling}')
             i = 0
             save_dir = os.path.join(save_dir_root, f'{i:02d}')

@@ -215,11 +215,11 @@ if __name__ == '__main__':
         w = 'networks' if len(l) > 1 else 'network '
         log.debug('|')
         log.debug(f'|_{len(l)} {w} of type {a}')
-        betas, num = np.unique([n['beta'] for n in l], return_counts=True)
+        sigmas, num = np.unique([n['sigma'] for n in l], return_counts=True)
 
-        beta_s = ' '.join([f'{beta:.3e} ({n})'
-                           for (beta, n) in zip(betas, num)])
-        log.debug(f'| |_ beta={beta_s}')
+        sigma_s = ' '.join([f'{sigma:.3e} ({n})'
+                           for (sigma, n) in zip(sigmas, num)])
+        log.debug(f'| |_ sigma={sigma_s}')
 
         log.info('Is trained and is tested (*) or will be (.)')
     log.info('|ood is tested (*) or will be (.)')
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     n_ood_computed = 0
     n_ood_to_be_computed = 0
     testsets = set()
-    betas = set()
+    sigmas = set()
     archs = set()
     
     for n in sum(l_o_l_o_d_o_n, []):
@@ -276,7 +276,7 @@ if __name__ == '__main__':
             is_derailed = os.path.exists(derailed)
             if not is_derailed:
                 enough_trained.append(n)
-                betas.add(n['beta'])
+                sigmas.add(n['sigma'])
                 testsets.add(n['set'])
                 archs.add(n['arch'])
             else:

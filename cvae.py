@@ -961,6 +961,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 # forward + backward + optimize
                 (_, y_est,
                  batch_losses, measures) = self.evaluate(x, y,
+                                                         batch=i,
                                                          current_measures=current_measures)
 
                 current_measures = measures
@@ -994,7 +995,7 @@ class ClassificationVariationalNetwork(nn.Module):
                               batch_size=batch_size,
                               end_of_epoch='\n')
 
-            train_measures = self._measures.copy()
+            train_measures = measures.copy()
             if testset:
                 self.train_history['test_accuracy'].append(test_accuracy)
                 self.train_history['test_measures'].append(test_measures)

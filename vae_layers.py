@@ -195,6 +195,10 @@ class Encoder(nn.Module):
 
         self.sampling = Sampling(latent_dim, sampling_size)
 
+        centroids = torch.randn(num_labels, latent_dim)
+        
+        self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=False)
+
     @property
     def sampling_size(self):
         return self._sampling_size

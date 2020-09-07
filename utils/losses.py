@@ -50,10 +50,29 @@ def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
     return (x_target - x_output).pow(2).mean(mean_dims)
 
 
-def kl_loss(mu_z, log_var_z, latent_dictionary=None, batch_mean=True):
+def kl_loss(mu_z, log_var_z, y=None, latent_dictionary=None, batch_mean=True, out_zdist=False):
 
-    loss = -0.5 * (1 + log_var_z - mu_z.pow(2) - log_var_z.exp()).sum(-1)
+    assert y is None or latent_dictionary is not None
 
+    loss = -0.5 * (1 + log_var_z - log_var_z.exp()).sum(-1)
+
+    if y is None:
+        distances = 0.5 * mu_z.pow(2).sum(-1)
+        loss += distences
+        
+    else:
+
+        s_m = mu_z.shape
+        K = mu_z.shape[-1]
+        y_ = y.reshape(-1)
+        
+        mu_ = mu_z.exp().reshape(-1, K)
+        centroids = latent_dictionary.index_select(0, y_)
+        # print('*** gfdret ***', 'mu_', *mu_.shape, 'centroids', *centroids.shape)
+        distances = (mu_ - centroids).pow(2).reshape(s_m).sum(-1)
+
+        loss += 0.5 * distances
+        
     # if torch.isnan(loss).any():
     #     for l in log_var_z:
     #         logging.error(l.sum().item())
@@ -63,8 +82,12 @@ def kl_loss(mu_z, log_var_z, latent_dictionary=None, batch_mean=True):
     #         logging.error(l.item())
     
     if batch_mean:
+        if out_zdist:
+            return loss.mean(), distances.mean()
         return loss.mean()
     # print('losses l.76 | kl_loss', loss.shape)
+    if out_zdist:
+        return loss, distances
     return loss
 
 

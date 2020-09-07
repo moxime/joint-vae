@@ -417,13 +417,28 @@ class ClassificationVariationalNetwork(nn.Module):
             #       *batch_quants['cross_y'].shape)
 
         dictionary = self.encoder.latent_dictionary if self.is_cvae else None
-        
-        batch_quants['latent_kl'] = kl_loss(mu, log_var,
-                                            latent_dictionary=dictionary,
-                                            batch_mean=False)
 
+
+        kl_l, zdist = kl_loss(mu, log_var,
+                              y=y if self.is_cvae else None,
+                              latent_dictionary=dictionary,
+                              out_zdist=True,
+                              batch_mean=False)
+
+        # print('*** wxjdjd ***', 'kl', *kl_l.shape, 'zd', *zdist.shape)
+        
+        total_measures['zdist'] = (current_measures['zdist'] * batch +
+                                   zdist.mean().item()) / (batch + 1)
+        
+        batch_quants['latent_kl'] = kl_l
+
+        batch_losses['zdist'] = zdist
         batch_losses['total'] = torch.zeros_like(batch_quants['latent_kl'])
 
+        if self.is_cvae:
+            # batch_losses['zdist'] = 0
+            pass
+        
         if not self.is_vib:
             batch_mse = batch_quants['mse']
             D = np.prod(self.input_shape)
@@ -488,11 +503,14 @@ class ClassificationVariationalNetwork(nn.Module):
             return F.softmax(logits, -1).mean(0).argmax(-1)
 
         if method == 'loss':
-            return losses.argmin(0)
+            return losses['total'].argmin(0)
 
         if method == 'esty':
             # return F.softmax(logits, -1).argmax(-1)
             return logits.argmax(-1)
+
+        if method == 'closest':
+            return losses['zdist'].argmin(0)
 
         raise ValueError(f'Unknown method {method}')
 
@@ -571,12 +589,14 @@ class ClassificationVariationalNetwork(nn.Module):
                     batch_loss_y = batch_losses[k].gather(0, ind)
                 else:
                     batch_loss_y = batch_losses[k].mean(0)
+                if k not in total_loss:
+                    total_loss[k] = 0.0
                 total_loss[k] += batch_loss_y.mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
 
             for m in predict_methods:
                 y_pred = self.predict_after_evaluate(y_est,
-                                                     batch_losses['total'],
+                                                     batch_losses,
                                                      method=m)
 
                 n_err[m] += (y_pred != y_test).sum().item()
@@ -939,9 +959,14 @@ class ClassificationVariationalNetwork(nn.Module):
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         print('GRAD NAN')
+                # self._beta.grad *= 1e-10
                 optimizer.step()
 
                 for k in batch_losses:
+                    if k not in train_total_loss:
+                        train_total_loss[k] = 0.0
+                        train_mean_loss[k] = 0.0
+
                     train_total_loss[k] += batch_losses[k].mean().item()
                     train_mean_loss[k] = train_total_loss[k] / (i + 1)
 
@@ -996,7 +1021,7 @@ class ClassificationVariationalNetwork(nn.Module):
     # decorator to change beta in the decoder if changed in the vae.
     @beta.setter
     def beta(self, value):
-        self._beta = torch.nn.Parameter(torch.tensor(value), requires_grad=True)
+        self._beta = torch.nn.Parameter(torch.tensor(value), requires_grad=False)
 
         if self.is_jvae:
             self.x_entropy_loss_weight = 2 * value

@@ -1317,7 +1317,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if batch_losses is None:
             _, _, batch_losses, _ = self.evaluate(x, **kw)
 
-        log_pxy = - batch_losses / (2 * self.sigma)
+        log_pxy = - batch_losses['total'] / (2 * self.sigma)
 
         m_log_pxy = log_pxy.max(0)[0]
         d_log_pxy = log_pxy - m_log_pxy

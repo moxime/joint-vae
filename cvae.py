@@ -1307,7 +1307,7 @@ class ClassificationVariationalNetwork(nn.Module):
         a = np.log(self.sigma * 2 * np.pi)
         return normalized_log_pxy - D / 2 * a
 
-    def log_px(self, x, normalize=True, method='sum', batch_losses=None, **kw):
+    def log_px(self, x, normalize=True, method='max', batch_losses=None, **kw):
         """Computes a lower bound on log(p(x)) with the loss which is an upper
         bound on -log(p(x, y)).  - normalize = True forgets a constant
         (2pi sigma^2)^(-d/2) - method ='sum' computes p(x) as the sum
@@ -1315,28 +1315,24 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         if batch_losses is None:
-            _, _, batch_losses, _ = self.evaluate(x, **kw)
-
-        log_pxy = - batch_losses / (2 * self.sigma)
+            _, _, batch_losses_dict, _ = self.evaluate(x, **kw)
+        batch_losses = batch_losses_dict['total']
+            
+        log_pxy = - batch_losses - np.log(self.num_labels) * self.is_cvae
 
         m_log_pxy = log_pxy.max(0)[0]
+
+        if method == 'max':
+            return m_log_pxy
+        
         d_log_pxy = log_pxy - m_log_pxy
 
         # p_xy = d_p_xy * m_pxy
         d_pxy = d_log_pxy.exp()
         if method == 'sum':
             d_px = d_pxy.sum(0)
-        elif method == 'max':
-            d_px = d_pxy.max(0)
-
-        normalized_log_px = d_px.log() + m_log_pxy
-        if normalize:
-            return normalized_log_px
-        else:
-            D = np.prod(self.input_shape)
-            a = np.log(self.sigma * 2 * np.pi)
-            return normalized_log_px - D / 2 * a
-
+            return d_px.log + m_log_pxy
+ 
     def log_py_x(self, x, batch_losses=None, **kw):
 
         if batch_losses is None:

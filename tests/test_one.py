@@ -1,7 +1,9 @@
 from cvae import ClassificationVariationalNetwork
 import data.torch_load as dl
 
-load_dir = './jobs/svhn/the'
+# load_dir = './jobs/svhn/the'
+load_dir = './jobs/fashion32/the'
+
 net = ClassificationVariationalNetwork.load(load_dir)
 net.to('cuda')
 
@@ -37,7 +39,7 @@ for s in sets:
 
     loss_std[s] = losses[s]['total'].std(axis=0)
     loss_mean[s] = losses[s]['total'].mean(axis=0)
-    loss_max[s] = losses[s]['total'].max(axis=0)
+    loss_max[s], _ = losses[s]['total'].max(axis=0)
 
 print('\n' * 10)
 for s in sets:
@@ -48,5 +50,5 @@ for s in sets:
     print('max')
     print(' - '.join(f'{l:6.2f}' for l in loss_max[s]))
     print('std')
-    print(' - '.join(f'{l:7.2f}' for l in loss_std[s]))
-    print(loss_mean[s])
+    print(' - '.join(f'{l:6.2f}' for l in loss_std[s]))
+

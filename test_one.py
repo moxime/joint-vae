@@ -2,8 +2,8 @@ from cvae import ClassificationVariationalNetwork
 import data.torch_load as dl
 
 # load_dir = './jobs/svhn/the'
-# load_dir = './jobs/fashion32/the'
-load_dir = './jobs/mnist/the'
+load_dir = './jobs/fashion32/the'
+# load_dir = './jobs/mnist/the'
 
 net = ClassificationVariationalNetwork.load(load_dir)
 net.to('cuda')
@@ -45,4 +45,4 @@ for m in methods:
         print(s)
         print('|'.join(f'{l:-7.2f}' for l in measures[s][m]) )
         
-net.ood_detection_rates()
+net.ood_detection_rates(batch_size=20, num_batch=5)

@@ -15,7 +15,7 @@ from utils import save_load
 import numpy as np
 
 from roc_curves import ood_roc, fpr_at_tpr
-from sklearn.metrics import auc
+from sklearn.metrics import auc, roc_curve
 
 from utils.print_log import print_results, debug_nan
 
@@ -74,7 +74,10 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods = ['px']
+    ood_methods_per_type ={'cvae': ('max', 'mean', 'mag', 'std'),
+                           'jvae': ('max', 'sum', 'mag', 'std'),
+                           'vae': ('f',),
+                           'vib': ('f,')}
 
     def __init__(self,
                  input_shape,
@@ -107,6 +110,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.loss_components = self.loss_components_per_type[self.type]
         self.metrics = self.metrics_per_type[self.type]
         self.predict_methods = self.predict_methods_per_type[self.type]
+        self.ood_methods = self.ood_methods_per_type[self.type]
         
         self.is_jvae = type_of_net == 'jvae'
         self.is_vib = type_of_net == 'vib'
@@ -521,6 +525,34 @@ class ClassificationVariationalNetwork(nn.Module):
 
         raise ValueError(f'Unknown method {method}')
 
+    def batch_dist_measures(self, logits, losses, methods):
+
+        dist_measures = {m: None for m in methods}
+
+        loss = losses['total']
+        ref = -loss.min(axis=0)[0]
+        d_logp = -loss - ref
+        for m in methods:
+
+            if m == 'sum':
+                measures = d_logp.exp().sum(axis=0).log() + ref 
+            elif m == 'max':
+                measures = -loss.min(axis=0)[0]
+            elif m == 'mag':
+                measures = -loss.min(axis=0)[0] + loss.max(axis=0)[0]
+            elif m == 'std':
+                measures = d_logp.exp().std(axis=0).log() + ref
+            elif m == 'mean':
+                measures = d_logp.exp().mean(axis=0).log() + ref
+            elif m == 'nstd':
+                measures = (d_logp.exp().std(axis=0).log()
+                            - d_logp.exp().mean(axis=0).log()).exp().pow(2)
+            else:
+                raise ValueError(f'{m} is an unknown ood method')
+
+            dist_measures[m] = measures
+
+        return dist_measures
     
     def accuracy(self, testset=None,
                  batch_size=100,
@@ -657,38 +689,98 @@ class ClassificationVariationalNetwork(nn.Module):
         return acc[m] if only_one_method else acc
 
 
-    def ood_detection_rates(self, oodset,
-                           testset=None,
-                           batch_size=100,
-                           num_batch='all',
-                           method='all',
-                           print_result=False,
-                           update_self_ood=True,
-                           log=True):
+    def ood_detection_rates(self, oodsets=None,
+                            testset=None,
+                            ind_measures=None,
+                            batch_size=100,
+                            num_batch='all',
+                            method='all',
+                            print_result=False,
+                            update_self_ood=True,
+                            log=True):
 
-        if not testset:
+        if not testset and not ind_measures:
             testset_name=self.training['set']
             _, testset = torchdl.get_dataset(testset_name)
         
         if method=='all':
-            method = self.ood_methods
+            ood_methods = self.ood_methods
 
-        if type(method) is str:
+        elif type(method) is str:
             assert method in self.ood_methods
-            methods = [method]
+            ood_methods = [method]
             
         else:
             try:
                 method.__iter__()
-                methods = method
+                ood_methods = method
             except AttributeError:
                 raise ValueError(f'{method} is not a '
                                  'valid method / list of method')
 
+        if not oodsets:
+            oodsets = [torchdl.get_dataset(n)[1]
+                       for n in testset.same_size]
+            
+        if ind_measures:
+            try:
+                for m in ood_methods:
+                    assert m in ind_measures
+            except AssertionError:
+                ind_measures=None
+                logging.warning('Not all in distribution measures' 
+                                ' were provided')
+
         device = next(self.parameters()).device
 
-        keeped_tpr = [pc / 100 for pc in range(90, 100)]
+        shuffle = False
+        test_n_batch = len(testset) // batch_size
+        ood_n_batchs = [len(oodset) // batch_size for oodset in oodsets]
+        if type(num_batch) is int:
+            shuffle = True
+            test_n_batch = min(num_batch, test_n_batch)
+            ood_n_batchs = [min(num_batch, n) for n in ood_n_batchs]
+            
+        print_results(0, 0, -2, 0,
+                      metrics=ood_methods,
+                      acc_methods=ood_methods)
+        print_results(0, 0, -1, 0, metrics=ood_methods,
+                      acc_methods=ood_methods)
 
+        if not ind_measures:
+
+            logging.debug(f'Computing measures for set {testset.name}')
+            ind_measures = {m: np.ndarray(0)
+                            for m in ood_methods}
+
+            loader = torch.utils.data.DataLoader(testset,
+                                                 shuffle=shuffle,
+                                                 batch_size=batch_size)
+
+
+            t_0 = time.time()
+
+            iter_ = iter(loader)
+            for i in range(test_n_batch):
+
+                data = next(iter_)
+                x = data[0].to(device)
+                with torch.no_grad():
+                    _, _, losses, _  = self.evaluate(x)
+                measures = self.batch_dist_measures(None, losses, ood_methods)
+                for m in ood_methods:
+                    ind_measures[m] = np.concatenate([ind_measures[m],
+                                                      measures[m].cpu()])
+                t_i = time.time() - t_0
+                t_per_i = t_i / (i + 1)
+                print_results(i, test_n_batch, 0, 1, metrics=ood_methods,
+                              measures = {m: ind_measures[m].mean()
+                                          for m in ood_methods},
+                              acc_methods = ood_methods,
+                              time_per_i = t_per_i,
+                              preambule = testset.name)
+
+        keeped_tpr = [pc / 100 for pc in range(90, 100)]
         no_result = {'epochs': 0,
                      'n': 0,
                      'auc': 0,
@@ -696,43 +788,97 @@ class ClassificationVariationalNetwork(nn.Module):
                      'fpr': [1 for _ in keeped_tpr],
                      'thresholds':[None for _ in keeped_tpr]}
                      
-        ood_results = {m: copy.deepcopy(no_result) for m in methods}
+        for oodset, ood_n_batch in zip(oodsets, ood_n_batchs):
 
-        for m in methods:
+            ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
+            i_ood_measures = {m: ind_measures[m] for m in ood_methods}
+            ood_labels = np.zeros(batch_size * test_n_batch)
+            fpr_ = {}
+            tpr_ = {}
+            thresholds_ = {}
+            auc_ = {}
+            r_ = {}
+            
+            loader = torch.utils.data.DataLoader(oodset,
+                                                 shuffle=shuffle,
+                                                 batch_size=batch_size)
 
-            if print_result:
-                print(m, ': ', end='')
-            result = ood_results[m]
+            logging.debug(f'Computing measures for set {oodset.name}')
 
-            with torch.no_grad():
-                fpr, tpr, thresholds = ood_roc(self, testset, oodset,
-                                               method=m, batch_size=batch_size,
-                                               num_batch=num_batch,
-                                               print_result=print_result,
-                                               device=device)
+            t_0 = time.time()
+            iter_ = iter(loader)
+            for i in range(test_n_batch):
 
-            auc_ = auc(fpr, tpr)
-            result['auc'] = auc_
-            n = min(len(oodset), len(testset))
-            if type(num_batch) is int:
-                n = min(n, batch_size * num_batch)
+                data = next(iter_)
+                x = data[0].to(device)
+                with torch.no_grad():
+                    _, _, losses, _  = self.evaluate(x)
+                measures = self.batch_dist_measures(None, losses, ood_methods)
+                for m in ood_methods:
+                    i_ood_measures[m] = np.concatenate([i_ood_measures[m],
+                                                      measures[m].cpu()])
+                ood_labels = np.concatenate([ood_labels, np.ones(batch_size)])
+                t_i = time.time() - t_0
+                t_per_i = t_i / (i + 1)
+                meaned_measures = {m: i_ood_measures[m][len(ind_measures):].mean()
+                                   for m in ood_methods}
+                for m in ood_methods:
+                    fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ood_labels,
+                                                                  -i_ood_measures[m])
+                    auc_[m] = auc(fpr_[m], tpr_[m])
+
+                    r_[m] = fpr_at_tpr(fpr_[m],
+                                       tpr_[m],
+                                       0.95,
+                                       thresholds_[m])
+
+                print_results(i, ood_n_batch, 0, 1, metrics=ood_methods,
+                              measures=meaned_measures,
+                              acc_methods=ood_methods,
+                              accuracies=r_,
+                              time_per_i = t_per_i,
+                              preambule = oodset.name)
+
+                i += 1
+
+            
+
+
+        # for m in ood_methods:
+
+        #     if print_result:
+        #         print(m, ': ', end='')
+        #     result = ood_results[m]
+
+        #     with torch.no_grad():
+        # fpr, tpr, thresholds = ood_roc(self, testset, oodset,
+        #                                        method=m, batch_size=batch_size,
+        #                                        num_batch=num_batch,
+        #                                        print_result=print_result,
+        #                                        device=device)
+
+        #     auc_ = auc(fpr, tpr)
+        #     result['auc'] = auc_
+        #     n = min(len(oodset), len(testset))
+        #     if type(num_batch) is int:
+        #         n = min(n, batch_size * num_batch)
                 
-            result.update({'epochs': self.trained,
-                            'n': n})
+        #     result.update({'epochs': self.trained,
+        #                     'n': n})
 
-            str_res = []
-            for i, t  in enumerate(keeped_tpr):
+        #     str_res = []
+        #     for i, t  in enumerate(keeped_tpr):
 
-                r_ = fpr_at_tpr(fpr, tpr, t, thresholds, True)
+        #         r_ = fpr_at_tpr(fpr, tpr, t, thresholds, True)
 
-                result['fpr'][i], result['thresholds'][i] = r_
-                str_res.append(f'{t:.0%}:{r_[0]:.2%}')
+        #         result['fpr'][i], result['thresholds'][i] = r_
+        #         str_res.append(f'{t:.0%}:{r_[0]:.2%}')
 
-            if print_result:
-                print('--'.join(str_res + [f'auc:{auc_:.2%}']))
+        #     if print_result:
+        #         print('--'.join(str_res + [f'auc:{auc_:.2%}']))
 
-        if update_self_ood:
-            self.ood_results[oodset.name] = ood_results
+        # if update_self_ood:
+        #     self.ood_results[oodset.name] = ood_results
 
     def loss(self, x, y,
              x_reconstructed, y_estimate,

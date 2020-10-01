@@ -2,7 +2,8 @@ from cvae import ClassificationVariationalNetwork
 import data.torch_load as dl
 
 # load_dir = './jobs/svhn/the'
-load_dir = './jobs/fashion32/the'
+# load_dir = './jobs/fashion32/the'
+load_dir = './jobs/mnist/the'
 
 net = ClassificationVariationalNetwork.load(load_dir)
 net.to('cuda')
@@ -27,28 +28,21 @@ x_ = {}
 y_ = {}
 losses = {}
 measures = {}
-loss_std = {}
-loss_mean = {}
-loss_max = {}
+methods = ('max', 'std', 'mag', 'mean', 'nstd')
 
 sets = ('test', 'ood')
 
 for s in sets:
     print(f'Evaluating {s}_batch')
-    x_[s], y_[s], losses[s], measures[s] = net.evaluate(x[s])
+    x_[s], y_[s], losses[s], _ = net.evaluate(x[s])
 
-    loss_std[s] = losses[s]['total'].std(axis=0)
-    loss_mean[s] = losses[s]['total'].mean(axis=0)
-    loss_max[s], _ = losses[s]['total'].max(axis=0)
+    measures[s] = net.batch_dist_measures(None, losses[s], methods)
+                  
 
-print('\n' * 10)
-for s in sets:
-
-    print(f'*** {s} ***')
-    print('mean')
-    print(' - '.join(f'{l:6.2f}' for l in loss_mean[s]))
-    print('max')
-    print(' - '.join(f'{l:6.2f}' for l in loss_max[s]))
-    print('std')
-    print(' - '.join(f'{l:6.2f}' for l in loss_std[s]))
-
+for m in methods:
+    print('*' * 80 + '\n', m)
+    for s in sets:
+        print(s)
+        print('|'.join(f'{l:-7.2f}' for l in measures[s][m]) )
+        
+net.ood_detection_rates()

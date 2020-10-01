@@ -130,6 +130,7 @@ def fpr_at_tpr(fpr, tpr, a, thresholds=None,
 
     as_tpr = np.asarray(tpr)
     as_fpr = np.asarray(fpr)
+
     i_ = np.where(as_tpr >= a)[0].min()
 
     fpr_ = as_fpr[i_]

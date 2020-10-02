@@ -74,7 +74,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type ={'cvae': ('max', 'mean', 'mag', 'std', 'HY|x'),
+    ood_methods_per_type ={'cvae': ('max', 'mean', 'mag', 'std', 'IYx'),
                            'jvae': ('max', 'sum', 'mag', 'std'),
                            'vae': ('f',),
                            'vib': ('f,')}
@@ -547,12 +547,12 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m == 'nstd':
                 measures = (d_logp.exp().std(axis=0).log()
                             - d_logp.exp().mean(axis=0).log()).exp().pow(2)
-            elif m == 'HY|x':
-                d_logp_x = d_logp.exp().sum(axis=0).log()
+            elif m == 'IYx':
+                d_logp_x = d_logp.exp().mean(axis=0).log()
                 C = self.num_labels
                 
-                measures =  - (d_logp * (d_logp.exp())).sum(axis=0) / (C * d_logp_x.exp()
-                            + d_logp_x + C)
+                measures =  ( (d_logp * (d_logp.exp())).sum(axis=0) / (C * d_logp_x.exp())
+                            - d_logp_x )
             else:
                 raise ValueError(f'{m} is an unknown ood method')
 

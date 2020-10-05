@@ -727,7 +727,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not oodsets:
             oodsets = [torchdl.get_dataset(n)[1]
                        for n in testset.same_size]
-            
+            logging.log('Oodsets loaded: ', ' ; '.join(s.name for s in oodsets)
         if ind_measures:
             try:
                 for m in ood_methods:
@@ -795,7 +795,7 @@ class ClassificationVariationalNetwork(nn.Module):
                      'thresholds':[None for _ in keeped_tpr]}
                      
         for oodset, ood_n_batch in zip(oodsets, ood_n_batchs):
-
+                        
             ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
             i_ood_measures = {m: ind_measures[m] for m in ood_methods}
             ood_labels = np.zeros(batch_size * test_n_batch)

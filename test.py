@@ -146,6 +146,7 @@ def test_ood_if(jvae=None,
     has_been_tested = {}
     zero = {'epochs': 0, 'n': 0}
     zeros = {m: zero for m in jvae.ood_methods}
+    oodsets_to_be_tested = []
     for oodset in oodsets:
         n = oodset.name
         ood_result = jvae.ood_results.get(n, zeros)
@@ -159,11 +160,13 @@ def test_ood_if(jvae=None,
         has_been_tested[n] = enough_tested_epochs and enough_tested_samples
 
         if not dry_run and not has_been_tested[n]:
-            jvae.ood_detection_rates(oodset, testset,
-                                     batch_size=batch_size,
-                                     num_batch=num_batch,
-                                     print_result='OOD',
-                                     **kw)
+            oodsets_to_be_tested.append(oodset)
+            
+    jvae.ood_detection_rates(oodsets_to_be_tested, testset,
+                             batch_size=batch_size,
+                             num_batch=num_batch,
+                             print_result='*',
+                             **kw)
     if dry_run:
         return has_been_tested
     return jvae.ood_results

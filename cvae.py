@@ -724,10 +724,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 raise ValueError(f'{method} is not a '
                                  'valid method / list of method')
 
+        # print(' **** dfgr ****', oodsets)
         if not oodsets:
             oodsets = [torchdl.get_dataset(n)[1]
                        for n in testset.same_size]
-            logging.log('Oodsets loaded: ', ' ; '.join(s.name for s in oodsets)
+            logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
         if ind_measures:
             try:
                 for m in ood_methods:
@@ -804,7 +805,7 @@ class ClassificationVariationalNetwork(nn.Module):
             thresholds_ = {}
             auc_ = {}
             r_ = {}
-            
+
             loader = torch.utils.data.DataLoader(oodset,
                                                  shuffle=shuffle,
                                                  batch_size=batch_size)
@@ -829,6 +830,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 meaned_measures = {m: i_ood_measures[m][len(ind_measures):].mean()
                                    for m in ood_methods}
                 for m in ood_methods:
+                    logging.debug(f'Computing roc curves for with metrics {m}')
                     fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ood_labels,
                                                                   -i_ood_measures[m])
                     auc_[m] = auc(fpr_[m], tpr_[m])

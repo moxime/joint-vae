@@ -764,7 +764,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                                  shuffle=shuffle,
                                                  batch_size=batch_size)
 
-
             t_0 = time.time()
 
             iter_ = iter(loader)

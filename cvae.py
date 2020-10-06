@@ -74,8 +74,8 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type ={'cvae': ('max', 'mean', 'mag', 'std', 'IYx'),
-                           'jvae': ('max', 'sum', 'mag', 'std'),
+    ood_methods_per_type ={'cvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
+                           'jvae': ('max', 'sum',  'std'), # 'mag'), 
                            'vae': ('f',),
                            'vib': ('f,')}
 

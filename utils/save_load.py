@@ -180,6 +180,7 @@ def collect_networks(directory,
         pass
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
+        logging.debug(f'Load error: {e}')
     
     list_dir = [os.path.join(directory, d) for d in os.listdir(directory)]
     sub_dirs = [e for e in list_dir if os.path.isdir(e)]

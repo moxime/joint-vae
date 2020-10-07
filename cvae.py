@@ -196,6 +196,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.num_labels = num_labels
         self.input_dims = (input_shape, num_labels)
 
+        self._sigma = torch.nn.Parameter(requires_grad=False)
         self.sigma = sigma
 
         self._sizes_of_layers = [input_shape, num_labels,
@@ -994,7 +995,7 @@ class ClassificationVariationalNetwork(nn.Module):
                               time_per_i=t_per_i,
                               batch_size=batch_size,
                               end_of_epoch='\n')
-
+            
             train_measures = measures.copy()
             if testset:
                 self.train_history['test_accuracy'].append(test_accuracy)
@@ -1011,6 +1012,12 @@ class ClassificationVariationalNetwork(nn.Module):
             if save_dir:
                 self.save(save_dir)
 
+            if 'std' in measures:
+                sigma_n = 0.9 * self.sigma + 0.1 * measures['std'] * 4 
+                # print('*** sigma_n ***', type(sigma_n), sigma_n)
+                self.sigma = sigma_n
+                # print('*** sigma_ ***', type(self._sigma), self._sigma.device, type(self.sigma))
+                
         if testset:
             # print(num_batch, sample_size)
             with torch.no_grad():
@@ -1037,8 +1044,17 @@ class ClassificationVariationalNetwork(nn.Module):
     # decorator to change sigma in the decoder if changed in the vae.
     @sigma.setter
     def sigma(self, value):
-        self._sigma = torch.nn.Parameter(torch.tensor(value), requires_grad=False)
-
+        device = None
+        try:
+            device = self._sigma.device
+            # print('*** device ***', device)
+        except(AttributeError):
+            # print('*** device error')
+            pass
+        self._sigma.data = torch.tensor(value, device=device)
+        # self._sigma.to(device)
+        # print('*** device_ ***', self._sigma.device)
+        
         if self.is_jvae:
             self.x_entropy_loss_weight = 2 * value
             self.kl_loss_weight = 2 * value

@@ -913,6 +913,7 @@ class ClassificationVariationalNetwork(nn.Module):
             #             # print('**** turn on grad')
             #             p.requires_grad_(True)
 
+        train_measures = {}
         for epoch in range(done_epochs, epochs):
 
             t_start_epoch = time.time()
@@ -949,6 +950,14 @@ class ClassificationVariationalNetwork(nn.Module):
             t_start_train = t_i
             train_mean_loss = {k: 0. for k in self.loss_components}
             train_total_loss = train_mean_loss.copy()
+
+            if 'std' in train_measures:
+                sigma_n = 0.9 * self.sigma + 0.1 * train_measures['std'] * 4 
+                # print('*** sigma_n ***', type(sigma_n), sigma_n)
+                self.sigma = sigma_n
+                # print('*** sigma_ ***', type(self._sigma), self._sigma.device, type(self.sigma))   
+                if save_dir:
+                    self.save(save_dir)
 
             current_measures = {}
             
@@ -1009,15 +1018,10 @@ class ClassificationVariationalNetwork(nn.Module):
             if fine_tuning:
                 self.training['fine_tuning'].append(epoch)
 
+
             if save_dir:
                 self.save(save_dir)
 
-            if 'std' in measures:
-                sigma_n = 0.9 * self.sigma + 0.1 * measures['std'] * 4 
-                # print('*** sigma_n ***', type(sigma_n), sigma_n)
-                self.sigma = sigma_n
-                # print('*** sigma_ ***', type(self._sigma), self._sigma.device, type(self.sigma))
-                
         if testset:
             # print(num_batch, sample_size)
             with torch.no_grad():
@@ -1028,8 +1032,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                               method=acc_methods,
                                               # log=False,
                                               print_result='TEST')
-            if save_dir:
-                self.save(save_dir)
 
         logging.debug('Finished training')
 

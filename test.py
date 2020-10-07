@@ -161,13 +161,14 @@ def test_ood_if(jvae=None,
 
         if not dry_run and not has_been_tested[n]:
             oodsets_to_be_tested.append(oodset)
-            
-    jvae.ood_detection_rates(oodsets_to_be_tested, testset,
-                             batch_size=batch_size,
-                             num_batch=num_batch,
-                             print_result='*',
-                             **kw)
-    if dry_run:
+
+    if not dry_run:
+        jvae.ood_detection_rates(oodsets_to_be_tested, testset,
+                                 batch_size=batch_size,
+                                 num_batch=num_batch,
+                                 print_result='*',
+                                 **kw)
+    else:
         return has_been_tested
     return jvae.ood_results
         
@@ -224,9 +225,11 @@ if __name__ == '__main__':
                            for (sigma, n) in zip(sigmas, num)])
         log.debug(f'| |_ sigma={sigma_s}')
 
-        log.info('Is trained and is tested (*) or will be (.)')
+    log.info('Is trained and is tested (*) or will be (.)')
     log.info('|ood is tested (*) or will be (.)')
-    log.info('||')
+    log.info('|| # trained epochs')
+    log.info('|| ### directory')
+    # log.info('|||')
     enough_trained = []
     n_trained = 0
     n_tested = 0
@@ -267,7 +270,7 @@ if __name__ == '__main__':
         if is_enough_trained:
             d = n['dir']
             derailed = os.path.join(d, 'derailed')
-            if not args.fast:
+            if args.verify:
                 try:
                     log.debug('Evaluation of one sample...')
                     net.evaluate(torch.randn(1, *net.input_shape))
@@ -300,7 +303,7 @@ if __name__ == '__main__':
                 train_mark = '*' if is_tested else '.'
                 ood_mark = '*' if not ood_will_be_computed else '.'
 
-            log.info('%s%s %3d epochs for %s', 
+            log.info('%s%s %3d %s', 
                      train_mark,
                      ood_mark,
                      net.trained,

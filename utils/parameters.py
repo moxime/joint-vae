@@ -145,7 +145,7 @@ def get_args(what_for='train', argv=None):
                             type=int, metavar='N0', default=0)
         parser.add_argument('-u', '--unfinished', action='store_true',
                             help='Even unfinished training')
-        parser.add_argument('--fast', action='store_true')
+        parser.add_argument('--verify', action='store_true')
         parser.add_argument('-o', '--ood', type=int, nargs='?',
                             const=-1, default=0)
 

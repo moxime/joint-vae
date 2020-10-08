@@ -1031,7 +1031,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         set_name = self.training['set']
         
-        logging.debug(f'Loading {set_name}')
+        logging.debug(f'Getting {set_name}')
         trainset, testset = torchdl.get_dataset(set_name)
 
         logging.debug('Choosing device')
@@ -1041,10 +1041,13 @@ class ClassificationVariationalNetwork(nn.Module):
         if optimizer is None:
             optimizer = self.optimizer
 
+        logging.debug('Creating dataloader')
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,
                                                   shuffle=True, num_workers=0)
 
+        logging.debug('...done')
+        
         dataset_size = len(trainset)
         remainder = (dataset_size % batch_size) > 0 
         per_epoch = dataset_size // batch_size + remainder
@@ -1088,6 +1091,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         for epoch in range(done_epochs, epochs):
 
+            logging.debug(f'Starting epoch {epoch} / {epochs}')
             t_start_epoch = time.time()
             # test
 

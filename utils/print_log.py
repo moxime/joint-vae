@@ -25,9 +25,9 @@ def print_epoch(i, per_epoch, epoch, epochs, loss,
 def print_results(i, per_epoch, epoch, epochs,
                   loss_components=None,
                   losses=None,
-                  acc_methods=None,
+                  acc_methods=(),
                   accuracies=None,
-                  metrics=None,
+                  metrics=(),
                   measures=None,
                   time_per_i=0, batch_size=100,
                   preambule='',
@@ -86,7 +86,7 @@ def print_results(i, per_epoch, epoch, epochs,
         if epoch:
             preambule = f'{epoch:{Kep}d}/{epochs:<{Kep}d} {preambule:>5} '
         else:
-            preambule = f'{" ":^{2 * Kep + 1}} {preambule:>5} '
+            preambule = f'{preambule:>{5 + 2 * Kep + 2}} '
         if loss_components:
 
             if no_loss:

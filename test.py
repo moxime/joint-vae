@@ -110,9 +110,16 @@ def test_ood_if(jvae=None,
         try:
             jvae = CVNet.load(directory)
         except FileNotFoundError:
-            logging.warning(f'Has been asked to load lent in {directory}'
+            logging.warning(f'Has been asked to load net in {directory}'
                             'none found')
+            return {}
 
+    desc = 'in ' + directory if directory else jvae.print_architecture()
+
+    if not jvae.ood_methods:
+        logging.debug(f'Net {desc} has no ood methods')
+        return {}
+    
     assert jvae.training['set']
 
     if not testset:
@@ -130,9 +137,8 @@ def test_ood_if(jvae=None,
     is_trained = jvae.trained >= jvae.training['epochs']
     enough_trained_epochs = jvae.trained >= min_epochs
 
-    desc = 'in ' + directory if directory else jvae.print_architecture()
     if not is_trained and not unfinished:
-        logging.debug(f'Net {desc} not trained, will not be tested')
+        logging.debug(f'Net {desc} training not ended, will not be tested')
         return None
 
     if not enough_trained_epochs:
@@ -146,6 +152,7 @@ def test_ood_if(jvae=None,
     has_been_tested = {}
     zero = {'epochs': 0, 'n': 0}
     zeros = {m: zero for m in jvae.ood_methods}
+    oodsets_to_be_tested = []
     for oodset in oodsets:
         n = oodset.name
         ood_result = jvae.ood_results.get(n, zeros)
@@ -157,14 +164,21 @@ def test_ood_if(jvae=None,
         enough_tested_epochs = min_tested_epochs >= jvae.trained
     
         has_been_tested[n] = enough_tested_epochs and enough_tested_samples
+        _w = '' if has_been_tested[n] else 'not ' 
+        logging.debug(f'{n} has {_w}been tested enough')
 
         if not dry_run and not has_been_tested[n]:
-            jvae.ood_detection_rates(oodset, testset,
-                                     batch_size=batch_size,
-                                     num_batch=num_batch,
-                                     print_result='OOD',
-                                     **kw)
-    if dry_run:
+            oodsets_to_be_tested.append(oodset)
+
+    if not dry_run:
+        _o = ' - '.join([o.name for o in oodsets_to_be_tested])
+        logging.debug(f'Oodsets that will be tested: {_o}')
+        jvae.ood_detection_rates(oodsets_to_be_tested, testset,
+                                 batch_size=batch_size,
+                                 num_batch=num_batch,
+                                 print_result='*',
+                                 **kw)
+    else:
         return has_been_tested
     return jvae.ood_results
         
@@ -221,9 +235,11 @@ if __name__ == '__main__':
                            for (sigma, n) in zip(sigmas, num)])
         log.debug(f'| |_ sigma={sigma_s}')
 
-        log.info('Is trained and is tested (*) or will be (.)')
+    log.info('Is trained and is tested (*) or will be (.)')
     log.info('|ood is tested (*) or will be (.)')
-    log.info('||')
+    log.info('|| # trained epochs')
+    log.info('||     directory')
+    # log.info('|||')
     enough_trained = []
     n_trained = 0
     n_tested = 0
@@ -258,13 +274,13 @@ if __name__ == '__main__':
             ood_will_be_computed = sum([not v for v in ood_are_tested.values()])
         else:
             ood_will_be_computed = 0
-            
+
         is_derailed = False
         
         if is_enough_trained:
             d = n['dir']
             derailed = os.path.join(d, 'derailed')
-            if not args.fast:
+            if args.verify:
                 try:
                     log.debug('Evaluation of one sample...')
                     net.evaluate(torch.randn(1, *net.input_shape))
@@ -295,9 +311,9 @@ if __name__ == '__main__':
                 ood_mark = '|'
             else:
                 train_mark = '*' if is_tested else '.'
-                ood_mark = '*' if not ood_will_be_computed else '.'
+                ood_mark = '*' if not ood_will_be_computed else ood_will_be_computed
 
-            log.info('%s%s %3d epochs for %s', 
+            log.info('%s%s %3d %s', 
                      train_mark,
                      ood_mark,
                      net.trained,

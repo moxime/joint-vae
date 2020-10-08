@@ -1034,7 +1034,9 @@ class ClassificationVariationalNetwork(nn.Module):
         logging.debug(f'Loading {set_name}')
         trainset, testset = torchdl.get_dataset(set_name)
 
+        logging.debug('Choosing device')
         device = choose_device(device)
+        logging.debug(f'done {device}')
 
         if optimizer is None:
             optimizer = self.optimizer

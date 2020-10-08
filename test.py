@@ -110,14 +110,16 @@ def test_ood_if(jvae=None,
         try:
             jvae = CVNet.load(directory)
         except FileNotFoundError:
-            logging.warning(f'Has been asked to load lent in {directory}'
+            logging.warning(f'Has been asked to load net in {directory}'
                             'none found')
+            return {}
 
     desc = 'in ' + directory if directory else jvae.print_architecture()
 
     if not jvae.ood_methods:
         logging.debug(f'Net {desc} has no ood methods')
         return {}
+    
     assert jvae.training['set']
 
     if not testset:
@@ -162,11 +164,15 @@ def test_ood_if(jvae=None,
         enough_tested_epochs = min_tested_epochs >= jvae.trained
     
         has_been_tested[n] = enough_tested_epochs and enough_tested_samples
+        _w = '' if has_been_tested[n] else 'not ' 
+        logging.debug(f'{n} has {_w}been tested enough')
 
         if not dry_run and not has_been_tested[n]:
             oodsets_to_be_tested.append(oodset)
 
     if not dry_run:
+        _o = ' - '.join([o.name for o in oodsets_to_be_tested])
+        logging.debug(f'Oodsets that will be tested: {_o}')
         jvae.ood_detection_rates(oodsets_to_be_tested, testset,
                                  batch_size=batch_size,
                                  num_batch=num_batch,
@@ -268,7 +274,7 @@ if __name__ == '__main__':
             ood_will_be_computed = sum([not v for v in ood_are_tested.values()])
         else:
             ood_will_be_computed = 0
-            
+
         is_derailed = False
         
         if is_enough_trained:
@@ -305,7 +311,7 @@ if __name__ == '__main__':
                 ood_mark = '|'
             else:
                 train_mark = '*' if is_tested else '.'
-                ood_mark = '*' if not ood_will_be_computed else '.'
+                ood_mark = '*' if not ood_will_be_computed else ood_will_be_computed
 
             log.info('%s%s %3d %s', 
                      train_mark,

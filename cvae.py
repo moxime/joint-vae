@@ -726,11 +726,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if not method:
             return
-        # print(' **** dfgr ****', oodsets)
-        if not oodsets:
+        
+        if oodsets is None:
             oodsets = [torchdl.get_dataset(n)[1]
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
+
         if ind_measures:
             try:
                 for m in ood_methods:
@@ -749,14 +750,15 @@ class ClassificationVariationalNetwork(nn.Module):
             shuffle = True
             test_n_batch = min(num_batch, test_n_batch)
             ood_n_batchs = [min(num_batch, n) for n in ood_n_batchs]
-            
-        print_results(0, 0, -2, 0,
-                      metrics=ood_methods,
-                      acc_methods=ood_methods)
-        print_results(0, 0, -1, 0, metrics=ood_methods,
-                      acc_methods=ood_methods)
 
-        if not ind_measures:
+        if oodsets:
+            print_results(0, 0, -2, 0,
+                          metrics=ood_methods,
+                          acc_methods=ood_methods)
+            print_results(0, 0, -1, 0, metrics=ood_methods,
+                          acc_methods=ood_methods)
+
+        if not ind_measures and oodsets:
 
             logging.debug(f'Computing measures for set {testset.name}')
             ind_measures = {m: np.ndarray(0)
@@ -765,7 +767,6 @@ class ClassificationVariationalNetwork(nn.Module):
             loader = torch.utils.data.DataLoader(testset,
                                                  shuffle=shuffle,
                                                  batch_size=batch_size)
-
             t_0 = time.time()
 
             iter_ = iter(loader)
@@ -786,6 +787,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           for m in ood_methods},
                               acc_methods = ood_methods,
                               time_per_i = t_per_i,
+                              batch_size=batch_size,
                               preambule = testset.name)
 
         keeped_tpr = [pc / 100 for pc in range(90, 100)]
@@ -846,10 +848,24 @@ class ClassificationVariationalNetwork(nn.Module):
                               acc_methods=ood_methods,
                               accuracies=r_,
                               time_per_i = t_per_i,
+                              batch_size=batch_size,
                               preambule = oodset.name)
 
                 i += 1
 
+            for m in ood_methods:
+                fpr_and_thresholds = [fpr_at_tpr(fpr_[m], tpr_[m], a,
+                                                 thresholds=thresholds_[m],
+                                                 return_threshold=True) for a in keeped_tpr] 
+                fpr_m = [f[0] for f in fpr_and_thresholds]
+                t_m = [f[1] for f in fpr_and_thresholds]
+                ood_results[m] = {'epochs': self.trained,
+                                  'n': ood_n_batch * batch_size,
+                                  'auc': auc_[m],
+                                  'tpr': keeped_tpr,
+                                  'fpr': fpr_m, 
+                                  'thresholds': t_m }
+                
             if update_self_ood:
                 a = self.ood_results
                 self.ood_results[oodset.name] = ood_results

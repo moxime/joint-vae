@@ -113,6 +113,11 @@ def test_ood_if(jvae=None,
             logging.warning(f'Has been asked to load lent in {directory}'
                             'none found')
 
+    desc = 'in ' + directory if directory else jvae.print_architecture()
+
+    if not jvae.ood_methods:
+        logging.debug(f'Net {desc} has no ood methods')
+        return {}
     assert jvae.training['set']
 
     if not testset:
@@ -130,9 +135,8 @@ def test_ood_if(jvae=None,
     is_trained = jvae.trained >= jvae.training['epochs']
     enough_trained_epochs = jvae.trained >= min_epochs
 
-    desc = 'in ' + directory if directory else jvae.print_architecture()
     if not is_trained and not unfinished:
-        logging.debug(f'Net {desc} not trained, will not be tested')
+        logging.debug(f'Net {desc} training not ended, will not be tested')
         return None
 
     if not enough_trained_epochs:
@@ -228,7 +232,7 @@ if __name__ == '__main__':
     log.info('Is trained and is tested (*) or will be (.)')
     log.info('|ood is tested (*) or will be (.)')
     log.info('|| # trained epochs')
-    log.info('|| ### directory')
+    log.info('||     directory')
     # log.info('|||')
     enough_trained = []
     n_trained = 0

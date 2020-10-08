@@ -74,10 +74,10 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type ={'cvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
+    ood_methods_per_type ={'cvae': ('max', 'mean', 'std', 'mag'), # , 'mag', 'IYx'),
                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
-                           'vae': ('f',),
-                           'vib': ('f,')}
+                           'vae': (),
+                           'vib': ()}
 
     def __init__(self,
                  input_shape,
@@ -539,7 +539,7 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m == 'max':
                 measures = -loss.min(axis=0)[0]
             elif m == 'mag':
-                measures = -loss.min(axis=0)[0] + loss.max(axis=0)[0]
+                measures = d_logp.max(axis=0)[0] - d_logp.mean(axis=0)
             elif m == 'std':
                 measures = d_logp.exp().std(axis=0).log() + ref
             elif m == 'mean':
@@ -724,6 +724,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 raise ValueError(f'{method} is not a '
                                  'valid method / list of method')
 
+        if not method:
+            return
         # print(' **** dfgr ****', oodsets)
         if not oodsets:
             oodsets = [torchdl.get_dataset(n)[1]

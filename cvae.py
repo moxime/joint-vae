@@ -850,7 +850,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 i += 1
 
-            
+            if update_self_ood:
+                a = self.ood_results
+                self.ood_results[oodset.name] = ood_results
 
 
         # for m in ood_methods:
@@ -887,7 +889,6 @@ class ClassificationVariationalNetwork(nn.Module):
         #         print('--'.join(str_res + [f'auc:{auc_:.2%}']))
 
         # if update_self_ood:
-        #     self.ood_results[oodset.name] = ood_results
 
     def loss(self, x, y,
              x_reconstructed, y_estimate,

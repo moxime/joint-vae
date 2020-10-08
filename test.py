@@ -313,11 +313,18 @@ if __name__ == '__main__':
                 train_mark = '*' if is_tested else '.'
                 ood_mark = '*' if not ood_will_be_computed else ood_will_be_computed
 
+            _dir = n['dir'][:130]
+            _dir2 = n['dir'][130:]
             log.info('%s%s %3d %s', 
                      train_mark,
                      ood_mark,
                      net.trained,
-                     n['dir'])
+                     _dir)
+            if _dir2:
+                log.info('||' +
+                         '     ' +
+                         '_' * (130 - len(_dir2)) +
+                         _dir2)
         
         n_trained += is_enough_trained
         n_tested += (is_tested is True)

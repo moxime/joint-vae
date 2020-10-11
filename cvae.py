@@ -94,7 +94,8 @@ class ClassificationVariationalNetwork(nn.Module):
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
-                 sigma=1e-6,
+                 sigma=0.5,
+                 sigma_reach=0,
                  *args, **kw):
 
         super().__init__(*args, **kw)
@@ -196,9 +197,12 @@ class ClassificationVariationalNetwork(nn.Module):
         self.num_labels = num_labels
         self.input_dims = (input_shape, num_labels)
 
+        self.training = {} # 
         self._sigma = torch.nn.Parameter(requires_grad=False)
         self.sigma = sigma
 
+        self.sigma_reach = sigma_reach
+        
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder_layer_sizes, latent_dim,
                                  decoder_layer_sizes,
@@ -229,8 +233,8 @@ class ClassificationVariationalNetwork(nn.Module):
             self.architecture['features'] = features_arch
 
         self.trained = 0
-        self.training = None # 
         self.training = {'sigma': sigma,
+                         'sigma_reach': sigma_reach,
                          'latent_sampling': latent_sampling,
                          'set': None,
                          'pretrained_features': pretrained_features,
@@ -843,7 +847,6 @@ class ClassificationVariationalNetwork(nn.Module):
         
             if sigma:
                 self.sigma = sigma
-            self.training['sigma'] = self.sigma
 
             if batch_size:
                 self.training['batch_size'] = batch_size
@@ -1054,6 +1057,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('*** device error')
             pass
         self._sigma.data = torch.tensor(value, device=device)
+        self.training['sigma'] = self.sigma
         # self._sigma.to(device)
         # print('*** device_ ***', self._sigma.device)
         
@@ -1224,9 +1228,12 @@ class ClassificationVariationalNetwork(nn.Module):
         """
 
         # default
-        params = {'type': 'jvae'}
+        params = {'type': 'jvae',
+        }
+        
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
+                        'sigma_reach': 0,
                         'fine_tuning': []}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
@@ -1276,6 +1283,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   latent_sampling=train_params['latent_sampling'],
                   activation=params['activation'],
                   sigma=train_params['sigma'],
+                  sigma_reach=train_params['sigma_reach'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
                   pretrained_features=train_params['pretrained_features'],

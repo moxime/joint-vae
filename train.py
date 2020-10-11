@@ -112,6 +112,7 @@ if __name__ == '__main__':
                                upsampler_channels=a.upsampler,
                                classifier_layer_sizes=a.classifier,
                                sigma=a.sigma,
+                               sigma_reach=a.sigma_reach,
                                output_activation=a.output_activation)
 
             dummy_jvae.training['set'] = a.dataset
@@ -222,13 +223,16 @@ if __name__ == '__main__':
                          upsampler_channels=a.upsampler,
                          classifier_layer_sizes=a.classifier,
                          sigma=a.sigma,
+                         sigma_reach=a.sigma_reach,
                          output_activation=a.output_activation)
 
         if not save_dir:
 
+            _sigma_reach = f'--reach={a.sigma_reach:.1f}std' if a.sigma_reach else ''
             save_dir_root = os.path.join(job_dir, a.dataset,
                                          jvae.print_architecture(sampling=False),
                                          f'sigma={a.sigma:1.2e}' +
+                                         _sigma_reach +
                                          f'--sampling={a.latent_sampling}')
             i = 0
             save_dir = os.path.join(save_dir_root, f'{i:02d}')

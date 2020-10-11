@@ -162,6 +162,16 @@ def get_args(what_for='train', argv=None):
                         # nargs='*',
                         # help='several values can be provided for several trainings')
 
+    parser.add_argument('--sigma-reach',
+                        type=float,
+                        nargs='?',
+                        default=0,
+                        const=4)
+
+    parser.add_argument('--sigma-decay',
+                        type=float,
+                        default=0.1)
+
     parser.add_argument('-K', '--latent_dim', metavar='K',
                         type=int)
                         # type=alphanum, nargs='*',

@@ -954,13 +954,15 @@ class ClassificationVariationalNetwork(nn.Module):
             train_mean_loss = {k: 0. for k in self.loss_components}
             train_total_loss = train_mean_loss.copy()
 
-            if 'std' in train_measures:
-                sigma_n = 0.9 * self.sigma + 0.1 * train_measures['std'] * 4 
+            if 'std' in train_measures and self.sigma_reach:
+                sigma_n = (0.9 * self.sigma +
+                           0.1 * train_measures['std'] * self.sigma_reach )
                 # print('*** sigma_n ***', type(sigma_n), sigma_n)
                 self.sigma = sigma_n
                 # print('*** sigma_ ***', type(self._sigma), self._sigma.device, type(self.sigma))   
-                if save_dir:
-                    self.save(save_dir)
+
+            if save_dir:
+                self.save(save_dir)
 
             current_measures = {}
             

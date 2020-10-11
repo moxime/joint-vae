@@ -234,7 +234,7 @@ if __name__ == '__main__':
                                          f'sigma={a.sigma:1.2e}' +
                                          _sigma_reach +
                                          f'--sampling={a.latent_sampling}')
-            i = 0
+            i = a.job_number
             save_dir = os.path.join(save_dir_root, f'{i:02d}')
 
             while os.path.exists(save_dir):

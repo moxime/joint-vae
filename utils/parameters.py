@@ -217,9 +217,14 @@ def get_args(what_for='train', argv=None):
     
     help = 'save train(ing|ed) network in DIR/<architecture/i>'
     help += 'unless load_dir is specified'
-    parser.add_argument('-j', '--job_dir', metavar='DIR',
+    parser.add_argument('--job-dir', metavar='DIR',
                         help=help)
 
+    parser.add_argument('-j', '--job-number',
+                        type=int,
+                        metavar='#',
+                        default=0)
+    
     help = 'where to load the network'
     help += ' (overrides all other parameters)'
     parser.add_argument('load_dir',

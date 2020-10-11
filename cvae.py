@@ -97,7 +97,8 @@ class ClassificationVariationalNetwork(nn.Module):
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
-                 sigma=1e-6,
+                 sigma=0.5,
+                 sigma_reach=0,
                  *args, **kw):
 
         super().__init__(*args, **kw)
@@ -200,8 +201,12 @@ class ClassificationVariationalNetwork(nn.Module):
         self.num_labels = num_labels
         self.input_dims = (input_shape, num_labels)
 
+        self.training = {} # 
+        self._sigma = torch.nn.Parameter(requires_grad=False)
         self.sigma = sigma
 
+        self.sigma_reach = sigma_reach
+        
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder_layer_sizes, latent_dim,
                                  decoder_layer_sizes,
@@ -232,8 +237,8 @@ class ClassificationVariationalNetwork(nn.Module):
             self.architecture['features'] = features_arch
 
         self.trained = 0
-        self.training = None # 
         self.training = {'sigma': sigma,
+                         'sigma_reach': sigma_reach,
                          'latent_sampling': latent_sampling,
                          'set': None,
                          'pretrained_features': pretrained_features,
@@ -1014,7 +1019,6 @@ class ClassificationVariationalNetwork(nn.Module):
         
             if sigma:
                 self.sigma = sigma
-            self.training['sigma'] = self.sigma
 
             if batch_size:
                 self.training['batch_size'] = batch_size
@@ -1089,6 +1093,7 @@ class ClassificationVariationalNetwork(nn.Module):
             #             # print('**** turn on grad')
             #             p.requires_grad_(True)
 
+        train_measures = {}
         for epoch in range(done_epochs, epochs):
 
             logging.debug(f'Starting epoch {epoch} / {epochs}')
@@ -1126,6 +1131,16 @@ class ClassificationVariationalNetwork(nn.Module):
             t_start_train = t_i
             train_mean_loss = {k: 0. for k in self.loss_components}
             train_total_loss = train_mean_loss.copy()
+
+            if 'std' in train_measures and self.sigma_reach:
+                sigma_n = (0.9 * self.sigma +
+                           0.1 * train_measures['std'] * self.sigma_reach )
+                # print('*** sigma_n ***', type(sigma_n), sigma_n)
+                self.sigma = sigma_n
+                # print('*** sigma_ ***', type(self._sigma), self._sigma.device, type(self.sigma))   
+
+            if save_dir:
+                self.save(save_dir)
 
             current_measures = {}
             
@@ -1172,7 +1187,7 @@ class ClassificationVariationalNetwork(nn.Module):
                               time_per_i=t_per_i,
                               batch_size=batch_size,
                               end_of_epoch='\n')
-
+            
             train_measures = measures.copy()
             if testset:
                 self.train_history['test_accuracy'].append(test_accuracy)
@@ -1185,6 +1200,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.trained += 1
             if fine_tuning:
                 self.training['fine_tuning'].append(epoch)
+
 
             if save_dir:
                 self.save(save_dir)
@@ -1199,8 +1215,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                               method=acc_methods,
                                               # log=False,
                                               print_result='TEST')
-            if save_dir:
-                self.save(save_dir)
 
         logging.debug('Finished training')
 
@@ -1215,8 +1229,18 @@ class ClassificationVariationalNetwork(nn.Module):
     # decorator to change sigma in the decoder if changed in the vae.
     @sigma.setter
     def sigma(self, value):
-        self._sigma = torch.nn.Parameter(torch.tensor(value), requires_grad=False)
-
+        device = None
+        try:
+            device = self._sigma.device
+            # print('*** device ***', device)
+        except(AttributeError):
+            # print('*** device error')
+            pass
+        self._sigma.data = torch.tensor(value, device=device)
+        self.training['sigma'] = self.sigma
+        # self._sigma.to(device)
+        # print('*** device_ ***', self._sigma.device)
+        
         if self.is_jvae:
             self.x_entropy_loss_weight = 2 * value
             self.kl_loss_weight = 2 * value
@@ -1384,9 +1408,12 @@ class ClassificationVariationalNetwork(nn.Module):
         """
 
         # default
-        params = {'type': 'jvae'}
+        params = {'type': 'jvae',
+        }
+        
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
+                        'sigma_reach': 0,
                         'fine_tuning': []}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
@@ -1436,6 +1463,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   latent_sampling=train_params['latent_sampling'],
                   activation=params['activation'],
                   sigma=train_params['sigma'],
+                  sigma_reach=train_params['sigma_reach'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
                   pretrained_features=train_params['pretrained_features'],

@@ -21,7 +21,9 @@ if __name__ == '__main__':
     debug = common_args.debug
     verbose = common_args.verbose
     repeat = common_args.repeat
-    log = set_log(verbose, debug)
+    job_number = common_args.job_number
+
+    log = set_log(verbose, debug, job_number=job_number)
 
     log.debug('$ ' + ' '.join(sys.argv))
 
@@ -30,6 +32,9 @@ if __name__ == '__main__':
 
     job_dir = common_args.job_dir
 
+    if job_dir:
+        log.info(f'Job number {job_number} started')
+    
     if not common_args.force_cpu:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         log.info(f'Used device: {device}')

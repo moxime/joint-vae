@@ -1,9 +1,10 @@
 import argparse
 import configparser
-import logging 
+import logging
+from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 
-def set_log(verbose, debug, name='train'):
+def set_log(verbose, debug, name='train', job_number=0):
     
     log = logging.getLogger('')
     log.setLevel(0)
@@ -13,11 +14,17 @@ def set_log(verbose, debug, name='train'):
     h_formatter = logging.Formatter('%(asctime)s [%(levelname).1s] %(message)s')
     formatter = logging.Formatter('[%(levelname).1s] %(message)s')
     stream_handler = logging.StreamHandler()
-    file_handler = RotatingFileHandler(f'./log/{name}.log',
-                                       maxBytes=500000,
-                                       backupCount=10)
 
-    file_handler.doRollover()
+    print(job_number)
+    if job_number:
+        file_handler = FileHandler(f'./log/{name}.log.{job_number}')
+                                           
+    else:
+        file_handler = RotatingFileHandler(f'./log/{name}.log',
+                                           maxBytes=500000,
+                                           backupCount=10)
+        file_handler.doRollover()
+        
     dump_file_handler = RotatingFileHandler('./log/dump.log',
                                             maxBytes=1, backupCount=20)
     log_level = logging.ERROR
@@ -60,8 +67,8 @@ def set_log(verbose, debug, name='train'):
     
 
     # log.error('not an error, just showing what logs look like')
-    log.info('Verbose is on')
-    log.debug(f'Debug is on')
+    # log.info('Verbose is on')
+    # log.debug(f'Debug is on')
     
     return log
 

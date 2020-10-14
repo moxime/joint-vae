@@ -667,7 +667,7 @@ class ClassificationVariationalNetwork(nn.Module):
         mean_loss = total_loss.copy()
 
         current_measures = {}
-        
+
         for i in range(num_batch):
             data = next(iter_)
             x_test, y_test = data[0].to(device), data[1].to(device)
@@ -1155,7 +1155,8 @@ class ClassificationVariationalNetwork(nn.Module):
             t_start_epoch = time.time()
             # test
 
-            num_batch = sample_size // test_batch_size
+            num_batch = max(sample_size // test_batch_size, 1)
+                
             if testset:
                 # print(num_batch, sample_size)
                 full_test = ((epoch - done_epochs) and
@@ -1431,12 +1432,14 @@ class ClassificationVariationalNetwork(nn.Module):
         s += s_('classifier') + f'={_l2s(self.classifier_layer_sizes)}'
 
         if sigma:
+            s += '--'
             s += s_('sigma')
-            s += f'--sigma={self.sigma:1.2e}'
+            s += f'={self.sigma:1.2e}'
 
         if sampling:
+            s += '--'
             s += s_('sampling')
-            s += f'--sampling={self.latent_sampling}'
+            s += f'={self.latent_sampling}'
 
         return s
 

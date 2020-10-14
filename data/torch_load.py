@@ -66,7 +66,7 @@ cifar_transform = transforms.Compose([transforms.ToTensor(),
 pad_transform = transforms.Compose([transforms.Pad(2), simple_transform])
 
 
-def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default'):
+def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default', data_augmentation=[]):
 
     default_transform = transformer == 'default'
     dataset = dataset.lower()
@@ -141,11 +141,26 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default')
             transform = cifar_transform
 
         same_size = ['svhn']
-            
+
+
+    train_transforms = [transform]
+
+    for t in data_augmentation:
+        if t == 'flip':
+            t_ = transforms.RandomHorizontalFlip()
+
+        if t== 'crop':
+            size = get_shape_by_name(dataset)[0][1:]
+            padding = size[0] // 8
+            t_ = transforms.RandomCrop(size, padding=padding)
+        train_transforms.append(t_)
+
+    train_transform = transforms.Compose(train_transforms)
+    
     with suppress_stdout():
         trainset = getter(root=root, train=True,
                           download=True,
-                          transform=transform)
+                          transform=train_transform)
 
         testset = getter(root=root, train=False,
                          download=True,

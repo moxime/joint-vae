@@ -87,6 +87,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  pretrained_features=None,
                  features_channels=None,
                  conv_padding=1,
+                 batch_norm=False,
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  decoder_layer_sizes=[36],
@@ -139,12 +140,14 @@ class ClassificationVariationalNetwork(nn.Module):
             if features.startswith('vgg'):
                 self.features = VGGFeatures(features, input_shape,
                                             channels=features_channels,
+                                            batch_norm=batch_norm,
                                             pretrained=feat_dict)
                 features_arch = self.features.architecture
 
             elif features == 'conv':
                 self.features = ConvFeatures(input_shape,
                                              features_channels,
+                                             batch_norm=batch_norm,
                                              padding=conv_padding,
                                              kernel=2*conv_padding+2)
                 features_arch = {'features': features,
@@ -218,6 +221,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'type': type_of_net,
                              # 'features': features_arch, 
                              'encoder': encoder_layer_sizes,
+                             'batch_norm': batch_norm,
                              'activation': activation,
                              'latent_dim': latent_dim,
                              'decoder': decoder_layer_sizes,
@@ -1471,6 +1475,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         # default
         params = {'type': 'jvae',
+                  'batch_norm': False)
         }
         
         train_params = {'pretrained_features': None,
@@ -1526,6 +1531,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   decoder_layer_sizes=params['decoder'],
                   classifier_layer_sizes=params['classifier'],
                   latent_sampling=train_params['latent_sampling'],
+                  batch_norm=params['batch_norm']
                   activation=params['activation'],
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],
@@ -1679,7 +1685,6 @@ if __name__ == '__main__':
     output_activation = args.output_activation
 
     classifier = args.classifier
-    train_vae = args.vae
 
     dataset = args.dataset
     transformer = args.transformer

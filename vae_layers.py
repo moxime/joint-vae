@@ -64,11 +64,11 @@ vgg_cfg = {
 
 class VGGFeatures(nn.Sequential):
     
-    def __init__(self, vgg_name, input_shape, channels=None, pretrained=None):
+    def __init__(self, vgg_name, input_shape, batch_norm=False, channels=None, pretrained=None):
 
         cfg = vgg_cfg.get(vgg_name, channels)
             
-        layers = self._make_layers(cfg, input_shape)
+        layers = self._make_layers(cfg, input_shape, batch_norm)
         super(VGGFeatures, self).__init__(*layers)
         self.architecture = {'features': vgg_name}
 
@@ -83,7 +83,7 @@ class VGGFeatures(nn.Sequential):
         else:
             self.name = vgg_name 
 
-    def _make_layers(self, cfg, input_shape):
+    def _make_layers(self, cfg, input_shape, batch_norm):
         layers = []
         in_channels, h, w = input_shape
         for x in cfg:
@@ -96,9 +96,10 @@ class VGGFeatures(nn.Sequential):
                 h = h // 2
                 w = w // 2
             else:
-                layers += [nn.Conv2d(in_channels, x, kernel_size=3, padding=1),
-                           nn.BatchNorm2d(x),
-                           nn.ReLU(inplace=True)]
+                layers += [nn.Conv2d(in_channels, x, kernel_size=3, padding=1)]
+                if batch_norm:
+                    layers += [nn.BatchNorm2d(x),]
+                layers+= nn.ReLU(inplace=True)]
                 in_channels = x
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         self.output_shape = (in_channels, h, w)
@@ -109,13 +110,15 @@ class ConvFeatures(nn.Sequential):
 
     def __init__(self, input_shape, channels,
                  padding=1, kernel=4,
+                 batch_norm=False,
                  pretrained=None,
                  activation='relu'):
 
         assert (kernel == 2 * padding + 2)
 
         layers = self._make_layers(channels, padding, kernel,
-                                   input_shape, activation)
+                                   input_shape,
+                                   activation, batch_norm)
         super(ConvFeatures, self).__init__(*layers)
 
         
@@ -140,14 +143,16 @@ class ConvFeatures(nn.Sequential):
                             'kernel':self.kernel,
                             'activation':self.activation}
         
-    def _make_layers(self, channels, padding, kernel, input_shape, activation):
+    def _make_layers(self, channels, padding, kernel, input_shape,
+                     activation, batch_norm):
         layers = []
         in_channels, h, w  = input_shape
         activation_layer = activation_layers[activation]()
         for channel in channels:
             layers.append(nn.Conv2d(in_channels, channel, kernel,
                                     stride=2, padding=padding))
-            # layers.append(nn.BatchNorm2d(channel))
+            if batch_norm:
+                layers.append(nn.BatchNorm2d(channel))
             # layers.append(activation_layer)
             layers.append(nn.ReLU(inplace=True))
             h = h//2

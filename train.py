@@ -111,6 +111,7 @@ if __name__ == '__main__':
                                pretrained_features=a.pretrained_features,
                                pretrained_upsampler=a.pretrained_upsampler,
                                encoder_layer_sizes=a.encoder,
+                               batch_norm=a.batch_norm,
                                latent_dim=a.latent_dim,
                                latent_sampling=a.latent_sampling,
                                decoder_layer_sizes=a.decoder,

@@ -207,8 +207,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.training = {} # 
         self._sigma = torch.nn.Parameter(requires_grad=False)
         self.sigma = sigma
-
         self.sigma_reach = sigma_reach
+
+        self.batch_norm = batch_norm
         
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder_layer_sizes, latent_dim,
@@ -1427,6 +1428,8 @@ class ClassificationVariationalNetwork(nn.Module):
         #    s += f'sampling={self.latent_sampling}--'
         if features:
             s += s_('features') + f'={features}--'
+        if 'batch_norm' not in excludes:
+            s += 'batch_norm--' if self. batch_norm else ''
         s += s_('encoder') + f'={_l2s(self.encoder_layer_sizes)}--'
         if 'decoder' not in excludes:
             s += s_('decoder') + f'={_l2s(self.decoder_layer_sizes)}--'
@@ -1475,7 +1478,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         # default
         params = {'type': 'jvae',
-                  'batch_norm': False)
+                  'batch_norm': False
         }
         
         train_params = {'pretrained_features': None,
@@ -1531,7 +1534,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   decoder_layer_sizes=params['decoder'],
                   classifier_layer_sizes=params['classifier'],
                   latent_sampling=train_params['latent_sampling'],
-                  batch_norm=params['batch_norm']
+                  batch_norm=params['batch_norm'],
                   activation=params['activation'],
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],

@@ -32,9 +32,9 @@ if __name__ == '__main__':
 
     job_dir = common_args.job_dir
 
-    if job_dir:
+    if job_number:
         log.info(f'Job number {job_number} started')
-    
+        
     if not common_args.force_cpu:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         log.info(f'Used device: {device}')
@@ -171,7 +171,9 @@ if __name__ == '__main__':
     to_be_finished = sum([a.epochs_to_be_done > 0 for a in args_to_be_done])
     log.info('%s total nets (%s epochs) to be trained', to_be_finished,
              total_epochs)
-    
+
+    max_batch_sizes = {}
+
     for a in args_to_be_done:
 
         save_dir = a.load_dir
@@ -183,14 +185,6 @@ if __name__ == '__main__':
 
         log.debug(f'{trainset.name} dataset loaded')
         
-        trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=a.batch_size,
-                                                  shuffle=True,
-                                                  num_workers=0)
-
-        testloader = torch.utils.data.DataLoader(testset, batch_size=a.batch_size,
-                                                 shuffle=True, num_workers=0)
-
         input_shape, num_labels = torchdl.get_shape(trainset)
         
         rebuild = a.load_dir is None
@@ -255,12 +249,22 @@ if __name__ == '__main__':
 
         jvae.to(device)
 
-        x, y = torchdl.get_batch(trainset, device=device)
+        x, y = torchdl.get_batch(trainset, device=device, batch_size=8)
 
         if debug:
             log.debug('Trying a first pass')
             outs = jvae(x, y)
             log.debug([u.shape for u in outs])
+
+        if not batch_size:
+            arch = jvae.print_architecture(sampling=True)
+            if arch in max_batch_sizes:
+                jvae.max_batch_sizes = max_batch_sizes[arch]
+            else:
+                max_batch_sizes[arch] = jvae.max_batch_sizes
+            log.info('Batch size set to %s (train) and %s (test)',
+                     jvae.max_batch_sizes['train'],
+                     jvae.max_batch_sizes['test'])
 
         if not dry_run:
             if jvae.trained < a.epochs:

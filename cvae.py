@@ -564,6 +564,53 @@ class ClassificationVariationalNetwork(nn.Module):
             dist_measures[m] = measures
 
         return dist_measures
+
+    def compute_max_batch_size(self, batch_size=2048, which='all'):
+        if which=='all':
+            self.compute_max_batch_size(batch_size, which='train')
+            self.compute_max_batch_size(batch_size, which='test')
+            return
+
+        if 'batch_sizes' not in self.training:
+            self.training['batch_sizes'] = {}
+            
+        training = which=='train'  
+
+        x = torch.randn(batch_size, *self.input_shape, device=self.device)
+        y = torch.ones(batch_size, dtype=int, device=self.device) if training else None
+        while True:
+            x = x[:batch_size]
+            if y is not None:
+                y = y[:batch_size]
+            try:
+                logging.debug('Trying batch size of %s for %s.',
+                              batch_size,
+                              which)
+                self.evaluate(x, y=y)
+                self.training['batch_sizes'][which] = batch_size
+                logging.debug('Found max batch size for %s : %s',
+                              which, batch_size)
+                return
+            except RuntimeError as e:
+                logging.debug('Batch size of %s too much for %s.',
+                              batch_size,
+                              which)
+                logging.debug(e)
+                batch_size//=2
+
+    @property
+    def max_batch_sizes(self):
+        batch_sizes = self.training.get('batch_sizes', {})
+        if batch_sizes:
+            return batch_sizes
+        self.compute_max_batch_size()
+        return self.max_batch_sizes
+
+    @max_batch_sizes.setter
+    def max_batch_sizes(self, v):
+        assert 'train' in v
+        assert 'test' in v
+        self.training['batch_sizes'] = v
     
     def accuracy(self, testset=None,
                  batch_size=100,
@@ -1045,16 +1092,24 @@ class ClassificationVariationalNetwork(nn.Module):
         if optimizer is None:
             optimizer = self.optimizer
 
+
+        if batch_size:
+            train_batch_size = test_batch_size = batch_size
+        else:
+            batch_sizes = self.max_batch_sizes
+            train_batch_size = batch_sizes['train']
+            test_batch_size = batch_sizes['test']
+            
         logging.debug('Creating dataloader')
         trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=batch_size,
+                                                  batch_size=train_batch_size,
                                                   shuffle=True, num_workers=0)
 
         logging.debug('...done')
         
         dataset_size = len(trainset)
-        remainder = (dataset_size % batch_size) > 0 
-        per_epoch = dataset_size // batch_size + remainder
+        remainder = (dataset_size % train_batch_size) > 0 
+        per_epoch = dataset_size // train_batch_size + remainder
 
         done_epochs = self.train_history['epochs']
         if done_epochs == 0:
@@ -1100,14 +1155,14 @@ class ClassificationVariationalNetwork(nn.Module):
             t_start_epoch = time.time()
             # test
 
-            num_batch = sample_size // batch_size
+            num_batch = sample_size // test_batch_size
             if testset:
                 # print(num_batch, sample_size)
                 full_test = ((epoch - done_epochs) and
                              epoch % full_test_every == 0)
                 with torch.no_grad():
                     test_accuracy = self.accuracy(testset,
-                                                  batch_size=batch_size,
+                                                  batch_size=test_batch_size,
                                                   num_batch='all' if full_test else num_batch,
                                                   # device=device,
                                                   method=acc_methods,
@@ -1119,7 +1174,7 @@ class ClassificationVariationalNetwork(nn.Module):
             if train_accuracy:
                 with torch.no_grad():
                     train_accuracy = self.accuracy(trainset,
-                                                   batch_size=batch_size,
+                                                   batch_size=test_batch_size,
                                                    num_batch=num_batch,
                                                    device=device,
                                                    method=acc_methods,
@@ -1185,7 +1240,7 @@ class ClassificationVariationalNetwork(nn.Module):
                               metrics=self.metrics,
                               measures=measures,
                               time_per_i=t_per_i,
-                              batch_size=batch_size,
+                              batch_size=train_batch_size,
                               end_of_epoch='\n')
             
             train_measures = measures.copy()
@@ -1209,7 +1264,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # print(num_batch, sample_size)
             with torch.no_grad():
                 test_accuracy = self.accuracy(testset,
-                                              batch_size=batch_size,
+                                              batch_size=test_batch_size,
                                               # num_batch=num_batch,
                                               # device=device,
                                               method=acc_methods,
@@ -1249,7 +1304,14 @@ class ClassificationVariationalNetwork(nn.Module):
         elif self.is_vae:
             self.kl_loss_weight = 2 * value
 
-            
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
+    @device.setter
+    def device(self, d):
+        self.to(d)
+        
     @property
     def kl_loss_weight(self):
         return self._kl_loss_weight
@@ -1417,13 +1479,15 @@ class ClassificationVariationalNetwork(nn.Module):
                         'fine_tuning': []}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
-
+        logging.debug('Parameters loaded')
+        
         params.update(loaded_params)
         
         loaded_test = False
         try:
             testing = save_load.load_json(dir_name, 'test.json')
             loaded_test = load_test
+            logging.debug('Results loaded')
         except(FileNotFoundError):
             pass
 
@@ -1438,6 +1502,7 @@ class ClassificationVariationalNetwork(nn.Module):
         try:
             train_params.update(save_load.load_json(dir_name, 'train.json'))
             loaded_train = load_train
+            logging.debug('Training parameters loaded')
         except(FileNotFoundError):
             pass
 
@@ -1452,7 +1517,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not params.get('features', None):
             params['features'] = {}
 
-
+        logging.debug('Building the network')
         vae = cls(input_shape=params['input'],
                   num_labels=params['labels'],
                   type_of_net=params['type'],
@@ -1470,6 +1535,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   pretrained_upsampler=train_params['pretrained_upsampler'],
                   **params['features'])
 
+        logging.debug('Built')
         vae.trained = train_history['epochs']
         vae.train_history = train_history
         vae.training = train_params
@@ -1478,8 +1544,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if load_test and loaded_ood:
             vae.ood_results = ood_results
-            
+
+        
         if load_state and vae.trained:
+            logging.debug('Loading state')
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:
                 state_dict = torch.load(w_p)
@@ -1497,6 +1565,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     s+='\n'*4    
                 logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{vae}')
                 raise e
+        logging.debug('Loaded')
         return vae
 
     def log_pxy(self, x, normalize=True, batch_losses=None, **kw):

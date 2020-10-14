@@ -200,7 +200,6 @@ def get_args(what_for='train', argv=None):
     parser.add_argument('--decoder', type=alphanum, nargs='*')
     parser.add_argument('--upsampler', type=alphanum, nargs='*')
     parser.add_argument('--classifier', type=alphanum, nargs='*')
-    parser.add_argument('--vae', action='store_true')
 
     parser.add_argument('--dataset', 
                         choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10'])
@@ -209,6 +208,8 @@ def get_args(what_for='train', argv=None):
                         choices=['simple', 'normal', 'default'],
                         help='transform data, simple : 0--1, normal 0 +/- 1')
 
+    parser.add_argument('--batch-norm', action='store_true')
+    
     if for_train:
         help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'
         # help += '(may have a different sigma)'

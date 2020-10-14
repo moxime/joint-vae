@@ -1160,7 +1160,8 @@ class ClassificationVariationalNetwork(nn.Module):
             t_start_epoch = time.time()
             # test
 
-            num_batch = sample_size // test_batch_size
+            num_batch = max(sample_size // test_batch_size, 1)
+
             if testset:
                 # print(num_batch, sample_size)
                 full_test = ((epoch - done_epochs) and
@@ -1429,7 +1430,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if features:
             s += s_('features') + f'={features}--'
         if 'batch_norm' not in excludes:
-            s += 'batch_norm--' if self. batch_norm else ''
+            s += 'batch-norm--' if self. batch_norm else ''
         s += s_('encoder') + f'={_l2s(self.encoder_layer_sizes)}--'
         if 'decoder' not in excludes:
             s += s_('decoder') + f'={_l2s(self.decoder_layer_sizes)}--'

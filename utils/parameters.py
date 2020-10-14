@@ -208,7 +208,7 @@ def get_args(what_for='train', argv=None):
                         choices=['simple', 'normal', 'default'],
                         help='transform data, simple : 0--1, normal 0 +/- 1')
 
-    parser.add_argument('--batch_norm', action='store_true')
+    parser.add_argument('--batch-norm', action='store_true')
     
     if for_train:
         help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'

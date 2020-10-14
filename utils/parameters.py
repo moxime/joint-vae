@@ -15,7 +15,6 @@ def set_log(verbose, debug, name='train', job_number=0):
     formatter = logging.Formatter('[%(levelname).1s] %(message)s')
     stream_handler = logging.StreamHandler()
 
-    print(job_number)
     if job_number:
         file_handler = FileHandler(f'./log/{name}.log.{job_number}')
                                            

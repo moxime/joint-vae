@@ -143,7 +143,7 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default',
         same_size = ['svhn']
 
 
-    train_transforms = [transform]
+    train_transforms = []
 
     for t in data_augmentation:
         if t == 'flip':
@@ -155,6 +155,7 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default',
             t_ = transforms.RandomCrop(size, padding=padding)
         train_transforms.append(t_)
 
+    train_transforms.append(transform)
     train_transform = transforms.Compose(train_transforms)
     
     with suppress_stdout():

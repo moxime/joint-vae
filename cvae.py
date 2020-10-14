@@ -246,6 +246,7 @@ class ClassificationVariationalNetwork(nn.Module):
                          'sigma_reach': sigma_reach,
                          'latent_sampling': latent_sampling,
                          'set': None,
+                         'data_augmentation': [],
                          'pretrained_features': pretrained_features,
                          'pretrained_upsampler': pretrained_upsampler,
                          'epochs': 0,
@@ -1024,6 +1025,7 @@ class ClassificationVariationalNetwork(nn.Module):
     def train(self,
               trainset=None,
               transformer='default',
+              data_augmentation=None,
               optimizer=None,
               epochs=50,
               batch_size=100, device=None,
@@ -1082,13 +1084,18 @@ class ClassificationVariationalNetwork(nn.Module):
             self.training['x_loss_weight'] = x_loss_weight
             self.training['kl_loss_weight'] = kl_loss_weight
             self.training['mse_loss_weight'] = mse_loss_weight
+
+            if data_augmentation:
+                self.training['data_augmentation'] = data_augmentation
         
         assert self.training['set']
 
         set_name = self.training['set']
+        data_augmentation = self.training['data_augmentation']
         
         logging.debug(f'Getting {set_name}')
-        trainset, testset = torchdl.get_dataset(set_name)
+        trainset, testset = torchdl.get_dataset(set_name,
+                                                data_augmentation=data_augmentation)
 
         logging.debug('Choosing device')
         device = choose_device(device)

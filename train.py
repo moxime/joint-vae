@@ -230,11 +230,19 @@ if __name__ == '__main__':
         if not save_dir:
 
             _sigma_reach = f'--reach={a.sigma_reach:.1f}std' if a.sigma_reach else ''
+            if not a.data_augmentation:
+                _augment = ''
+            else:
+                _augment = '--augment='
+                a.data_augmentation.sort()
+                _augment += '-'.join(a.data_augmentation)
+                
             save_dir_root = os.path.join(job_dir, a.dataset,
                                          jvae.print_architecture(sampling=False),
                                          f'sigma={a.sigma:1.2e}' +
                                          _sigma_reach +
-                                         f'--sampling={a.latent_sampling}')
+                                         f'--sampling={a.latent_sampling}'+
+                                         _augment)
             i = a.job_number
             save_dir = os.path.join(save_dir_root, f'{i:02d}')
 
@@ -276,6 +284,7 @@ if __name__ == '__main__':
                            batch_size=batch_size,
                            device=device,
                            testset=testset,
+                           data_augmentation=a.data_augmentation,
                            fine_tuning=a.fine_tuning,
                            sample_size=test_sample_size,  # 10000,
                            mse_loss_weight=None,

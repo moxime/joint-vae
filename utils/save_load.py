@@ -123,6 +123,7 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
 
 def collect_networks(directory,
                      list_of_vae_by_architectures,
+                     load_state=True,
                      **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
@@ -147,6 +148,7 @@ def collect_networks(directory,
     try:
         logging.debug(f'Loading net in: {directory}')
         vae = ClassificationVariationalNetwork.load(directory,
+                                                    load_state=load_state,
                                                     **default_load_paramaters)
         logging.debug(f'net found in {shorten_path(directory)}')
         arch =  vae.print_architecture(excludes=('latent_dim'))

@@ -220,7 +220,7 @@ if __name__ == '__main__':
     search_dir = load_dir if load_dir else job_dir
 
     l_o_l_o_d_o_n = []
-    collect_networks(search_dir, l_o_l_o_d_o_n) #, like=dummy_jvae)
+    collect_networks(search_dir, l_o_l_o_d_o_n, load_state=not dry_run) #, like=dummy_jvae)
     total = sum(map(len, l_o_l_o_d_o_n))
     log.debug(f'{total} networks in {len(l_o_l_o_d_o_n)} lists collected:')
 

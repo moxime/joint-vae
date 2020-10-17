@@ -145,7 +145,7 @@ def collect_networks(directory,
         return added
 
     try:
-        # logging.debug(f'in {directory}')
+        logging.debug(f'Loading net in: {directory}')
         vae = ClassificationVariationalNetwork.load(directory,
                                                     **default_load_paramaters)
         logging.debug(f'net found in {shorten_path(directory)}')
@@ -177,12 +177,12 @@ def collect_networks(directory,
         }
         append_by_architecture(vae_dict, list_of_vae_by_architectures)
 
-    except FileNotFoundError:    
-        pass
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
         logging.debug(f'Load error: {e}')
     
+    except FileNotFoundError:    
+        pass
     list_dir = [os.path.join(directory, d) for d in os.listdir(directory)]
     sub_dirs = [e for e in list_dir if os.path.isdir(e)]
     

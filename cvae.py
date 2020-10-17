@@ -1586,10 +1586,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
         
         if load_state and vae.trained:
-            logging.debug('Loading state')
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:
                 state_dict = torch.load(w_p)
+            except RuntimeError as e:
+                raise e
+            try:
                 vae.load_state_dict(state_dict)
             except RuntimeError as e:
                 state_dict_vae = vae.state_dict()
@@ -1601,8 +1603,8 @@ class ClassificationVariationalNetwork(nn.Module):
                         t_ = other.get(k, torch.Tensor([]))
                         s += f'{s_:40} === {tuple(t_.shape)}'
                         s+='\n'
-                    s+='\n'*4    
-                logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{vae}')
+                        s+='\n'*4    
+                        logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{vae}')
                 raise e
         logging.debug('Loaded')
         return vae

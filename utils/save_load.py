@@ -173,6 +173,7 @@ def collect_networks(directory,
                     'pretrained_upsampler': str(pretrained_upsampler),
                     'depth': vae.depth,
                     'width': vae.width,
+                    'options': vae.option_vector()
         }
         append_by_architecture(vae_dict, list_of_vae_by_architectures)
 
@@ -230,11 +231,11 @@ def data_frame_results(nets):
     n['K']
     n['L']
     n['acc'] : {m: acc for m in methods}
+    n['options'] : vector of options
     """
 
     set_arch_index = ['set', 'type', 'arch_code',
-                      'pretrained_features',
-                      'pretrained_upsampler',
+                      'options',
     ]
 
     K_L_index = ['K', 'L', 'sigma']
@@ -259,8 +260,6 @@ def data_frame_results(nets):
     df = df.stack()
 
     df.index.rename('method', level=-1, inplace=True)
-    df.index.rename('pre_feat', level='pretrained_features', inplace=True)
-    df.index.rename('pre_up', level='pretrained_upsampler', inplace=True)
 
     df = df.unstack(level=('sigma', 'method'))
     # return df

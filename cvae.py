@@ -1456,6 +1456,27 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return s
 
+    def option_vector(self):
+
+        v = ''
+        if self.features:
+            if self.training['pretrained_features']:
+                c = 'F'
+            else:
+                c = 'f'
+        else: c = '--'
+        v += c
+        if self.upsampler_channels:
+            if self.training['pretrained_upsampler']:
+                c = 'U'
+            else:
+                c = 'u'
+        else: c = '-'
+        v += c
+        v += 'b' if self.batch_norm else '-'
+        
+        return v
+    
     def save(self, dir_name=None):
         """Save the params in params.json file in the directroy dir_name and, if
         trained, the weights inweights.h5.

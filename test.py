@@ -26,7 +26,7 @@ def test_accuracy_if(jvae=None,
                      min_epochs=0,
                      min_test_sample_size=1000,
                      **kw,
-                      ):
+):
 
     assert jvae or directory
 

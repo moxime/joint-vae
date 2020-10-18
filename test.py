@@ -39,7 +39,7 @@ def test_accuracy_if(jvae=None,
         try:
             jvae = CVNet.load(directory)
         except FileNotFoundError:
-            logging.warning(f'Has been asked to load lent in {directory}'
+            logging.warning(f'Has been asked to load net in {directory}'
                             'none found')
 
     # deleting old testing methods
@@ -122,6 +122,17 @@ def test_ood_if(jvae=None,
     
     assert jvae.training['set']
 
+    is_trained = jvae.trained >= jvae.training['epochs']
+    enough_trained_epochs = jvae.trained >= min_epochs
+
+    if not is_trained and not unfinished:
+        logging.debug(f'Net {desc} training not ended, will not be tested')
+        return None
+
+    if not enough_trained_epochs:
+        logging.debug(f'Net {desc} not trained enough, will not be tested')
+        return None
+
     if not testset:
         testset_name = jvae.training['set']
         _, testset = torchdl.get_dataset(testset_name)
@@ -133,17 +144,6 @@ def test_ood_if(jvae=None,
         for name in oodsets_names:
             _, oodset = torchdl.get_dataset(name)
             oodsets.append(oodset)
-    
-    is_trained = jvae.trained >= jvae.training['epochs']
-    enough_trained_epochs = jvae.trained >= min_epochs
-
-    if not is_trained and not unfinished:
-        logging.debug(f'Net {desc} training not ended, will not be tested')
-        return None
-
-    if not enough_trained_epochs:
-        logging.debug(f'Net {desc} not trained enough, will not be tested')
-        return None
     
     min_tested_epochs = {}
     min_tested_sample_size = {}
@@ -165,7 +165,7 @@ def test_ood_if(jvae=None,
     
         has_been_tested[n] = enough_tested_epochs and enough_tested_samples
         _w = '' if has_been_tested[n] else 'not ' 
-        logging.debug(f'{n} has {_w}been tested enough')
+        logging.debug(f'ood rate has {_w}been computed with enough samples for {n}')
 
         if not dry_run and not has_been_tested[n]:
             oodsets_to_be_tested.append(oodset)

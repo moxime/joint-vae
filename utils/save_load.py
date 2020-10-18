@@ -151,7 +151,7 @@ def collect_networks(directory,
                                                     load_state=load_state,
                                                     **default_load_paramaters)
         logging.debug(f'net found in {shorten_path(directory)}')
-        arch =  vae.print_architecture(excludes=('latent_dim'))
+        arch =  vae.print_architecture(excludes=('latent_dim', 'batch_norm'))
         arch_code = hex(hash(arch))[2:10]
         pretrained_features =  (None if not vae.features
                                 else vae.training['pretrained_features'])

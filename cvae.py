@@ -571,7 +571,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return dist_measures
 
-    def compute_max_batch_size(self, batch_size=2048, which='all'):
+    def compute_max_batch_size(self, batch_size=8192, which='all'):
         if which=='all':
             self.compute_max_batch_size(batch_size, which='train')
             self.compute_max_batch_size(batch_size, which='test')
@@ -1475,11 +1475,11 @@ class ClassificationVariationalNetwork(nn.Module):
         v += c
         v += 'b' if self.batch_norm else '-'
         c = ''
-        for m in ('flip', 'crop')
+        for m in ('flip', 'crop'):
             if m in self.training['data_augmentation']:
                 c += m[0]
-            else: c+= '-'
-            
+            else: c += '-'
+        v += c
         return v
     
     def save(self, dir_name=None):
@@ -1519,6 +1519,7 @@ class ClassificationVariationalNetwork(nn.Module):
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
                         'sigma_reach': 0,
+                        'data_augmentation': [],
                         'fine_tuning': []}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')

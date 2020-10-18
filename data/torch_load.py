@@ -167,10 +167,10 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default',
                          download=True,
                          transform=transform)
 
-    trainset.name = dataset
-    trainset.same_size = same_size
-    testset.name = dataset
-    testset.same_size = same_size
+    for s in (trainset, testset):
+        s.name = dataset
+        s.same_size = same_size
+        s.transform = transformer
     
     return trainset, testset
 

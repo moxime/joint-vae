@@ -1024,7 +1024,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def train(self,
               trainset=None,
-              transform=None,
+              transformer=None,
               data_augmentation=None,
               optimizer=None,
               epochs=50,
@@ -1053,7 +1053,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 set_name = trainset.name
             except(AttributeError):
                 set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
-            transform=trainset.transform
+            transformer=trainset.transformer
             
         if self.trained:
             logging.info(f'Network partially trained ({self.trained} epochs)')
@@ -1066,7 +1066,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if trainset:
                 self.training['set'] = set_name
-                self.training['transformer'] = transform
+                self.training['transformer'] = transformer
                 ss = trainset.data[0].shape
                 ns = self.input_shape
                 logging.debug(f'Shapes : {ss} / {ns}')

@@ -281,11 +281,12 @@ class ConvDecoder(nn.Module):
                  output_activation='linear',
                  upsampler_dict=None,
                  activation='relu',
+                 batch_norm=False,
                  **kwargs):
 
         super(ConvDecoder, self).__init__(**kwargs)
            
-        layers = self._makelayer(first_shape, channels, output_activation)
+        layers = self._makelayer(first_shape, channels, output_activation, batch_norm)
         activation_layer = activation_layers[activation]()
         
         self.first_shape = first_shape
@@ -309,16 +310,17 @@ class ConvDecoder(nn.Module):
         output_dim = out.shape[1:]
         return out.view(*batch_shape, *output_dim)
 
-    def _makelayer(self, first_shape, channels, output_activation):
+    def _makelayer(self, first_shape, channels, output_activation, batch_norm ):
 
         layers = []
 
         input_channels = first_shape[0]
         for output_channels in channels:
             layers += [nn.ConvTranspose2d(input_channels, output_channels,
-                                          4, stride=2, padding=1),
-                       # nn.BatchNorm2d(output_channels),
-                       nn.ReLU(inplace=True)]
+                                          4, stride=2, padding=1)]
+            if batch_norm:
+                       layers.append(nn.BatchNorm2d(output_channels)),
+            layers.append(nn.ReLU(inplace=True))
             input_channels = output_channels
 
         layers[-1] = activation_layers.get(output_activation, nn.Identity)()

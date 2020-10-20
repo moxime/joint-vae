@@ -187,6 +187,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           upsampler_first_shape,
                                           upsampler_channels,
                                           upsampler_dict=upsampler_dict,
+                                          batch_norm=batch_norm,
                                           output_activation=output_activation)
 
             else:

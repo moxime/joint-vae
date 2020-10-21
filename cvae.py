@@ -165,7 +165,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.encoder = Encoder(encoder_input_shape, num_labels, latent_dim,
                                encoder_layer_sizes,
                                sampling_size=latent_sampling,
-                               activation=activation)
+                               activation=activation, sampling=sampling)
 
         activation_layer = activation_layers[activation]()
 

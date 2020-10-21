@@ -1475,6 +1475,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 c = 'u'
         else: c = '-'
         v += c
+        c = self.training.get('transformer', 'd')[0]
+        v += c
         v += 'b' if self.batch_norm else '-'
         c = ''
         for m in ('flip', 'crop'):

@@ -252,11 +252,11 @@ class Encoder(nn.Module):
         # debug_nan(u, u, 'u1')
         u = self.dense_projs(u)
         if torch.isnan(u).any():
-            # for p in self.dense_projs.parameters():
-            #     print(torch.isnan(p).sum().item(), 'nans in',
-            #           'parameters of size',
-            #          *p.shape)  
-            raise ValueError('ERROR')
+             for p in self.dense_projs.parameters():
+                 print(torch.isnan(p).sum().item(), 'nans in',
+                       'parameters of size',
+                       *p.shape)  
+             raise ValueError('ERROR')
         # debug_nan(u, self.dense_projs.parameters(), 'dpp')
         z_mean = self.dense_mean(u)
         # debug_nan(z_mean, u, 'µz')

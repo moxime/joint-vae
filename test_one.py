@@ -1,7 +1,7 @@
 from cvae import ClassificationVariationalNetwork
 import data.torch_load as dl
 import logging
-
+from utils.save_load import collect_networks
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -14,7 +14,7 @@ load_dir = 'jobs/cifar10/the-best'
 
 
 print('Load net', end='') 
-net = ClassificationVariationalNetwork.load(load_dir)
+net = ClassificationVariationalNetwork.load(load_dir, load_state=False)
 print(' to gpu')
 net.to('cuda')
 

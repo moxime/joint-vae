@@ -246,9 +246,9 @@ if __name__ == '__main__':
     n_to_be_tested = 0
     n_ood_computed = 0
     n_ood_to_be_computed = 0
-    testsets = set()
-    sigmas = set()
-    archs = set()
+    testsets =  set()
+    sigmas =  set()
+    archs =  set()
     
     for n in sum(l_o_l_o_d_o_n, []):
 

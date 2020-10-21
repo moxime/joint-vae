@@ -51,97 +51,73 @@ def choose_device(device=None):
 
     return device
 
+cifar_shape = (3, 32 , 32)
+mnist_shape = (1, 28, 28)
+set_dict = {'cifar10': {'shape': (3, 32, 32),
+                        'labels':10,
+                        'classes': ['airplane', 'automobile', 'bird', 'cat', 'deer',
+                                    'dog', 'frog', 'horse', 'ship', 'truck'],
+                        'default': 'simple',
+                        'means': (0.4914, 0.4822, 0.4465), 
+                        'stds': (0.2023, 0.1994, 0.2010),
+                        'getter': datasets.CIFAR10},
+            
+            'mnist': {'shape': (1, 28, 28),
+                      'labels':10,
+                      'classes': [str(i) for i in range(10)],
+                      'default': 'simple',
+                      'getter': datasets.MNIST}
+            }
 
-simple_transform = transforms.Compose([transforms.ToTensor(),
-                                       transforms.Lambda(lambda x: x
-                                                         / 255.0)])
-simple_transform = transforms.ToTensor()
+set_dict['fashion'] = set_dict['mnist'].copy()
+set_dict['fashion']['getter'] = datasets.FashionMNIST
+set_dict['fashion']['classes'] = datasets.FashionMNIST.classes
 
-cifar_means = (0.4914, 0.4822, 0.4465)
-cifar_stds = (0.2023, 0.1994, 0.2010)
-cifar_transform = transforms.Compose([transforms.ToTensor(),
-                                      transforms.Normalize(cifar_means,
-                                                           cifar_stds)])
+"""
+def _lsun_getter(train=True, **kw):
+    set_ = datasets.LSUN(classes='train' if train else 'test', **kw)
+    
+set_dict['lsun'] = set_dict['cifar10'].copy()
+set_dict['lsun'].pop('means')
+set_dict['lsun'].pop('stds')
+set_dict['lsun']['getter'] = datasets.LSUN
+"""
 
-pad_transform = transforms.Compose([transforms.Pad(2), simple_transform])
+def _svhn_getter(train=True, **kw):
+    set_ = datasets.SVHN(split='train' if train else 'test', **kw)    
+    set_.classes = [str(i) for i in range(10)]
+    return set_
+
+set_dict['svhn'] = set_dict['cifar10'].copy()
+set_dict['svhn'].pop('means')
+set_dict['svhn'].pop('stds')
+set_dict['svhn']['classes'] = [str(i) for i in range(10)]
+set_dict['svhn']['getter'] = _svhn_getter
+
+
+
+
+transformers = {'simple': {n: transforms.ToTensor() for n in set_dict}}
+
+transformers['normal'] = {n: transforms.Compose([transforms.ToTensor(),
+                                                transforms.Normalize(set_dict[n].get('means', 0),
+                                                                     set_dict[n].get('stds', 1))])
+                         for n in set_dict}
+
+transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTensor()]) for n in set_dict}
 
 
 def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default', data_augmentation=[]):
 
-    default_transform = transformer == 'default'
+    if transformer == 'default':
+        transformer = set_dict[dataset]['default']
+    transform = transformers[transformer][dataset]
     dataset = dataset.lower()
+
+    shape = set_dict[dataset]['shape']
+    same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
+    same_size.remove(dataset)
     
-    if dataset == 'mnist':
-
-        getter = datasets.MNIST
-        if default_transform:
-            transform = simple_transform
-        elif transformer == 'simple':
-            transform = simple_transform
-
-        same_size = ['fashion']
-
-    if dataset == 'mnist32':
-
-        getter = datasets.MNIST
-        if default_transform:
-            transform = pad_transform
-        elif transformer == 'simple':
-            transform = pad_transform
-
-        same_size = ['fashion32']
-
-    if dataset == 'fashion':
-
-        getter = datasets.FashionMNIST
-        if default_transform:
-            transform = simple_transform
-        elif transformer == 'simple':
-            transform = simple_transform
-        elif transformer == 'pad':
-            transform = pad_transform
-
-        same_size = ['mnist']
-
-    if dataset == 'fashion32':
-
-        getter = datasets.FashionMNIST
-        if default_transform:
-            transform = pad_transform
-        elif transformer == 'simple':
-            transform = pad_transform
-
-        same_size = ['mnist32']
-        
-    if dataset == 'svhn':
-
-        def getter(train=True, **kw):
-            set_ = datasets.SVHN(split='train' if train else 'test', **kw)
-
-            set_.classes = [str(i) for i in range(10)]
-                
-            return set_
-
-        if default_transform:
-            transform = simple_transform
-        elif transformer == 'simple':
-            transform = simple_transform
-
-        same_size = ['cifar10']        
-
-    if dataset == 'cifar10':
-        
-        getter = datasets.CIFAR10
-        # transform = cifar_transform if default_transform else transform
-        if default_transform:
-            transform = simple_transform
-        elif transformer == 'simple':
-            transform = simple_transform
-        elif transformer == 'normal':
-            transform = cifar_transform
-
-        same_size = ['svhn']
-
 
     train_transforms = []
 
@@ -150,14 +126,16 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default',
             t_ = transforms.RandomHorizontalFlip()
 
         if t== 'crop':
-            size = get_shape_by_name(dataset)[0][1:]
+            size = set_dict[dataset]['shape']
             padding = size[0] // 8
             t_ = transforms.RandomCrop(size, padding=padding)
+
         train_transforms.append(t_)
 
     train_transforms.append(transform)
     train_transform = transforms.Compose(train_transforms)
-    
+
+    getter = set_dict[dataset]['getter']
     with suppress_stdout():
         trainset = getter(root=root, train=True,
                           download=True,
@@ -171,6 +149,8 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default',
         s.name = dataset
         s.same_size = same_size
         s.transformer = transformer
+        C = set_dict[dataset]['labels']
+        s.classes = set_dict[dataset].get('classes', [str(i) for i in range(C)])
     
     return trainset, testset
 
@@ -186,11 +166,9 @@ def get_fashion_mnist(**kw):
         print('get it')
         return get_dataset(dataset='fashion', **kw)
     
-
 def get_svhn(**kw):
 
     return get_dataset(dataset='svhn', **kw)
-
     
 def get_cifar10(**kw):
 
@@ -221,18 +199,13 @@ def get_shape(dataset):
 
 def get_shape_by_name(set_name, transform='default'):
 
-    if set_name in ('cifar10', 'svhn'):
-        return (3, 32, 32), 10
-    if set_name in ('fashion', 'mnist'):
-        if transform == 'pad':
-            return (1, 32, 32), 10
-        else:
-            return (1, 28, 28), 10
-    if set_name in ('fashion32', 'mnist32'):
-        return (1, 32, 32), 10
-    _, set = get_dataset(set_name)
-    return get_shape(set)
-
+    shape = set_dict[set_name]['shape']
+    if transform != 'pad':
+        return set_dict[set_name]['shape']
+    p = transformers['pad'][set_name].transforms[0].padding
+    if len(shape)==3:
+        return (shape[0], shape[1] + 2 * p, shape[2] + 2 *p)
+    
 def show_images(imageset, shuffle=True, num=4, **kw):
 
     loader = torch.utils.data.DataLoader(imageset,

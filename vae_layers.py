@@ -34,9 +34,10 @@ class Sampling(nn.Module):
     - the output z has dimensions LxN1x...xNgxK where L is the samoling size.
     """
 
-    def __init__(self, latent_dim, sampling_size=1, **kwargs):
+    def __init__(self, latent_dim, sampling_size=1, sampling=True, **kwargs):
 
         self.sampling_size = sampling_size
+        self.is_sampled = sampling
         super().__init__(**kwargs)
 
     def forward(self, z_mean, z_log_var):
@@ -47,7 +48,7 @@ class Sampling(nn.Module):
         # print((f'***** z_log_var: {z_log_var.size()} '+
         #        f'z_mean: {z_mean.size()} ' +
         #        f'epsilon: {epsilon.size()}'))
-        return z_mean + torch.exp(0.5 * z_log_var) * epsilon
+        return z_mean + torch.exp(0.5 * z_log_var) * epsilon * self.is_sampled
 
 
 vgg_cfg = {
@@ -171,6 +172,7 @@ class Encoder(nn.Module):
                  name='encoder',
                  activation='relu',
                  sampling_size=10,
+                 sampling=True,
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
@@ -198,7 +200,7 @@ class Encoder(nn.Module):
         self.dense_mean = nn.Linear(input_dim, latent_dim)
         self.dense_log_var = nn.Linear(input_dim, latent_dim)
 
-        self.sampling = Sampling(latent_dim, sampling_size)
+        self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
         centroids = torch.randn(num_labels, latent_dim)
         

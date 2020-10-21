@@ -1,12 +1,16 @@
 from cvae import ClassificationVariationalNetwork
 import data.torch_load as dl
+import logging
+
+
+logging.getLogger().setLevel(logging.DEBUG)
 
 load_dir = './jobs/svhn/the'
 load_dir = './jobs/fashion32/the'
 
 # load_dir = './jobs/fashion32/the'
 # load_dir = './jobs/mnist/the'
-
+load_dir = 'jobs/cifar10/the-best'
 
 
 print('Load net', end='') 
@@ -31,7 +35,12 @@ print('Getting batches')
 x['ood'], y['ood'] = dl.get_batch(oodset, batch_size=batch_size)
 x['test'], y['test'] = dl.get_batch(testset, batch_size=batch_size)
 
+out = net.evaluate(x['test'], y['test'])
 
+x_reco, y_est, mu, log_var, z = net.forward(x['test'], y['test'])
+        
+
+"""
 x_ = {}
 y_ = {}
 losses = {}
@@ -43,7 +52,6 @@ sets = ('test', 'ood')
 types = ('mean', 'max', 'std', 'delta', 'nstd')
 
 print('*\n' * 10)
-
 
 
 for s in sets:
@@ -61,3 +69,4 @@ for m in methods:
         
 # net.ood_detection_rates(batch_size=20, num_batch=20)
 
+"""

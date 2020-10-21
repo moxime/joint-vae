@@ -159,6 +159,9 @@ class ClassificationVariationalNetwork(nn.Module):
             encoder_input_shape = input_shape
             self.features = None
 
+        sampling = latent_sampling > 1 or sigma > 0
+        if not sampling:
+            logging.debug('Building a vanilla classifier')
         self.encoder = Encoder(encoder_input_shape, num_labels, latent_dim,
                                encoder_layer_sizes,
                                sampling_size=latent_sampling,

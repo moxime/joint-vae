@@ -126,7 +126,7 @@ def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default',
             t_ = transforms.RandomHorizontalFlip()
 
         if t== 'crop':
-            size = set_dict[dataset]['shape']
+            size = set_dict[dataset]['shape'][1:]
             padding = size[0] // 8
             t_ = transforms.RandomCrop(size, padding=padding)
 
@@ -229,3 +229,8 @@ def show_images(imageset, shuffle=True, num=4, **kw):
     f.show()
 
     
+if __name__ == '__main__':
+
+    t, T = get_dataset('cifar10', data_augmentation=['flip', 'crop'])
+
+    show_images(t)

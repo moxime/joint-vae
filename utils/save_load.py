@@ -270,7 +270,11 @@ def data_frame_results(nets):
 
 def load_and_save_json(directory, write_json=False):
 
-    name = os.path.join(directory, 'train.json')
+    json_file = 'train.json'
+    key = 'transformer'
+    old_value = 'default'
+    new_value = 'simple'
+    name = os.path.join(directory, json_file)
     if os.path.exists(name):
         #        print(name)
         with open(name, 'rb') as f:
@@ -278,13 +282,15 @@ def load_and_save_json(directory, write_json=False):
             try:
                 t = json.load(f)
             except json.JSONDecodeError:
-                print(name)
+                print('error with', name)
                 t = dict()
 
-        if 'sampling' in t.keys():
-            print(t['sampling'], t.get('latent_sampling', -1))
-            t['latent_sampling'] = t.pop('sampling')
-            print('r', write_json, name, '\n', t)
+        if key in t.keys():
+            print(name, '\n', t[key], end='')
+            if t[key] == old_value:
+                print(' ->', new_value, '*' if write_json else '') 
+            else: print()
+                # print('r', write_json, name, '\n', t)
 
             if write_json:
                 print('w', name, '\n', t)

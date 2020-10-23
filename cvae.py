@@ -596,7 +596,12 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.debug('Trying batch size of %s for %s.',
                               batch_size,
                               which)
-                self.evaluate(x, y=y)
+                if training:
+                    _, _, batch_losses, _ = self.evaluate(x, y=y)
+                    batch_losses['total'].mean().backward()
+                else:
+                    with torch.no_grad():
+                        self.evaluate(x, y=y)
                 self.training['batch_sizes'][which] = batch_size
                 logging.debug('Found max batch size for %s : %s',
                               which, batch_size)

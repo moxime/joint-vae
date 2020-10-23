@@ -42,7 +42,7 @@ def print_results(i, per_epoch, epoch, epochs,
     no_loss = losses is None
     no_metrics = metrics is None
     
-    Kep = 3
+    Kep = 4
     Kn = 10
     num_format = {'default': '{' + f':^{Kn}.2e' + '}',
                   'snr': '{' + f':{Kn-4}.1f' + '} dB '}
@@ -142,17 +142,17 @@ def print_results(i, per_epoch, epoch, epochs,
     strings = [s for s in [preambule,
                            loss_str,
                            metrics_str,
-                           acc_str,
+                           acc_str + end_esc,
                            eta_str] if s]
     
     print('\r' + '||'.join(strings),
           end_esc,
-          end='' if i < per_epoch - 1 else end_of_epoch)
+          end=' ' if i < per_epoch - 1 else end_of_epoch)
 
     if i == per_epoch - 1:
 
         with open('train.log', 'a') as f:
-            f.write('|'.join(strings + [end_esc]) + '\n')
+            f.write('||'.join(strings) + '\n')
 
 def debug_nan(value, inspected, name):
 

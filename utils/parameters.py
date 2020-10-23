@@ -185,7 +185,7 @@ def get_args(what_for='train', argv=None):
     parser.add_argument('-L', '--latent_sampling', metavar='L', type=int)
 
     parser.add_argument('--features', metavar='NAME',
-                        choices=['vgg11', 'vgg16', 'conv', 'none'])
+                        choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none'])
 
     parser.add_argument('--pretrained-features')
     parser.add_argument('--no-features', action='store_true')

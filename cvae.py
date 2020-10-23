@@ -123,6 +123,7 @@ class ClassificationVariationalNetwork(nn.Module):
             classifier_layer_sizes = []
         elif self.is_vib:
             decoder_layer_sizes = []
+            upsampler_channels = None
         elif self.is_vae:
             classifier_layer_sizes = []
         elif not self.is_jvae:

@@ -288,7 +288,8 @@ def load_and_save_json(directory, write_json=False):
         if key in t.keys():
             print(name, '\n', t[key], end='')
             if t[key] == old_value:
-                print(' ->', new_value, '*' if write_json else '') 
+                print(' ->', new_value, '*' if write_json else '')
+                t[key] = new_value
             else: print()
                 # print('r', write_json, name, '\n', t)
 

@@ -53,7 +53,7 @@ if __name__ == '__main__':
         args.already_trained = []
 
         args.optim_params={
-            'optim_type': args.optim,
+            'optim_type': args.optimizer,
             'lr': args.lr,
             'lr_decay': args.lr_decay
             }

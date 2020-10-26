@@ -213,6 +213,11 @@ def get_args(what_for='train', argv=None):
                         nargs='*')
     
     parser.add_argument('--batch-norm', action='store_true')
+
+    parser.add_argument('--optim', choices=('sgd', 'adam'), default='adam')
+    parser.add_argument('--lr', default=0)
+    parser.add_argument('--lr-decay', default=0, type=float)
+    
     
     if for_train:
         help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'

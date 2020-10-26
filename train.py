@@ -52,6 +52,12 @@ if __name__ == '__main__':
     for args in list_of_args:
         args.already_trained = []
 
+        args.optim_params={
+            'optim_type': args.optim,
+            'lr': args.lr,
+            'lr_decay': args.lr_decay
+            }
+
     if load_dir:
 
         repeat = 1
@@ -111,6 +117,7 @@ if __name__ == '__main__':
                                pretrained_features=a.pretrained_features,
                                pretrained_upsampler=a.pretrained_upsampler,
                                encoder_layer_sizes=a.encoder,
+                               optimizer=a.optim_params,
                                batch_norm=a.batch_norm,
                                latent_dim=a.latent_dim,
                                latent_sampling=a.latent_sampling,
@@ -217,6 +224,7 @@ if __name__ == '__main__':
                          pretrained_features=a.pretrained_features,
                          pretrained_upsampler=a.pretrained_upsampler,
                          batch_norm=a.batch_norm,
+                         optimizer=a.optim_params,
                          encoder_layer_sizes=a.encoder,
                          latent_dim=a.latent_dim,
                          latent_sampling=a.latent_sampling,
@@ -241,6 +249,7 @@ if __name__ == '__main__':
                                          jvae.print_architecture(sampling=False),
                                          f'sigma={a.sigma:1.2e}' +
                                          _sigma_reach +
+                                         f'--optim={jvae.optimizer}' +
                                          f'--sampling={a.latent_sampling}'+
                                          _augment)
             i = a.job_number

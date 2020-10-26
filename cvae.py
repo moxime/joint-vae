@@ -2,7 +2,8 @@ import logging
 import copy
 import torch
 import torch.utils.data
-from torch import nn, optim, autograd
+from torch import nn, autograd
+from utils.optimizers import Optimizer
 from torch.nn import functional as F
 from utils.losses import x_loss, kl_loss, mse_loss
 
@@ -100,6 +101,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
                  sigma=0.5,
                  sigma_reach=0,
+                 optimizer={},
                  *args, **kw):
 
         super().__init__(*args, **kw)
@@ -258,7 +260,7 @@ class ClassificationVariationalNetwork(nn.Module):
                          'kl_loss_weight': None,
                          'mse_loss_weight': None,
                          'batch_size': None,
-                         'fine_tuning': []}
+                         'fine_tuning': [],}
 
         self.testing = {m: {'n':0, 'epochs':0, 'accuracy':0}
                         for m in self.predict_methods}
@@ -266,8 +268,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.ood_results = {}
 
-        self.optimizer = optim.Adam(self.parameters(), lr=0.0001)
-
+        self.optimizer = Optimizer(self.parameters(), **optimizer)
+        self.training['optim'] = self.optimizer.params
+            
         self.train_history = {'epochs': 0}
 
         self.latent_dim = latent_dim
@@ -1142,6 +1145,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_accuracy'] = []
             self.train_history['train_measures'] = []
             self.train_history['test_measures'] = []
+            self.train_history['lr'] = []
             
         if not acc_methods:
             acc_methods = self.predict_methods
@@ -1275,6 +1279,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_loss'].append(train_mean_loss)
             self.train_history['train_measures'].append(train_measures)
             self.train_history['epochs'] += 1
+            self.train_history['lr'].append(self.optimizer.lr)
             self.trained += 1
             if fine_tuning:
                 self.training['fine_tuning'].append(epoch)
@@ -1282,6 +1287,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if save_dir:
                 self.save(save_dir)
+
+            optimizer.update_lr()
 
         if testset:
             # print(num_batch, sample_size)
@@ -1533,7 +1540,8 @@ class ClassificationVariationalNetwork(nn.Module):
                         'pretrained_upsampler': None,
                         'sigma_reach': 0,
                         'data_augmentation': [],
-                        'fine_tuning': []}
+                        'fine_tuning': [],
+                        'optim': {}}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
         logging.debug('Parameters loaded')
@@ -1562,7 +1570,7 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Training parameters loaded')
         except(FileNotFoundError):
             pass
-
+        
         if load_state:
             try:
                 train_history = save_load.load_json(dir_name, 'history.json')
@@ -1587,6 +1595,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   activation=params['activation'],
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],
+                  optimizer=train_params['optim'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],
                   pretrained_features=train_params['pretrained_features'],

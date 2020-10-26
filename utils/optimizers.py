@@ -82,7 +82,7 @@ class Optimizer:
         if self.lr_decay:
             old_lr = self.lr
             self._lr_scheduler.step()
-            logging.debug(f'lr updated from {old_lr} to {self.lr}')
+            logging.debug(f'lr updated from {old_lr:.4e} to {self.lr:.4e}')
 
     def update_scheduler_from_epoch(self, n):
 

@@ -743,13 +743,13 @@ class ClassificationVariationalNetwork(nn.Module):
                                            n > self.testing[m]['n']))
             if update_self_testing_method:
                 if log:
-                    logged = 'Updating accuracy %.4f for method %s (%s, %s) -> (%s, %s)'
+                    logged = 'Updating accuracy %.3f %% for method %s (n=%s)'
                     logging.debug(logged,
-                                  acc[m],
-                                  m,
-                                  self.testing[m]['n'],
-                                  self.testing[m]['epochs'],
-                                  n, self.trained)
+                                  100 * acc[m],
+                                  m, n)
+                                  # self.testing[m]['n'],
+                                  # self.testing[m]['epochs'],
+                                  # n, self.trained)
 
                 self.testing[m] = {'n': n,
                                    'epochs': self.trained,

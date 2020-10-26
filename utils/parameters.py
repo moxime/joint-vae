@@ -214,8 +214,8 @@ def get_args(what_for='train', argv=None):
     
     parser.add_argument('--batch-norm', action='store_true')
 
-    parser.add_argument('--optim', choices=('sgd', 'adam'), default='adam')
-    parser.add_argument('--lr', default=0)
+    parser.add_argument('--optimizer', choices=('sgd', 'adam'), default='adam')
+    parser.add_argument('--lr', default=0, type=float)
     parser.add_argument('--lr-decay', default=0, type=float)
     
     

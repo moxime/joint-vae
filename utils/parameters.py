@@ -342,23 +342,26 @@ def get_args_for_test():
                         action=FilterAction,
                         nargs='+')
 
-    parser.add_argument('-b', '--beta',
+    parser.add_argument('-s', '--sigma',
                         nargs='+',
                         action=FilterAction,
                         of_type=float,
-                        metavar='ß')
+                        metavar='S')
 
     parser.add_argument('-K', '--latent-dim', metavar='K',
+                        dest='K',
                         nargs='+',
                         action=FilterAction,
                         of_type=int)
 
     parser.add_argument('-L', '--latent-sampling', metavar='L',
+                        dest='L',
                         nargs='+',
                         action=FilterAction,
                         of_type=int)
 
     parser.add_argument('--dataset',
+                        dest='set',
                         nargs='+',
                         action=FilterAction)
 

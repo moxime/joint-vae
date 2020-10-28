@@ -214,6 +214,8 @@ if __name__ == '__main__':
     ood_sample_size = args.ood
     min_test_sample_size = args.min_test_sample_size
     unfinished_training = args.unfinished
+
+    filters = args.filters
     
     latex_formatting = args.latex
     
@@ -252,10 +254,17 @@ if __name__ == '__main__':
     testsets =  set()
     sigmas =  set()
     archs =  set()
-    
-    for n in sum(l_o_l_o_d_o_n, []):
 
+    networks_to_be_studied = []
+    for n in sum(l_o_l_o_d_o_n, []):
+        to_be_studied = all([filters[k].filter(n[k]) for k in filters])
+        if to_be_studied:
+            networks_to_be_studied.append(n)
+
+    for n in networks_to_be_studied:
+        print(('' if to_be_studied else 'not ') + 'to be studied')
         net = n['net']
+        # print('*** ', *n)
         is_tested = test_accuracy_if(jvae=net,
                                      dry_run=True,
                                      min_test_sample_size=min_test_sample_size,

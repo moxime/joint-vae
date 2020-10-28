@@ -71,11 +71,9 @@ def test_accuracy_if(jvae=None,
     if not has_been_tested:
 
         if not testset:
-            _, testset = torchdl.get_dataset(jvae.training['set'])
-        if test_sample_size == 'all':
-            num_batch = 'all'
-        else:
-            num_batch = test_sample_size // batch_size
+            _, testset = torchdl.get_dataset(jvae.training['set'],
+                                             transformer=jvae.training['transformer'])
+
         with torch.no_grad():
             jvae.accuracy(testset,
                           batch_size=batch_size,
@@ -133,17 +131,15 @@ def test_ood_if(jvae=None,
         logging.debug(f'Net {desc} not trained enough, will not be tested')
         return None
 
-    if not testset:
+    if testset:
+        testset_name = testset.name
+    else:
         testset_name = jvae.training['set']
-        _, testset = torchdl.get_dataset(testset_name)
 
-    if not oodsets:
-
-        oodsets_names = testset.same_size
-        oodsets = []
-        for name in oodsets_names:
-            _, oodset = torchdl.get_dataset(name)
-            oodsets.append(oodset)
+    if oodsets:
+        oodset_names = [o.name for o in oodsets]
+    else:
+        oodset_names = torchdl.get_same_size_by_name(testset_name)
     
     min_tested_epochs = {}
     min_tested_sample_size = {}
@@ -153,8 +149,9 @@ def test_ood_if(jvae=None,
     zero = {'epochs': 0, 'n': 0}
     zeros = {m: zero for m in jvae.ood_methods}
     oodsets_to_be_tested = []
-    for oodset in oodsets:
-        n = oodset.name
+    
+    for n in oodset_names:
+
         ood_result = jvae.ood_results.get(n, zeros)
         tested_epochs = [ood_result.get(m, zero)['epochs'] for m in jvae.ood_methods]
         min_tested_epochs = min(tested_epochs)
@@ -167,17 +164,25 @@ def test_ood_if(jvae=None,
         _w = '' if has_been_tested[n] else 'not ' 
         logging.debug(f'ood rate has {_w}been computed with enough samples for {n}')
 
-        if not dry_run and not has_been_tested[n]:
-            oodsets_to_be_tested.append(oodset)
-
     if not dry_run:
+        transformer = jvae.training['transformer']
+        if not testset:
+            _, testset = torchdl.get_dataset(testset_name,
+                                             transformer=transformer)
+
+        for n in [n for n in has_been_tested if has_been_tested[n]]:
+            _, oodset = torchdl.get_dataset(n,
+                                            transformer=transformer)
+            oodsets_to_be_tested.append(oodset)
+            
         _o = ' - '.join([o.name for o in oodsets_to_be_tested])
-        logging.debug(f'Oodsets that will be tested: {_o}')
+        logging.debug(f'OOD sets that will be tested: {_o}')
         jvae.ood_detection_rates(oodsets_to_be_tested, testset,
                                  batch_size=batch_size,
                                  num_batch=num_batch,
                                  print_result='*',
                                  **kw)
+
     else:
         return has_been_tested
     return jvae.ood_results
@@ -185,9 +190,7 @@ def test_ood_if(jvae=None,
     
 if __name__ == '__main__':
 
-    list_of_args = get_args('test')
-
-    args = list_of_args[0]
+    args = get_args('test')
     
     debug = args.debug
     verbose = args.verbose
@@ -280,7 +283,7 @@ if __name__ == '__main__':
         if is_enough_trained:
             d = n['dir']
             derailed = os.path.join(d, 'derailed')
-            if args.verify:
+            if args.cautious:
                 try:
                     log.debug('Evaluation of one sample...')
                     net.evaluate(torch.randn(1, *net.input_shape))

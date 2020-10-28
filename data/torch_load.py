@@ -104,10 +104,12 @@ transformers['normal'] = {n: transforms.Compose([transforms.ToTensor(),
                                                                      set_dict[n].get('stds', 1))])
                          for n in set_dict}
 
-transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTensor()]) for n in set_dict}
+transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTensor()])
+                       for n in set_dict}
 
 
-def get_dataset(dataset='MNIST', root='./data', ood=None, transformer='default', data_augmentation=[]):
+def get_dataset(dataset='MNIST', root='./data', ood=None,
+                transformer='default', data_augmentation=[]):
 
     if transformer == 'default':
         transformer = set_dict[dataset]['default']
@@ -205,6 +207,15 @@ def get_shape_by_name(set_name, transform='default'):
     p = transformers['pad'][set_name].transforms[0].padding
     if len(shape)==3:
         return (shape[0], shape[1] + 2 * p, shape[2] + 2 *p)
+
+def get_same_size_by_name(set_name):
+
+    shape = get_shape_by_name(set_name)
+    same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
+    same_size.remove(set_name)
+
+    return same_size
+
     
 def show_images(imageset, shuffle=True, num=4, **kw):
 

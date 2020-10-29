@@ -191,6 +191,7 @@ def collect_networks(directory,
     for d in sub_dirs:
         collect_networks(d,
                          list_of_vae_by_architectures,
+                         load_state=load_state,
                          **default_load_paramaters)
 
     num_of_archs = len(list_of_vae_by_architectures)

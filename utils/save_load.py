@@ -175,7 +175,10 @@ def collect_networks(directory,
                     'pretrained_upsampler': str(pretrained_upsampler),
                     'depth': vae.depth,
                     'width': vae.width,
-                    'options': vae.option_vector()
+                    'options': vae.option_vector(),
+                    'optim_str': f'{vae.optimizer:3}',
+                    'optim': vae.optimizer.kind,
+                    'lr': vae.optimizer.init_lr,
         }
         append_by_architecture(vae_dict, list_of_vae_by_architectures)
 
@@ -224,7 +227,7 @@ def load_and_save(directory, output_directory=None, **kw):
     return list_of_vae
 
 
-def data_frame_results(nets):
+def data_frame_results(nets, show_best=True):
     """
     nets : list of dicts n
     n['net'] : the network
@@ -235,20 +238,31 @@ def data_frame_results(nets):
     n['L']
     n['acc'] : {m: acc for m in methods}
     n['options'] : vector of options
+    n['optim_str'] : optimizer
     """
 
-    set_arch_index = ['set', 'type', 'arch_code',
-                      'options',
+    arch_index = ['set',
+                  'type',
+                  'depth',
+                  'arch_code',
+                  'K',
     ]
 
-    K_L_index = ['K', 'L', 'sigma']
-    columns = set_arch_index + K_L_index + ['acc']
+    done = [] if show_best else ['done']
+    train_index = [
+        'options',
+        'optim_str',
+        'L',
+        'sigma',
+    ] + done
+    
+    columns = arch_index + train_index + ['acc']
 
     df = pd.DataFrame.from_records(nets, columns=columns)
 
     df = df.drop('acc', axis=1).join(pd.DataFrame(df.acc.values.tolist()))
 
-    df.set_index(set_arch_index + K_L_index, inplace=True)
+    df.set_index(arch_index + train_index, inplace=True)
 
     # for pre in 'pretrained_features', 'pretrained_upsampler':
     #     for i, l in enumerate(df.index.names):
@@ -258,14 +272,15 @@ def data_frame_results(nets):
     #     levels=idx.levels[level] #.astype(str)
     #     print(levels)
     #     idx.set_levels(level=level, levels=levels, inplace=True)
-        
-    df = df.groupby(level=set_arch_index + K_L_index)[df.columns].max()
-    df = df.stack()
 
-    df.index.rename('method', level=-1, inplace=True)
+    if show_best:
+        df = df.groupby(level=arch_index + train_index)[df.columns].max()
+        df = df.stack()
 
-    df = df.unstack(level=('sigma', 'method'))
+        df.index.rename('method', level=-1, inplace=True)
+        df = df.unstack(level=('sigma', 'method'))
     # return df
+    
     return df.reindex(sorted(df.columns), axis=1)
 
 

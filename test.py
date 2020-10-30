@@ -262,7 +262,7 @@ if __name__ == '__main__':
             networks_to_be_studied.append(n)
 
     for n in networks_to_be_studied:
-        print(('' if to_be_studied else 'not ') + 'to be studied')
+
         net = n['net']
         # print('*** ', *n)
         is_tested = test_accuracy_if(jvae=net,
@@ -395,7 +395,10 @@ if __name__ == '__main__':
             
             n['net'].save(n['dir'])
 
-    df = data_frame_results(enough_trained)
+    show_best = False
+    show_best = True
+    
+    df = data_frame_results(enough_trained, show_best=show_best)
 
     formats = []
 
@@ -408,13 +411,12 @@ if __name__ == '__main__':
 
     def f_pc(u):
         return finite(100 * u, '{:.1f}')
-
+    
     def f_db(u):
         return finite(u, '{:.1f}')
     
-    for (b, m) in df.columns:
-
-        formats.append(f_db if m == 'snr' else f_pc)
+    for _ in df.columns:
+        formats.append(f_pc)
     
     if verbose:
         print('\n' * 2)

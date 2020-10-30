@@ -1476,31 +1476,37 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def option_vector(self):
 
-        v = ''
+        v_ = []
         if self.features:
+            w = ''
+            w += 'p:'
             if self.training['pretrained_features']:
-                c = 'F'
+                w+= 'f'
             else:
-                c = 'f'
-        else: c = '-'
-        v += c
-        if self.upsampler_channels:
-            if self.training['pretrained_upsampler']:
-                c = 'U'
-            else:
-                c = 'u'
-        else: c = '-'
-        v += c
-        c = self.training.get('transformer', 'd')[0]
-        v += c
-        v += 'b' if self.batch_norm else '-'
-        c = ''
+                w+= ' '
+
+            if self.upsampler_channels:
+                if self.training['pretrained_upsampler']:
+                    w += 'u'
+                else:
+                    w += ' '
+            v_.append(w)
+            
+        w = 't:' + self.training.get('transformer', 'd')[0]
+        v_.append(w)
+        
+        w = 'b:'
+        w += ('n' if self.batch_norm else ' ')
+        v_.append(w)
+        
+        w = 'a:'
         for m in ('flip', 'crop'):
             if m in self.training['data_augmentation']:
-                c += m[0]
-            else: c += '-'
-        v += c
-        return v
+                w += m[0]
+            else: w += ' '
+        v_.append(w)
+        
+        return ' '.join(v_)
     
     def save(self, dir_name=None):
         """Save the params in params.json file in the directroy dir_name and, if
@@ -1571,12 +1577,9 @@ class ClassificationVariationalNetwork(nn.Module):
         except(FileNotFoundError):
             pass
         
-        if load_state:
-            try:
-                train_history = save_load.load_json(dir_name, 'history.json')
-            except(FileNotFoundError):
-                train_history = {'epochs': 0}
-        else:
+        try:
+            train_history = save_load.load_json(dir_name, 'history.json')
+        except(FileNotFoundError):
             train_history = {'epochs': 0}
 
         if not params.get('features', None):

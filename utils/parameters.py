@@ -367,6 +367,9 @@ def get_args_for_test():
 
     args = parser.parse_args()
 
+    if not hasattr(args, 'filters'):
+        args.filters = {}
+    
     return args
 
 

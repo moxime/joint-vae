@@ -55,12 +55,26 @@ class Optimizer:
 
     def __str__(self):
 
-        s = self.kind
-        s += f'-lr={self.init_lr}'
-        if self.lr_decay: s += f'-decay={self.lr_decay}'
+        return self.__format__('10')
+        
+    def __format__(self, format_spec):
+
+        try:
+            level = int(format_spec)
+        except ValueError:
+            level = 0
+            
+        if not level:
+            return self.__str__()
+        
+        s_ = [self.kind]
+        s_ += [f'-lr={self.init_lr}']
+        if self.lr_decay: s_ += [f'-decay={self.lr_decay}']
+        else: s_ += ['']
 
         d_ = self._opt.param_groups[0]
 
+        s = ''
         for k in params_by_type[self.kind]:
             v = d_[k]
             if v:
@@ -68,9 +82,10 @@ class Optimizer:
                     s+= f'{v.lower()}'
                 else:
                     s += f'-{k}={d_[k]}'
-        
-        return s
-    
+        s_.append(s)
+                    
+        return ''.join(s_[:level])
+
     def zero_grad(self, *a, **kw):
         self._opt.zero_grad(*a, **kw)
     

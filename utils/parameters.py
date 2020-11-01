@@ -96,7 +96,6 @@ def get_args(what_for='train', *a ,**kw):
     return get_args_for_test(*a, **kw)
 
 
-
 def get_args_for_train(argv=None):
 
     conf_parser = argparse.ArgumentParser(add_help=False)
@@ -303,8 +302,6 @@ def get_args_for_test():
     parser.add_argument('load_dir',
                         nargs='?', default=None)
 
-    help = 'min epochs for testing'
-    parser.add_argument('--epochs', type=int, help=help)
     parser.add_argument('-m', '--batch-size', type=int, metavar='M')
 
     help = 'Num of samples to compute test accuracy'
@@ -333,6 +330,11 @@ def get_args_for_test():
     
     is_true = ParamFilter()
 
+    parser.add_argument('--epochs',
+                        dest='done',
+                        action=FilterAction,
+                        of_type=int,)
+    
     parser.add_argument('--finished',
                         nargs='?',
                         action=FilterAction,

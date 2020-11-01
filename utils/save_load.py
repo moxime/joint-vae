@@ -4,6 +4,7 @@ import json
 import logging
 import pandas as pd
 
+
 # from cvae import ClassificationVariationalNetwork
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -122,12 +123,17 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
 
 
 def collect_networks(directory,
-                     list_of_vae_by_architectures,
+                     list_of_vae_by_architectures=None,
                      load_state=True,
                      **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
     from roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
+        
+    if list_of_vae_by_architectures is None:
+        l = []
+        collect_networks(directory, l, load_state, **default_load_paramaters)
+        return l
     
     def append_by_architecture(net_dict, list_of_lists):
         
@@ -166,6 +172,7 @@ def collect_networks(directory,
                     'sigma': vae.sigma,
                     'done': vae.trained,
                     'epochs': vae.training['epochs'],
+                    'finished': vae.trained >= vae.training['epochs'],
                     'n_tested': min(vae.testing[m]['n'] for m in methods),
                     'epochs_tested': min(vae.testing[m]['epochs'] for m in methods),
                     'acc': {m: vae.testing[m]['accuracy'] for m in methods},
@@ -284,6 +291,23 @@ def data_frame_results(nets, show_best=True):
     return df.reindex(sorted(df.columns), axis=1)
 
 
+def save_list_of_networks(list_of, dir_name, file_name='nets.json'):
+
+    d = {}
+
+    for n in list_of:
+        n_ = n.copy()
+        n_.pop('net')
+        d[n_['dir']] = n_
+
+    save_json(d, dir_name, file_name)
+
+
+def load_list_of_networks(dir_name, file_name='nets.json'):
+    
+    return list(load_json(dir_name, file_name).values())
+
+    
 def load_and_save_json(directory, write_json=False):
 
     json_file = 'train.json'
@@ -403,3 +427,37 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
     for d in dirs:
         json_pretrained_from_params_to_train(d, write_json=write_json)
 
+
+if __name__ == '__main__':
+
+    import numpy as np
+    import logging
+    print('loading')
+    logging.getLogger().setLevel(logging.DEBUG)
+    
+    l = sum(collect_networks('jobs/cifar10', load_state=False), [])
+
+    df = data_frame_results(l, False)
+
+    formats = []
+
+    def finite(u, f):
+        if np.isnan(u):
+            return ''
+        if np.isinf(u):
+            return 'inf'
+        return f.format(u)
+
+    def f_pc(u):
+        return finite(100 * u, '{:.1f}')
+    
+    def f_db(u):
+        return finite(u, '{:.1f}')
+    
+    for _ in df.columns:
+        formats.append(f_pc)
+
+    pd.set_option('max_colwidth', 15)
+    print(df.to_string(na_rep='', decimal=',', formatters=formats))
+
+    

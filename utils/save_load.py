@@ -163,12 +163,16 @@ def collect_networks(directory,
                                 else vae.training['pretrained_features'])
         pretrained_upsampler = vae.training.get('pretrained_upsampler', None)
         methods = vae.predict_methods
+        train_batch_size = vae.training['batch_size']
+        if not train_batch_size:
+            train_batch_size = vae.training['batch_sizes']['train']
         vae_dict = {'net': vae,
                     'type': vae.type,
                     'arch': arch,
                     'arch_code': arch_code,
                     'dir': directory,
                     'set': vae.training['set'],
+                    'train_batch_size': train_batch_size,
                     'sigma': vae.sigma,
                     'done': vae.trained,
                     'epochs': vae.training['epochs'],

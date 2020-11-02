@@ -339,6 +339,17 @@ def get_args_for_test():
                         nargs='?',
                         action=FilterAction,
                         of_type=bool)
+
+    parser.add_argument('--train-batch-size',
+                        nargs='+',
+                        action=FilterAction,
+                        of_type=int)
+
+    parser.add_argument('--optimizer',
+                        dest='optim',
+                        nargs='+',
+                        action=FilterAction,
+                        of_type=str)
     
     parser.add_argument('--type',
                         action=FilterAction,
@@ -362,6 +373,11 @@ def get_args_for_test():
                         action=FilterAction,
                         of_type=int)
 
+    parser.add_argument('--depth',
+                        nargs='+',
+                        action=FilterAction,
+                        of_type=int)
+    
     parser.add_argument('--dataset',
                         dest='set',
                         nargs='+',

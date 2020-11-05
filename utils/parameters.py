@@ -348,6 +348,12 @@ def get_args_for_test():
                         action=FilterAction,
                         of_type=int)
 
+    parser.add_argument('--best-accuracy',
+                        nargs='+',
+                        action=FilterAction,
+                        of_type=float)
+
+
     parser.add_argument('--optimizer',
                         dest='optim',
                         nargs='+',

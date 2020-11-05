@@ -3,7 +3,7 @@ import pickle
 import json
 import logging
 import pandas as pd
-
+import hashlib
 
 # from cvae import ClassificationVariationalNetwork
 
@@ -158,7 +158,8 @@ def collect_networks(directory,
                                                     **default_load_paramaters)
         logging.debug(f'net found in {shorten_path(directory)}')
         arch =  vae.print_architecture(excludes=('latent_dim', 'batch_norm'))
-        arch_code = hex(hash(arch))[2:10]
+        arch_code = hashlib.sha1(bytes(arch, 'utf-8')).hexdigest()[:6]
+        # arch_code = hex(hash(arch))[2:10]
         pretrained_features =  (None if not vae.features
                                 else vae.training['pretrained_features'])
         pretrained_upsampler = vae.training.get('pretrained_upsampler', None)
@@ -185,6 +186,7 @@ def collect_networks(directory,
                     'n_tested': min(vae.testing[m]['n'] for m in methods),
                     'epochs_tested': min(vae.testing[m]['epochs'] for m in methods),
                     'acc': {m: vae.testing[m]['accuracy'] for m in methods},
+                    'best_accuracy': max(vae.testing[m]['accuracy'] for m in methods),
                     'K': vae.latent_dim,
                     'L': vae.latent_sampling,
                     'pretrained_features': str(pretrained_features),

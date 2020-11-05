@@ -7,6 +7,7 @@ from cvae import ClassificationVariationalNetwork as CVNet
 import data.torch_load as torchdl
 import os
 import sys
+import hashlib
 import argparse
 import logging
 
@@ -363,7 +364,6 @@ if __name__ == '__main__':
         log.debug('Get %s dataset', s)
         _, oodset = torchdl.get_dataset(s)
         dict_of_sets[s] = oodset
-
         
     if not dry_run:
         for n in enough_trained:
@@ -418,11 +418,14 @@ if __name__ == '__main__':
     for _ in df.columns:
         formats.append(f_pc)
     
-    if verbose:
-        print('\n' * 2)
+    log.info('')
+    log.info('')
+    log.info('')
+    
     pd.set_option('max_colwidth', 15)
     print(df.to_string(na_rep='', decimal=',', formatters=formats))
 
     for a in archs:
-        print(hex(hash(a))[2:10],':\n', a)
+        arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
+        print(arch_code,':\n', a)
     #print(df.to_string())

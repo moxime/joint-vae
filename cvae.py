@@ -681,7 +681,10 @@ class ClassificationVariationalNetwork(nn.Module):
             n_err[m] = 0
             mismatched[m] = []
         n = 0
-        
+
+        # logging.debug('Creating dataloader for accuracy with batch size %s',
+        #              batch_size)
+
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
                                                  shuffle=True)
@@ -1134,7 +1137,8 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             train_batch_size = max_batch_sizes['train']
             
-        logging.debug('Creating dataloader')
+        logging.debug('Creating dataloader for training with batch size %s',
+                      train_batch_size)
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=train_batch_size,
                                                   shuffle=True, num_workers=0)
@@ -1794,11 +1798,6 @@ if __name__ == '__main__':
 
     trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
     _, oodset = torchdl.get_svhn()
-
-    trainloader = torch.utils.data.DataLoader(trainset,
-                                              batch_size=batch_size,
-                                              shuffle=True,
-                                              num_workers=0)
 
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                              shuffle=True, num_workers=0)

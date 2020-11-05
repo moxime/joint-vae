@@ -134,6 +134,12 @@ class ClassificationVariationalNetwork(nn.Module):
         # no upsampler if no features
         assert (not upsampler_channels or features)
 
+        if not features:
+            batch_norm = False
+        else:
+            batch_norm_encoder = (batch_norm == 'encoder' or
+                                  batch_norm == 'both')
+            batch_norm_decoder = batch_norm == 'both'
         if features:
             if pretrained_features:
                 feat_dict = torch.load(pretrained_features)
@@ -143,14 +149,14 @@ class ClassificationVariationalNetwork(nn.Module):
             if features.startswith('vgg'):
                 self.features = VGGFeatures(features, input_shape,
                                             channels=features_channels,
-                                            batch_norm=batch_norm,
+                                            batch_norm=batch_norm_encoder,
                                             pretrained=feat_dict)
                 features_arch = self.features.architecture
 
             elif features == 'conv':
                 self.features = ConvFeatures(input_shape,
                                              features_channels,
-                                             batch_norm=batch_norm,
+                                             batch_norm=batch_norm_encoder,
                                              padding=conv_padding,
                                              kernel=2*conv_padding+2)
                 features_arch = {'features': features,
@@ -193,7 +199,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           upsampler_first_shape,
                                           upsampler_channels,
                                           upsampler_dict=upsampler_dict,
-                                          batch_norm=batch_norm,
+                                          batch_norm=batch_norm_decoder,
                                           output_activation=output_activation)
 
             else:
@@ -585,8 +591,8 @@ class ClassificationVariationalNetwork(nn.Module):
             self.compute_max_batch_size(batch_size, which='test')
             return
 
-        if 'batch_sizes' not in self.training:
-            self.training['batch_sizes'] = {}
+        if 'max_batch_sizes' not in self.training:
+            self.training['max_batch_sizes'] = {}
             
         training = which=='train'  
 
@@ -606,7 +612,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     with torch.no_grad():
                         self.evaluate(x, y=y)
-                self.training['batch_sizes'][which] = batch_size
+                self.training['max_batch_sizes'][which] = batch_size
                 logging.debug('Found max batch size for %s : %s',
                               which, batch_size)
                 return
@@ -619,9 +625,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
     @property
     def max_batch_sizes(self):
-        batch_sizes = self.training.get('batch_sizes', {})
-        if batch_sizes:
-            return batch_sizes
+        max_batch_sizes = self.training.get('max_batch_sizes', {})
+        if max_batch_sizes:
+            return max_batch_sizes
         self.compute_max_batch_size()
         return self.max_batch_sizes
 
@@ -629,7 +635,7 @@ class ClassificationVariationalNetwork(nn.Module):
     def max_batch_sizes(self, v):
         assert 'train' in v
         assert 'test' in v
-        self.training['batch_sizes'] = v
+        self.training['max_batch_sizes'] = v
     
     def accuracy(self, testset=None,
                  batch_size=100,
@@ -1119,12 +1125,14 @@ class ClassificationVariationalNetwork(nn.Module):
             optimizer = self.optimizer
 
 
+        max_batch_sizes = self.max_batch_sizes
+
+        test_batch_size = max_batch_sizes['test']
+        
         if batch_size:
-            train_batch_size = test_batch_size = batch_size
+            train_batch_size = min(batch_size, max_batch_sizes['train'])
         else:
-            batch_sizes = self.max_batch_sizes
-            train_batch_size = batch_sizes['train']
-            test_batch_size = batch_sizes['test']
+            train_batch_size = max_batch_sizes['train']
             
         logging.debug('Creating dataloader')
         trainloader = torch.utils.data.DataLoader(trainset,
@@ -1454,7 +1462,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if features:
             s += s_('features') + f'={features}--'
         if 'batch_norm' not in excludes:
-            s += 'batch-norm--' if self. batch_norm else ''
+            w = '-both' if self.batch_norm == 'both' else ''
+            s += f'batch-norm{w}--' if self. batch_norm else ''
+            
         s += s_('encoder') + f'={_l2s(self.encoder_layer_sizes)}--'
         if 'decoder' not in excludes:
             s += s_('decoder') + f'={_l2s(self.decoder_layer_sizes)}--'
@@ -1495,8 +1505,13 @@ class ClassificationVariationalNetwork(nn.Module):
         w = 't:' + self.training.get('transformer', 'd')[0]
         v_.append(w)
         
-        w = 'b:'
-        w += ('n' if self.batch_norm else ' ')
+        w = 'bn:'
+        if not self.batch_norm:
+            c = ' '
+        else:
+            # print('****', self.batch_norm)
+            c = self.batch_norm[0]
+        w += c
         v_.append(w)
         
         w = 'a:'
@@ -1531,8 +1546,8 @@ class ClassificationVariationalNetwork(nn.Module):
     def load(cls, dir_name,
              load_state=True,
              load_train=True,
-             load_test=True,
-             default_output_activation=DEFAULT_OUTPUT_ACTIVATION):
+             load_test=True,):
+
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
@@ -1551,6 +1566,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
         logging.debug('Parameters loaded')
+        if loaded_params.get('batch_norm', False) == True:
+            loaded_params['batch_norm'] = 'encoder'
         
         params.update(loaded_params)
         

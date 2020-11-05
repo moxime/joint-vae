@@ -43,6 +43,12 @@ if __name__ == '__main__':
         log.info(f'Used device: {device}')
         log.debug(f'CPU asked by user')
 
+    cuda_version = torch.version.cuda
+    cudnn_version = torch.backends.cudnn.version()
+    
+    log.debug(f'Using cuda v. {cuda_version} and '
+              f'cudnn v. {cudnn_version / 1000:.3f}')
+
     batch_size = common_args.batch_size
     test_sample_size = common_args.test_sample_size
     dry_run = common_args.dry_run    
@@ -275,15 +281,14 @@ if __name__ == '__main__':
             outs = jvae(x, y)
             log.debug([u.shape for u in outs])
 
-        if not batch_size:
-            arch = jvae.print_architecture(sampling=True)
-            if arch in max_batch_sizes:
-                jvae.max_batch_sizes = max_batch_sizes[arch]
-            else:
-                max_batch_sizes[arch] = jvae.max_batch_sizes
-            log.info('Batch size set to %s (train) and %s (test)',
-                     jvae.max_batch_sizes['train'],
-                     jvae.max_batch_sizes['test'])
+        arch = jvae.print_architecture(sampling=True)
+        if arch in max_batch_sizes:
+            jvae.max_batch_sizes = max_batch_sizes[arch]
+        else:
+            max_batch_sizes[arch] = jvae.max_batch_sizes
+        log.info('Max batch size: %s (train) and %s (test)',
+                 jvae.max_batch_sizes['train'],
+                 jvae.max_batch_sizes['test'])
 
         if not dry_run:
             if jvae.trained < a.epochs:

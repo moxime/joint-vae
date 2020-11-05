@@ -208,7 +208,10 @@ def get_args_for_train(argv=None):
                         choices=['flip', 'crop'],
                         nargs='*')
     
-    parser.add_argument('--batch-norm', action='store_true')
+    parser.add_argument('--batch-norm',
+                        choices=['encoder', 'both'],
+                        nargs='?',
+                        const='encoder')
 
     parser.add_argument('--optimizer', choices=('sgd', 'adam'), default='adam')
     parser.add_argument('--lr', default=0, type=float)
@@ -227,7 +230,7 @@ def get_args_for_train(argv=None):
     
     help = 'save train(ing|ed) network in DIR/<architecture/i>'
     help += 'unless load_dir is specified'
-    parser.add_argument('--job-dir', metavar='DIR',
+    parser.add_argument('--job-dir', metavar='DIR/',
                         help=help)
 
     parser.add_argument('-j', '--job-number',

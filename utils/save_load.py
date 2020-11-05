@@ -163,9 +163,14 @@ def collect_networks(directory,
                                 else vae.training['pretrained_features'])
         pretrained_upsampler = vae.training.get('pretrained_upsampler', None)
         methods = vae.predict_methods
-        train_batch_size = vae.training['batch_size']
-        if not train_batch_size:
-            train_batch_size = vae.training['batch_sizes']['train']
+        batch_size = vae.training['batch_size']
+        if not batch_size:
+            train_batch_size = vae.training['max_batch_sizes']['train']
+        else:
+            bogus_batch_sizes = {'train': int(1e5)}
+            max_train_batch_size = vae.training.get('max_batch_sizes', bogus_batch_sizes).get('train')
+            train_batch_size = min(batch_size, max_train_batch_size)
+
         vae_dict = {'net': vae,
                     'type': vae.type,
                     'arch': arch,
@@ -312,13 +317,19 @@ def load_list_of_networks(dir_name, file_name='nets.json'):
     return list(load_json(dir_name, file_name).values())
 
     
-def load_and_save_json(directory, write_json=False):
+def load_and_save_json(directory,
+                       json_file,
+                       key,
+                       new_key=None,
+                       old_value=None,
+                       new_value=None,
+                       recursive=True,
+                       write_json=False):
 
-    json_file = 'train.json'
-    key = 'transformer'
-    old_value = 'default'
-    new_value = 'simple'
+    assert new_key is None or old_value is None
+
     name = os.path.join(directory, json_file)
+
     if os.path.exists(name):
         #        print(name)
         with open(name, 'rb') as f:
@@ -330,26 +341,35 @@ def load_and_save_json(directory, write_json=False):
                 t = dict()
 
         if key in t.keys():
-            print(name, '\n', t[key], end='')
-            if t[key] == old_value:
-                print(' ->', new_value, '*' if write_json else '')
-                t[key] = new_value
-            else: print()
-                # print('r', write_json, name, '\n', t)
+            print(name, '\n---', key, ':', t[key], end='')
 
+            if new_value:
+                if t[key] == old_value:
+                    print(' ->', new_value, '*' if write_json else '')
+                    t[key] = new_value
+                else: print()
+                # print('r', write_json, name, '\n', t)
+            elif new_key:
+                v = t.pop(key)
+                t[new_key] = v
+                print(' ->', new_key,':', t[new_key], '*' if write_json else '')
             if write_json:
                 print('w', name, '\n', t)
                 with open(name, 'w') as f:
                     json.dump(t, f)
 
+    if recursive: 
+        rel_paths = os.listdir(directory)
+        paths = [os.path.join(directory, p) for p in rel_paths]
+        dirs = [d for d in paths if os.path.isdir(d)]
 
-    rel_paths = os.listdir(directory)
-    paths = [os.path.join(directory, p) for p in rel_paths]
-
-    dirs = [d for d in paths if os.path.isdir(d)]
-
-    for d in dirs:
-        load_and_save_json(d,write_json=write_json)
+        for d in dirs:
+            load_and_save_json(d, json_file, key,
+                               new_key=new_key,
+                               old_value=old_value,
+                               new_value=new_value,
+                               recursive=recursive,
+                               write_json=write_json)
 
         
 def strip_json(directory, write_json=False):

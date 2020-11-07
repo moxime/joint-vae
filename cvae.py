@@ -120,6 +120,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.is_vib = type_of_net == 'vib'
         self.is_vae = type_of_net == 'vae'
         self.is_cvae = type_of_net == 'cvae'
+        self.y_is_coded = self.is_jvae or self.is_cvae
         
         if self.is_cvae:
             classifier_layer_sizes = []
@@ -331,7 +332,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         y_onehot = onehot_encoding(y, self.num_labels).float()
 
-        z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.is_jvae)
+        z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.y_is_coded)
         # z of size LxN1x...xNgxK
 
         if not self.is_vib:

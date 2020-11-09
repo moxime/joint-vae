@@ -237,8 +237,10 @@ class Encoder(nn.Module):
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """
         # print('*****', 'x:', x.shape, 'y:', y.shape)
-        # u = torch.cat((x, y), dim=-1)
+        u = torch.cat((x, y), dim=-1)
         # cat not working
+
+        """ At first cat was not working, so...
         D = x.shape[-1]
         C = y.shape[-1]
         s = x.shape[:-1] + (D + C, )
@@ -248,6 +250,7 @@ class Encoder(nn.Module):
         u[:, :D] = x.reshape(N, D)
         u[:, D:] = y.reshape(N, C)
         u = u.reshape(s)
+        """
 
         # debug_nan(u, u, 'u1')
         u = self.dense_projs(u)

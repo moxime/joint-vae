@@ -332,6 +332,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         y_onehot = onehot_encoding(y, self.num_labels).float()
 
+        # print('**** cvae l. 335', 'y:', *y.shape, 'y_01:', *y_onehot.shape)
+        
         z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.y_is_coded)
         # z of size LxN1x...xNgxK
 
@@ -398,12 +400,14 @@ class ClassificationVariationalNetwork(nn.Module):
         t_repeated = t.reshape(t_shape).repeat(rep_dims)
 
         # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
+        s_y = t_repeated.shape[:-len(self.input_shape)]
         if not y_in_input:
-            s_y = t_repeated.shape[:-len(self.input_shape)]
             y = torch.zeros(s_y, dtype=int, device=x.device)
             for c in range(C):
                 y[c] = c  # maybe a way to accelerate this ?
-            
+        else:
+            y = y.reshape(s_y)
+        # print('****', 'cvae l 407', 'y:', *y.shape, 't:', *t_repeated.shape)
         if self.features:
             x_reco, y_est, mu, log_var, z = self.forward_from_features(t_repeated, y, x)
         else:

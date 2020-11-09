@@ -7,6 +7,7 @@ from utils.print_log import debug_nan
 def onehot_encoding(y, C):
 
     s_y = y.squeeze().size()
+    s_y = y.size() 
     s_ = s_y + (1,)
     s = s_y + (C,)
 
@@ -236,11 +237,11 @@ class Encoder(nn.Module):
         - y of size N1xN2x...xNgxC
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """
-        # print('*****', 'x:', x.shape, 'y:', y.shape)
+        # print('**** v_l l. 239', 'x:', x.shape, 'y:', y.shape)
         u = torch.cat((x, y), dim=-1)
-        # cat not working
 
         """ At first cat was not working, so...
+        # cat not working
         D = x.shape[-1]
         C = y.shape[-1]
         s = x.shape[:-1] + (D + C, )

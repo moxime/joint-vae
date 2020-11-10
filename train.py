@@ -290,6 +290,9 @@ if __name__ == '__main__':
                  jvae.max_batch_sizes['train'],
                  jvae.max_batch_sizes['test'])
 
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         if not dry_run:
             if jvae.trained < a.epochs:
                 log.info('Training of %s', jvae.print_architecture())

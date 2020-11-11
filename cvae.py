@@ -121,6 +121,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.is_vae = type_of_net == 'vae'
         self.is_cvae = type_of_net == 'cvae'
         self.y_is_coded = self.is_jvae or self.is_cvae
+        logging.debug('y is%s coded', '' if self.y_is_coded else ' not')
         
         if self.is_cvae:
             classifier_layer_sizes = []

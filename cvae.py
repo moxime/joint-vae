@@ -335,7 +335,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         # print('**** cvae l. 335', 'y:', *y.shape, 'y_01:', *y_onehot.shape)
         
-        z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.y_is_coded)
+        z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.is_jvae)
         # z of size LxN1x...xNgxK
 
         if not self.is_vib:

@@ -266,6 +266,8 @@ if __name__ == '__main__':
                 i += 1
                 save_dir = os.path.join(save_dir_root, f'{i:02d}')
 
+            jvae.job_number = i
+            
             log.info('Network built, will be saved in')
             log.info(save_dir)
 

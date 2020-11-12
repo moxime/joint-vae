@@ -84,6 +84,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  input_shape,
                  num_labels,
                  type_of_net = 'jvae', # or 'vib' or cvae or vae
+                 job_number=0,
                  features=None,
                  pretrained_features=None,
                  features_channels=None,
@@ -107,6 +108,7 @@ class ClassificationVariationalNetwork(nn.Module):
         super().__init__(*args, **kw)
         self.name = name
 
+        self.job_number = job_number
         
         assert type_of_net in ('jvae', 'cvae', 'vib', 'vae')
         self.type = type_of_net
@@ -1575,6 +1577,15 @@ class ClassificationVariationalNetwork(nn.Module):
                         'optim': {}}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
+
+        try:
+            s = dir_name.split(os.sep)[-1]
+            job_number_by_dir_name = int(s)
+        except ValueError:
+            job_number_by_dir_name = s
+            
+        job_number = loaded_params.get('job_number', job_number_by_dir_name)
+
         logging.debug('Parameters loaded')
         if loaded_params.get('batch_norm', False) == True:
             loaded_params['batch_norm'] = 'encoder'
@@ -1616,6 +1627,7 @@ class ClassificationVariationalNetwork(nn.Module):
         vae = cls(input_shape=params['input'],
                   num_labels=params['labels'],
                   type_of_net=params['type'],
+                  job_number=job_number,
                   encoder_layer_sizes=params['encoder'],
                   latent_dim=params['latent_dim'],
                   decoder_layer_sizes=params['decoder'],

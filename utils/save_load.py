@@ -172,7 +172,10 @@ def collect_networks(directory,
             max_train_batch_size = vae.training.get('max_batch_sizes', bogus_batch_sizes).get('train')
             train_batch_size = min(batch_size, max_train_batch_size)
 
+        best_accuracy = max(vae.testing[m]['accuracy'] for m in methods) if methods else 0
+        epochs_tested = min(vae.testing[m]['epochs'] for m in methods) if methods else 0
         vae_dict = {'net': vae,
+                    'job': vae.job_number,
                     'type': vae.type,
                     'arch': arch,
                     'arch_code': arch_code,
@@ -184,9 +187,9 @@ def collect_networks(directory,
                     'epochs': vae.training['epochs'],
                     'finished': vae.trained >= vae.training['epochs'],
                     'n_tested': min(vae.testing[m]['n'] for m in methods) if methods else 0,
-                    'epochs_tested': min(vae.testing[m]['epochs'] for m in methods) if methods else 0,
+                    'epochs_tested': epochs_tested,
                     'acc': {m: vae.testing[m]['accuracy'] for m in methods} if methods else 0,
-                    'best_accuracy': max(vae.testing[m]['accuracy'] for m in methods) if methods else 0,
+                    'best_accuracy': best_accuracy,
                     'K': vae.latent_dim,
                     'L': vae.latent_sampling,
                     'pretrained_features': str(pretrained_features),
@@ -221,6 +224,11 @@ def collect_networks(directory,
     logging.debug(f'{num_of_nets} nets in {num_of_archs} different architectures'
                   f'found in {shorten_path(directory)}')
 
+
+def find_by_job_number(dir, number, **kw):
+
+    v_ = sum(collect_networks(dir, **kw), [])
+    return [v for v in v_ if v['job'] == number]
         
 def load_and_save(directory, output_directory=None, **kw):
     """ load the incomplete params (with default missing parameter

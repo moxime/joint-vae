@@ -239,6 +239,7 @@ class Encoder(nn.Module):
         """
         # print('**** v_l l. 239', 'x:', x.shape, 'y:', y.shape)
         u = torch.cat((x, y), dim=-1)
+        # print('**** vl l 242', 'y mean', y.mean().item())
 
         """ At first cat was not working, so...
         # cat not working

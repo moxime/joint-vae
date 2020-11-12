@@ -1397,7 +1397,7 @@ class ClassificationVariationalNetwork(nn.Module):
         _plot(self.decoder)
         _plot(self.classifier)
 
-    def has_same_architecture(self, other_net):
+    def has_same_architecture(self, other_net, excludes=[]):
 
         a1 = self.print_architecture(sampling=True)
         a2 = other_net.print_architecture(sampling=True)
@@ -1413,6 +1413,7 @@ class ClassificationVariationalNetwork(nn.Module):
         for s, s_ in zip(ls, ls_):
             if np.any((np.array(s) != np.array(s_))):
                 return False
+
         if self.latent_sampling != other_net.latent_sampling:
             return False
 

@@ -137,12 +137,12 @@ def collect_networks(directory,
     
     def append_by_architecture(net_dict, list_of_lists):
         
-        net = net_dict['net']
-
+        arch = net_dict['arch']
+        
         added = False
         for list_of_nets in list_of_lists:
             if not added:
-                if net.has_same_architecture(list_of_nets[0]['net']):
+                if arch == list_of_nets[0]['arch']:
                     list_of_nets.append(net_dict)
                     added = True
         if not added:
@@ -225,10 +225,14 @@ def collect_networks(directory,
                   f'found in {shorten_path(directory)}')
 
 
-def find_by_job_number(dir, number, **kw):
+def find_by_job_number(dir, *numbers, **kw):
 
+    d = {}
     v_ = sum(collect_networks(dir, **kw), [])
-    return [v for v in v_ if v['job'] == number]
+    for number in numbers:
+        d[number] = [v for v in v_ if v['job'] == number]
+
+    return d
         
 def load_and_save(directory, output_directory=None, **kw):
     """ load the incomplete params (with default missing parameter

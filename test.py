@@ -14,7 +14,7 @@ import logging
 import pandas as pd
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
-from utils.save_load import collect_networks, data_frame_results
+from utils.save_load import collect_networks, data_frame_results, save_json, load_json
 
 
 def test_accuracy_if(jvae=None,
@@ -38,7 +38,7 @@ def test_accuracy_if(jvae=None,
     
     if not jvae:
         try:
-            jvae = CVNet.load(directory)
+            jvae = CVNet.load(directory, load_state=not dry_run)
         except FileNotFoundError:
             logging.warning(f'Has been asked to load net in {directory}'
                             'none found')
@@ -107,7 +107,7 @@ def test_ood_if(jvae=None,
 
     if not jvae:
         try:
-            jvae = CVNet.load(directory)
+            jvae = CVNet.load(directory, load_state=not dry_run)
         except FileNotFoundError:
             logging.warning(f'Has been asked to load net in {directory}'
                             'none found')
@@ -210,6 +210,14 @@ if __name__ == '__main__':
     job_dir = args.job_dir
     load_dir = args.load_dir
     dry_run = args.dry_run
+    flash = args.flash
+
+    if flash:
+       logging.debug('Flash test')
+       if not dry_run:
+           dry_run = True
+           logging.debug('Setting dry_run at True')
+           
     epochs = args.epochs
     test_sample_size = args.test_sample_size
     ood_sample_size = args.ood
@@ -225,13 +233,24 @@ if __name__ == '__main__':
     
     search_dir = load_dir if load_dir else job_dir
 
-    l_o_l_o_d_o_n = []
-    collect_networks(search_dir, l_o_l_o_d_o_n, load_state=not dry_run) #, like=dummy_jvae)
-    total = sum(map(len, l_o_l_o_d_o_n))
-    log.debug(f'{total} networks in {len(l_o_l_o_d_o_n)} lists collected:')
+    load_networks = not flash
+    
+    if flash:
+        try:
+            dict_of_networks = load_json(search_dir, 'networks.json')
+            list_of_networks = list(dict_of_networks.values())
+        except FileNotFoundError:
+            load_networks = True
 
-    for (i, l) in enumerate(l_o_l_o_d_o_n):
-        a = l[0]['net'].print_architecture(sampling=True)
+    if load_networks:
+        list_of_networks = collect_networks(search_dir, load_state=not dry_run) #, like=dummy_jvae)
+        
+        
+    total = sum(map(len, list_of_networks))
+    log.debug(f'{total} networks in {len(list_of_networks)} lists collected:')
+
+    for (i, l) in enumerate(list_of_networks):
+        a = l[0]['arch'] #['net'].print_architecture(sampling=True)
         w = 'networks' if len(l) > 1 else 'network '
         log.debug('|')
         log.debug(f'|_{len(l)} {w} of type {a}')
@@ -257,16 +276,17 @@ if __name__ == '__main__':
     archs =  set()
 
     networks_to_be_studied = []
-    for n in sum(l_o_l_o_d_o_n, []):
+    for n in sum(list_of_networks, []):
         to_be_studied = all([filters[k].filter(n[k]) for k in filters])
         if to_be_studied:
             networks_to_be_studied.append(n)
 
     for n in networks_to_be_studied:
 
-        net = n['net']
-        # print('*** ', *n)
+        net = n.get('net', None)
+
         is_tested = test_accuracy_if(jvae=net,
+                                     directory=n['dir'],
                                      dry_run=True,
                                      min_test_sample_size=min_test_sample_size,
                                      batch_size=batch_size,
@@ -277,6 +297,7 @@ if __name__ == '__main__':
         will_be_tested = is_enough_trained and not is_tested
 
         ood_are_tested = test_ood_if(jvae=net,
+                                     directory=n['dir'],
                                      dry_run=True,
                                      min_test_sample_size=min_test_sample_size,
                                      batch_size=batch_size,
@@ -331,7 +352,7 @@ if __name__ == '__main__':
             log.info('%s%s %3d %s', 
                      train_mark,
                      ood_mark,
-                     net.trained,
+                     n['done'],
                      _dir)
             if _dir2:
                 log.info('||' +
@@ -353,19 +374,18 @@ if __name__ == '__main__':
 
     dict_of_sets = dict()
     testsets_ = testsets.copy()
-    for s in testsets:
-        log.debug('Get %s dataset', s)
-        _, testset = torchdl.get_dataset(s)
-        dict_of_sets[s] = testset
-        for n in testset.same_size:
-            testsets_.add(n)
+    for s in testsets_:
+        for o in torchdl.get_same_size_by_name(s):
+            testsets.add(o)
 
-    for s in testsets_.difference(testsets):
-        log.debug('Get %s dataset', s)
-        _, oodset = torchdl.get_dataset(s)
-        dict_of_sets[s] = oodset
-        
     if not dry_run:
+        for s in testsets:
+            log.debug('Get %s dataset', s)
+            _, testset = torchdl.get_dataset(s)
+            dict_of_sets[s] = testset
+            for n in testset.same_size:
+                testsets_.add(n)
+        
         for n in enough_trained:
 
             trained_set = n['net'].training['set']
@@ -395,6 +415,18 @@ if __name__ == '__main__':
             
             n['net'].save(n['dir'])
 
+    if load_networks:
+        _n = sum(map(len, list_of_networks))
+        logging.debug(f'About to save a list of {_n} networks')
+        d = {}
+
+        for l in list_of_networks:
+            for n in l: n.pop('net')
+            d[l[0]['arch']] = l
+
+        save_json(d, search_dir, 'networks.json')
+
+        
     show_best = False
     show_best = True
     

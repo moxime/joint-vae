@@ -208,6 +208,7 @@ def get_shape_by_name(set_name, transform='default'):
     if len(shape)==3:
         return (shape[0], shape[1] + 2 * p, shape[2] + 2 *p), num_labels
 
+
 def get_same_size_by_name(set_name):
 
     shape, _ = get_shape_by_name(set_name)
@@ -216,7 +217,20 @@ def get_same_size_by_name(set_name):
 
     return same_size
 
-    
+
+def get_dataset_from_dict(dict_of_sets, set_name, transformer):
+
+    try:
+        set = dict_of_sets[set_name][transformer]
+    except KeyError:
+        set = get_dataset(set_name, transformer=transformer)
+        logging.debug(f'Getting {set_name} with transform {transformer}')
+        if set_name not in dict_of_sets:
+            dict_of_sets[set_name] = {}
+        dict_of_sets[set_name][transformer] = set
+    return set
+
+
 def show_images(imageset, shuffle=True, num=4, **kw):
 
     loader = torch.utils.data.DataLoader(imageset,

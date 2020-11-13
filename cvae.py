@@ -695,6 +695,7 @@ class ClassificationVariationalNetwork(nn.Module):
         # logging.debug('Creating dataloader for accuracy with batch size %s',
         #              batch_size)
 
+        # print('**** cvae.py:698', testset.transform)
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
                                                  shuffle=True)

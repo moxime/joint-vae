@@ -71,6 +71,7 @@ def test_accuracy_if(jvae=None,
 
     if not has_been_tested:
 
+        # print('*** test.py:74', jvae.training['set'], jvae.training['transformer'])
         if not testset:
             _, testset = torchdl.get_dataset(jvae.training['set'],
                                              transformer=jvae.training['transformer'])
@@ -132,13 +133,18 @@ def test_ood_if(jvae=None,
         logging.debug(f'Net {desc} not trained enough, will not be tested')
         return None
 
+    dict_of_sets = {}
+    transformer = jvae.training['transformer']
+
     if testset:
         testset_name = testset.name
+        dict_of_sets[testset_name] = {transformer: testset}
     else:
         testset_name = jvae.training['set']
 
     if oodsets:
         oodset_names = [o.name for o in oodsets]
+        dict_of_sets.update({o.name: {transformer: o} for o in oodsets})
     else:
         oodset_names = torchdl.get_same_size_by_name(testset_name)
     
@@ -166,14 +172,13 @@ def test_ood_if(jvae=None,
         logging.debug(f'ood rate has {_w}been computed with enough samples for {n}')
 
     if not dry_run:
-        transformer = jvae.training['transformer']
-        if not testset:
-            _, testset = torchdl.get_dataset(testset_name,
-                                             transformer=transformer)
+        _, testset = torchdl.get_dataset_by_dict(dict_of_sets,
+                                                 testset_name,
+                                                 transformer=transformer)
 
-        for n in [n for n in has_been_tested if has_been_tested[n]]:
-            _, oodset = torchdl.get_dataset(n,
-                                            transformer=transformer)
+        for n in [n for n in has_been_tested if not has_been_tested[n]]:
+            _, oodset = torchdl.get_dataset_by_dict(dict_of_sets, n
+                                                    transformer=transformer)
             oodsets_to_be_tested.append(oodset)
             
         _o = ' - '.join([o.name for o in oodsets_to_be_tested])
@@ -372,28 +377,22 @@ if __name__ == '__main__':
              n_trained,
              n_to_be_tested)
 
-    dict_of_sets = dict()
-    testsets_ = testsets.copy()
-    for s in testsets_:
-        for o in torchdl.get_same_size_by_name(s):
-            testsets.add(o)
-
     if not dry_run:
-        for s in testsets:
-            log.debug('Get %s dataset', s)
-            _, testset = torchdl.get_dataset(s)
-            dict_of_sets[s] = testset
-            for n in testset.same_size:
-                testsets_.add(n)
+
+        dict_of_sets = {}
         
         for n in enough_trained:
 
             trained_set = n['net'].training['set']
+            transformer = n['net'].training['transformer']
             n['net'].to(device)
             
             log.info('Test %s with %s', n['dir'], trained_set)
 
-            testset=dict_of_sets[trained_set]
+            _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
+                                                    trained_set,
+                                                    transformer)
+                
             test_accuracy_if(jvae=n['net'],
                              testset=testset,
                              unfinished=unfinished_training,
@@ -403,9 +402,12 @@ if __name__ == '__main__':
                              method='all')
 
             if ood_sample_size:
-                oodsets = [dict_of_sets[n] for n in testset.same_size]
+                oodsets = [torchdl.get_dataset_from_dict(dict_of_sets,
+                                                         n, transformer)[1]
+                           for n in testset.same_size]
                 test_ood_if(jvae=n['net'],
                             testset=testset,
+                            oodsets=oodsets,
                             unfinished=unfinished_training,
                             min_epochs=epochs,
                             test_sample_size=ood_sample_size,
@@ -430,7 +432,7 @@ if __name__ == '__main__':
     show_best = False
     show_best = True
     
-    df = data_frame_results(enough_trained, show_best=show_best)
+    df = data_frame_results(enough_trained)
 
     formats = []
 

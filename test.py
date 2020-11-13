@@ -460,4 +460,13 @@ if __name__ == '__main__':
     for a in archs:
         arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
         print(arch_code,':\n', a)
-    #print(df.to_string())
+
+    # print(df.to_string())
+
+    # if latex_formatting:
+    with open('test.tex', 'w') as f:
+        f.write(df.to_latex(na_rep='',
+                            float_format='%.2f',
+                            decimal=',',
+                            formatters=formats))
+

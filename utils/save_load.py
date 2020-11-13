@@ -163,7 +163,9 @@ def collect_networks(directory,
         pretrained_features =  (None if not vae.features
                                 else vae.training['pretrained_features'])
         pretrained_upsampler = vae.training.get('pretrained_upsampler', None)
-        methods = vae.predict_methods
+        predict_methods = vae.predict_methods
+        ood_methods = vae.ood_methods
+
         batch_size = vae.training['batch_size']
         if not batch_size:
             train_batch_size = vae.training['max_batch_sizes']['train']
@@ -172,8 +174,38 @@ def collect_networks(directory,
             max_train_batch_size = vae.training.get('max_batch_sizes', bogus_batch_sizes).get('train')
             train_batch_size = min(batch_size, max_train_batch_size)
 
-        best_accuracy = max(vae.testing[m]['accuracy'] for m in methods) if methods else 0
-        epochs_tested = min(vae.testing[m]['epochs'] for m in methods) if methods else 0
+        if predict_methods:
+            best_accuracy = max(vae.testing[m]['accuracy'] for m in predict_methods)
+            epochs_tested = min(vae.testing[m]['epochs'] for m in predict_methods)
+            n_tested = min(vae.testing[m]['n'] for m in predict_methods)
+        else:
+            best_accuracy = epochs_tested = n_tested = None
+
+        if ood_methods:
+            ood_fprs = {}
+            ood_fpr = {}
+            best_auc = {s: 0 for s in vae.ood_results}
+            best_method = {s: None for s in vae.ood_results}
+            for s in vae.ood_results:
+                res_by_set = {}
+                for m in vae.ood_results[s]:
+                    if m in ood_methods:
+                        fpr_ = vae.ood_results[s][m]['fpr']
+                        tpr_ = vae.ood_results[s][m]['tpr']
+                        auc = vae.ood_results[s][m]['auc']
+                        if not best_method[s] or auc > best_auc[s]:
+                            best_auc[s] = auc
+                            best_method[s] = m
+                        res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
+                        res_by_method['auc'] = auc
+                        res_by_set[m] = res_by_method
+                ood_fprs[s] = res_by_set
+                ood_fpr[s] = res_by_set[best_method[s]]
+
+        else:
+            ood_fprs = {}
+            ood_fpr = {}
+                
         vae_dict = {'net': vae,
                     'job': vae.job_number,
                     'type': vae.type,
@@ -186,10 +218,12 @@ def collect_networks(directory,
                     'done': vae.trained,
                     'epochs': vae.training['epochs'],
                     'finished': vae.trained >= vae.training['epochs'],
-                    'n_tested': min(vae.testing[m]['n'] for m in methods) if methods else 0,
+                    'n_tested': n_tested,
                     'epochs_tested': epochs_tested,
-                    'acc': {m: vae.testing[m]['accuracy'] for m in methods} if methods else 0,
+                    'accuracies': {m: vae.testing[m]['accuracy'] for m in predict_methods},
                     'best_accuracy': best_accuracy,
+                    'ood_fprs': ood_fprs,
+                    'ood_fpr': ood_fpr,
                     'K': vae.latent_dim,
                     'L': vae.latent_sampling,
                     'pretrained_features': str(pretrained_features),
@@ -257,7 +291,7 @@ def load_and_save(directory, output_directory=None, **kw):
     return list_of_vae
 
 
-def data_frame_results(nets, show_best=True):
+def data_frame_results(nets, best_net=True, best_acc=True):
     """
     nets : list of dicts n
     n['net'] : the network
@@ -266,7 +300,7 @@ def data_frame_results(nets, show_best=True):
     n['set']
     n['K']
     n['L']
-    n['acc'] : {m: acc for m in methods}
+    n['accuracies'] : {m: acc for m in methods}
     n['options'] : vector of options
     n['optim_str'] : optimizer
     """
@@ -278,7 +312,7 @@ def data_frame_results(nets, show_best=True):
                   'K',
     ]
 
-    done = [] if show_best else ['done']
+    done = [] if best_net else ['done']
     train_index = [
         'options',
         'optim_str',
@@ -286,11 +320,11 @@ def data_frame_results(nets, show_best=True):
         'sigma',
     ] + done
     
-    columns = arch_index + train_index + ['acc']
+    columns = arch_index + train_index + ['accuracies']
 
     df = pd.DataFrame.from_records(nets, columns=columns)
 
-    df = df.drop('acc', axis=1).join(pd.DataFrame(df.acc.values.tolist()))
+    df = df.drop('accuracies', axis=1).join(pd.DataFrame(df.accuracies.values.tolist()))
 
     df.set_index(arch_index + train_index, inplace=True)
 
@@ -303,7 +337,7 @@ def data_frame_results(nets, show_best=True):
     #     print(levels)
     #     idx.set_levels(level=level, levels=levels, inplace=True)
 
-    if show_best:
+    if best_net:
         df = df.groupby(level=arch_index + train_index)[df.columns].max()
         df = df.stack()
 
@@ -472,10 +506,16 @@ if __name__ == '__main__':
     import logging
     print('loading')
     logging.getLogger().setLevel(logging.DEBUG)
-    
-    l = sum(collect_networks('jobs/cifar10', load_state=False), [])
 
-    df = data_frame_results(l, False)
+    dir ='./jobs/fashion'
+    dir = 'old-jobs/saved-jobs/fashion32'
+    dir = './jobs/svhn'
+    reload = False
+    reload = True
+    if reload:
+        l = sum(collect_networks(dir, load_state=False), [])
+
+    df = data_frame_results(l, best_net=False, best_acc=False)
 
     formats = []
 

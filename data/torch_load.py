@@ -120,7 +120,6 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
     same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
     same_size.remove(dataset)
     
-
     train_transforms = []
 
     for t in data_augmentation:
@@ -202,15 +201,16 @@ def get_shape(dataset):
 def get_shape_by_name(set_name, transform='default'):
 
     shape = set_dict[set_name]['shape']
+    num_labels = len(set_dict[set_name]['classes'])
     if transform != 'pad':
-        return set_dict[set_name]['shape']
+        return set_dict[set_name]['shape'], num_labels
     p = transformers['pad'][set_name].transforms[0].padding
     if len(shape)==3:
-        return (shape[0], shape[1] + 2 * p, shape[2] + 2 *p)
+        return (shape[0], shape[1] + 2 * p, shape[2] + 2 *p), num_labels
 
 def get_same_size_by_name(set_name):
 
-    shape = get_shape_by_name(set_name)
+    shape, _ = get_shape_by_name(set_name)
     same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
     same_size.remove(set_name)
 

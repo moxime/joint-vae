@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
         for a in list_of_args:
 
-            input_shape, num_labels = torchdl.get_shape_by_name(a.dataset)
+            input_shape, num_labels = torchdl.get_shape_by_name(a.dataset, a.transformer)
             
             log.debug('Building dummy network for comparison')
             dummy_jvae = CVNet(input_shape, num_labels,
@@ -199,7 +199,7 @@ if __name__ == '__main__':
 
         log.debug(f'{trainset.name} dataset loaded')
         
-        input_shape, num_labels = torchdl.get_shape(trainset)
+        input_shape, num_labels = torchdl.get_shape_by_name(a.dataset, a.transformer)
         
         rebuild = a.load_dir is None
 
@@ -299,7 +299,10 @@ if __name__ == '__main__':
             if jvae.trained < a.epochs:
                 log.info('Training of %s', jvae.print_architecture())
 
-                jvae.train(trainset, epochs=a.epochs,
+                print('t.py l 302 testset:', testset.data[0].shape)
+                jvae.train(trainset,
+                           transformer=a.transformer,
+                           epochs=a.epochs,
                            batch_size=batch_size,
                            device=device,
                            testset=testset,

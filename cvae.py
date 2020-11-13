@@ -122,7 +122,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.is_vib = type_of_net == 'vib'
         self.is_vae = type_of_net == 'vae'
         self.is_cvae = type_of_net == 'cvae'
-        self.y_is_coded = self.is_jvae or self.is_cvae
+        self.y_is_coded = self.is_jvae # or self.is_cvae
         logging.debug('y is%s coded', '' if self.y_is_coded else ' not')
         
         if self.is_cvae:
@@ -386,6 +386,7 @@ class ClassificationVariationalNetwork(nn.Module):
         y_in_input = y is not None
         
         if self.features:
+            # print('*** l389', x.shape)
             t = self.features(x)
         else:
             t = x
@@ -628,7 +629,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.debug('Batch size of %s too much for %s.',
                               batch_size,
                               which)
-                logging.debug(e)
+                _s = str(e).split('\n')[0]
+                logging.debug(_s)
                 batch_size//=2
 
     @property
@@ -707,6 +709,7 @@ class ClassificationVariationalNetwork(nn.Module):
         for i in range(num_batch):
             data = next(iter_)
             x_test, y_test = data[0].to(device), data[1].to(device)
+
             (_, y_est,
              batch_losses, measures) = self.evaluate(x_test, batch=i,
                                                     current_measures=current_measures)
@@ -1126,6 +1129,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         logging.debug(f'Getting {set_name}')
         trainset, testset = torchdl.get_dataset(set_name,
+                                                transformer=transformer,
                                                 data_augmentation=data_augmentation)
 
         logging.debug('Choosing device')
@@ -1208,6 +1212,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 full_test = ((epoch - done_epochs) and
                              epoch % full_test_every == 0)
                 with torch.no_grad():
+
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=test_batch_size,
                                                   num_batch='all' if full_test else num_batch,

@@ -172,12 +172,12 @@ def test_ood_if(jvae=None,
         logging.debug(f'ood rate has {_w}been computed with enough samples for {n}')
 
     if not dry_run:
-        _, testset = torchdl.get_dataset_by_dict(dict_of_sets,
+        _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
                                                  testset_name,
                                                  transformer=transformer)
 
         for n in [n for n in has_been_tested if not has_been_tested[n]]:
-            _, oodset = torchdl.get_dataset_by_dict(dict_of_sets, n,
+            _, oodset = torchdl.get_dataset_from_dict(dict_of_sets, n,
                                                     transformer=transformer)
             oodsets_to_be_tested.append(oodset)
             

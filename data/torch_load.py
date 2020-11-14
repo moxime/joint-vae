@@ -221,14 +221,17 @@ def get_same_size_by_name(set_name):
 def get_dataset_from_dict(dict_of_sets, set_name, transformer):
 
     try:
-        set = dict_of_sets[set_name][transformer]
+        sets = dict_of_sets[set_name][transformer]
+        logging.debug(f'{set_name} with {transformer} already loaded')
+        # print('**** torch_load:226', len(sets))
     except KeyError:
-        set = get_dataset(set_name, transformer=transformer)
+        sets = get_dataset(set_name, transformer=transformer)
         logging.debug(f'Getting {set_name} with transform {transformer}')
+        # print('**** torch_load:230', len(sets))
         if set_name not in dict_of_sets:
             dict_of_sets[set_name] = {}
-        dict_of_sets[set_name][transformer] = set
-    return set
+        dict_of_sets[set_name][transformer] = sets
+    return sets
 
 
 def show_images(imageset, shuffle=True, num=4, **kw):

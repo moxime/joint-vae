@@ -26,6 +26,7 @@ def test_accuracy_if(jvae=None,
                      dry_run=False,
                      min_epochs=0,
                      min_test_sample_size=1000,
+                     dict_of_sets={},
                      **kw,
 ):
 
@@ -73,8 +74,9 @@ def test_accuracy_if(jvae=None,
 
         # print('*** test.py:74', jvae.training['set'], jvae.training['transformer'])
         if not testset:
-            _, testset = torchdl.get_dataset(jvae.training['set'],
-                                             transformer=jvae.training['transformer'])
+            _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
+                                                       jvae.training['set'],
+                                                       transformer=jvae.training['transformer'])
 
         with torch.no_grad():
             jvae.accuracy(testset,
@@ -96,6 +98,7 @@ def test_ood_if(jvae=None,
                 dry_run=False,
                 min_epochs=0,
                 min_test_sample_size=1000,
+                dict_of_sets={},
                 **kw,
                       ):
 
@@ -138,13 +141,13 @@ def test_ood_if(jvae=None,
 
     if testset:
         testset_name = testset.name
-        dict_of_sets[testset_name] = {transformer: testset}
+        dict_of_sets[testset_name] = {transformer: (None, testset)}
     else:
         testset_name = jvae.training['set']
 
     if oodsets:
         oodset_names = [o.name for o in oodsets]
-        dict_of_sets.update({o.name: {transformer: o} for o in oodsets})
+        dict_of_sets.update({o.name: {transformer: (None, o)} for o in oodsets})
     else:
         oodset_names = torchdl.get_same_size_by_name(testset_name)
     
@@ -172,11 +175,13 @@ def test_ood_if(jvae=None,
         logging.debug(f'ood rate has {_w}been computed with enough samples for {n}')
 
     if not dry_run:
+        # print('**** test.py:175', testset_name)
         _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
                                                  testset_name,
                                                  transformer=transformer)
 
         for n in [n for n in has_been_tested if not has_been_tested[n]]:
+            # print('**** test.py:180', n)
             _, oodset = torchdl.get_dataset_from_dict(dict_of_sets, n,
                                                     transformer=transformer)
             oodsets_to_be_tested.append(oodset)
@@ -389,10 +394,13 @@ if __name__ == '__main__':
             n['net'].to(device)
 
             arch = n['net'].print_architecture(sampling=True)
-            
-            batch_size = batch_sizes.get(arch, 0)
+
+            max_batch_size = batch_size
+            batch_size = min(batch_sizes.get(arch, 0),
+                             max_batch_size)
             if not batch_size:
-                batch_size = n['net'].compute_max_batch_size(which='test')
+                batch_size = n['net'].compute_max_batch_size(max_batch_size,
+                                                             which='test')
                 batch_sizes[arch] = batch_size
             
             log.info('Test %s with %s and batch size %s',
@@ -408,6 +416,7 @@ if __name__ == '__main__':
                              min_epochs=epochs,
                              min_test_sample_size=min_test_sample_size,
                              batch_size=batch_size,
+                             dict_of_sets=dict_of_sets,
                              method='all')
 
             if ood_sample_size:
@@ -422,6 +431,7 @@ if __name__ == '__main__':
                             test_sample_size=ood_sample_size,
                             min_test_sample_size=min_test_sample_size,
                             batch_size=batch_size,
+                            dict_of_sets=dict_of_sets,
                             method='all')
             
             n['net'].save(n['dir'])

@@ -392,7 +392,7 @@ if __name__ == '__main__':
             
             batch_size = batch_sizes.get(arch, 0)
             if not batch_size:
-                batch_size = n['net'].max_batch_sizes['test']
+                batch_size = n['net'].compute_max_batch_sizes('test')
                 batch_sizes[arch] = batch_size
             
             log.info('Test %s with %s', n['dir'], trained_set)

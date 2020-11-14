@@ -171,7 +171,7 @@ def collect_networks(directory,
             train_batch_size = vae.training['max_batch_sizes']['train']
         else:
             bogus_batch_sizes = {'train': int(1e5)}
-            max_train_batch_size = vae.training.get('max_batch_sizes', bogus_batch_sizes).get('train')
+            max_train_batch_size = vae.training.get('max_batch_sizes', bogus_batch_sizes).get('train', batch_size)
             train_batch_size = min(batch_size, max_train_batch_size)
 
         if predict_methods:
@@ -397,7 +397,7 @@ def load_and_save_json(directory,
                     t[key] = new_value
                 else: print()
                 # print('r', write_json, name, '\n', t)
-            elif new_key:
+            if new_key:
                 v = t.pop(key)
                 t[new_key] = v
                 print(' ->', new_key,':', t[new_key], '*' if write_json else '')

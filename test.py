@@ -177,7 +177,7 @@ def test_ood_if(jvae=None,
                                                  transformer=transformer)
 
         for n in [n for n in has_been_tested if not has_been_tested[n]]:
-            _, oodset = torchdl.get_dataset_by_dict(dict_of_sets, n
+            _, oodset = torchdl.get_dataset_by_dict(dict_of_sets, n,
                                                     transformer=transformer)
             oodsets_to_be_tested.append(oodset)
             
@@ -386,13 +386,20 @@ if __name__ == '__main__':
             trained_set = n['net'].training['set']
             transformer = n['net'].training['transformer']
             n['net'].to(device)
+
+            arch = n['net'].print_architecture(sampling=True)
+            
+            batch_size = batch_sizes.get(arch, 0)
+            if not batch_size:
+                batch_size = n['net'].max_batch_sizes
+                batch_sizes[arch] = batch_size
             
             log.info('Test %s with %s', n['dir'], trained_set)
 
             _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
                                                     trained_set,
                                                     transformer)
-                
+        
             test_accuracy_if(jvae=n['net'],
                              testset=testset,
                              unfinished=unfinished_training,

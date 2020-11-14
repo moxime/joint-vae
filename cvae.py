@@ -624,7 +624,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training['max_batch_sizes'][which] = batch_size
                 logging.debug('Found max batch size for %s : %s',
                               which, batch_size)
-                return
+                return batch_size
             except RuntimeError as e:
                 logging.debug('Batch size of %s too much for %s.',
                               batch_size,
@@ -633,8 +633,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.debug(_s)
                 batch_size//=2
 
-        return batch_size
-
+        
     @property
     def max_batch_sizes(self):
         max_batch_sizes = self.training.get('max_batch_sizes', {})

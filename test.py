@@ -380,6 +380,7 @@ if __name__ == '__main__':
     if not dry_run:
 
         dict_of_sets = {}
+        batch_sizes = {}
         
         for n in enough_trained:
 

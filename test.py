@@ -395,7 +395,8 @@ if __name__ == '__main__':
                 batch_size = n['net'].compute_max_batch_size(which='test')
                 batch_sizes[arch] = batch_size
             
-            log.info('Test %s with %s', n['dir'], trained_set)
+            log.info('Test %s with %s and batch size %s',
+                     n['dir'], trained_set, batch_size)
 
             _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
                                                     trained_set,

@@ -46,7 +46,9 @@ def test_accuracy_if(jvae=None,
 
     # deleting old testing methods
     jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods}
-    
+    if not jvae.testing:
+        return None if dry_run else {}
+        
     is_trained = jvae.trained >= jvae.training['epochs']
     enough_trained_epochs = jvae.trained >= min_epochs
 
@@ -249,10 +251,13 @@ if __name__ == '__main__':
         try:
             dict_of_networks = load_json(search_dir, 'networks.json')
             list_of_networks = list(dict_of_networks.values())
+            logging.debug('File networks.json loaded')
         except FileNotFoundError:
+            logging.debug('File networks.json not found')
             load_networks = True
 
     if load_networks:
+        logging.debug('Collecting networks')
         list_of_networks = collect_networks(search_dir, load_state=not dry_run) #, like=dummy_jvae)
         
         

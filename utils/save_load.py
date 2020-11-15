@@ -170,9 +170,7 @@ def collect_networks(directory,
         if not batch_size:
             train_batch_size = vae.training['max_batch_sizes']['train']
         else:
-            bogus_batch_sizes = {'train': int(1e5)}
-            max_train_batch_size = vae.training.get('max_batch_sizes', bogus_batch_sizes).get('train', batch_size)
-            train_batch_size = min(batch_size, max_train_batch_size)
+            train_batch_size = batch_size
 
         if predict_methods:
             best_accuracy = max(vae.testing[m]['accuracy'] for m in predict_methods)
@@ -186,6 +184,7 @@ def collect_networks(directory,
             ood_fpr = {}
             best_auc = {s: 0 for s in vae.ood_results}
             best_method = {s: None for s in vae.ood_results}
+            n_ood = {s: 0 for s in vae.ood_results}
             for s in vae.ood_results:
                 res_by_set = {}
                 for m in vae.ood_results[s]:
@@ -196,15 +195,19 @@ def collect_networks(directory,
                         if not best_method[s] or auc > best_auc[s]:
                             best_auc[s] = auc
                             best_method[s] = m
+                        n = vae.ood_results[s][m]['n']
+                        if n_ood[s] == 0 or n < n_ood[s]:
+                            n_ood[s] = n
                         res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
                         res_by_method['auc'] = auc
                         res_by_set[m] = res_by_method
                 ood_fprs[s] = res_by_set
-                ood_fpr[s] = res_by_set[best_method[s]]
-
+                ood_fpr[s] = res_by_set.get(best_method[s], None)
+                
         else:
             ood_fprs = {}
             ood_fpr = {}
+            n_ood = {}
                 
         vae_dict = {'net': vae,
                     'job': vae.job_number,
@@ -222,6 +225,7 @@ def collect_networks(directory,
                     'epochs_tested': epochs_tested,
                     'accuracies': {m: vae.testing[m]['accuracy'] for m in predict_methods},
                     'best_accuracy': best_accuracy,
+                    'n_ood': n_ood,
                     'ood_fprs': ood_fprs,
                     'ood_fpr': ood_fpr,
                     'K': vae.latent_dim,

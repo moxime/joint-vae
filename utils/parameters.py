@@ -468,6 +468,9 @@ class ParamFilter():
         #    return True
         
         if self.is_interval:
+            if value is None:
+                return False
+            
             a, b = self.interval
             in_ =  a <= value <= b
             return not in_ if neg else in_

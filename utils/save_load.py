@@ -309,8 +309,7 @@ def data_frame_results(nets, best_net=True, best_acc=True):
     n['optim_str'] : optimizer
     """
 
-    arch_index = ['set',
-                  'type',
+    arch_index = ['type',
                   'depth',
                   'arch_code',
                   'K',

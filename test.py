@@ -288,8 +288,8 @@ if __name__ == '__main__':
     n_ood_to_be_computed = 0
     testsets =  set()
     sigmas =  set()
-    archs =  set()
-
+    archs =  {}
+        
     networks_to_be_studied = []
     for n in sum(list_of_networks, []):
         to_be_studied = all([filters[k].filter(n[k]) for k in filters])
@@ -343,7 +343,10 @@ if __name__ == '__main__':
                 enough_trained.append(n)
                 sigmas.add(n['sigma'])
                 testsets.add(n['set'])
-                archs.add(n['arch'])
+                if n['set'] in archs:
+                    archs[n['set']].add(n['arch'])
+                else:
+                    archs[n['set']] = {n['arch']} 
             else:
                 is_enough_trained = False
                 will_be_tested = False
@@ -389,15 +392,16 @@ if __name__ == '__main__':
 
     if not dry_run:
 
-        dict_of_sets = {}
         batch_sizes = {}
-        
+
         for n in enough_trained:
 
             trained_set = n['net'].training['set']
             transformer = n['net'].training['transformer']
             n['net'].to(device)
 
+            set_of_trained_sets.add(trained_set)
+            
             arch = n['net'].print_architecture(sampling=True)
 
             max_batch_size = batch_size
@@ -455,10 +459,11 @@ if __name__ == '__main__':
         
     show_best = False
     show_best = True
-    
-    df = data_frame_results(enough_trained)
 
-    formats = []
+    df_ = {}
+    for s in testsets:
+        df_[s] = data_frame_results(n for n in enough_trained if n['set']==s)
+        
 
     def finite(u, f):
         if np.isnan(u):
@@ -472,20 +477,27 @@ if __name__ == '__main__':
     
     def f_db(u):
         return finite(u, '{:.1f}')
+
+    formats = {s: [] for s in testsets}
     
-    for _ in df.columns:
-        formats.append(f_pc)
+    for s, df in df_.items():
+        for _ in df.columns:
+            formats[s].append(f_pc)
     
     log.info('')
     log.info('')
     log.info('')
     
     pd.set_option('max_colwidth', 15)
-    print(df.to_string(na_rep='', decimal=',', formatters=formats))
 
-    for a in archs:
-        arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
-        print(arch_code,':\n', a)
+    for s, df in df_.items():
+        print('=' * 80)
+        print(f'Results for {s}')
+        print(df.to_string(na_rep='', decimal=',', formatters=formats[s]))
+
+        for a in archs[s]:
+            arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
+            print(arch_code,':\n', a)
 
     # print(df.to_string())
 

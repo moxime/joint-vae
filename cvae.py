@@ -38,6 +38,13 @@ activation_layers = {'linear': nn.Identity,
                      'relu': nn.ReLU} 
 
 
+class EmptyShell(object):
+
+    def __init__(self):
+
+        super().__init__()
+
+
 class ClassificationVariationalNetwork(nn.Module):
     r"""Creates a network
 
@@ -103,6 +110,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  sigma=0.5,
                  sigma_reach=0,
                  optimizer={},
+                 shadow=False,
                  *args, **kw):
 
         super().__init__(*args, **kw)
@@ -145,6 +153,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                   batch_norm == 'both')
             batch_norm_decoder = batch_norm == 'both'
         if features:
+            logging.debug('Building features')
             if pretrained_features:
                 feat_dict = torch.load(pretrained_features)
             else:
@@ -168,10 +177,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                  'conv_padding': conv_padding,}
 
             encoder_input_shape = self.features.output_shape
+            logging.debug('Features built')
+            
         else:
             encoder_input_shape = input_shape
             self.features = None
-
+            
         sampling = latent_sampling > 1 or sigma > 0
         if not sampling:
             logging.debug('Building a vanilla classifier')
@@ -1564,6 +1575,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     @classmethod
     def load(cls, dir_name,
+             load_net=True,
              load_state=True,
              load_train=True,
              load_test=True,):
@@ -1572,6 +1584,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
 
+        if not load_net:
+            load_state = False
+            
         # default
         params = {'type': 'jvae',
                   'batch_norm': False
@@ -1650,6 +1665,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   output_activation=params['output'],
                   pretrained_features=train_params['pretrained_features'],
                   pretrained_upsampler=train_params['pretrained_upsampler'],
+                  shadow=not load_net,
                   **params['features'])
 
         logging.debug('Built')

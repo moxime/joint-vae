@@ -14,7 +14,7 @@ import logging
 import pandas as pd
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
-from utils.save_load import collect_networks, data_frame_results, save_json, load_json
+from utils.save_load import collect_networks, test_results_df, save_json, load_json
 
 
 def test_accuracy_if(jvae=None,
@@ -460,9 +460,7 @@ if __name__ == '__main__':
     show_best = False
     show_best = True
 
-    df_ = {}
-    for s in testsets:
-        df_[s] = data_frame_results(n for n in enough_trained if n['set']==s)
+    df = test_results_df(enough_trained, first_method=True, ood=True, tpr=[0.95, 0.98])
         
 
     def finite(u, f):
@@ -480,8 +478,8 @@ if __name__ == '__main__':
 
     formats = {s: [] for s in testsets}
     
-    for s, df in df_.items():
-        for _ in df.columns:
+    for s, d in df.items():
+        for _ in d.columns:
             formats[s].append(f_pc)
     
     log.info('')
@@ -490,21 +488,23 @@ if __name__ == '__main__':
     
     pd.set_option('max_colwidth', 15)
 
-    for s, df in df_.items():
+    for s, d in df.items():
         print('=' * 80)
         print(f'Results for {s}')
-        print(df.to_string(na_rep='', decimal=',', formatters=formats[s]))
+        print(d.to_string(na_rep='', decimal=',', formatters=formats[s]))
 
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
             print(arch_code,':\n', a)
 
     # print(df.to_string())
-
+    
     # if latex_formatting:
+    """
     with open('test.tex', 'w') as f:
-        f.write(df.to_latex(na_rep='',
+        f.write(d.to_latex(na_rep='',
                             float_format='%.2f',
                             decimal=',',
                             formatters=formats))
 
+    """

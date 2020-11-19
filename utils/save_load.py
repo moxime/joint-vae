@@ -4,6 +4,7 @@ import json
 import logging
 import pandas as pd
 import hashlib
+import data.torch_load as torchdl
 
 # from cvae import ClassificationVariationalNetwork
 
@@ -172,22 +173,25 @@ def collect_networks(directory,
         else:
             train_batch_size = batch_size
 
+        accuracies = {m: vae.testing[m]['accuracy'] for m in predict_methods}
         if predict_methods:
+            accuracies['first'] = accuracies.get(predict_methods[0], None) 
             best_accuracy = max(vae.testing[m]['accuracy'] for m in predict_methods)
             epochs_tested = min(vae.testing[m]['epochs'] for m in predict_methods)
             n_tested = min(vae.testing[m]['n'] for m in predict_methods)
         else:
             best_accuracy = epochs_tested = n_tested = None
 
+        ood_sets = torchdl.get_same_size_by_name(vae.training['set'])
         if ood_methods:
-            ood_fprs = {}
-            ood_fpr = {}
-            best_auc = {s: 0 for s in vae.ood_results}
-            best_method = {s: None for s in vae.ood_results}
+            ood_fprs = {s: {} for s in ood_sets}
+            ood_fpr = {s: None for s in ood_sets}
+            best_auc = {s: 0 for s in ood_sets}
+            best_method = {s: None for s in ood_sets}
             n_ood = {s: 0 for s in vae.ood_results}
-            for s in vae.ood_results:
+            for s in ood_sets:
                 res_by_set = {}
-                for m in vae.ood_results[s]:
+                for m in vae.ood_results.get(s, {}):
                     if m in ood_methods:
                         fpr_ = vae.ood_results[s][m]['fpr']
                         tpr_ = vae.ood_results[s][m]['tpr']
@@ -201,14 +205,15 @@ def collect_networks(directory,
                         res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
                         res_by_method['auc'] = auc
                         res_by_set[m] = res_by_method
+                res_by_set['first'] = res_by_set.get(ood_methods[0], None)
                 ood_fprs[s] = res_by_set
                 ood_fpr[s] = res_by_set.get(best_method[s], None)
                 
         else:
-            ood_fprs = {}
-            ood_fpr = {}
+            ood_fprs = {s: {} for s in ood_sets}
+            ood_fpr = {s: None for s in ood_sets}
             n_ood = {}
-                
+            
         vae_dict = {'net': vae,
                     'job': vae.job_number,
                     'type': vae.type,
@@ -223,7 +228,7 @@ def collect_networks(directory,
                     'finished': vae.trained >= vae.training['epochs'],
                     'n_tested': n_tested,
                     'epochs_tested': epochs_tested,
-                    'accuracies': {m: vae.testing[m]['accuracy'] for m in predict_methods},
+                    'accuracies': accuracies,
                     'best_accuracy': best_accuracy,
                     'n_ood': n_ood,
                     'ood_fprs': ood_fprs,
@@ -295,7 +300,7 @@ def load_and_save(directory, output_directory=None, **kw):
     return list_of_vae
 
 
-def data_frame_results(nets, best_net=True, best_acc=True):
+def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=None, tpr=[0.95]):
     """
     nets : list of dicts n
     n['net'] : the network
@@ -305,9 +310,16 @@ def data_frame_results(nets, best_net=True, best_acc=True):
     n['K']
     n['L']
     n['accuracies'] : {m: acc for m in methods}
+    n['best_accuracy'] : best accuracy
+    n['ood_fpr'] : '{s: {tpr : fpr}}' for best method
+    n['ood_fprs'] : '{s: {m: {tpr: fpr} for m in methods}}
     n['options'] : vector of options
     n['optim_str'] : optimizer
     """
+
+    if not dataset:
+        testsets = {n['set'] for n in nets}
+        return {s: test_results_df(nets, best_net, first_method, ood, s, tpr) for s in testsets}
 
     arch_index = ['type',
                   'depth',
@@ -315,22 +327,102 @@ def data_frame_results(nets, best_net=True, best_acc=True):
                   'K',
     ]
 
-    done = [] if best_net else ['done']
+    all_nets = [] if best_net else ['job', 'done']
     train_index = [
         'options',
         'optim_str',
         'L',
         'sigma',
-    ] + done
+    ] + all_nets
+
+    indices = arch_index + train_index
     
-    columns = arch_index + train_index + ['accuracies']
+    #acc_cols = ['best_accuracy', 'accuracies']
+    #ood_cols = ['ood_fpr', 'ood_fprs']
 
-    df = pd.DataFrame.from_records(nets, columns=columns)
+    acc_cols = ['accuracies']
+    ood_cols = ['ood_fprs']
+    
+    columns = indices + acc_cols + ood_cols
 
-    df = df.drop('accuracies', axis=1).join(pd.DataFrame(df.accuracies.values.tolist()))
+    df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
+                                    columns=columns)
 
+    df.set_index(indices, inplace=True)
+
+    
+    acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
+    acc_df.columns = pd.MultiIndex.from_product([acc_df.columns, ['rate']])
+    ood_df = pd.DataFrame(df['ood_fprs'].values.tolist(), index=df.index)
+
+    # return acc_df
+    #return ood_df
+    d_ = {dataset: acc_df}
+    for s in ood_df:
+        d_s = pd.DataFrame(ood_df[s].values.tolist(), index=df.index)
+        d_s_ = {}
+        for m in d_s:
+            v_ = d_s[m].values.tolist()
+            _v = []
+            for v in v_:
+                if type(v) is dict:
+                    _v.append(v)
+                else: _v.append({})
+            d_s_[m] = pd.DataFrame(_v, index=df.index)
+        if d_s_:
+            d_[s] = pd.concat(d_s_, axis=1)
+        #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
+
+    df = pd.concat(d_, axis=1)
+
+    cols = df.columns
+    # print('*** save_load:379', [type(c[-1]) for c in cols])
+    tpr_columns = cols.isin(tpr + ['rate', 'auc'] + [str(_) for _ in tpr], level=2)
+    # tpr_columns = True
+    m_columns = cols.isin(['first'], level=1)
+
+    if not first_method: m_columns = ~m_columns
+
+    df = df[cols[tpr_columns * m_columns]]
+
+    if first_method:
+        df.columns = df.columns.droplevel(1)
+
+    return df.sort_index()
+
+    if not best_method:
+        
+        df = df.drop('accuracies', axis=1).join(pd.DataFrame(df.accuracies.values.tolist()))
+        # print('\n\n**** 341 *** dict of accuracies \n', df.head(), '\n***************')
+    return df
+
+    if ood:
+        # if best_method:
+        ood_df = pd.DataFrame(df.ood_fpr.values.tolist())
+        oodsets = ood_df.columns
+        print(*oodsets)
+
+        ood_df_ = []
+        for s in oodsets:
+            l = ood_df[s].tolist()
+            l_ = []
+            for fpr in l:
+                try:
+                    l_.append(fpr[tpr])
+                except TypeError:
+                    l_.append(fpr)
+            ood_df_.append(pd.DataFrame(l_))
+        df = df.drop('ood_fpr', axis=1)
+        df = df.join(ood_df_[1])
+        return df
+        for d in ood_df_:
+            df = df.join(d)
+        return df
+        
     df.set_index(arch_index + train_index, inplace=True)
+    print('\n\n**** 343 *** Index set\n', df.head(), '\n***************')
 
+    
     # for pre in 'pretrained_features', 'pretrained_upsampler':
     #     for i, l in enumerate(df.index.names):
     #         if l==pre:
@@ -342,10 +434,14 @@ def data_frame_results(nets, best_net=True, best_acc=True):
 
     if best_net:
         df = df.groupby(level=arch_index + train_index)[df.columns].max()
+        print('\n\n**** 359 *** groupby\n', df.head(), '\n***************')
         df = df.stack()
-
+        print('\n\n**** 361 *** stack\n', df.head(), '\n***************')
+        
         df.index.rename('method', level=-1, inplace=True)
+        print('\n\n**** 364 *** rename\n', df.head(), '\n***************')
         df = df.unstack(level=('sigma', 'method'))
+        print('\n\n**** 366 *** unstack\n', df.head(), '\n***************')
     # return df
     
     return df.reindex(sorted(df.columns), axis=1)
@@ -507,20 +603,22 @@ if __name__ == '__main__':
 
     import numpy as np
     import logging
-    print('loading')
+
     logging.getLogger().setLevel(logging.DEBUG)
 
-    dir ='./jobs/fashion'
     dir = 'old-jobs/saved-jobs/fashion32'
-    dir = './jobs/svhn'
-    reload = False
+    dir = './jobs/'
+    dir ='./jobs/fashion'
+
     reload = True
+    reload = False
     if reload:
         l = sum(collect_networks(dir, load_state=False), [])
 
-    df = data_frame_results(l, best_net=False, best_acc=False)
+    testsets = ('cifar10',  'fashion', 'mnist')
+    
+    df_ = test_results_df(l) # [n for n in l if n['set']==s])
 
-    formats = []
 
     def finite(u, f):
         if np.isnan(u):
@@ -534,11 +632,19 @@ if __name__ == '__main__':
     
     def f_db(u):
         return finite(u, '{:.1f}')
-    
-    for _ in df.columns:
-        formats.append(f_pc)
 
-    pd.set_option('max_colwidth', 15)
-    print(df.to_string(na_rep='', decimal=',', formatters=formats))
-
+    formats = {s: [] for s in testsets}
     
+    for s, df in df_.items():
+        for _ in df.columns:
+            formats[s].append(f_pc)
+
+    """
+    for s, df in df_.items():
+        print('=' * 80)
+        print(f'Results for {s}')
+        print(df.to_string(na_rep='', decimal=',', formatters=formats[s]))
+    """
+        # for a in archs[s]:
+        #     arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
+        #     print(arch_code,':\n', a)

@@ -400,7 +400,7 @@ if __name__ == '__main__':
             transformer = n['net'].training['transformer']
             n['net'].to(device)
 
-            set_of_trained_sets.add(trained_set)
+            # set_of_trained_sets.add(trained_set)
             
             arch = n['net'].print_architecture(sampling=True)
 

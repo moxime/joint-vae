@@ -138,7 +138,6 @@ def test_ood_if(jvae=None,
         logging.debug(f'Net {desc} not trained enough, will not be tested')
         return None
 
-    dict_of_sets = {}
     transformer = jvae.training['transformer']
 
     if testset:
@@ -393,6 +392,7 @@ if __name__ == '__main__':
     if not dry_run:
 
         batch_sizes = {}
+        dict_of_sets = {}
 
         for n in enough_trained:
 

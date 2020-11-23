@@ -811,7 +811,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if not testset and not ind_measures:
             testset_name=self.training['set']
-            _, testset = torchdl.get_dataset(testset_name)
+            transformer = self.training['transformer']
+            _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
         
         if method=='all':
             ood_methods = self.ood_methods
@@ -832,7 +833,7 @@ class ClassificationVariationalNetwork(nn.Module):
             return
         
         if oodsets is None:
-            oodsets = [torchdl.get_dataset(n)[1]
+            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer)[1]
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 
@@ -906,7 +907,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         
             ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
             i_ood_measures = {m: ind_measures[m] for m in ood_methods}
-            ood_labels = np.zeros(batch_size * test_n_batch)
+            ood_labels = np.ones(batch_size * test_n_batch)
             fpr_ = {}
             tpr_ = {}
             thresholds_ = {}
@@ -931,7 +932,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 for m in ood_methods:
                     i_ood_measures[m] = np.concatenate([i_ood_measures[m],
                                                       measures[m].cpu()])
-                ood_labels = np.concatenate([ood_labels, np.ones(batch_size)])
+                ood_labels = np.concatenate([ood_labels, np.zeros(batch_size)])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
                 meaned_measures = {m: i_ood_measures[m][len(ind_measures):].mean()
@@ -939,7 +940,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 for m in ood_methods:
                     logging.debug(f'Computing roc curves for with metrics {m}')
                     fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ood_labels,
-                                                                  -i_ood_measures[m])
+                                                                  i_ood_measures[m])
                     auc_[m] = auc(fpr_[m], tpr_[m])
 
                     r_[m] = fpr_at_tpr(fpr_[m],

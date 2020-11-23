@@ -460,8 +460,9 @@ if __name__ == '__main__':
     show_best = False
     show_best = True
 
-    df = test_results_df(enough_trained, first_method=True, ood=True, tpr=[0.95, 0.98])
-        
+    tpr = [i/100 for i in range(90, 100)]
+    df = test_results_df(enough_trained, first_method=True, ood=True, tpr=tpr)
+
 
     def finite(u, f):
         if np.isnan(u):
@@ -471,7 +472,7 @@ if __name__ == '__main__':
         return f.format(u)
 
     def f_pc(u):
-        return finite(100 * u, '{:.1f}')
+        return finite(100 * u, '{:5.2f}')
     
     def f_db(u):
         return finite(u, '{:.1f}')
@@ -496,13 +497,13 @@ if __name__ == '__main__':
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
             print(arch_code,':\n', a)
-
+            
     # print(df.to_string())
     
     # if latex_formatting:
     """
     with open('test.tex', 'w') as f:
-        f.write(d.to_latex(na_rep='',
+    f.write(d.to_latex(na_rep='',
                             float_format='%.2f',
                             decimal=',',
                             formatters=formats))

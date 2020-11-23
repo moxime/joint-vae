@@ -349,14 +349,13 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
                                     columns=columns)
 
     df.set_index(indices, inplace=True)
-
     
     acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
     acc_df.columns = pd.MultiIndex.from_product([acc_df.columns, ['rate']])
     ood_df = pd.DataFrame(df['ood_fprs'].values.tolist(), index=df.index)
 
     # return acc_df
-    #return ood_df
+    # return ood_df
     d_ = {dataset: acc_df}
     for s in ood_df:
         d_s = pd.DataFrame(ood_df[s].values.tolist(), index=df.index)

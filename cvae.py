@@ -188,6 +188,7 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Building a vanilla classifier')
         self.encoder = Encoder(encoder_input_shape, num_labels, latent_dim,
                                encoder_layer_sizes,
+                               y_is_coded = self.y_is_coded,
                                sampling_size=latent_sampling,
                                activation=activation, sampling=sampling)
 
@@ -321,14 +322,16 @@ class ClassificationVariationalNetwork(nn.Module):
             
         self.z_output = False
         
-    def forward(self, x, y, x_features=None, **kw):
+    def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
 
         - x is of size N1x...xNgxD1x..xDt
         - y is of size N1x....xNg(x1)
 
         """
-
+        if y is None and sel.y_is_coded:
+            raise ValueError('y is supposed to be an input of the net')
+        
         if not self.features:
             x_features = x
         if x_features is None:
@@ -344,11 +347,14 @@ class ClassificationVariationalNetwork(nn.Module):
         
         x_ = x_features.view(*batch_size, -1)  # x_ of size N1x...xNgxD
 
-        y_onehot = onehot_encoding(y, self.num_labels).float()
+        if y is None:
+            y_onehot = None
+        else:
+            y_onehot = onehot_encoding(y, self.num_labels).float()
 
         # print('**** cvae l. 335', 'y:', *y.shape, 'y_01:', *y_onehot.shape)
         
-        z_mean, z_log_var, z = self.encoder(x_, y_onehot * self.y_is_coded)
+        z_mean, z_log_var, z = self.encoder(x_, y_onehot)
         # z of size LxN1x...xNgxK
 
         if not self.is_vib:
@@ -376,6 +382,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  y=None,
                  batch=0,
                  current_measures=None,
+                 z_output=False,
                  **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
 
@@ -401,25 +408,22 @@ class ClassificationVariationalNetwork(nn.Module):
             t = self.features(x)
         else:
             t = x
-            
-        # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
-        if y_in_input or self.is_vib or self.is_vae:
-            C = 1
-        else:
-            C = self.num_labels
-        
-        t_shape = t.shape
-        t_shape = (1, ) + t_shape
-        rep_dims = (C, ) + tuple([1 for _ in t_shape[1:]])
 
-        t_repeated = t.reshape(t_shape).repeat(rep_dims)
+        repeat_along_classes = self.y_is_coded and not y_in_input
 
-        # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
-        s_y = t_repeated.shape[:-len(self.input_shape)]
-        if not y_in_input:
+        if repeat_along_classes:
+            # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
+            t_shape = (1, ) + t.shape
+            rep_dims = (C, ) + (1,) * t.ndim
+            t_repeated = t.reshape(t_shape).repeat(rep_dims)
+
+            # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
+            s_y = t_repeated.shape[:-len(self.input_shape)]
             y = torch.zeros(s_y, dtype=int, device=x.device)
             for c in range(C):
                 y[c] = c  # maybe a way to accelerate this ?
+
+
         else:
             y = y.reshape(s_y)
         # print('****', 'cvae l 407', 'y:', *y.shape, 't:', *t_repeated.shape)
@@ -468,7 +472,6 @@ class ClassificationVariationalNetwork(nn.Module):
             #       *batch_quants['cross_y'].shape)
 
         dictionary = self.encoder.latent_dictionary if self.is_cvae else None
-
 
         kl_l, zdist = kl_loss(mu, log_var,
                               y=y if self.is_cvae else None,
@@ -525,9 +528,12 @@ class ClassificationVariationalNetwork(nn.Module):
             pass
             # print('******* x_', x_reco.shape)
             x_reco = x_reco.mean(0)
-              
-        return x_reco, y_est.mean(0), batch_losses, total_measures
 
+        out = (x_reco, y_est.mean(0), batch_losses, total_measures)
+        if z_output:
+            out += (mu, log_var, z)
+        return out
+        
     
     def predict(self, x, method='mean', **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 

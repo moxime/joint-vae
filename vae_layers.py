@@ -168,6 +168,7 @@ class ConvFeatures(nn.Sequential):
 class Encoder(nn.Module):
 
     def __init__(self, input_shape, num_labels,
+                 y_is_coded=False,
                  latent_dim=32,
                  intermediate_dims=[64],
                  name='encoder',
@@ -177,7 +178,8 @@ class Encoder(nn.Module):
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
-
+        self.y_is_coded = y_is_coded
+        
         if activation == 'relu':
             self.activation = F.relu
         else:
@@ -191,7 +193,7 @@ class Encoder(nn.Module):
 
         dense_layers = []
 
-        input_dim = np.prod(input_shape) + num_labels
+        input_dim = np.prod(input_shape) + num_labels * y_is_coded
         for d in intermediate_dims:
             dense_layers += [nn.Linear(input_dim, d),
                              activation_layers[activation]()]
@@ -231,15 +233,16 @@ class Encoder(nn.Module):
 
         return I
         
-    def forward(self, x, y):
+    def forward(self, x, y=None):
         """ 
         - x input of size N1xN2x...xNgxD 
         - y of size N1xN2x...xNgxC
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """
         # print('**** v_l l. 239', 'x:', x.shape, 'y:', y.shape)
-        u = torch.cat((x, y), dim=-1)
-        # print('**** vl l 242', 'y mean', y.mean().item())
+        u = torch.cat((x, y), dim=-1) if y else x
+
+            # print('**** vl l 242', 'y mean', y.mean().item())
 
         """ At first cat was not working, so...
         # cat not working

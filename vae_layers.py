@@ -239,8 +239,14 @@ class Encoder(nn.Module):
         - y of size N1xN2x...xNgxC
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """
-        # print('**** v_l l. 239', 'x:', x.shape, 'y:', y.shape)
-        u = torch.cat((x, y), dim=-1) if y else x
+        if y is not None:
+            pass
+            # print('*** v_l:239', 'x:', *x.shape, 'y:', *y.shape)
+        else:
+            pass
+            # print('*** v_l:239', 'x:', *x.shape)
+            
+        u = x if y is None else torch.cat((x, y), dim=-1) 
 
             # print('**** vl l 242', 'y mean', y.mean().item())
 

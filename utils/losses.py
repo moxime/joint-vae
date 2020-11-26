@@ -56,6 +56,9 @@ def kl_loss(mu_z, log_var_z, y=None, latent_dictionary=None, batch_mean=True, ou
 
     loss = -0.5 * (1 + log_var_z - log_var_z.exp()).sum(-1)
 
+    _ = y.shape if y is not None else ('*',) 
+    # print('*** losses:59', 'mu', *mu_z.shape, 'lv', *log_var_z.shape, 'y', *_)
+
     if y is None:
         distances = mu_z.pow(2).sum(-1)
         loss += 0.5 * distances
@@ -64,14 +67,14 @@ def kl_loss(mu_z, log_var_z, y=None, latent_dictionary=None, batch_mean=True, ou
 
         s_m = mu_z.shape
         K = mu_z.shape[-1]
-        y_ = y.reshape(-1)
-        
-        mu_ = mu_z.exp().reshape(-1, K)
-        centroids = latent_dictionary.index_select(0, y_)
-        # print('*** gfdret ***', 'mu_', *mu_.shape, 'centroids', *centroids.shape)
-        distances = (mu_ - centroids).pow(2).reshape(s_m).sum(-1)
+        centroids_shape = y.shape + (K,)
 
-        loss += 0.5 * distances
+        centroids = latent_dictionary.index_select(0, y.view(-1)).view(centroids_shape)
+        # print('*** losses:74', 'mu_', *mu_z.shape, 'centroids', *centroids.shape)
+        distances = (mu_z - centroids).pow(2).sum(-1)
+
+        # print('*** losses:76', 'loss', *loss.shape, 'dist', *distances.shape)
+        loss = loss + 0.5 * distances
         
     # if torch.isnan(loss).any():
     #     for l in log_var_z:
@@ -100,15 +103,21 @@ def x_loss(y_target, logits, batch_mean=True):
 
     """
 
-    logits_dims_ = tuple(_ for _ in range(logits.dim()))
-    batch_dims_ = logits_dims_[1:-1]
+    if y_target is None:
+
+        log_p = [logits.softmax(dim=-1) + 1e-6].log()
+        return -log_p.mean(0).max(-1)[0]
+
     
     C = logits.shape[-1]
     L = logits.shape[0]
-    # print('*** klsde ***',
-    #       'y_target', *y_target.shape,
-    #       'logits',
-    #       *logits.shape)
+
+    """
+    print('*** losses:108',
+           'y_target', *y_target.shape,
+           'logits',
+           *logits.shape)
+    """
 
     y_ = y_target.reshape(1, -1).repeat(L ,1).reshape(-1)
     logits_ = logits.reshape(-1, C)

@@ -186,8 +186,10 @@ class ClassificationVariationalNetwork(nn.Module):
         sampling = latent_sampling > 1 or sigma > 0
         if not sampling:
             logging.debug('Building a vanilla classifier')
-        self.encoder = Encoder(encoder_input_shape, num_labels, latent_dim,
-                               encoder_layer_sizes,
+            
+        self.encoder = Encoder(encoder_input_shape, num_labels,
+                               intermediate_dims=encoder_layer_sizes,
+                               latent_dim=latent_dim,
                                y_is_coded = self.y_is_coded,
                                sampling_size=latent_sampling,
                                activation=activation, sampling=sampling)
@@ -329,7 +331,7 @@ class ClassificationVariationalNetwork(nn.Module):
         - y is of size N1x....xNg(x1)
 
         """
-        if y is None and sel.y_is_coded:
+        if y is None and self.y_is_coded:
             raise ValueError('y is supposed to be an input of the net')
         
         if not self.features:
@@ -402,6 +404,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         y_in_input = y is not None
+        x_repeated_along_classes = self.is_jvae and not y_in_input
+        losses_computed_for_each_class = not y_in_input and not (self.is_vae or self.is_vib)
+
+        x_is_decoded = not self.is_vib
+        C = self.num_labels
         
         if self.features:
             # print('*** l389', x.shape)
@@ -409,29 +416,37 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             t = x
 
-        repeat_along_classes = self.y_is_coded and not y_in_input
-
-        if repeat_along_classes:
+        t_shape = t.shape
+        t = t.unsqueeze(0)
+        y_shape = (1,) + x.shape[:-len(self.input_shape)]
+        
+        if x_repeated_along_classes:
             # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
-            t_shape = (1, ) + t.shape
-            rep_dims = (C, ) + (1,) * t.ndim
-            t_repeated = t.reshape(t_shape).repeat(rep_dims)
+            rep_dims = (C, ) + (1,) * len(t_shape)
+            t = t.repeat(rep_dims)
 
             # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
-            s_y = t_repeated.shape[:-len(self.input_shape)]
-            y = torch.zeros(s_y, dtype=int, device=x.device)
-            for c in range(C):
-                y[c] = c  # maybe a way to accelerate this ?
 
-
-        else:
-            y = y.reshape(s_y)
-        # print('****', 'cvae l 407', 'y:', *y.shape, 't:', *t_repeated.shape)
+        if losses_computed_for_each_class:
+            y = torch.cat([c * torch.ones(y_shape, dtype=int, device=x.device) for c in range(C)],
+                          dim=0)
+            y_shape = y.shape
+            
+        """"_ = ('*',) if y is None else y.shape
+        print('***', 'cvae l 429',
+              'y:', *_,
+              't:', *t.shape)
+        """
+        
+        y_in = y.view(y_shape) if self.y_is_coded else None
+        
         if self.features:
-            x_reco, y_est, mu, log_var, z = self.forward_from_features(t_repeated, y, x)
+            x_reco, y_est, mu, log_var, z = self.forward_from_features(t, y_in, x)
         else:
-            x_reco, y_est, mu, log_var, z = self.forward(t_repeated, y)
+            x_reco, y_est, mu, log_var, z = self.forward(t, y_in, x)
 
+        # print('*** cvae:446 logits:', *y_est.shape)
+            
         batch_quants = {}
         batch_losses = {}
         total_measures = {}
@@ -465,12 +480,13 @@ class ClassificationVariationalNetwork(nn.Module):
             total_measures['snr'] = 10 * np.log10(snr)
             
         if not (self.is_cvae or self.is_vae):
-            batch_quants['cross_y'] = x_loss(y, y_est,
+            y_target = y if y_in_input or losses_computed_for_each_class else None
+            batch_quants['cross_y'] = x_loss(y_target,
+                                             y_est,
                                              batch_mean=False)
-            # print('*** odvsd ***',
-            #       'xloss',
-            #       *batch_quants['cross_y'].shape)
 
+            # print('*** cvae:485 cross_y', *batch_quants['cross_y'].shape)
+            
         dictionary = self.encoder.latent_dictionary if self.is_cvae else None
 
         kl_l, zdist = kl_loss(mu, log_var,
@@ -510,6 +526,10 @@ class ClassificationVariationalNetwork(nn.Module):
             
         if not (self.is_cvae or self.is_vae):
             batch_losses['cross_y'] = batch_quants['cross_y']
+            """ print('*** cvae:528', 'losses:',
+                  'y', *batch_losses['cross_y'].shape,
+                  'T', *batch_losses['total'].shape)
+            """
             batch_losses['total'] += batch_losses['cross_y']
                 
         batch_losses['kl'] = batch_quants['latent_kl']

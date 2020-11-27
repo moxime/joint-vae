@@ -760,7 +760,7 @@ class ClassificationVariationalNetwork(nn.Module):
             for k in batch_losses:
                 # print('*****', ind.shape)
                 # print('*****', k, batch_losses[k].shape)
-                if self.is_jvae or self.is_cvae:
+                if self.is_jvae or (self.is_cvae and k != 'cross_x'):
                     batch_loss_y = batch_losses[k].gather(0, ind)
                 else:
                     batch_loss_y = batch_losses[k].mean(0)

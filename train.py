@@ -280,9 +280,8 @@ if __name__ == '__main__':
 
         if debug:
             log.debug('Trying a first pass')
-            outs = jvae(x, y)
-            log.debug([u.shape for u in outs])
-
+            outs = jvae(x, y if jvae.y_is_coded else None)
+            log.debug(' -- '.join(map(str,([tuple(u.shape) for u in outs]))))
         arch = jvae.print_architecture(sampling=True)
         if arch in max_batch_sizes:
             jvae.max_batch_sizes = max_batch_sizes[arch]
@@ -299,7 +298,7 @@ if __name__ == '__main__':
             if jvae.trained < a.epochs:
                 log.info('Training of %s', jvae.print_architecture())
 
-                print('t.py l 302 testset:', testset.data[0].shape)
+                #print('t.py l 302 testset:', testset.data[0].shape)
                 jvae.train(trainset,
                            transformer=a.transformer,
                            epochs=a.epochs,

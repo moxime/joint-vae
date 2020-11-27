@@ -105,7 +105,7 @@ def x_loss(y_target, logits, batch_mean=True):
 
     if y_target is None:
 
-        log_p = [logits.softmax(dim=-1) + 1e-6].log()
+        log_p = (logits.softmax(dim=-1) + 1e-6).log()
         return -log_p.mean(0).max(-1)[0]
 
     

@@ -175,6 +175,7 @@ class Encoder(nn.Module):
                  activation='relu',
                  sampling_size=10,
                  sampling=True,
+                 learned_dictionary=False,
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
@@ -207,7 +208,7 @@ class Encoder(nn.Module):
 
         centroids = torch.randn(num_labels, latent_dim)
         
-        self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=False)
+        self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
 
     @property
     def sampling_size(self):

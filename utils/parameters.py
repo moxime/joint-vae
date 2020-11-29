@@ -174,6 +174,9 @@ def get_args_for_train(argv=None):
                         type=float,
                         default=0.1)
 
+    parser.add_argument('--learned-coder',
+                        action='store_true')
+
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)
                         # type=alphanum, nargs='*',

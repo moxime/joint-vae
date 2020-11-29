@@ -99,6 +99,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_norm=False,
                  encoder_layer_sizes=[36],
                  latent_dim=32,
+                 learned_coder=False,
                  decoder_layer_sizes=[36],
                  upsampler_channels=None,
                  pretrained_upsampler=None,
@@ -192,6 +193,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                latent_dim=latent_dim,
                                y_is_coded = self.y_is_coded,
                                sampling_size=latent_sampling,
+                               learned_dictionary=learned_coder,
                                activation=activation, sampling=sampling)
 
         activation_layer = activation_layers[activation]()
@@ -275,6 +277,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.trained = 0
         self.training = {'sigma': sigma,
                          'sigma_reach': sigma_reach,
+                         'learned_coder': learned_coder,
                          'latent_sampling': latent_sampling,
                          'set': None,
                          'data_augmentation': [],
@@ -1578,7 +1581,14 @@ class ClassificationVariationalNetwork(nn.Module):
                 w += m[0]
             else: w += ' '
         v_.append(w)
-        
+
+        w = 'c:'
+        if self.training['learned_coder']:
+            w = +'l'
+        else:
+            w += 'r'
+        v_.append(w)
+            
         return ' '.join(v_)
     
     def save(self, dir_name=None):
@@ -1621,6 +1631,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
+                        'learned_coder': False,
                         'sigma_reach': 0,
                         'data_augmentation': [],
                         'fine_tuning': [],
@@ -1687,6 +1698,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   activation=params['activation'],
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],
+                  learned_coder=train_params['learned_coder'],
                   optimizer=train_params['optim'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],

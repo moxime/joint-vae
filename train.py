@@ -130,6 +130,7 @@ if __name__ == '__main__':
                                decoder_layer_sizes=a.decoder,
                                upsampler_channels=a.upsampler,
                                classifier_layer_sizes=a.classifier,
+                               learned_coder=a.learned_coder,
                                sigma=a.sigma,
                                sigma_reach=a.sigma_reach,
                                output_activation=a.output_activation)
@@ -237,6 +238,7 @@ if __name__ == '__main__':
                          decoder_layer_sizes=a.decoder,
                          upsampler_channels=a.upsampler,
                          classifier_layer_sizes=a.classifier,
+                         learned_coder=a.learned_coder,
                          sigma=a.sigma,
                          sigma_reach=a.sigma_reach,
                          output_activation=a.output_activation)

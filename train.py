@@ -282,6 +282,11 @@ if __name__ == '__main__':
 
         if debug:
             log.debug('Trying a first pass')
+            log.debug('x in [%.2f, %.2f] with mean (std) %.2f (%.2f)',
+                      x.min().item(),
+                      x.max().item(),
+                      x.mean().item(),
+                      x.std().item())
             outs = jvae(x, y if jvae.y_is_coded else None)
             log.debug(' -- '.join(map(str,([tuple(u.shape) for u in outs]))))
         arch = jvae.print_architecture(sampling=True)

@@ -100,6 +100,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  learned_coder=False,
+                 coder_capacity_regularization=True,
                  decoder_layer_sizes=[36],
                  upsampler_channels=None,
                  pretrained_upsampler=None,
@@ -196,6 +197,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                learned_dictionary=learned_coder,
                                activation=activation, sampling=sampling)
 
+        self.coder_capacity_regularization = coder_capacity_regularization
         activation_layer = activation_layers[activation]()
 
         if not self.is_vib:
@@ -278,6 +280,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.training = {'sigma': sigma,
                          'sigma_reach': sigma_reach,
                          'learned_coder': learned_coder,
+                         'coder_capacity_regularization':coder_capacity_regularization,
                          'latent_sampling': latent_sampling,
                          'set': None,
                          'data_augmentation': [],
@@ -657,7 +660,8 @@ class ClassificationVariationalNetwork(nn.Module):
                               which)
                 if training:
                     _, _, batch_losses, _ = self.evaluate(x, y=y)
-                    batch_losses['total'].mean().backward()
+                    L = batch_losses['total'].mean()
+                    L.backward()
                 else:
                     with torch.no_grad():
                         self.evaluate(x, y=y)
@@ -673,9 +677,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.debug(_s)
                 batch_size//=2
 
-        
     @property
     def max_batch_sizes(self):
+        # logging.debug('Calling max bathc size')
         max_batch_sizes = self.training.get('max_batch_sizes', {})
         if max_batch_sizes:
             return max_batch_sizes
@@ -1311,7 +1315,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_loss = batch_losses['total'].mean()
 
                 # with autograd.detect_anomaly():
-                batch_loss.backward()
+                L = batch_loss
+                if self.coder_capacity_regularization:
+                        L += self.encoder.barrier()
+                L.backward()
+               
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         print('GRAD NAN')

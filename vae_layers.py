@@ -167,6 +167,7 @@ class ConvFeatures(nn.Sequential):
                                    
 class Encoder(nn.Module):
 
+    capacity_log_barrier = 0.001
     def __init__(self, input_shape, num_labels,
                  y_is_coded=False,
                  latent_dim=32,
@@ -206,10 +207,14 @@ class Encoder(nn.Module):
 
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
-        centroids = torch.randn(num_labels, latent_dim)
+        centroids = 0.1 * torch.randn(num_labels, latent_dim)
         
         self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
+        while np.log(num_labels) - self.capacity() > self.capacity_log_barrier:
+            with torch.no_grad():
+                self.latent_dictionary *= 2
 
+        
     @property
     def sampling_size(self):
         return self._sampling_size
@@ -233,7 +238,14 @@ class Encoder(nn.Module):
         # + K/2 * np.log(2 / E) 
 
         return I
-        
+
+    def barrier(self, barrier=None):
+
+        if barrier is None:
+            barrier=self.capacity_log_barrier
+        C = self.num_labels
+        return -torch.log(barrier - np.log(C) + self.capacity())
+    
     def forward(self, x, y=None):
         """ 
         - x input of size N1xN2x...xNgxD 

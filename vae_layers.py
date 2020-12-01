@@ -207,7 +207,7 @@ class Encoder(nn.Module):
 
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
-        centroids = 0.1 * torch.randn(num_labels, latent_dim)
+        centroids = torch.randn(num_labels, latent_dim)
         
         self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
         while np.log(num_labels) - self.capacity() > self.capacity_log_barrier:

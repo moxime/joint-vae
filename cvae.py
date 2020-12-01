@@ -100,6 +100,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  learned_coder=False,
+                 init_coder=True,
                  coder_capacity_regularization=True,
                  decoder_layer_sizes=[36],
                  upsampler_channels=None,
@@ -197,6 +198,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                learned_dictionary=learned_coder,
                                activation=activation, sampling=sampling)
 
+        if init_coder and learned_coder:
+            self.encoder.init_dict()
         self.coder_capacity_regularization = coder_capacity_regularization
         activation_layer = activation_layers[activation]()
 
@@ -1709,6 +1712,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],
                   learned_coder=train_params['learned_coder'],
+                  init_coder=False,
                   optimizer=train_params['optim'],
                   upsampler_channels=params['upsampler'],
                   output_activation=params['output'],

@@ -216,7 +216,6 @@ class Encoder(nn.Module):
             with torch.no_grad():
                 self.latent_dictionary *= 2
         """
-        self.init_dict()
         
     @property
     def sampling_size(self):

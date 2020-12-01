@@ -78,7 +78,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vib': ('esty',)}
 
     metrics_per_type = {'jvae': ('std', 'snr', 'sigma'),
-                        'cvae': ('std', 'snr', 'zdist', 'imut-zy', 'ld-norm', 'sigma'),
+                        'cvae': ('std', 'snr', 'zdist', 'd-mind', 'ld-norm', 'sigma'),
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
@@ -463,6 +463,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           'mse', 
                                           'snr',
                                           'imut-zy',
+                                          'd-mind',
                                           'ld-norm',
                                           'zdist')}
             
@@ -515,10 +516,11 @@ class ClassificationVariationalNetwork(nn.Module):
             # batch_losses['zdist'] = 0
             batch_quants['imut-zy'] = self.encoder.capacity()
             batch_quants['ld-norm'] = self.encoder.latent_dictionary.pow(2).mean()
-            for k in ('ld-norm', 'imut-zy'):
-                total_measures[k] = (current_measures[k] * batch +
-                                     batch_quants[k].item()) / (batch + 1)
-        
+            batch_quants['d-mind'] = self.encoder.dict_min_distance()
+            for k in ('ld-norm', 'imut-zy', 'd-mind'):
+                # total_measures[k] = (current_measures[k] * batch +
+                #                     batch_quants[k].item()) / (batch + 1)
+                total_measures[k] = batch_quants[k].item()
         
         if not self.is_vib:
             batch_mse = batch_quants['mse']
@@ -1317,7 +1319,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 # with autograd.detect_anomaly():
                 L = batch_loss
                 if self.coder_capacity_regularization:
-                        L += self.encoder.barrier()
+                        L += self.encoder.dist_barrier()
                 L.backward()
                
                 for p in self.parameters():

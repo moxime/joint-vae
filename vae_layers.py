@@ -168,6 +168,8 @@ class ConvFeatures(nn.Sequential):
 class Encoder(nn.Module):
 
     capacity_log_barrier = 0.001
+    encoder_min_dist = 6
+
     def __init__(self, input_shape, num_labels,
                  y_is_coded=False,
                  latent_dim=32,
@@ -210,10 +212,11 @@ class Encoder(nn.Module):
         centroids = torch.randn(num_labels, latent_dim)
         
         self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
-        while np.log(num_labels) - self.capacity() > self.capacity_log_barrier:
+        """"while np.log(num_labels) - self.capacity() > self.capacity_log_barrier:
             with torch.no_grad():
                 self.latent_dictionary *= 2
-
+        """
+        self.init_dict()
         
     @property
     def sampling_size(self):
@@ -239,13 +242,51 @@ class Encoder(nn.Module):
 
         return I
 
-    def barrier(self, barrier=None):
+    def capacity_barrier(self, barrier=None):
 
         if barrier is None:
             barrier=self.capacity_log_barrier
         C = self.num_labels
         return -torch.log(barrier - np.log(C) + self.capacity())
-    
+
+    def dist_barrier(self, barrier=None):
+        
+        if barrier is None:
+            barrier = self.encoder_min_dist
+        C = self.num_labels
+        dictionary = self.latent_dictionary
+        diag = 2 * barrier * torch.eye(C, device=dictionary.device)
+        
+        dist = torch.cdist(dictionary, dictionary) + diag
+
+        return -(dist - barrier).log().sum()
+
+    def dict_min_distance(self):
+
+        C = self.num_labels
+        dictionary = self.latent_dictionary
+
+        max_norm = dictionary.norm(dim=1).max()
+        diag = 2 * max_norm * torch.eye(C, device=dictionary.device)
+        
+        dist = torch.cdist(dictionary, dictionary) + diag
+
+        return dist.min()
+
+    def init_dict(self):
+
+        dictionary = self.latent_dictionary
+        for _ in range(1000):
+            L = dictionary.pow(2).sum()
+            (L +  self.dist_barrier()).backward()
+            with torch.no_grad():
+                dictionary -= 0.01 * dictionary.grad
+                dictionary.grad.zero_()
+                #for p in self.parameters():
+                #    if p.grad is not None:
+                #        p -= 0.1 * p.grad
+                #        p.grad.zero_()
+            
     def forward(self, x, y=None):
         """ 
         - x input of size N1xN2x...xNgxD 

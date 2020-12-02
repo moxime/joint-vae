@@ -199,7 +199,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                learned_dictionary=learned_coder,
                                activation=activation, sampling=sampling)
 
-        if init_coder
+        if init_coder:
             self.encoder.init_dict()
         self.coder_capacity_regularization = coder_capacity_regularization
         activation_layer = activation_layers[activation]()

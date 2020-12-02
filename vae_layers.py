@@ -275,16 +275,16 @@ class Encoder(nn.Module):
     def init_dict(self):
 
         dictionary = self.latent_dictionary
+        learned = dictionary.requires_grad
+        dictionary.requires_grad_(True)
         for _ in range(1000):
             L = dictionary.pow(2).sum()
             (L +  self.dist_barrier()).backward()
             with torch.no_grad():
                 dictionary -= 0.01 * dictionary.grad
                 dictionary.grad.zero_()
-                #for p in self.parameters():
-                #    if p.grad is not None:
-                #        p -= 0.1 * p.grad
-                #        p.grad.zero_()
+
+        dictionary.requires_grad_(learned)
             
     def forward(self, x, y=None):
         """ 

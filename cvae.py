@@ -112,6 +112,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
                  sigma=0.5,
                  sigma_reach=0,
+                 sigma_decay=0,
                  optimizer={},
                  shadow=False,
                  *args, **kw):
@@ -198,7 +199,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                learned_dictionary=learned_coder,
                                activation=activation, sampling=sampling)
 
-        if init_coder and learned_coder:
+        if init_coder
             self.encoder.init_dict()
         self.coder_capacity_regularization = coder_capacity_regularization
         activation_layer = activation_layers[activation]()

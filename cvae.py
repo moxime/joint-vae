@@ -101,7 +101,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  latent_dim=32,
                  learned_coder=False,
                  init_coder=True,
-                 coder_capacity_regularization=False,#True,
+                 coder_capacity_regularization=True,
                  decoder_layer_sizes=[36],
                  upsampler_channels=None,
                  pretrained_upsampler=None,

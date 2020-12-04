@@ -365,10 +365,21 @@ class ClassificationVariationalNetwork(nn.Module):
             y_onehot = onehot_encoding(y, self.num_labels).float()
 
         # print('**** cvae l. 335', 'y:', *y.shape, 'y_01:', *y_onehot.shape)
-        
-        z_mean, z_log_var, z = self.encoder(x_, y_onehot)
-        # z of size LxN1x...xNgxK
 
+        try:
+            z_mean, z_log_var, z = self.encoder(x_, y_onehot)
+            # z of size LxN1x...xNgxK
+        except ValueError as e:
+            dir_ = f'lod/dump-{self.job_number}'
+            self.save(dir_)
+            x_p = os.path.join(dir_, 'x.pt')
+            y_p = os.path.join(dir_, 'y.pt')
+            torch.save(x, x_p)
+            torch.save(y, y_p)
+            logging.error('Error %s, net dumped in %s',
+                      str(e), dir_)
+            raise e
+            
         if not self.is_vib:
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD

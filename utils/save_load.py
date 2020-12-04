@@ -276,6 +276,19 @@ def find_by_job_number(dir, *numbers, **kw):
         d[number] = [v for v in v_ if v['job'] == number]
 
     return d
+
+
+def save_features_upsampler(net, dir='.', name=''):
+
+    try:
+        feats = net.encoder.features.state_dict()
+    except:
+        feats = None
+    try:
+        ups = None
+    except:
+        pass
+        
         
 def load_and_save(directory, output_directory=None, **kw):
     """ load the incomplete params (with default missing parameter

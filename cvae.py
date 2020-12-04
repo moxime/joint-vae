@@ -370,7 +370,7 @@ class ClassificationVariationalNetwork(nn.Module):
             z_mean, z_log_var, z = self.encoder(x_, y_onehot)
             # z of size LxN1x...xNgxK
         except ValueError as e:
-            dir_ = f'lod/dump-{self.job_number}'
+            dir_ = f'log/dump-{self.job_number}'
             self.save(dir_)
             x_p = os.path.join(dir_, 'x.pt')
             y_p = os.path.join(dir_, 'y.pt')
@@ -1322,26 +1322,26 @@ class ClassificationVariationalNetwork(nn.Module):
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
-                # forward + backward + optimize
-                (_, y_est,
-                 batch_losses, measures) = self.evaluate(x, y,
-                                                         batch=i,
-                                                         current_measures=current_measures)
+                with autograd.detect_anomaly():
+                    # forward + backward + optimize
+                    (_, y_est,
+                     batch_losses, measures) = self.evaluate(x, y,
+                                                             batch=i,
+                                                             current_measures=current_measures)
 
-                current_measures = measures
-                batch_loss = batch_losses['total'].mean()
+                    current_measures = measures
+                    batch_loss = batch_losses['total'].mean()
 
-                # with autograd.detect_anomaly():
-                L = batch_loss
-                if self.coder_capacity_regularization:
-                        L += self.encoder.dist_barrier()
-                L.backward()
-               
-                for p in self.parameters():
-                    if torch.isnan(p).any() or torch.isinf(p).any():
-                        print('GRAD NAN')
-                # self._sigma.grad *= 1e-10
-                optimizer.step()
+                    L = batch_loss
+                    if self.coder_capacity_regularization:
+                            L += self.encoder.dist_barrier()
+                    L.backward()
+
+                    for p in self.parameters():
+                        if torch.isnan(p).any() or torch.isinf(p).any():
+                            print('GRAD NAN')
+                    # self._sigma.grad *= 1e-10
+                    optimizer.step()
 
                 for k in batch_losses:
                     if k not in train_total_loss:

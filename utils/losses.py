@@ -48,8 +48,9 @@ def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
 
     # print('****', mean_dims)
     if batch_mean:
-        return F.mse_loss(x_output, x_target)
-    return F.mse_loss(x_output, x_target, reduction='none').mean(mean_dims)
+        return F.mse_loss(x_output, x_target.expand_as(x_output))
+    return F.mse_loss(x_output, x_target.expand_as(x_output),
+                      reduction='none').mean(mean_dims)
     # return (x_target - x_output).pow(2).mean(mean_dims)
 
 

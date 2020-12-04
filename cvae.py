@@ -1322,26 +1322,27 @@ class ClassificationVariationalNetwork(nn.Module):
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
-                with autograd.detect_anomaly():
-                    # forward + backward + optimize
-                    (_, y_est,
-                     batch_losses, measures) = self.evaluate(x, y,
-                                                             batch=i,
-                                                             current_measures=current_measures)
+                # with autograd.detect_anomaly():
+                # forward + backward + optimize
+                (_, y_est,
+                 batch_losses, measures) = self.evaluate(x, y,
+                                                         batch=i,
+                                                         current_measures=current_measures)
 
-                    current_measures = measures
-                    batch_loss = batch_losses['total'].mean()
+                current_measures = measures
+                batch_loss = batch_losses['total'].mean()
 
-                    L = batch_loss
-                    if self.coder_capacity_regularization:
-                            L += self.encoder.dist_barrier()
-                    L.backward()
+                L = batch_loss
+                if self.coder_capacity_regularization:
+                        L += self.encoder.dist_barrier()
 
-                    for p in self.parameters():
-                        if torch.isnan(p).any() or torch.isinf(p).any():
-                            print('GRAD NAN')
-                    # self._sigma.grad *= 1e-10
-                    optimizer.step()
+                for p in self.parameters():
+                    if torch.isnan(p).any() or torch.isinf(p).any():
+                        print('GRAD NAN')
+
+                L.backward()
+                # self._sigma.grad *= 1e-10
+                optimizer.step()
 
                 for k in batch_losses:
                     if k not in train_total_loss:

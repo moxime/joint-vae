@@ -47,10 +47,12 @@ def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
         mean_dims += batch_dims_
 
     # print('****', mean_dims)
+
     if batch_mean:
-        return F.mse_loss(x_output, x_target.expand_as(x_output))
+        return F.mse_loss(x_output,
+                          x_target.expand_as(x_output)) # + 1e-8 # * torch.randn_like(x_output))
     return F.mse_loss(x_output, x_target.expand_as(x_output),
-                      reduction='none').mean(mean_dims)
+                      reduction='none').mean(mean_dims) # + 1e-8
     # return (x_target - x_output).pow(2).mean(mean_dims)
 
 
@@ -80,13 +82,14 @@ def kl_loss(mu_z, log_var_z, y=None, latent_dictionary=None, batch_mean=True, ou
         # print('*** losses:76', 'loss', *loss.shape, 'dist', *distances.shape)
         loss = loss + 0.5 * distances
         
-    # if torch.isnan(loss).any():
-    #     for l in log_var_z:
-    #         logging.error(l.sum().item())
-    #     for l in mu_z:
-    #         logging.error(l.sum().item())
-    #     for l in loss:
-    #         logging.error(l.item())
+    if torch.isnan(loss).any():
+        logging.error('NAN found in KL')
+        for l in log_var_z:
+            logging.error('log_var %s', l.sum().item())
+        for l in mu_z:
+            logging.error('mu_z %s', l.sum().item())
+        for l in loss:
+            logging.error('loss %s', l.item())
     
     if batch_mean:
         if out_zdist:

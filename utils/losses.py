@@ -47,7 +47,10 @@ def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
         mean_dims += batch_dims_
 
     # print('****', mean_dims)
-    return (x_target - x_output).pow(2).mean(mean_dims)
+    if batch_mean:
+        return F.mse_loss(x_output, x_target)
+    return F.mse_loss(x_output, x_target, reduction='none').mean(mean_dims)
+    # return (x_target - x_output).pow(2).mean(mean_dims)
 
 
 def kl_loss(mu_z, log_var_z, y=None, latent_dictionary=None, batch_mean=True, out_zdist=False):

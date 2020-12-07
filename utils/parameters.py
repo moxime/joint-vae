@@ -103,7 +103,7 @@ def get_args_for_train(argv=None):
     conf_parser.add_argument('--verbose', '-v', action='count', default=0)
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--config', '-c', default='DEFAULT')
-
+    
     conf_parser.add_argument('--grid-file', default='grid.ini')
 
     conf_args, remaining_args = conf_parser.parse_known_args(argv)
@@ -137,6 +137,7 @@ def get_args_for_train(argv=None):
 
     logging.debug('Defaults:')
     for k in defaults:
+        # print('****', k, defaults[k])
         logging.debug(k, defaults[k])
 
     help = 'epochs for training'

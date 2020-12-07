@@ -113,8 +113,9 @@ if __name__ == '__main__':
         for a in list_of_args:
 
             input_shape, num_labels = torchdl.get_shape_by_name(a.dataset, a.transformer)
-            
-            log.debug('Building dummy network for comparison')
+
+            _shape = '-'.join(map(str, input_shape + (num_labels,)))
+            log.debug('Building dummy network for comparison for shape %s', _shape)
             dummy_jvae = CVNet(input_shape, num_labels,
                                features=a.features,
                                type_of_net=a.type,
@@ -222,7 +223,11 @@ if __name__ == '__main__':
                 rebuild = True
 
         if rebuild:
-            log.info('Building network...')
+            input_shape, num_labels = torchdl.get_shape_by_name(a.dataset, a.transformer)
+            _shape = '-'.join(map(str, input_shape + (num_labels,)))
+            log.info('Building network for shape %s (%s with %s)',
+                     _shape, a.dataset, a.transformer)
+
             jvae = CVNet(input_shape, num_labels,
                          type_of_net=a.type,
                          features=a.features,
@@ -260,15 +265,22 @@ if __name__ == '__main__':
                                          f'--optim={jvae.optimizer}' +
                                          f'--sampling={a.latent_sampling}'+
                                          _augment)
-            i = a.job_number
-            save_dir = os.path.join(save_dir_root, f'{i:02d}')
+            job_number = a.job_number
+            if not job_number:
+                with open(os.path.join(job_dir, 'number')) as f:
+                    job_number = int(f.read())
+
+            save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
 
             while os.path.exists(save_dir):
                 log.debug(f'{save_dir} exists')
-                i += 1
-                save_dir = os.path.join(save_dir_root, f'{i:02d}')
+                job_number += 1
+                save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
 
-            jvae.job_number = i
+            jvae.job_number = job_number
+
+            with open(os.path.join(job_dir, 'number'), 'w') as f:
+                    f.write(str(job_number + 1) + '\n')
             
             log.info('Network built, will be saved in')
             log.info(save_dir)

@@ -168,7 +168,7 @@ class ConvFeatures(nn.Sequential):
 class Encoder(nn.Module):
 
     capacity_log_barrier = 0.001
-    encoder_min_dist = 6
+    default_encoder_min_dist = 6
 
     def __init__(self, input_shape, num_labels,
                  y_is_coded=False,
@@ -179,6 +179,7 @@ class Encoder(nn.Module):
                  sampling_size=10,
                  sampling=True,
                  learned_dictionary=False,
+                 dictionary_min_dist=None,
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
@@ -212,10 +213,11 @@ class Encoder(nn.Module):
         centroids = torch.randn(num_labels, latent_dim)
         
         self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
-        """"while np.log(num_labels) - self.capacity() > self.capacity_log_barrier:
-            with torch.no_grad():
-                self.latent_dictionary *= 2
-        """
+
+        if dictionary_min_dist:
+            self.dictionary_dist_lb = dictionary_min_dist
+        else:
+            self.dictionary_dist_lb = self.default_encoder_min_dist
         
     @property
     def sampling_size(self):
@@ -251,14 +253,14 @@ class Encoder(nn.Module):
     def dist_barrier(self, barrier=None):
         
         if barrier is None:
-            barrier = self.encoder_min_dist
+            barrier = self.dictionary_dist_lb
         C = self.num_labels
         dictionary = self.latent_dictionary
-        diag = 2 * barrier * torch.eye(C, device=dictionary.device)
+        diag = 1e10 * barrier * torch.eye(C, device=dictionary.device)
         
         dist = torch.cdist(dictionary, dictionary) + diag
 
-        return -(dist - barrier).log().sum()
+        return - (dist - barrier).log().sum()
 
     def dict_min_distance(self):
 
@@ -272,6 +274,11 @@ class Encoder(nn.Module):
 
         return dist.min()
 
+    def dict_distances(self):
+
+        return torch.cdist(self.latent_dictionary,
+                           self.latent_dictionary)
+    
     def init_dict(self):
 
         dictionary = self.latent_dictionary

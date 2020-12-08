@@ -100,6 +100,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  learned_coder=False,
+                 dictionary_min_dist=None,
                  init_coder=True,
                  coder_capacity_regularization=True,
                  decoder_layer_sizes=[36],
@@ -197,6 +198,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                y_is_coded = self.y_is_coded,
                                sampling_size=latent_sampling,
                                learned_dictionary=learned_coder,
+                               dictionary_min_dist=dictionary_min_dist,
                                activation=activation, sampling=sampling)
 
         if init_coder:
@@ -284,6 +286,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.training = {'sigma': sigma,
                          'sigma_reach': sigma_reach,
                          'learned_coder': learned_coder,
+                         'dictionary_min_dist': self.encoder.dictionary_dist_lb,
                          'coder_capacity_regularization':coder_capacity_regularization,
                          'latent_sampling': latent_sampling,
                          'set': None,
@@ -1610,9 +1613,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         w = 'c:'
         if self.training['learned_coder']:
-            w = +'l'
+            _md = self.training['dictionary_min_dist']
+            w += f'l{_md:.1f}'
         else:
-            w += 'r'
+            w += 'r   '
         v_.append(w)
             
         return ' '.join(v_)
@@ -1658,6 +1662,7 @@ class ClassificationVariationalNetwork(nn.Module):
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
                         'learned_coder': False,
+                        'dictionary_min_dist': None,
                         'sigma_reach': 0,
                         'data_augmentation': [],
                         'fine_tuning': [],
@@ -1725,6 +1730,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],
                   learned_coder=train_params['learned_coder'],
+                  dictionary_min_dist=train_params['dictionary_min_dist'],
                   init_coder=False,
                   optimizer=train_params['optim'],
                   upsampler_channels=params['upsampler'],

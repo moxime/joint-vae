@@ -132,6 +132,7 @@ if __name__ == '__main__':
                                upsampler_channels=a.upsampler,
                                classifier_layer_sizes=a.classifier,
                                learned_coder=a.learned_coder,
+                               dictionary_min_dist=a.dict_min_distance,
                                sigma=a.sigma,
                                sigma_reach=a.sigma_reach,
                                output_activation=a.output_activation)
@@ -244,6 +245,7 @@ if __name__ == '__main__':
                          upsampler_channels=a.upsampler,
                          classifier_layer_sizes=a.classifier,
                          learned_coder=a.learned_coder,
+                         dictionary_min_dist=a.dict_min_distance,
                          sigma=a.sigma,
                          sigma_reach=a.sigma_reach,
                          output_activation=a.output_activation)

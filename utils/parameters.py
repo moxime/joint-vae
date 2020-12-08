@@ -178,6 +178,8 @@ def get_args_for_train(argv=None):
     parser.add_argument('--learned-coder',
                         action='store_true')
 
+    parser.add_argument('--dict-min-distance', type=float)
+    
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)
                         # type=alphanum, nargs='*',

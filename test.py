@@ -13,7 +13,7 @@ import logging
 
 import pandas as pd
 
-from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
+from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
 from utils.save_load import collect_networks, test_results_df, save_json, load_json
 
 
@@ -202,6 +202,7 @@ def test_ood_if(jvae=None,
     
 if __name__ == '__main__':
 
+    hostname = gethostname()
     args = get_args('test')
     
     debug = args.debug
@@ -211,7 +212,7 @@ if __name__ == '__main__':
     log.debug('$ ' + ' '.join(sys.argv))
     if not args.force_cpu:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        log.info(f'Used device: {device}')
+        log.info(f'Used device: {device} on {hostname}')
     else:
         device = torch.device('cpu')
         log.info(f'Used device: {device}')
@@ -248,11 +249,12 @@ if __name__ == '__main__':
     
     if flash:
         try:
-            dict_of_networks = load_json(search_dir, 'networks.json')
+            file_name = f'networks-{hostname}.json'
+            dict_of_networks = load_json(search_dir, file_name)
             list_of_networks = list(dict_of_networks.values())
-            logging.debug('File networks.json loaded')
+            logging.debug(f'File {file_name} loaded')
         except FileNotFoundError:
-            logging.debug('File networks.json not found')
+            logging.debug(f'File {file_name} not found')
             load_networks = True
 
     if load_networks:
@@ -454,7 +456,7 @@ if __name__ == '__main__':
             for n in l: n.pop('net')
             d[l[0]['arch']] = l
 
-        save_json(d, search_dir, 'networks.json')
+        save_json(d, search_dir, f'networks-{hostname}.json')
 
         
     show_best = False

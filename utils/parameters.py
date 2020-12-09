@@ -4,6 +4,22 @@ import logging
 from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 import re, numpy as np
+from socket import gethostname as getrawhostname
+
+
+def gethostname():
+
+    raw_host = getrawhostname()
+
+    if 'lab-ia' in raw_host:
+        return 'labia'
+    if raw_host == 'DESKTOP-DUHAMEL':
+        return 'lss'
+    if raw_host == 'astrov':
+        return 'home'
+
+    return raw_host.split('.')[0]
+    
 
 def set_log(verbose, debug, name='train', job_number=0):
     

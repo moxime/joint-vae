@@ -8,15 +8,18 @@ import os
 import sys
 import argparse
 
-from utils.parameters import alphanum, list_of_alphanums, get_args, set_log
+from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
 from utils.save_load import collect_networks
 
 
 if __name__ == '__main__':
     
+    hostname = gethostname()
+
     list_of_args = get_args()
     
     common_args = list_of_args[0]
+
     
     debug = common_args.debug
     verbose = common_args.verbose
@@ -269,7 +272,7 @@ if __name__ == '__main__':
                                          _augment)
             job_number = a.job_number
             if not job_number:
-                with open(os.path.join(job_dir, 'number')) as f:
+                with open(os.path.join(job_dir, f'number-{hostname}')) as f:
                     job_number = int(f.read())
 
             save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
@@ -281,7 +284,7 @@ if __name__ == '__main__':
 
             jvae.job_number = job_number
 
-            with open(os.path.join(job_dir, 'number'), 'w') as f:
+            with open(os.path.join(job_dir, f'number-{hostname}'), 'w') as f:
                     f.write(str(job_number + 1) + '\n')
             
             log.info('Network built, will be saved in')

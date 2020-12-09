@@ -322,8 +322,9 @@ def get_args_for_test():
     help = 'Minimum accepted before retesting'
     parser.add_argument('-T', '--min-test-sample-size',
                         type=int, metavar='N0', default=0)
-    parser.add_argument('-u', '--unfinished', action='store_true',
-                        help='Even unfinished training')
+    parser.add_argument('-F', '--only-finished', action='store_false',
+                        dest='unfinished',
+                        help='Only finished training')
 
     help = 'Number of sample to comute OOD FPR'
     parser.add_argument('-o', '--ood', type=int, nargs='?',
@@ -339,6 +340,10 @@ def get_args_for_test():
     parser.add_argument('--flash', action='store_true')
     
     parser.add_argument('--latex', action='store_true')
+
+    parser.add_argument('--expand', '-e' , action='count', default=0)
+
+    parser.add_argument('--tpr', nargs='*', default=[95], type=int)
     
     is_true = ParamFilter()
 

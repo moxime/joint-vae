@@ -37,10 +37,12 @@ def stdout_as_debug():
         sys.stdout = orig
 
 
-def modify_getter(getter, **added_kw):
+def modify_getter(getter, pretransform=None, **added_kw):
 
     def modified_getter(*a, **kw):
 
+        if 'transform' in kw and pretransform:
+            kw['transform'] = transforms.Compose([pretransform, kw['transform']])
         return getter(*a, **added_kw, **kw)
 
     return modified_getter
@@ -83,9 +85,16 @@ set_dict['fashion']['getter'] = datasets.FashionMNIST
 set_dict['fashion']['classes'] = datasets.FashionMNIST.classes
 
 set_dict['letters'] = set_dict['mnist'].copy()
+
+pretransform = transforms.Compose([
+                    lambda img: transforms.functional.rotate(img, -90),
+                    lambda img: transforms.functional.hflip(img)])
+
 set_dict['letters'].update({'classes': list(string.ascii_lowercase),
                             'labels': 26,
-                            'getter': modify_getter(datasets.EMNIST, split='letters')
+                            'getter': modify_getter(datasets.EMNIST,
+                                                    pretransform=pretransform,
+                                                    split='letters')
 })
 
 

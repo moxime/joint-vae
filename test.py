@@ -462,7 +462,9 @@ if __name__ == '__main__':
     show_best = False
     show_best = True
 
-    tpr = [i/100 for i in range(90, 100)]
+    # tpr = [i/100 for i in range(90, 100)]
+    tpr = [t/100 for t in args.tpr]
+
     df = test_results_df(enough_trained, first_method=True, ood=True, tpr=tpr)
 
 

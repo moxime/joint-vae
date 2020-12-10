@@ -6,6 +6,7 @@ from contextlib import contextmanager
 import sys
 import os
 import logging
+import string
 
 
 class LoggerAsfile(object):

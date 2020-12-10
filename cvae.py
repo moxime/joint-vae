@@ -971,11 +971,11 @@ class ClassificationVariationalNetwork(nn.Module):
                                                  shuffle=shuffle,
                                                  batch_size=batch_size)
 
-            logging.debug(f'Computing measures for set {oodset.name}')
+            logging.debug(f'Computing measures for set {oodset.name} with {ood_n_batch} batches')
 
             t_0 = time.time()
             iter_ = iter(loader)
-            for i in range(test_n_batch):
+            for i in range(ood_n_batch):
 
                 data = next(iter_)
                 x = data[0].to(device)
@@ -1008,8 +1008,6 @@ class ClassificationVariationalNetwork(nn.Module):
                               time_per_i = t_per_i,
                               batch_size=batch_size,
                               preambule = oodset.name)
-
-                i += 1
 
             for m in ood_methods:
                 fpr_and_thresholds = [fpr_at_tpr(fpr_[m], tpr_[m], a,

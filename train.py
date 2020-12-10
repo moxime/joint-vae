@@ -202,8 +202,7 @@ if __name__ == '__main__':
             log.debug('%s: %s', *k)
 
         trainset, testset = torchdl.get_dataset(a.dataset, transformer=a.transformer)
-        oodsets = [torchdl.get_dataset_from_dict(dict_of_sets,
-                                                 n, transformer)[1]
+        oodsets = [torchdl.get_dataset(n, transformer=a.transformer)[1]
                    for n in testset.same_size]
         
         log.debug(f'{trainset.name} dataset loaded')

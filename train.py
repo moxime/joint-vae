@@ -202,7 +202,10 @@ if __name__ == '__main__':
             log.debug('%s: %s', *k)
 
         trainset, testset = torchdl.get_dataset(a.dataset, transformer=a.transformer)
-
+        oodsets = [torchdl.get_dataset_from_dict(dict_of_sets,
+                                                 n, transformer)[1]
+                   for n in testset.same_size]
+        
         log.debug(f'{trainset.name} dataset loaded')
         
         input_shape, num_labels = torchdl.get_shape_by_name(a.dataset, a.transformer)
@@ -329,6 +332,7 @@ if __name__ == '__main__':
                            batch_size=batch_size,
                            device=device,
                            testset=testset,
+                           oodsets=oodsets,
                            data_augmentation=a.data_augmentation,
                            fine_tuning=a.fine_tuning,
                            sample_size=test_sample_size,  # 10000,

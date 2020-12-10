@@ -1130,6 +1130,7 @@ class ClassificationVariationalNetwork(nn.Module):
               epochs=50,
               batch_size=100, device=None,
               testset=None,
+              oodsets=None,
               acc_methods=None,
               sigma=None,
               fine_tuning=False,
@@ -1139,6 +1140,7 @@ class ClassificationVariationalNetwork(nn.Module):
               kl_loss_weight=None,
               sample_size=1000,
               full_test_every=10,
+              ood_detection_every=10,
               train_accuracy=False,
               save_dir=None):
         """
@@ -1240,6 +1242,10 @@ class ClassificationVariationalNetwork(nn.Module):
             
         if not acc_methods:
             acc_methods = self.predict_methods
+
+        if oodsets:
+
+            ood_methods = self.ood_methods
         
         print_results(0, 0, -2, epochs,
                       metrics=self.metrics,
@@ -1278,8 +1284,29 @@ class ClassificationVariationalNetwork(nn.Module):
                 # print(num_batch, sample_size)
                 full_test = ((epoch - done_epochs) and
                              epoch % full_test_every == 0)
+
+                ood_detection = ((epoch - done_epochs) and
+                             epoch % ood_detection_every == 0)
+
                 with torch.no_grad():
 
+                    if oodsets and ood_detection:
+
+
+                        self.ood_detection_rates(oodsets=oodsets, testset=testset,
+                                                 batch_size=test_batch_size,
+                                                 num_batch=len(testset) // batch_size,
+                                                 print_result='*')
+
+                        print_results(0, 0, -2, epochs,
+                                      metrics=self.metrics,
+                                      loss_components=self.loss_components,
+                                      acc_methods=acc_methods)
+                        print_results(0, 0, -1, epochs,
+                                      metrics=self.metrics,
+                                      loss_components=self.loss_components,
+                                      acc_methods=acc_methods)
+                    
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=test_batch_size,
                                                   num_batch='all' if full_test else num_batch,

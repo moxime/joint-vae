@@ -36,7 +36,15 @@ def stdout_as_debug():
         sys.stdout = orig
 
 
+def modify_getter(getter, **added_kw):
 
+    def modified_getter(*a, **kw):
+
+        return getter(*a, **added_kw, **kw)
+
+    return modified_getter
+
+        
 def choose_device(device=None):
     """
 
@@ -72,6 +80,13 @@ set_dict = {'cifar10': {'shape': (3, 32, 32),
 set_dict['fashion'] = set_dict['mnist'].copy()
 set_dict['fashion']['getter'] = datasets.FashionMNIST
 set_dict['fashion']['classes'] = datasets.FashionMNIST.classes
+
+set_dict['letters'] = set_dict['mnist'].copy()
+set_dict['letters'].update({'classes': list(string.ascii_lowercase),
+                            'labels': 26,
+                            'getter': modify_getter(datasets.EMNIST, split='letters')
+})
+
 
 """
 def _lsun_getter(train=True, **kw):

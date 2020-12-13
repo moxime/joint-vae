@@ -903,7 +903,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         shuffle = False
         test_n_batch = len(testset) // batch_size
-        ood_n_batchs = [len(oodset) // batch_size for oodset in oodsets]
+        ood_n_batchs = [min(len(oodset), len(testset)) // batch_size for oodset in oodsets]
         if type(num_batch) is int:
             shuffle = True
             test_n_batch = min(num_batch, test_n_batch)
@@ -991,7 +991,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 meaned_measures = {m: i_ood_measures[m][len(ind_measures):].mean()
                                    for m in ood_methods}
                 for m in ood_methods:
-                    logging.debug(f'Computing roc curves for with metrics {m}')
+                    # logging.debug(f'Computing roc curves for with metrics {m}')
                     fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ood_labels,
                                                                   i_ood_measures[m])
                     auc_[m] = auc(fpr_[m], tpr_[m])

@@ -84,7 +84,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     ood_methods_per_type ={'cvae': ('max', 'mean', 'std', 'mag'), # , 'mag', 'IYx'),
                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
-                           'vae': ('max'),
+                           'vae': ('max',),
                            'vib': ()}
 
     def __init__(self,

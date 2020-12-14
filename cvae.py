@@ -84,7 +84,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     ood_methods_per_type ={'cvae': ('max', 'mean', 'std', 'mag'), # , 'mag', 'IYx'),
                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
-                           'vae': (),
+                           'vae': ('max'),
                            'vib': ()}
 
     def __init__(self,
@@ -625,7 +625,9 @@ class ClassificationVariationalNetwork(nn.Module):
     def batch_dist_measures(self, logits, losses, methods):
 
         dist_measures = {m: None for m in methods}
-
+        for m in methods:
+            assert m in self.ood_methods
+        
         loss = losses['total']
         ref = -loss.min(axis=0)[0]
         d_logp = -loss - ref

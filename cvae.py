@@ -1640,10 +1640,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         w = 'c:'
         if self.training['learned_coder']:
-            _md = self.training['dictionary_min_dist']
-            w += f'l{_md:.1f}'
+                w += 'l'
         else:
-            w += 'r   '
+            w += 'r'
+        _md = self.training['dictionary_min_dist']
+        if _md:
+            w += f'{_md:.1f}'
+        
         v_.append(w)
             
         return ' '.join(v_)

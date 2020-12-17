@@ -283,6 +283,11 @@ class Encoder(nn.Module):
 
         dictionary = self.latent_dictionary
         learned = dictionary.requires_grad
+
+        dictionary.requires_grad_(False)
+        while self.dict_min_distance() < 2 * self.dictionary_dist_lb:
+            dictionary *= 2
+        
         dictionary.requires_grad_(True)
         for _ in range(1000):
             L = dictionary.pow(2).sum()
@@ -292,6 +297,8 @@ class Encoder(nn.Module):
                 dictionary.grad.zero_()
 
         dictionary.requires_grad_(learned)
+
+        return self.dict_min_distance() >= self.dictionary_dist_lb 
             
     def forward(self, x, y=None):
         """ 

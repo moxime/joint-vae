@@ -494,7 +494,7 @@ if __name__ == '__main__':
     pd.set_option('max_colwidth', 15)
 
     for s, d in df.items():
-        print('=' * 80)
+        print('\n' * 2 + '=' * 120)
         print(f'Results for {s}')
         print(d.to_string(na_rep='', decimal=',', formatters=formats[s]))
 

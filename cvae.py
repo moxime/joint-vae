@@ -441,7 +441,10 @@ class ClassificationVariationalNetwork(nn.Module):
             t = x
 
         t_shape = t.shape
-        t = t.unsqueeze(0)
+
+        if len(t_shape) == len(self.input_shape):
+            pass
+            #t = t.unsqueeze(0)
         y_shape = (1,) + x.shape[:-len(self.input_shape)]
         
         if x_repeated_along_classes:
@@ -469,7 +472,7 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             x_reco, y_est, mu, log_var, z = self.forward(t, y_in, x)
 
-        # print('*** cvae:446 logits:', *y_est.shape)
+        # print('*** cvae:472 logits:', 't:', *t.shape, 'x_:', *x_reco.shape)
             
         batch_quants = {}
         batch_losses = {}
@@ -573,7 +576,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.is_vib:
             pass
             # print('******* x_', x_reco.shape)
-            x_reco = x_reco.mean(0)
+            # x_reco = x_reco.mean(0)
 
         out = (x_reco, y_est.mean(0), batch_losses, total_measures)
         if z_output:

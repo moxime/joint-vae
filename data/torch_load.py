@@ -98,6 +98,11 @@ set_dict['letters'].update({'classes': list(string.ascii_lowercase),
 })
 
 
+# set_dict['lsun-c'] = set_dict['cufar10'].copy()
+
+# crop_transform = transforms.RandomCrop((32, 32))
+
+
 """
 def _lsun_getter(train=True, **kw):
     set_ = datasets.LSUN(classes='train' if train else 'test', **kw)

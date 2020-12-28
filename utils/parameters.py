@@ -195,6 +195,8 @@ def get_args_for_train(argv=None):
                         action='store_true')
 
     parser.add_argument('--dict-min-distance', type=float)
+
+    parser.add_argument('--no-dict-distance-regularization', action='store_false', dest='dict_distance_regularization')
     
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)

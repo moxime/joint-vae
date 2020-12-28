@@ -136,6 +136,7 @@ if __name__ == '__main__':
                                classifier_layer_sizes=a.classifier,
                                learned_coder=a.learned_coder,
                                dictionary_min_dist=a.dict_min_distance,
+                               coder_capacity_regularization=a.dict_distance_regularization,
                                sigma=a.sigma,
                                sigma_reach=a.sigma_reach,
                                output_activation=a.output_activation)
@@ -251,6 +252,7 @@ if __name__ == '__main__':
                          classifier_layer_sizes=a.classifier,
                          learned_coder=a.learned_coder,
                          dictionary_min_dist=a.dict_min_distance,
+                         coder_capacity_regularization=a.dict_distance_regularization,
                          sigma=a.sigma,
                          sigma_reach=a.sigma_reach,
                          output_activation=a.output_activation)

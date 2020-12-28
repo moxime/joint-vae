@@ -6,8 +6,7 @@ from utils.print_log import debug_nan
 
 def onehot_encoding(y, C):
 
-    s_y = y.squeeze().size()
-    s_y = y.size() 
+    s_y = y.shape
     s_ = s_y + (1,)
     s = s_y + (C,)
 
@@ -308,7 +307,7 @@ class Encoder(nn.Module):
         """
         if y is not None:
             pass
-            # print('*** v_l:239', 'x:', *x.shape, 'y:', *y.shape)
+            print('*** v_l:311', 'x:', *x.shape, 'y:', *y.shape)
         else:
             pass
             # print('*** v_l:239', 'x:', *x.shape)

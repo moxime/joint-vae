@@ -442,8 +442,8 @@ class ClassificationVariationalNetwork(nn.Module):
         
         if self.features:
             t = self.features(x)
-            print('*** cvae:444 x:', *x.shape,
-                  't:', *t.shape)
+            # print('*** cvae:444 x:', *x.shape,
+            #      't:', *t.shape)
         else:
             t = x
 
@@ -469,10 +469,10 @@ class ClassificationVariationalNetwork(nn.Module):
                            for c in range(C)], dim=0)
             y_shape = y.shape
         
-        _ = ('*',) if y is None else y.shape
-        print('***', 'cvae:470',
-              'y:', *_,
-              't:', *t.shape)
+        # _ = ('*',) if y is None else y.shape
+        # print('***', 'cvae:470',
+        #       'y:', *_,
+        #       't:', *t.shape)
                 
         y_in = y.view(y_shape) if self.y_is_coded else None
         

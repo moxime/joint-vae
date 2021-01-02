@@ -313,10 +313,10 @@ class Encoder(nn.Module):
         """
         if y is not None:
             pass
-            print('*** v_l:311', 'x:', *x.shape, 'y:', *y.shape)
+            # print('*** v_l:311', 'x:', *x.shape, 'y:', *y.shape)
         else:
             pass
-            print('*** v_l:319', 'x:', *x.shape)
+            # print('*** v_l:319', 'x:', *x.shape)
             
         u = x if y is None else torch.cat((x, y), dim=-1) 
 

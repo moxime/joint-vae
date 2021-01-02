@@ -3,11 +3,11 @@ from torch import nn
 import numpy as np
 from torch.nn import functional as F
 from utils.print_log import debug_nan
+import logging
 
 def onehot_encoding(y, C):
 
-    s_y = y.squeeze().size()
-    s_y = y.size() 
+    s_y = y.shape
     s_ = s_y + (1,)
     s = s_y + (C,)
 
@@ -281,6 +281,7 @@ class Encoder(nn.Module):
     
     def init_dict(self):
 
+        logging.debug('Initialization of dictionary')
         dictionary = self.latent_dictionary
         learned = dictionary.requires_grad
 
@@ -298,6 +299,10 @@ class Encoder(nn.Module):
 
         dictionary.requires_grad_(learned)
 
+        logging.debug('Dictionary initialized with min distance '
+                      + f'{self.dict_min_distance():.2f} '
+                      + f'and norm {L:.2f}')
+                
         return self.dict_min_distance() >= self.dictionary_dist_lb 
             
     def forward(self, x, y=None):
@@ -308,7 +313,7 @@ class Encoder(nn.Module):
         """
         if y is not None:
             pass
-            # print('*** v_l:239', 'x:', *x.shape, 'y:', *y.shape)
+            # print('*** v_l:311', 'x:', *x.shape, 'y:', *y.shape)
         else:
             pass
             # print('*** v_l:239', 'x:', *x.shape)

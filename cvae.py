@@ -441,8 +441,9 @@ class ClassificationVariationalNetwork(nn.Module):
         C = self.num_labels
         
         if self.features:
-            # print('*** l389', x.shape)
             t = self.features(x)
+            print('*** cvae:444 x:', *x.shape,
+                  't:', *t.shape)
         else:
             t = x
 
@@ -450,27 +451,29 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if len(t_shape) == len(self.input_shape):
             pass
-            #t = t.unsqueeze(0)
-        y_shape = (1,) + x.shape[:-len(self.input_shape)]
+            # t = t.unsqueeze(0)
+            
+        y_shape = x.shape[:-len(self.input_shape)]
         
         if x_repeated_along_classes:
             # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
             t = t.expand(C,  *t_shape)
-
             # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
 
-        if losses_computed_for_each_class:
-            y = torch.cat([c * torch.ones(y_shape, dtype=int, device=x.device) for c in range(C)],
-                          dim=0)
-            y_shape = y.shape
 
-        """
+        if losses_computed_for_each_class:
+            y_shape_per_class = (1,) + y_shape
+            y = torch.cat([c * torch.ones(y_shape_per_class,
+                                          dtype=int,
+                                          device=x.device)
+                           for c in range(C)], dim=0)
+            y_shape = y.shape
+        
         _ = ('*',) if y is None else y.shape
-        print('***', 'cvae:466',
+        print('***', 'cvae:470',
               'y:', *_,
               't:', *t.shape)
-        """
-        
+                
         y_in = y.view(y_shape) if self.y_is_coded else None
         
         if self.features:

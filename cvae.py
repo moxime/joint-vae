@@ -144,6 +144,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self.y_is_coded = self.is_jvae or self.is_xvae
         self.y_is_decoded = self.is_vib or self.is_jvae
 
+        self.coder_has_dict = self.is_cvae or self.is_xvae
+        
         self.x_is_generated = not self.is_vib
         
         
@@ -369,10 +371,10 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             y_onehot = onehot_encoding(y, self.num_labels).float()
 
-        print('**** cvae l. 370',
+        """"print('**** cvae l. 370',
               'y:', *y.shape if y is not None else ('*',),
               'y_01:', *y_onehot.shape if y is not None else ('*',))
-
+        """
         try:
             z_mean, z_log_var, z = self.encoder(x_, y_onehot)
             # z of size LxN1x...xNgxK
@@ -432,7 +434,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         y_in_input = y is not None
-        x_repeated_along_classes = self.is_jvae and not y_in_input
+        x_repeated_along_classes = self.y_is_coded and not y_in_input
         losses_computed_for_each_class = not y_in_input and not (self.is_vae or self.is_vib)
 
         x_is_decoded = not self.is_vib
@@ -453,8 +455,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         if x_repeated_along_classes:
             # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
-            rep_dims = (C, ) + (1,) * len(t_shape)
-            t = t.repeat(rep_dims)
+            t = t.expand(C,  *t_shape)
 
             # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
 
@@ -462,9 +463,10 @@ class ClassificationVariationalNetwork(nn.Module):
             y = torch.cat([c * torch.ones(y_shape, dtype=int, device=x.device) for c in range(C)],
                           dim=0)
             y_shape = y.shape
-            
-        """"_ = ('*',) if y is None else y.shape
-        print('***', 'cvae l 429',
+
+        """
+        _ = ('*',) if y is None else y.shape
+        print('***', 'cvae:466',
               'y:', *_,
               't:', *t.shape)
         """
@@ -511,7 +513,7 @@ class ClassificationVariationalNetwork(nn.Module):
             snr = total_measures['xpow'] / total_measures['mse']
             total_measures['snr'] = 10 * np.log10(snr)
             
-        if not (self.is_cvae or self.is_vae):
+        if self.y_is_decoded:
             y_target = y if y_in_input or losses_computed_for_each_class else None
             batch_quants['cross_y'] = x_loss(y_target,
                                              y_est,
@@ -519,10 +521,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
             # print('*** cvae:485 cross_y', *batch_quants['cross_y'].shape)
             
-        dictionary = self.encoder.latent_dictionary if self.is_cvae else None
+        dictionary = self.encoder.latent_dictionary if self.coder_has_dict else None
 
         kl_l, zdist = kl_loss(mu, log_var,
-                              y=y if self.is_cvae else None,
+                              y=y if self.coder_has_dict else None,
                               latent_dictionary=dictionary,
                               out_zdist=True,
                               batch_mean=False)
@@ -537,7 +539,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_losses['zdist'] = zdist
         batch_losses['total'] = torch.zeros_like(batch_quants['latent_kl'])
 
-        if self.is_cvae:
+        if self.coder_has_dict:
             # batch_losses['zdist'] = 0
             batch_quants['imut-zy'] = self.encoder.capacity()
             batch_quants['ld-norm'] = self.encoder.latent_dictionary.pow(2).mean()
@@ -547,7 +549,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 #                     batch_quants[k].item()) / (batch + 1)
                 total_measures[k] = batch_quants[k].item()
         
-        if not self.is_vib:
+        if self.x_is_generated:
             batch_mse = batch_quants['mse']
             D = np.prod(self.input_shape)
             sigma = self._sigma
@@ -557,7 +559,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_losses['total'] += batch_losses['cross_x'] 
             
-        if not (self.is_cvae or self.is_vae):
+        if self.y_is_decoded:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',
                   'y', *batch_losses['cross_y'].shape,
@@ -694,10 +696,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     with torch.no_grad():
                         self.evaluate(x, y=y)
-                self.training['max_batch_sizes'][which] = batch_size
+                self.training['max_batch_sizes'][which] = batch_size // 2
                 logging.debug('Found max batch size for %s : %s',
                               which, batch_size)
-                return batch_size
+                return batch_size // 2
             except RuntimeError as e:
                 logging.debug('Batch size of %s too much for %s.',
                               batch_size,
@@ -705,7 +707,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 _s = str(e).split('\n')[0]
                 logging.debug(_s)
                 batch_size//=2
-
+                
     @property
     def max_batch_sizes(self):
         # logging.debug('Calling max bathc size')

@@ -120,18 +120,14 @@ def get_args_for_train(argv=None):
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--config', '-c', default='DEFAULT')
     
-    conf_parser.add_argument('--grid-file', default='grid.ini')
-
     conf_args, remaining_args = conf_parser.parse_known_args(argv)
     config = configparser.ConfigParser()
     config.read(conf_args.config_file)
 
     config_params = config[conf_args.config]
 
-    default_test_sample_size = 1000 
     defaults = {'batch_size': 100,
                 'epochs':100, 
-                'test_sample_size': default_test_sample_size,
                 'job_dir': './jobs'}
     
     defaults.update(config_params)
@@ -156,8 +152,7 @@ def get_args_for_train(argv=None):
         # print('****', k, defaults[k])
         logging.debug(k, defaults[k])
 
-    help = 'epochs for training'
-
+    help = f'epochs for training (default is {defaults["epochs"]})'
     parser.add_argument('--epochs', type=int, help=help)
 
     parser.add_argument('-m', '--batch-size', type=int, metavar='M')
@@ -172,7 +167,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 
-    parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae'], default='jvae')
+    parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae'])
     
     parser.add_argument('-s', '--sigma',
                         type = float,
@@ -196,31 +191,30 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--dict-min-distance', type=float)
 
-    parser.add_argument('--no-dict-distance-regularization', action='store_false', dest='dict_distance_regularization')
+    parser.add_argument('--no-dict-distance-regularization', action='store_false',
+                        dest='dict_distance_regularization')
     
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)
-                        # type=alphanum, nargs='*',
-                        # help='several dims can be provided for several trainings')
 
     parser.add_argument('-L', '--latent-sampling', metavar='L', type=int)
 
     parser.add_argument('--features', metavar='NAME',
                         choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none'])
 
-    parser.add_argument('--pretrained-features')
+    parser.add_argument('--pretrained-features', metavar='feat.pth')
     parser.add_argument('--no-features', action='store_true')
 
-    parser.add_argument('--pretrained-upsampler')
+    parser.add_argument('--pretrained-upsampler', metavar='upsampler.pth')
 
     parser.add_argument('--fine-tuning', action='store_true')
 
     parser.add_argument('--encoder', type=alphanum, metavar='W', nargs='*')
-    parser.add_argument('--features-channels', type=alphanum, nargs='*')
-    parser.add_argument('--conv-padding', type=alphanum)
-    parser.add_argument('--decoder', type=alphanum, nargs='*')
-    parser.add_argument('--upsampler', type=alphanum, nargs='*')
-    parser.add_argument('--classifier', type=alphanum, nargs='*')
+    parser.add_argument('--features-channels', type=alphanum, metavar='C', nargs='*')
+    parser.add_argument('--conv-padding', type=alphanum, metavar='P')
+    parser.add_argument('--decoder', type=alphanum, nargs='*', metavar='W')
+    parser.add_argument('--upsampler', type=alphanum, nargs='*', metavar='C')
+    parser.add_argument('--classifier', type=alphanum, nargs='*', metavar='W')
 
     parser.add_argument('--dataset', 
                         choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10'])
@@ -238,7 +232,7 @@ def get_args_for_train(argv=None):
                         nargs='?',
                         const='encoder')
 
-    parser.add_argument('--optimizer', choices=('sgd', 'adam'), default='adam')
+    parser.add_argument('--optimizer', choices=('sgd', 'adam'))
     parser.add_argument('--lr', default=0, type=float)
     parser.add_argument('--lr-decay', default=0, type=float)
     
@@ -246,15 +240,12 @@ def get_args_for_train(argv=None):
         # help += '(may have a different sigma)'
     parser.add_argument('--refit', action='store_true')
 
-    help = 'Find and finish begun trainings'
-    parser.add_argument('-F', '--finish', default=None, const=1,
-                        nargs='?',
-                        type=int, help=help) 
-
-    parser.add_argument('-R', '--repeat', default=1, type=int)
+    help = 'Find by job number and resume begun training'
+    parser.add_argument('-R', '--resume', default=None,
+                        type=int, help=help, metavar='#') 
     
-    help = 'save train(ing|ed) network in DIR/<architecture/i>'
-    help += 'unless load_dir is specified'
+    help = 'save train(ing|ed) network in DIR/<architecture/#>'
+
     parser.add_argument('--job-dir', metavar='DIR/',
                         help=help)
 
@@ -262,14 +253,6 @@ def get_args_for_train(argv=None):
                         type=int,
                         metavar='#',
                         default=0)
-    
-    help = 'where to load the network'
-    help += ' (overrides all other parameters)'
-    parser.add_argument('load_dir',
-                        help=help,
-                        nargs='?', default=None)
-
-    parser.add_argument('--grid-config', default=None)
 
     args = parser.parse_args(remaining_args)
         
@@ -277,37 +260,11 @@ def get_args_for_train(argv=None):
     args.verbose = conf_args.verbose
     args.config_file = conf_args.config_file
     args.config = conf_args.config
-
-
     
     if args.features.lower() == 'none' or args.no_features:
         args.features=None
 
-    if args.grid_config:
-        config = configparser.ConfigParser()
-        config.read(args.grid_file)
-
-        grid_params = config[args.grid_config]
-
-        args.repeat = grid_params.getint('repeat', 1)
-
-        list_of_args = [args]
-        for param_name in grid_params:
-            final_list_of_args = []
-            # print(param_name)
-            param_values = list_of_alphanums(grid_params[param_name])
-            # print(param_values)
-            for args in list_of_args:
-                for value in param_values:
-                    d = vars(args)
-                    d[param_name] = value
-                    final_list_of_args.append(argparse.Namespace(**d))
-            list_of_args = final_list_of_args.copy()
-        # creates a list of args
-
-        return list_of_args
-    
-    return [args]
+    return args
 
 
 def get_args_for_test():

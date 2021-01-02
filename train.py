@@ -20,20 +20,20 @@ if __name__ == '__main__':
     
     debug = args.debug
     verbose = args.verbose
-    repeat = args.repeat
+
     job_dir = args.job_dir
     job_number = args.job_number
+                
+    log = set_log(verbose, debug, job_number=job_number)
+
+    log.debug('$ ' + ' '.join(sys.argv))
 
     if not job_number:
         try:
             with open(os.path.join(job_dir, f'number-{hostname}')) as f:
                 job_number = int(f.read())    
         except FileNotFoundError:
-            log.warning(f'File number-{hostname} not found in {job-dir}')
-                
-    log = set_log(verbose, debug, job_number=job_number)
-
-    log.debug('$ ' + ' '.join(sys.argv))
+            log.warning(f'File number-{hostname} not found in {job_dir}')
 
     for k in args.__dict__.items():
         log.debug('%s: %s', *k)
@@ -67,10 +67,18 @@ if __name__ == '__main__':
 
     input_shape, num_labels = torchdl.get_shape_by_name(args.dataset, args.transformer)
 
-    rebuild = args.load_dir is None
+    rebuild = not args.resume
+
+    args.optim_params = {
+        'optim_type': args.optimizer,
+        'lr': args.lr,
+        'lr_decay':args.lr_decay,
+        }
 
     if not rebuild:
         try:
+            log.error('resume action not implemented')
+            sys.exit(1)
             log.info('Loading network in %s', args.load_dir)
             jvae = CVNet.load(args.load_dir, load_state=True)
             log.debug(f'Network loaded')

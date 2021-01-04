@@ -3,6 +3,181 @@ import numpy as np
 import logging
 import torch
 import pandas as pd
+import sys
+
+class Outputs:
+
+    EVERY_BATCH = 20
+    END_OF_EPOCH = 10
+    END_OF_SET = 0
+
+    unix_tags = [('%B', '\033[1m'),
+                 ('%b', '\033[0m')]
+
+    no_style_tags =  [('%B', ''),
+                      ('%b', '')]
+    
+    def __init__(self):
+
+        stdout = {'stream': sys.stdout, 'when':self.EVERY_BATCH, 'tags':self.unix_tags}
+        self.streams = [stdout]
+        self.files = []
+
+    def format(self, string, tags=no_style_tags):
+
+        s = string
+        for pair in tags:
+            s = s.replace(*pair)
+
+        return s
+
+    def add_file(self, path, when=EVERY_BATCH, tags=unix_tags):
+
+        self.files.append({'path': path, 'when': when, 'tags': tags})
+        
+    def write(self, string, when=END_OF_EPOCH):
+
+        for stream in self.streams:
+            if stream['when'] >= when:
+                stream['stream'].write(self.format(string, stream['tags']))
+
+        for f in self.files:
+            if f['when'] >= when:
+                with open(f['path'], 'a') as f_:
+                    f_.write(self.format(string, f['tags']))
+                    f_.flush()
+
+    def results(self, i, per_epoch, epoch, epochs,
+                loss_components=None,
+                losses=None,
+                acc_methods=(),
+                accuracies=None,
+                metrics=(),
+                measures=None,
+                time_per_i=0, batch_size=100,
+                preambule='',
+                end_of_epoch='\n'):
+
+        if preambule == 'train':
+            preambule = '%B' + preambule
+            end_of_format = '%b'
+        else:
+            end_of_format =''
+
+        no_loss = losses is None
+        no_metrics = metrics is None
+
+        K_epochs = 5
+        K_float = 10
+        K_preambule = 9
+        
+        num_format = {'default': '{' + f':^{K_float}.2e' + '}',
+                      'snr': '{' + f':{K_float-4}.1f' + '} dB '}
+
+        if epoch == -2:
+            i = per_epoch - 1        
+            preambule = f'{"epoch":_^{2 * K_epochs}}{preambule:_>{K_preambule}}_'
+            if loss_components:
+                length = len('|'.join(f'{k:^10}' for k in loss_components))
+                loss_str = f'{"losses":_^{length}}'
+            else: loss_str = ''
+            if metrics:
+                length = len('|'.join(f'{k:^10}' for k in metrics))
+                metrics_str = f'{"metrics":_^{length}}'
+            else: metrics_str = ''
+
+        elif epoch == -1:
+            i = per_epoch - 1
+            preambule = f'{" ":^{2 * K_epochs}}{preambule:>{K_preambule}} '
+
+            if loss_components:
+                length = len('|'.join(f'{k:^{K_float}}' for k in loss_components))
+                loss_str = '|'.join(f'{k:^{K_float}}' for k in loss_components)
+            else: loss_str = ''
+            if metrics:
+                length = len('|'.join(f'{k:^{K_float}}' for k in metrics))
+                metrics_str = '|'.join(f'{k:^{K_float}}' for k in metrics)
+            else: metrics_str=''
+            """
+            elif epoch == 0:
+                preambule = f'{" ":^{2 * Kep + 1}} {preambule:>5} |'
+
+                if loss_components:
+                    loss_str = '|'.join(f'{losses.get(k, 0):^10.2e}'
+                                        for k in loss_components)
+                else:
+                    loss_str = ''
+            """     
+        else:
+            if epoch:
+                preambule = f'{epoch:{K_epochs}d}/{epochs:<{K_epochs}d} {preambule:>{K_preambule}} '
+            else:
+                preambule = f'{preambule:>{K_preambule + 2 * K_epochs}} '
+
+            if loss_components:
+
+                if no_loss:
+                    loss_str = '|'.join(K_float * ' ' for k in loss_components)
+                else:
+                    formatted = {k: num_format.get(k, num_format['default'])
+                                 for k in loss_components}
+                    value = {k: losses.get(k, np.nan)
+                             for k in loss_components}
+
+                    loss_str = '|'.join(formatted[k].format(value[k])
+                                        for k in loss_components)
+            else: loss_str = ''
+            if metrics:
+                if no_metrics:
+                    metrics_str = '|'.join(K_float * ' ' for k in metrics)
+                else:
+                    formatted = {k: num_format.get(k, num_format['default'])
+                             for k in metrics}
+                    value = {k: measures.get(k, np.nan)
+                             for k in metrics}
+
+                    metrics_str = '|'.join(formatted[k].format(value[k])
+                                           for k in metrics)
+
+            else: metrics_str = ''
+
+        if epoch == -2:
+            length = len('|'.join(f'{k:^9}' for k in acc_methods)) 
+            acc_str = f'{"accuracy":_^{length}}'
+        elif epoch == -1: 
+            acc_str = '|'.join(f'{k:^9}' for k in acc_methods)
+        elif accuracies:
+            acc_str_ = []
+            for k in acc_methods:
+                acc_str_.append(f' {accuracies[k]:7.2%} ')
+            acc_str = '|'.join(acc_str_)
+        else:
+            acc_str = '|'.join(9 * ' ' for k in acc_methods)
+
+        if time_per_i > 0:
+            time_per_i = Time(time_per_i)
+            if i < per_epoch - 1:
+                eta_str = f' {time_per_i / batch_size:>9}/i'
+                eta_str += f'   eta: {time_per_i * (per_epoch - i):<9}'
+            else:
+                eta_str = f' {time_per_i / batch_size:>9}/i'
+                eta_str += f' total: {time_per_i * per_epoch:<9}'
+
+        else:
+            eta_str = ' '
+
+        strings = [s for s in [preambule,
+                               loss_str,
+                               metrics_str,
+                               acc_str + end_of_format,
+                               eta_str] if s]
+
+        line = '\r' + '||'.join(strings) + ' '
+        self.write(line, when=self.EVERY_BATCH)
+
+        if i == per_epoch - 1:
+            self.write(line + '\n', when=self.END_OF_EPOCH) 
+
 
 def print_epoch(i, per_epoch, epoch, epochs, loss,
                 snake='=>', blinker='o ', line_length=50,
@@ -20,140 +195,6 @@ def print_epoch(i, per_epoch, epoch, epochs, loss,
     print(f' (batch {i+1:{Ki}d}/{per_epoch})',
           end = end_of_epoch if i == per_epoch - 1 else '')
     # print(f' {blinker[i%len(blinker)]}', end='')
-
-
-def print_results(i, per_epoch, epoch, epochs,
-                  loss_components=None,
-                  losses=None,
-                  acc_methods=(),
-                  accuracies=None,
-                  metrics=(),
-                  measures=None,
-                  time_per_i=0, batch_size=100,
-                  preambule='',
-                  end_of_epoch='\n'):
-
-    bold_esc = '\033[1m'
-    end_esc = ''
-    if preambule == 'train':
-        preambule = bold_esc + preambule
-        end_esc = '\033[0m'
-        
-    no_loss = losses is None
-    no_metrics = metrics is None
-    
-    Kep = 4
-    Kn = 10
-    num_format = {'default': '{' + f':^{Kn}.2e' + '}',
-                  'snr': '{' + f':{Kn-4}.1f' + '} dB '}
-
-    if epoch == -2:
-        i = per_epoch - 1        
-        preambule = f'{"epoch":_^{2 * Kep + 1}}_{preambule:_>5}_'
-        if loss_components:
-            length = len('|'.join(f'{k:^10}' for k in loss_components))
-            loss_str = f'{"losses":_^{length}}'
-        else: loss_str = ''
-        if metrics:
-            length = len('|'.join(f'{k:^10}' for k in metrics))
-            metrics_str = f'{"metrics":_^{length}}'
-        else: metrics_str = ''
-
-
-    elif epoch == -1:
-        i = per_epoch - 1
-        preambule = f'{" ":^{2 * Kep + 1}} {preambule:>5} '
-
-        if loss_components:
-            length = len('|'.join(f'{k:^10}' for k in loss_components))
-            loss_str = '|'.join(f'{k:^10}' for k in loss_components)
-        else: loss_str = ''
-        if metrics:
-            length = len('|'.join(f'{k:^10}' for k in metrics))
-            metrics_str = '|'.join(f'{k:^10}' for k in metrics)
-        else: metrics_str=''
-        """
-        elif epoch == 0:
-            preambule = f'{" ":^{2 * Kep + 1}} {preambule:>5} |'
-
-            if loss_components:
-                loss_str = '|'.join(f'{losses.get(k, 0):^10.2e}'
-                                    for k in loss_components)
-            else:
-                loss_str = ''
-        """     
-    else:
-        if epoch:
-            preambule = f'{epoch:{Kep}d}/{epochs:<{Kep}d} {preambule:>5} '
-        else:
-            preambule = f'{preambule:>{5 + 2 * Kep + 2}} '
-        if loss_components:
-
-            if no_loss:
-                loss_str = '|'.join(Kn * ' ' for k in loss_components)
-            else:
-                formatted = {k: num_format.get(k, num_format['default'])
-                             for k in loss_components}
-                value = {k: losses.get(k, np.nan)
-                         for k in loss_components}
-            
-                loss_str = '|'.join(formatted[k].format(value[k])
-                                    for k in loss_components)
-        else: loss_str = ''
-        if metrics:
-            if no_metrics:
-                metrics_str = '|'.join(Kn * ' ' for k in metrics)
-            else:
-                formatted = {k: num_format.get(k, num_format['default'])
-                         for k in metrics}
-                value = {k: measures.get(k, np.nan)
-                         for k in metrics}
-            
-                metrics_str = '|'.join(formatted[k].format(value[k])
-                                       for k in metrics)
-            
-        else: metrics_str = ''
-
-    if epoch == -2:
-        length = len('|'.join(f'{k:^9}' for k in acc_methods)) 
-        acc_str = f'{"accuracy":_^{length}}'
-    elif epoch == -1: 
-        acc_str = '|'.join(f'{k:^9}' for k in acc_methods)
-    elif accuracies:
-        acc_str_ = []
-        for k in acc_methods:
-            acc_str_.append(f' {accuracies[k]:7.2%} ')
-        acc_str = '|'.join(acc_str_)
-    else:
-        acc_str = '|'.join(9 * ' ' for k in acc_methods)
-        
-    if time_per_i > 0:
-        time_per_i = Time(time_per_i)
-        if i < per_epoch - 1:
-            eta_str = f' {time_per_i / batch_size:>9}/i'
-            eta_str += f'   eta: {time_per_i * (per_epoch - i):<9}'
-        else:
-            eta_str = f' {time_per_i / batch_size:>9}/i'
-            eta_str += f' total: {time_per_i * per_epoch:<9}'
-       
-    else:
-        eta_str = ' '
-
-    strings = [s for s in [preambule,
-                           loss_str,
-                           metrics_str,
-                           acc_str + end_esc,
-                           eta_str] if s]
-    
-    print('\r' + '||'.join(strings),
-          end_esc,
-          end=' ' if i < per_epoch - 1 else end_of_epoch)
-
-    if i == per_epoch - 1:
-
-        with open('train.log', 'a') as f:
-            f.write('||'.join(strings) + '\n')
-
 def debug_nan(value, inspected, name):
 
     if torch.isnan(value).any():

@@ -18,7 +18,7 @@ import numpy as np
 from roc_curves import ood_roc, fpr_at_tpr
 from sklearn.metrics import auc, roc_curve
 
-from utils.print_log import print_results, debug_nan
+from utils.print_log import Outputs, debug_nan
 
 from utils.parameters import get_args
 
@@ -733,6 +733,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  return_mismatched=False,
                  print_result=False,
                  update_self_testing=True,
+                 outputs=Outputs(),
                  log=True):
 
         """return detection rate. If return_mismatched is True, indices of
@@ -822,16 +823,16 @@ class ClassificationVariationalNetwork(nn.Module):
             for m in predict_methods:
                 acc[m] = 1 - n_err[m] / n
             if print_result:
-                print_results(i, num_batch, 0, 0,
-                              loss_components=self.loss_components,
-                              losses=mean_loss,
-                              acc_methods=predict_methods,
-                              accuracies=acc,
-                              metrics=self.metrics,
-                              measures=measures,
-                              time_per_i=time_per_i,
-                              batch_size=batch_size,
-                              preambule=print_result)
+                outputs.results(i, num_batch, 0, 0,
+                                loss_components=self.loss_components,
+                                losses=mean_loss,
+                                acc_methods=predict_methods,
+                                accuracies=acc,
+                                metrics=self.metrics,
+                                measures=measures,
+                                time_per_i=time_per_i,
+                                batch_size=batch_size,
+                                preambule=print_result)
 
         self._measures = measures
 
@@ -874,6 +875,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             method='all',
                             print_result=False,
                             update_self_ood=True,
+                            outputs=Outputs(),
                             log=True):
 
         if not testset and not ind_measures:
@@ -924,11 +926,11 @@ class ClassificationVariationalNetwork(nn.Module):
             ood_n_batchs = [min(num_batch, n) for n in ood_n_batchs]
 
         if oodsets:
-            print_results(0, 0, -2, 0,
-                          metrics=ood_methods,
-                          acc_methods=ood_methods)
-            print_results(0, 0, -1, 0, metrics=ood_methods,
-                          acc_methods=ood_methods)
+            outputs.results(0, 0, -2, 0,
+                            metrics=ood_methods,
+                            acc_methods=ood_methods)
+            outputs.results(0, 0, -1, 0, metrics=ood_methods,
+                            acc_methods=ood_methods)
 
         if not ind_measures and oodsets:
 
@@ -954,14 +956,14 @@ class ClassificationVariationalNetwork(nn.Module):
                                                       measures[m].cpu()])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
-                print_results(i, test_n_batch, 0, 1, metrics=ood_methods,
-                              measures = {m: ind_measures[m].mean()
-                                          for m in ood_methods},
-                              acc_methods = ood_methods,
-                              time_per_i = t_per_i,
-                              batch_size=batch_size,
-                              preambule = testset.name)
-
+                outputs.results(i, test_n_batch, 0, 1, metrics=ood_methods,
+                                measures = {m: ind_measures[m].mean()
+                                            for m in ood_methods},
+                                acc_methods = ood_methods,
+                                time_per_i = t_per_i,
+                                batch_size=batch_size,
+                                preambule = testset.name)
+                
         keeped_tpr = [pc / 100 for pc in range(90, 100)]
         no_result = {'epochs': 0,
                      'n': 0,
@@ -1015,13 +1017,13 @@ class ClassificationVariationalNetwork(nn.Module):
                                        0.95,
                                        thresholds_[m])
 
-                print_results(i, ood_n_batch, 0, 1, metrics=ood_methods,
-                              measures=meaned_measures,
-                              acc_methods=ood_methods,
-                              accuracies=r_,
-                              time_per_i = t_per_i,
-                              batch_size=batch_size,
-                              preambule = oodset.name)
+                outputs.results(i, ood_n_batch, 0, 1, metrics=ood_methods,
+                                measures=meaned_measures,
+                                acc_methods=ood_methods,
+                                accuracies=r_,
+                                time_per_i = t_per_i,
+                                batch_size=batch_size,
+                                preambule = oodset.name)
 
             for m in ood_methods:
                 fpr_and_thresholds = [fpr_at_tpr(fpr_[m], tpr_[m], a,
@@ -1134,6 +1136,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return batch_loss
 
+    
     def train(self,
               trainset=None,
               transformer=None,
@@ -1154,7 +1157,8 @@ class ClassificationVariationalNetwork(nn.Module):
               full_test_every=10,
               ood_detection_every=10,
               train_accuracy=False,
-              save_dir=None):
+              save_dir=None,
+              outputs=Outputs()):
         """
 
         """
@@ -1259,14 +1263,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
             ood_methods = self.ood_methods
         
-        print_results(0, 0, -2, epochs,
-                      metrics=self.metrics,
-                      loss_components=self.loss_components,
-                      acc_methods=acc_methods)
-        print_results(0, 0, -1, epochs,
-                      metrics=self.metrics,
-                      loss_components=self.loss_components,
-                      acc_methods=acc_methods)
+        outputs.results(0, 0, -2, epochs,
+                        metrics=self.metrics,
+                        loss_components=self.loss_components,
+                        acc_methods=acc_methods)
+        outputs.results(0, 0, -1, epochs,
+                        metrics=self.metrics,
+                        loss_components=self.loss_components,
+                        acc_methods=acc_methods)
 
         if fine_tuning:
 
@@ -1308,16 +1312,17 @@ class ClassificationVariationalNetwork(nn.Module):
                         self.ood_detection_rates(oodsets=oodsets, testset=testset,
                                                  batch_size=test_batch_size,
                                                  num_batch=len(testset) // batch_size,
+                                                 outputs=outputs,
                                                  print_result='*')
 
-                        print_results(0, 0, -2, epochs,
-                                      metrics=self.metrics,
-                                      loss_components=self.loss_components,
-                                      acc_methods=acc_methods)
-                        print_results(0, 0, -1, epochs,
-                                      metrics=self.metrics,
-                                      loss_components=self.loss_components,
-                                      acc_methods=acc_methods)
+                        outputs.results(0, 0, -2, epochs,
+                                        metrics=self.metrics,
+                                        loss_components=self.loss_components,
+                                        acc_methods=acc_methods)
+                        outputs.results(0, 0, -1, epochs,
+                                        metrics=self.metrics,
+                                        loss_components=self.loss_components,
+                                        acc_methods=acc_methods)
                     
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=test_batch_size,
@@ -1325,6 +1330,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   # device=device,
                                                   method=acc_methods,
                                                   # log=False,
+                                                  outputs=outputs,
                                                   print_result='TEST' if full_test else 'test')
                 if save_dir: self.save(save_dir)
                 test_measures = self._measures.copy()
@@ -1338,6 +1344,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                    method=acc_methods,
                                                    update_self_testing=False,
                                                    log=False,
+                                                   outputs=outputs,
                                                    print_result='acc')
                 
             t_i = time.time()
@@ -1395,16 +1402,16 @@ class ClassificationVariationalNetwork(nn.Module):
                     train_mean_loss[k] = train_total_loss[k] / (i + 1)
 
                 t_per_i = (time.time() - t_start_train) / (i + 1)
-                print_results(i, per_epoch, epoch + 1, epochs,
-                              preambule='train',
-                              acc_methods=acc_methods,
-                              loss_components=self.loss_components,
-                              losses=train_mean_loss,
-                              metrics=self.metrics,
-                              measures=measures,
-                              time_per_i=t_per_i,
-                              batch_size=train_batch_size,
-                              end_of_epoch='\n')
+                outputs.results(i, per_epoch, epoch + 1, epochs,
+                                preambule='train',
+                                acc_methods=acc_methods,
+                                loss_components=self.loss_components,
+                                losses=train_mean_loss,
+                                metrics=self.metrics,
+                                measures=measures,
+                                time_per_i=t_per_i,
+                                batch_size=train_batch_size,
+                                end_of_epoch='\n')
             
             train_measures = measures.copy()
             if testset:
@@ -1435,8 +1442,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                               # device=device,
                                               method=acc_methods,
                                               # log=False,
+                                              outputs=outputs,
                                               print_result='TEST')
-
+                
         logging.debug('Finished training')
 
     def summary(self):

@@ -254,6 +254,8 @@ def get_args_for_train(argv=None):
                         metavar='#',
                         default=0)
 
+    parser.add_argument('--output-dir', metavar='DIR/')
+    
     args = parser.parse_args(remaining_args)
         
     args.debug = conf_args.debug

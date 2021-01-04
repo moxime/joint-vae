@@ -10,7 +10,7 @@ import argparse
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
 from utils.save_load import collect_networks
-
+from utils.print_log import Outputs
 
 if __name__ == '__main__':
     
@@ -140,6 +140,12 @@ if __name__ == '__main__':
 
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
 
+    output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
+
+    log.debug(f'Outputs registered in {output_file}')
+    outputs = Outputs()
+    outputs.add_file(output_file)
+    
     while os.path.exists(save_dir):
         log.debug(f'{save_dir} exists')
         job_number += 1
@@ -188,7 +194,8 @@ if __name__ == '__main__':
                        data_augmentation=args.data_augmentation,
                        fine_tuning=args.fine_tuning,
                        sample_size=test_sample_size,  # 10000,
-                       save_dir=save_dir)
+                       save_dir=save_dir,
+                       outputs=outputs)
             log.info('Done training')
         else:
             log.info('No need to train %s', jvae.print_architecture())

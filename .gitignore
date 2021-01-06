@@ -5,3 +5,11 @@ __pycache__
 tests
 *_data/
 jobs/
+test-jobs/
+old-jobs/
+*~
+*.sh
+*.log
+log/
+data/
+out

@@ -13,3 +13,4 @@ old-jobs/
 log/
 data/
 out
+*.pth

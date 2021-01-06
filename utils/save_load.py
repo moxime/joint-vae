@@ -268,12 +268,28 @@ def collect_networks(directory,
                   f'found in {shorten_path(directory)}')
 
 
-def find_by_job_number(dir, *numbers, **kw):
+def find_by_job_number(dir, *numbers, json_file=None, **kw):
 
     d = {}
+    if json_file:
+        try:
+            networks_dict = load_json(dir, json_file)
+            l = sum(networks_dict.values(), [])
+            for n in l:
+                for num in numbers:
+                    if n['job'] == num:
+                        d[num] = n
+            return d
+
+        except FileNotFoundError:
+            print('File Error')
+            pass
+
     v_ = sum(collect_networks(dir, **kw), [])
     for number in numbers:
-        d[number] = [v for v in v_ if v['job'] == number]
+        for v in v_:
+            if v['job'] == number:
+                d[number] = v
 
     return d
 

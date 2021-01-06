@@ -88,7 +88,7 @@ class ClassificationVariationalNetwork(nn.Module):
     ood_methods_per_type ={'cvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
                            'xvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
-                           'vae': ('max',),
+                           'vae': ('logpx',),
                            'vib': ()}
 
     def __init__(self,
@@ -147,7 +147,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.coder_has_dict = self.is_cvae or self.is_xvae
         
         self.x_is_generated = not self.is_vib
-        
+
+        self.losses_might_be_computed_for_each_class = not (self.is_vae or self.is_vib)
+
         
         logging.debug('y is%s coded', '' if self.y_is_coded else ' not')
         
@@ -435,7 +437,8 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         y_in_input = y is not None
         x_repeated_along_classes = self.y_is_coded and not y_in_input
-        losses_computed_for_each_class = not y_in_input and not (self.is_vae or self.is_vib)
+        losses_computed_for_each_class = (self.losses_might_be_computed_for_each_class
+                                          and not y_in_input)
 
         x_is_decoded = not self.is_vib
         C = self.num_labels
@@ -645,7 +648,10 @@ class ClassificationVariationalNetwork(nn.Module):
         d_logp = -loss - ref
         for m in methods:
 
-            if m == 'sum':
+            if m == 'logpx':
+                assert not self.losses_might_be_computed_for_each_class
+                measures = -loss
+            elif m == 'sum':
                 measures = d_logp.exp().sum(axis=0).log() + ref 
             elif m == 'max':
                 measures = -loss.min(axis=0)[0]

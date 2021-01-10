@@ -44,15 +44,6 @@ class Optimizer:
 
         return self._opt.param_groups[0]['lr']
 
-    @classmethod
-    def load(cls, params_dict, state_dict, epoch):
-
-        o = cls.__init__(**params_dict)
-        o._opt.load(**state_dict)
-        o.update_scheduler(epoch)
-
-        return o
-
     def state_dict(self, *a, **k):
         return self._opt.state_dict(*a, **k)
 
@@ -107,8 +98,9 @@ class Optimizer:
 
     def update_scheduler_from_epoch(self, n):
 
-        for i in range(n):
-            self._lr_scheduler.step()
+        if self.lr_decay:
+            for i in range(n):
+                self._lr_scheduler.step()
 
 
 if __name__ == '__main__':

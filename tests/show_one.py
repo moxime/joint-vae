@@ -6,6 +6,7 @@ from sklearn.metrics import auc, roc_curve
 import numpy as np
 from matplotlib import pyplot as plt
 import logging
+import os
 
 from torchvision.transforms import ToPILImage
 
@@ -24,7 +25,10 @@ root_logger.addHandler(file_logger)
 
 search_dir = 'jobs'
 
-job_numbers = [37, 106366, 106687, 107009, 105605, 105541]
+# job_numbers = [37, 106366, 106687, 107009, 105605, 105541]
+# job_numbers = [107066, 63, 107050]
+# job_numbers = [107034]
+job_numbers = [_ for _ in range(107000, 107100)]
 
 def showable(x):
 
@@ -64,17 +68,6 @@ def show_grid(net, x_in, x_out, y_in, y_out, order, axes):
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
 
-
-
-
-# job_number = 105840
-job_number = 106366
-job_number = 106687
-job_number = 107009
-job_number = 105605
-job_number = 37
-job_number = 105541
-
 reload = True
 reload = False
 
@@ -85,13 +78,13 @@ try:
         jobs[j]
 
 except (NameError, KeyError):
-    print('Loading net')
+    print('Loading jobs')
     jobs = find_by_job_number(search_dir, *job_numbers, load_state=False, json_file='networks-lss.json')
 
     for j in jobs:
             jobs[j]['net'] = ClassificationVariationalNetwork.load(jobs[j]['dir'])
 
-for job_number in job_numbers:
+for job_number in jobs:
     net_dict = jobs[job_number]
     net = net_dict['net']
 
@@ -260,4 +253,4 @@ for job_number in job_numbers:
     mu_z_var_z_png = os.path.join('results', f'{job_number:06d}', 'z_mu_var.png')
     f.savefig(mu_z_var_z_png)
     
-
+input()

@@ -53,6 +53,12 @@ class Optimizer:
 
         return o
 
+    def state_dict(self, *a, **k):
+        return self._opt.state_dict(*a, **k)
+
+    def load_state_dict(self, *a, **k):
+        return self._opt.load_state_dict(*a, **k)
+
     def __str__(self):
 
         return self.__format__('10')

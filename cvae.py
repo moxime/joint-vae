@@ -1684,7 +1684,8 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         
         if dir_name is None:
-            dir_name = './jobs/' + self.print_architecture()
+            dir_name = os.path.join('jobs', self.print_architecture,
+                                    str(self.job_number))
 
         save_load.save_json(self.architecture, dir_name, 'params.json')
         save_load.save_json(self.training, dir_name, 'train.json')
@@ -1695,7 +1696,10 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             torch.save(self.state_dict(), w_p)
-
+            w_p = save_load.get_path(dir_name, 'optimizer.pth')
+            torch.save(self.optimizer.state_dict(), w_p)
+            
+            
     @classmethod
     def load(cls, dir_name,
              load_net=True,
@@ -1805,7 +1809,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if load_test and loaded_ood:
             vae.ood_results = ood_results
-
         
         if load_state and vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
@@ -1828,7 +1831,15 @@ class ClassificationVariationalNetwork(nn.Module):
                         s+='\n'*4    
                         logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{vae}')
                 raise e
-        logging.debug('Loaded')
+            w_p = save_load.get_path(dir_name, 'optimizer.pth')
+            try:
+                state_dict = torch.load(w_p)
+                vae.optimizer.load_state_dict(state_dict)
+            except FileNotFoundError:
+                logging.warning('Optimizer state file not found') 
+            vae.optimizer.update_scheduler_from_epoch(vae.trained)
+                
+            logging.debug('Loaded')
         return vae
 
     def log_pxy(self, x, normalize=True, batch_losses=None, **kw):

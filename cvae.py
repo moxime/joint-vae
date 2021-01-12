@@ -740,6 +740,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  print_result=False,
                  update_self_testing=True,
                  outputs=Outputs(),
+                 sample_file='',
                  log=True):
 
         """return detection rate. If return_mismatched is True, indices of
@@ -747,7 +748,8 @@ class ClassificationVariationalNetwork(nn.Module):
         method can be a list of methods
 
         """
-
+        MAX_SAMPLE_SAVE = 100
+        
         device = next(self.parameters()).device
         
         if not testset:
@@ -784,7 +786,7 @@ class ClassificationVariationalNetwork(nn.Module):
         # print('**** cvae.py:698', testset.transform)
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
-                                                 shuffle=True)
+                                                 shuffle=shuffle)
         iter_ = iter(testloader)
         start = time.time()
 
@@ -797,7 +799,7 @@ class ClassificationVariationalNetwork(nn.Module):
             data = next(iter_)
             x_test, y_test = data[0].to(device), data[1].to(device)
 
-            (_, y_est,
+            (x_, y_est,
              batch_losses, measures) = self.evaluate(x_test, batch=i,
                                                     current_measures=current_measures)
             current_measures = measures
@@ -817,13 +819,14 @@ class ClassificationVariationalNetwork(nn.Module):
                 total_loss[k] += batch_loss_y.mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
 
+            y_pred = {}
             for m in predict_methods:
-                y_pred = self.predict_after_evaluate(y_est,
+                y_pred[m] = self.predict_after_evaluate(y_est,
                                                      batch_losses,
                                                      method=m)
 
-                n_err[m] += (y_pred != y_test).sum().item()
-                mismatched[m] += [torch.where(y_test != y_pred)[0]]
+                n_err[m] += (y_pred[m] != y_test).sum().item()
+                mismatched[m] += [torch.where(y_test != y_pred[m])[0]]
             n += len(y_test)
             time_per_i = (time.time() - start) / (i + 1)
             for m in predict_methods:
@@ -839,9 +842,26 @@ class ClassificationVariationalNetwork(nn.Module):
                                 time_per_i=time_per_i,
                                 batch_size=batch_size,
                                 preambule=print_result)
+        if sample_file:
+            logging.debug(f'Saving examples in {sample_file}')
 
+            saved_dict = {
+                'losses': {m: batch_losses[m][:MAX_SAMPLE_SAVE] for m in batch_losses},
+                'measures': measures,
+                'x': x_test[:MAX_SAMPLE_SAVE],
+                'y': y_test[:MAX_SAMPLE_SAVE],
+                'x_': x_[:MAX_SAMPLE_SAVE] if self.is_vib else x_.mean(0)[:MAX_SAMPLE_SAVE],
+                'y_pred': {m: y_pred[m][:MAX_SAMPLE_SAVE] for m in y_pred},
+                }
+            if self.is_xvae or self.is_cvae:
+                mu_y = self.encoder.latent_dictionary.index_select(0, y_test)
+                saved_dict['mu_y'] = mu_y[:MAX_SAMPLE_SAVE]
+            torch.save(saved_dict, sample_file)
+                
         self._measures = measures
 
+        
+        
         for m in predict_methods:
 
             update_self_testing_method = (update_self_testing and
@@ -863,17 +883,15 @@ class ClassificationVariationalNetwork(nn.Module):
                                    'accuracy': acc[m]}
 
             elif log:
-                _reason = ''
-                _reason += ' does not update' if not update_self_testing else ''
-                _reason += ' {} <= {}'.format(self.trained, self.testing[m]['epochs']) if self.trained <= self.testing[m]['epochs'] else ''
-                _reason += ' {} <= {}'.format(n, self.testing[m]['n']) if n <= self.testing[m]['n'] else '' 
-                logging.debug(f'Accuracies not updated bc{_reason}')
+
+                logging.debug(f'Accuracies not updated')
 
         if return_mismatched:
             if only_one_method:
                 return acc[m], mismatched[m]
             return acc, mismatched
 
+        
         return acc[m] if only_one_method else acc
 
 
@@ -886,6 +904,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             print_result=False,
                             update_self_ood=True,
                             outputs=Outputs(),
+                            sample_file='',
                             log=True):
 
         if not testset and not ind_measures:
@@ -1318,7 +1337,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
                     if oodsets and ood_detection:
 
-
+                        if save_dir:
+                            sample_dir = os.path.join(save_dir, 'samples')
+                            if not os.path.exists(sample_dir):
+                                os.makedirs(sample_dir)
+                            sample_file = os.path.join(sample_dir, f'ood-{epoch:04d}.pth')
+                        else:
+                            sample_file = ''
+                            
                         self.ood_detection_rates(oodsets=oodsets, testset=testset,
                                                  batch_size=test_batch_size,
                                                  num_batch=len(testset) // batch_size,
@@ -1333,7 +1359,16 @@ class ClassificationVariationalNetwork(nn.Module):
                                         metrics=self.metrics,
                                         loss_components=self.loss_components,
                                         acc_methods=acc_methods)
-                    
+
+                    if (full_test or not epoch) and save_dir:
+                        sample_dir = os.path.join(save_dir, 'samples')
+                        if not os.path.exists(sample_dir):
+                            os.makedirs(sample_dir)
+                        sample_file = os.path.join(sample_dir, f'{epoch:04d}.pth')
+
+                    else:
+                        sample_file = ''
+                        
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=test_batch_size,
                                                   num_batch='all' if full_test else num_batch,
@@ -1341,6 +1376,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   method=acc_methods,
                                                   # log=False,
                                                   outputs=outputs,
+                                                  sample_file=sample_file,
                                                   print_result='TEST' if full_test else 'test')
                 if save_dir: self.save(save_dir)
                 test_measures = self._measures.copy()
@@ -1437,7 +1473,6 @@ class ClassificationVariationalNetwork(nn.Module):
             if fine_tuning:
                 self.training['fine_tuning'].append(epoch)
 
-
             if save_dir:
                 self.save(save_dir)
 
@@ -1454,7 +1489,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                               # log=False,
                                               outputs=outputs,
                                               print_result='TEST')
-                
+
+        if save_dir:
+            self.save(save_dir)
+
         logging.debug('Finished training')
 
     def summary(self):

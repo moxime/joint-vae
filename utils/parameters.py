@@ -236,10 +236,6 @@ def get_args_for_train(argv=None):
     parser.add_argument('--lr', default=0, type=float)
     parser.add_argument('--lr-decay', default=0, type=float)
     
-    help = 'Force refit of a net with same architecture (NOT IMPLEMENTED)'
-        # help += '(may have a different sigma)'
-    parser.add_argument('--refit', action='store_true')
-
     help = 'Find by job number and resume begun training'
     parser.add_argument('-R', '--resume', default=None,
                         help=help, metavar='#') 
@@ -255,6 +251,9 @@ def get_args_for_train(argv=None):
                         default=0)
 
     parser.add_argument('--output-dir', metavar='DIR/')
+
+    parser.add_argument('--where', action='store_true',
+                        help='Print saving dir and exit')
     
     args = parser.parse_args(remaining_args)
         

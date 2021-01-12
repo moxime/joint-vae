@@ -158,6 +158,10 @@ if __name__ == '__main__':
 
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
 
+    if args.where:
+        print(save_dir)
+        sys.exit(0)
+    
     output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
 
     log.debug(f'Outputs registered in {output_file}')

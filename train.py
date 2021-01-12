@@ -60,16 +60,10 @@ if __name__ == '__main__':
     dry_run = args.dry_run    
     resume = args.resume
 
-    trainset, testset = torchdl.get_dataset(args.dataset, transformer=args.transformer)
-    oodsets = [torchdl.get_dataset(n, transformer=args.transformer)[1]
-               for n in testset.same_size]
-
-    log.debug(f'{trainset.name} dataset loaded')
-    input_shape, num_labels = torchdl.get_shape_by_name(args.dataset, args.transformer)
     if resume:
         try:
             log.info('Loading network in %s', resume)
-            jvae = CVNet.load(args.load_dir, load_state=True)
+            jvae = CVNet.load(args.resume, load_state=True)
             log.debug(f'Network loaded')
             done_epochs = jvae.trained
             if done_epochs == 0:
@@ -122,18 +116,29 @@ if __name__ == '__main__':
 
     if resume:
         dataset, transformer = jvae.training['set'], jvae.training['transformer'] 
+        trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
+        oodsets = [torchdl.get_dataset(n, transformer=transformer)[1]
+                   for n in testset.same_size]
+
         data_augmentation = jvae.training['data_augmentation']
         sigma = jvae.training['sigma']
-        sigma_reach = jvae.training('sigma_reach']
+        sigma_reach = jvae.training['sigma_reach']
         latent_sampling = jvae.training['latent_sampling']
         
     else:
 
         dataset, transformer = args.dataset, args.transformer
+        trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
+        oodsets = [torchdl.get_dataset(n, transformer=transformer)[1]
+                   for n in testset.same_size]
+
         data_augmentation = args.data_augmentation
         sigma_reach = args.sigma_reach
         sigma = args.sigma
         latent_sampling = args.latent_sampling
+
+
+    log.debug(f'{trainset.name} dataset loaded')
         
     _sigma_reach = f'--reach={sigma_reach:.1f}std' if sigma_reach else ''
     if not data_augmentation:
@@ -198,7 +203,7 @@ if __name__ == '__main__':
 
             #print('t.py l 302 testset:', testset.data[0].shape)
             jvae.train(trainset,
-                       transformer=args.transformer,
+                       transformer=transformer,
                        epochs=args.epochs,
                        batch_size=batch_size,
                        device=device,

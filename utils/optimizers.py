@@ -53,7 +53,16 @@ class Optimizer:
     def __str__(self):
 
         return self.__format__('10')
-        
+
+    def to(self, device):
+
+        logging.debug(f'Sending optimizer to {device}')
+        for state in self._opt.state.values():
+            for k, v in state.items():
+                if isinstance(v, torch.Tensor):
+                    state[k] = v.to(device)
+        logging.debug('Done')
+                    
     def __format__(self, format_spec):
 
         try:

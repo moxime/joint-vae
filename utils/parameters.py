@@ -242,7 +242,7 @@ def get_args_for_train(argv=None):
 
     help = 'Find by job number and resume begun training'
     parser.add_argument('-R', '--resume', default=None,
-                        type=int, help=help, metavar='#') 
+                        help=help, metavar='#') 
     
     help = 'save train(ing|ed) network in DIR/<architecture/#>'
 

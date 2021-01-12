@@ -863,7 +863,11 @@ class ClassificationVariationalNetwork(nn.Module):
                                    'accuracy': acc[m]}
 
             elif log:
-                logging.debug('Accuracies not updated')
+                _reason = ''
+                _reason += ' does not update' if not update_self_testing else ''
+                _reason += ' {} <= {}'.format(self.trained, self.testing[m]['epochs']) if self.trained <= self.testing[m]['epochs'] else ''
+                _reason += ' {} <= {}'.format(n, self.testing[m]['n']) if n <= self.testing[m]['n'] else '' 
+                logging.debug(f'Accuracies not updated bc{_reason}')
 
         if return_mismatched:
             if only_one_method:
@@ -1491,6 +1495,10 @@ class ClassificationVariationalNetwork(nn.Module):
     @device.setter
     def device(self, d):
         self.to(d)
+
+    def to(self, d):
+        super().to(d)
+        self.optimizer.to(d)
         
     @property
     def kl_loss_weight(self):
@@ -1835,6 +1843,7 @@ class ClassificationVariationalNetwork(nn.Module):
             try:
                 state_dict = torch.load(w_p)
                 vae.optimizer.load_state_dict(state_dict)
+
             except FileNotFoundError:
                 logging.warning('Optimizer state file not found') 
             vae.optimizer.update_scheduler_from_epoch(vae.trained)

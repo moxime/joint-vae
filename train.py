@@ -58,28 +58,17 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     test_sample_size = args.test_sample_size
     dry_run = args.dry_run    
+    resume = args.resume
 
     trainset, testset = torchdl.get_dataset(args.dataset, transformer=args.transformer)
     oodsets = [torchdl.get_dataset(n, transformer=args.transformer)[1]
                for n in testset.same_size]
 
     log.debug(f'{trainset.name} dataset loaded')
-
     input_shape, num_labels = torchdl.get_shape_by_name(args.dataset, args.transformer)
-
-    rebuild = not args.resume
-
-    args.optim_params = {
-        'optim_type': args.optimizer,
-        'lr': args.lr,
-        'lr_decay':args.lr_decay,
-        }
-
-    if not rebuild:
+    if resume:
         try:
-            log.error('resume action not implemented')
-            sys.exit(1)
-            log.info('Loading network in %s', args.load_dir)
+            log.info('Loading network in %s', resume)
             jvae = CVNet.load(args.load_dir, load_state=True)
             log.debug(f'Network loaded')
             done_epochs = jvae.trained
@@ -90,11 +79,20 @@ if __name__ == '__main__':
             else:
                 verb = 'is already done.'
             log.info(f'Training {verb}')
+            
         except(FileNotFoundError, NameError) as err:
-            log.warning(f'Network not loaded -- rebuilding bc of {err}')
-            rebuild = True
+            log.error(f'network not found in {resume}')
+            sys.exit(1)
 
-    if rebuild:
+    else:
+
+        args.optim_params = {
+            'optim_type': args.optimizer,
+
+            'lr': args.lr,
+            'lr_decay':args.lr_decay,
+            }
+
         input_shape, num_labels = torchdl.get_shape_by_name(args.dataset, args.transformer)
         _shape = '-'.join(map(str, input_shape + (num_labels,)))
         log.info('Building network for shape %s (%s with %s)',
@@ -122,20 +120,35 @@ if __name__ == '__main__':
                      sigma_reach=args.sigma_reach,
                      output_activation=args.output_activation)
 
-    _sigma_reach = f'--reach={args.sigma_reach:.1f}std' if args.sigma_reach else ''
-    if not args.data_augmentation:
+    if resume:
+        dataset, transformer = jvae.training['set'], jvae.training['transformer'] 
+        data_augmentation = jvae.training['data_augmentation']
+        sigma = jvae.training['sigma']
+        sigma_reach = jvae.training('sigma_reach']
+        latent_sampling = jvae.training['latent_sampling']
+        
+    else:
+
+        dataset, transformer = args.dataset, args.transformer
+        data_augmentation = args.data_augmentation
+        sigma_reach = args.sigma_reach
+        sigma = args.sigma
+        latent_sampling = args.latent_sampling
+        
+    _sigma_reach = f'--reach={sigma_reach:.1f}std' if sigma_reach else ''
+    if not data_augmentation:
         _augment = ''
     else:
         _augment = '--augment='
-        args.data_augmentation.sort()
-        _augment += '-'.join(args.data_augmentation)
+        data_augmentation.sort()
+        _augment += '-'.join(data_augmentation)
 
-    save_dir_root = os.path.join(job_dir, args.dataset,
+    save_dir_root = os.path.join(job_dir, dataset,
                                  jvae.print_architecture(sampling=False),
-                                 f'sigma={args.sigma:1.2e}' +
+                                 f'sigma={sigma:1.2e}' +
                                  _sigma_reach +
                                  f'--optim={jvae.optimizer}' +
-                                 f'--sampling={args.latent_sampling}'+
+                                 f'--sampling={latent_sampling}'+
                                  _augment)
 
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
@@ -191,7 +204,7 @@ if __name__ == '__main__':
                        device=device,
                        testset=testset,
                        oodsets=oodsets,
-                       data_augmentation=args.data_augmentation,
+                       data_augmentation=data_augmentation,
                        fine_tuning=args.fine_tuning,
                        sample_size=test_sample_size,  # 10000,
                        save_dir=save_dir,

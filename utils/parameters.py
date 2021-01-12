@@ -315,6 +315,8 @@ def get_args_for_test():
                         help='will show you what it would do')
 
     parser.add_argument('--flash', action='store_true')
+
+    parser.add_argument('--show', action='store_true')
     
     parser.add_argument('--latex', action='store_true')
 
@@ -383,6 +385,12 @@ def get_args_for_test():
                         nargs='+',
                         action=FilterAction)
 
+    parser.add_argument('--job-number',
+                        dest='job',
+                        of_type=int,
+                        nargs='+',
+                        action=FilterAction)
+    
     args = parser.parse_args()
 
     if not hasattr(args, 'filters'):
@@ -458,11 +466,15 @@ class ParamFilter():
         if self.is_interval:
             if value is None:
                 return False
-            
-            a, b = self.interval
-            in_ =  a <= value <= b
-            return not in_ if neg else in_
 
+            try:
+                a, b = self.interval
+                in_ =  a <= value <= b
+                return not in_ if neg else in_
+            except TypeError as e:
+                print(a, type(a), b, type(b), value, type(value), self)
+                raise(e)
+            
         if self.is_list:
             in_ = value in self.values
             return not in_ if neg else in_

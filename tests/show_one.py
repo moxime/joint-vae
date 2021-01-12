@@ -27,8 +27,8 @@ search_dir = 'jobs'
 
 # job_numbers = [37, 106366, 106687, 107009, 105605, 105541]
 # job_numbers = [107066, 63, 107050]
-# job_numbers = [107034]
-job_numbers = [_ for _ in range(107000, 107100)]
+job_numbers = [_ for _ in range(107100, 107200)]
+job_numbers = [_ for _ in range(107120, 107200)]
 
 def showable(x):
 

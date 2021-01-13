@@ -47,6 +47,8 @@ def test_accuracy_if(jvae=None,
     # deleting old testing methods
     jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods}
     if not jvae.testing:
+        if jvae.is_vae:
+            return True
         return None if dry_run else {}
         
     is_trained = jvae.trained >= jvae.training['epochs']
@@ -272,7 +274,7 @@ if __name__ == '__main__':
         log.debug(f'|_{len(l)} {w} of type {a}')
         sigmas, num = np.unique([n['sigma'] for n in l], return_counts=True)
 
-        sigma_s = ' '.join([f'{sigma:.3e} ({n})'
+        sigma_s = ' '.join([f'{sigma} ({n})'
                            for (sigma, n) in zip(sigmas, num)])
         log.debug(f'| |_ sigma={sigma_s}')
 
@@ -465,28 +467,8 @@ if __name__ == '__main__':
     # tpr = [i/100 for i in range(90, 100)]
     tpr = [t/100 for t in args.tpr]
 
-    df = test_results_df(enough_trained, first_method=True, ood=True, tpr=tpr)
+    df = test_results_df(enough_trained, best_net=False, first_method=True, ood=True, tpr=tpr)
 
-
-    def finite(u, f):
-        if np.isnan(u):
-            return ''
-        if np.isinf(u):
-            return 'inf'
-        return f.format(u)
-
-    def f_pc(u):
-        return finite(100 * u, '{:5.2f}')
-    
-    def f_db(u):
-        return finite(u, '{:.1f}')
-
-    formats = {s: [] for s in testsets}
-    
-    for s, d in df.items():
-        for _ in d.columns:
-            formats[s].append(f_pc)
-    
     log.info('')
     log.info('')
     log.info('')
@@ -496,7 +478,7 @@ if __name__ == '__main__':
     for s, d in df.items():
         print('\n' * 2 + '=' * 180)
         print(f'Results for {s}')
-        print(d.to_string(na_rep='', decimal=',', formatters=formats[s]))
+        print(d.to_string())
 
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]

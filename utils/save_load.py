@@ -5,6 +5,7 @@ import logging
 import pandas as pd
 import hashlib
 import data.torch_load as torchdl
+import numpy as np
 
 # from cvae import ClassificationVariationalNetwork
 
@@ -213,7 +214,19 @@ def collect_networks(directory,
             ood_fprs = {s: {} for s in ood_sets}
             ood_fpr = {s: None for s in ood_sets}
             n_ood = {}
-            
+
+        if vae.training['sigma_reach']:
+            _s = vae.training['sigma_reach']
+            _sigma = f'x{_s:4.1f}'
+        else:
+            _s = vae.training['sigma']
+            _sigma = f'={_s:4.1f}'
+
+        history = vae.train_history
+        if history['test_measures']:
+            mse = vae.train_history['test_measures'][-1].get('mse', np.nan)
+        else:
+            mse = np.nan
         vae_dict = {'net': vae,
                     'job': vae.job_number,
                     'type': vae.type,
@@ -222,7 +235,7 @@ def collect_networks(directory,
                     'dir': directory,
                     'set': vae.training['set'],
                     'train_batch_size': train_batch_size,
-                    'sigma': vae.sigma,
+                    'sigma': _sigma,
                     'done': vae.trained,
                     'epochs': vae.training['epochs'],
                     'finished': vae.trained >= vae.training['epochs'],
@@ -233,6 +246,7 @@ def collect_networks(directory,
                     'n_ood': n_ood,
                     'ood_fprs': ood_fprs,
                     'ood_fpr': ood_fpr,
+                    'mse': mse,
                     'K': vae.latent_dim,
                     'L': vae.latent_sampling,
                     'pretrained_features': str(pretrained_features),
@@ -357,6 +371,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
     ]
 
     all_nets = [] if best_net else ['job', 'done']
+
     train_index = [
         'options',
         'optim_str',
@@ -371,8 +386,9 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
 
     acc_cols = ['accuracies']
     ood_cols = ['ood_fprs']
+    meas_cols = ['mse']
     
-    columns = indices + acc_cols + ood_cols
+    columns = indices + acc_cols + ood_cols + meas_cols
 
     df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
                                     columns=columns)
@@ -382,7 +398,10 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
     acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
     acc_df.columns = pd.MultiIndex.from_product([acc_df.columns, ['rate']])
     ood_df = pd.DataFrame(df['ood_fprs'].values.tolist(), index=df.index)
-
+    meas_df = df[meas_cols]
+    # print(meas_df.columns)
+    meas_df.columns = pd.MultiIndex.from_product([[''], meas_df.columns])
+    
     # return acc_df
     # return ood_df
     d_ = {dataset: acc_df}
@@ -401,23 +420,41 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
             d_[s] = pd.concat(d_s_, axis=1)
         #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
 
+    d_['measures'] = meas_df
     df = pd.concat(d_, axis=1)
 
     cols = df.columns
     # print('*** save_load:379', [type(c[-1]) for c in cols])
-    tpr_columns = cols.isin(tpr + ['rate', 'auc'] + [str(_) for _ in tpr], level=2)
+    keeped_columns = cols.isin(tpr + ['rate', 'auc'] + [str(_) for _ in tpr], level=2)
     # tpr_columns = True
-    m_columns = cols.isin(['first'], level=1)
+    method_columns = cols.isin(['first'], level=1)
+    if not first_method: method_columns = ~method_columns
 
-    if not first_method: m_columns = ~m_columns
+    # print(cols)
+    measures_columns = cols.isin(meas_cols, level=2)
+    # print(measures_columns)
 
-    df = df[cols[tpr_columns * m_columns]]
+    df = df[cols[(keeped_columns * method_columns) + measures_columns]]
 
     if first_method:
         df.columns = df.columns.droplevel(1)
 
-    return df.sort_index()
+    def _f(x, type='pc'):
+        if np.isnan(x):
+            return ''
+        if np.isinf(x):
+            return 'inf'
 
+        if type == 'pc':
+            return f'{100*x:4.1f}'
+        return f'{x:.1e}'
+        
+    col_format = {c: _f for c in df.columns}
+    for c in df.columns[df.columns.isin(['measures'], level=0)]:
+        col_format[c] = lambda x: _f(x, 'measures')
+
+    return df.sort_index().apply(col_format)
+        
     if not best_method:
         
         df = df.drop('accuracies', axis=1).join(pd.DataFrame(df.accuracies.values.tolist()))

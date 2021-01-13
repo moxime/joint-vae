@@ -27,8 +27,11 @@ search_dir = 'jobs'
 
 # job_numbers = [37, 106366, 106687, 107009, 105605, 105541]
 # job_numbers = [107066, 63, 107050]
-job_numbers = [_ for _ in range(107100, 107200)]
 job_numbers = [_ for _ in range(107120, 107200)]
+job_numbers = [_ for _ in range(107050, 107400)]
+job_numbers = [_ for _ in range(107360, 107400)]
+job_numbers = [106754, 107365, 37, 107364, 107009]
+job_numbers = [107363, 107367]
 
 def showable(x):
 
@@ -68,22 +71,33 @@ def show_grid(net, x_in, x_out, y_in, y_out, order, axes):
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
 
-reload = True
 reload = False
+reload = True
 
 try:
-    if reload:
-        del jobs
     for j in job_numbers:
         jobs[j]
 
 except (NameError, KeyError):
     print('Loading jobs')
+    reload = True
+
+if reload:
     jobs = find_by_job_number(search_dir, *job_numbers, load_state=False, json_file='networks-lss.json')
 
-    for j in jobs:
-            jobs[j]['net'] = ClassificationVariationalNetwork.load(jobs[j]['dir'])
+to_be_removed = []
+for j in jobs:
+    try:
+        jobs[j]['net'] = ClassificationVariationalNetwork.load(jobs[j]['dir'])
+    except RuntimeError:
+        print(f'Error loading {j}')
+        to_be_removed.append(j)
 
+for j in to_be_removed: jobs.pop(j)
+
+
+fgrid = {}
+fmuvar = {}
 for job_number in jobs:
     net_dict = jobs[job_number]
     net = net_dict['net']
@@ -165,6 +179,7 @@ for job_number in jobs:
         print('{:>5.1f} {:>5.1f}'.format(100*t, 100*f))
     """
     f, a = plt.subplots(4, 6)
+    fgrid[job_number] = f
     a_ = a.reshape(-1)
     n = len(a_) // 2
 
@@ -190,7 +205,7 @@ for job_number in jobs:
 
     show_grid(net, x['test'], x_['test'], y['test'], y_, order, a_)
     f.suptitle(f'{job_number} is a {net.type}')
-    f.show()
+    # f.show()
     result_dir = os.path.join('results', f'{job_number:06d}')
 
     if not os.path.exists(result_dir):
@@ -217,8 +232,9 @@ for job_number in jobs:
     np.set_printoptions(precision=1, suppress=True)
     # _f = {'float_kind': lambda x: f'{x:5.1f}'}
 
-    p = list(net.encoder.parameters())[0]
 
+    """
+    p = list(net.encoder.parameters())[0]
     for t in zip(_mu, var_, p.norm(dim=0)): 
 
         # pre = '*' if t[0] > 0.1 else ' '
@@ -226,7 +242,6 @@ for job_number in jobs:
         pre, post = '', ''
         print(pre + ' '.join(f'{_:6.2f}' for _ in t) + ' ' +  post)
 
-    """
     for a, n in zip((mu_, var_, _mu,  _var),
                     ('<µ>', '<var>','_µ_', '_var_')):
         print(f'{n:^40}')
@@ -234,9 +249,10 @@ for job_number in jobs:
               formatter=f))
         print('\n')
     """
-
+    print(job_number)
     f, a = plt.subplots(1)
-
+    fmuvar[job_number] = f
+    
     a.errorbar(_mu, var_, _var_, fmt='o')
     acc = 0
     if net.predict_methods:
@@ -249,8 +265,15 @@ for job_number in jobs:
 
     a.set_xlabel('Ecart-type des moyennes par dimension de Z')
     a.set_ylabel('Moyenne des variances +/ quartiles pazr dimension de Z')
-    f.show()
+    # f.show()
     mu_z_var_z_png = os.path.join('results', f'{job_number:06d}', 'z_mu_var.png')
     f.savefig(mu_z_var_z_png)
-    
-input()
+
+if len(jobs) < 6:
+    for j in jobs:
+        fgrid[j].show()
+        fmuvar[j].show()
+    input()
+    print('Closing')
+    plt.close('all')
+

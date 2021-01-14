@@ -22,6 +22,8 @@ from utils.print_log import Outputs, debug_nan
 
 from utils.parameters import get_args
 
+from utils.signaling import SIGHandler
+
 import os.path
 import time
 
@@ -1187,7 +1189,8 @@ class ClassificationVariationalNetwork(nn.Module):
               ood_detection_every=10,
               train_accuracy=False,
               save_dir=None,
-              outputs=Outputs()):
+              outputs=Outputs(),
+              signal_handler=SIGHandler()):
         """
 
         """
@@ -1318,6 +1321,7 @@ class ClassificationVariationalNetwork(nn.Module):
             #             p.requires_grad_(True)
 
         train_measures = {}
+        logging.debug(f'Starting training loop with {signal_handler}')
         for epoch in range(done_epochs, epochs):
 
             logging.debug(f'Starting epoch {epoch} / {epochs}')
@@ -1378,6 +1382,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   outputs=outputs,
                                                   sample_file=sample_file,
                                                   print_result='TEST' if full_test else 'test')
+
+                if signal_handler.sig > 1:
+                    logging.warning(f'Breaking training loop bc of {signal_handler}')
+                    break
                 if save_dir: self.save(save_dir)
                 test_measures = self._measures.copy()
             # train
@@ -1404,6 +1412,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 # print('*** sigma_n ***', type(sigma_n), sigma_n)
                 self.sigma = sigma_n
                 # print('*** sigma_ ***', type(self._sigma), self._sigma.device, type(self.sigma))   
+
+            if signal_handler.sig > 1:
+                logging.warning(f'Breaking training loop bc of {signal_handler}')
+                break
 
             if save_dir:
                 self.save(save_dir)
@@ -1473,12 +1485,23 @@ class ClassificationVariationalNetwork(nn.Module):
             if fine_tuning:
                 self.training['fine_tuning'].append(epoch)
 
+            optimizer.update_lr()
+
+            
+            if signal_handler.sig > 1:
+                logging.warning(f'Breaking training loop bc of {signal_handler}')
+                break
+
             if save_dir:
                 self.save(save_dir)
 
-            optimizer.update_lr()
-
-        if testset:
+            
+            if full_test and signal_handler.sig:
+                logging.warning(f'Gently stopping training loop bc of {signal_handler}'
+                                'after {epoch} epochs')
+                break
+            
+        if testset and not signal_handler.sig > 1:
             # print(num_batch, sample_size)
             with torch.no_grad():
                 test_accuracy = self.accuracy(testset,
@@ -1490,7 +1513,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                               outputs=outputs,
                                               print_result='TEST')
 
-        if save_dir:
+        if signal_handler.sig > 1:
+            logging.warning(f'Skipping saving because of {signal_handler}')
+        elif save_dir:
             self.save(save_dir)
 
         logging.debug('Finished training')

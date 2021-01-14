@@ -11,11 +11,12 @@ import argparse
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
 from utils.save_load import collect_networks
 from utils.print_log import Outputs
+from utils.signaling import SIGHandler
 
 if __name__ == '__main__':
     
     hostname = gethostname()
-
+    
     args = get_args(what_for='train')
     
     debug = args.debug
@@ -51,7 +52,7 @@ if __name__ == '__main__':
 
     cuda_version = torch.version.cuda
     cudnn_version = torch.backends.cudnn.version()
-    
+
     log.debug(f'Using cuda v. {cuda_version} and '
               f'cudnn v. {cudnn_version / 1000:.3f}')
 
@@ -206,6 +207,7 @@ if __name__ == '__main__':
             log.info('Training of %s', jvae.print_architecture())
 
             #print('t.py l 302 testset:', testset.data[0].shape)
+
             jvae.train(trainset,
                        transformer=transformer,
                        epochs=args.epochs,
@@ -217,13 +219,12 @@ if __name__ == '__main__':
                        fine_tuning=args.fine_tuning,
                        sample_size=test_sample_size,  # 10000,
                        save_dir=save_dir,
-                       outputs=outputs)
+                       outputs=outputs,
+                       signal_handler = SIGHandler(1, 15))
+
             log.info('Done training')
         else:
             log.info('No need to train %s', jvae.print_architecture())
     else:
         log.info('Dry-run %s', jvae.print_training(epochs=epochs, set=trainset.name))
 
-
-    if save_dir is not None and not dry_run:
-        jvae.save(save_dir)

@@ -31,7 +31,8 @@ job_numbers = [_ for _ in range(107120, 107200)]
 job_numbers = [_ for _ in range(107050, 107400)]
 job_numbers = [_ for _ in range(107360, 107400)]
 job_numbers = [106754, 107365, 37, 107364, 107009]
-job_numbers = [107363, 107367]
+job_numbers = [107366]
+job_numbers = [_ for _ in range(107384, 107400)]
 
 def showable(x):
 
@@ -273,7 +274,7 @@ if len(jobs) < 6:
     for j in jobs:
         fgrid[j].show()
         fmuvar[j].show()
-    input()
+
+    input('Press ANY button to close figs\n')
     print('Closing')
     plt.close('all')
-

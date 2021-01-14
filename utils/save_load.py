@@ -220,7 +220,7 @@ def collect_networks(directory,
             _sigma = f'x{_s:4.1f}'
         else:
             _s = vae.training['sigma']
-            _sigma = f'={_s:4.1f}'
+            _sigma = f'={_s:4.2f}'
 
         history = vae.train_history
         if history['test_measures']:

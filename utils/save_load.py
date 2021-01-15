@@ -225,8 +225,9 @@ def collect_networks(directory,
         history = vae.train_history
         if history['test_measures']:
             mse = vae.train_history['test_measures'][-1].get('mse', np.nan)
+            rmse = np.sqrt(mse)
         else:
-            mse = np.nan
+            rmse = np.nan
         vae_dict = {'net': vae,
                     'job': vae.job_number,
                     'type': vae.type,
@@ -246,7 +247,7 @@ def collect_networks(directory,
                     'n_ood': n_ood,
                     'ood_fprs': ood_fprs,
                     'ood_fpr': ood_fpr,
-                    'mse': mse,
+                    'rmse': rmse,
                     'K': vae.latent_dim,
                     'L': vae.latent_sampling,
                     'pretrained_features': str(pretrained_features),
@@ -386,7 +387,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
 
     acc_cols = ['accuracies']
     ood_cols = ['ood_fprs']
-    meas_cols = ['mse']
+    meas_cols = ['rmse']
     
     columns = indices + acc_cols + ood_cols + meas_cols
 

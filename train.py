@@ -113,6 +113,7 @@ if __name__ == '__main__':
                      coder_capacity_regularization=args.dict_distance_regularization,
                      sigma=args.sigma,
                      sigma_reach=args.sigma_reach,
+                     sigma_decay=args.sigma_decay,
                      output_activation=args.output_activation)
 
     if resume:
@@ -124,6 +125,7 @@ if __name__ == '__main__':
         data_augmentation = jvae.training['data_augmentation']
         sigma = jvae.training['sigma']
         sigma_reach = jvae.training['sigma_reach']
+        sigma_decay = jvae.training.get('sigma_decay', 0.1)
         latent_sampling = jvae.training['latent_sampling']
         
     else:
@@ -135,13 +137,14 @@ if __name__ == '__main__':
 
         data_augmentation = args.data_augmentation
         sigma_reach = args.sigma_reach
+        sigma_decay = args.sigma_decay
         sigma = args.sigma
         latent_sampling = args.latent_sampling
 
 
     log.debug(f'{trainset.name} dataset loaded')
         
-    _sigma_reach = f'--reach={sigma_reach:.1f}std' if sigma_reach else ''
+    _sigma_reach = f'--reach={sigma_reach:.1f}std--decay={sigma_decay:0.1f}' if sigma_reach else ''
     if not data_augmentation:
         _augment = ''
     else:

@@ -262,7 +262,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self._sigma = torch.nn.Parameter(requires_grad=False)
         self.sigma = sigma
         self.sigma_reach = sigma_reach
-
+        self.sigma_decay = sigma_decay
+        
         self.batch_norm = batch_norm
         
         self._sizes_of_layers = [input_shape, num_labels,
@@ -298,6 +299,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.trained = 0
         self.training = {'sigma': sigma,
                          'sigma_reach': sigma_reach,
+                         'sigma_decay': sigma_decay,
                          'learned_coder': learned_coder,
                          'dictionary_min_dist': self.encoder.dictionary_dist_lb,
                          'coder_capacity_regularization':coder_capacity_regularization,
@@ -1406,9 +1408,10 @@ class ClassificationVariationalNetwork(nn.Module):
             train_mean_loss = {k: 0. for k in self.loss_components}
             train_total_loss = train_mean_loss.copy()
 
-            if 'std' in train_measures and self.sigma_reach:
-                sigma_n = (0.9 * self.sigma +
-                           0.1 * train_measures['std'] * self.sigma_reach )
+            if 'std' in train_measures and self.sigma_reach and self.sigma_decay:
+                decay = min(self.sigma_decay, 1)
+                sigma_n = ((1 - decay) * self.sigma +
+                           decay * train_measures['std'] * self.sigma_reach )
                 # print('*** sigma_n ***', type(sigma_n), sigma_n)
                 self.sigma = sigma_n
                 # print('*** sigma_ ***', type(self._sigma), self._sigma.device, type(self.sigma))   
@@ -1833,6 +1836,7 @@ class ClassificationVariationalNetwork(nn.Module):
         loaded_train = False
         try:
             train_params.update(save_load.load_json(dir_name, 'train.json'))
+            
             loaded_train = load_train
             logging.debug('Training parameters loaded')
         except(FileNotFoundError):
@@ -1860,6 +1864,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   activation=params['activation'],
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],
+                  sigma_decay=train_params['sigma_decay'],
                   learned_coder=train_params['learned_coder'],
                   dictionary_min_dist=train_params['dictionary_min_dist'],
                   init_coder=False,

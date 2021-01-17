@@ -1836,7 +1836,8 @@ class ClassificationVariationalNetwork(nn.Module):
         loaded_train = False
         try:
             train_params.update(save_load.load_json(dir_name, 'train.json'))
-            
+            if train_params['sigma_reach'] and 'sigma_decay' not in train_params:
+                train_params['sigma_decay'] = 0.1
             loaded_train = load_train
             logging.debug('Training parameters loaded')
         except(FileNotFoundError):
@@ -1864,7 +1865,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   activation=params['activation'],
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],
-                  sigma_decay=train_params['sigma_decay'],
+                  sigma_decay=train_params.get('sigma_decay', 0),
                   learned_coder=train_params['learned_coder'],
                   dictionary_min_dist=train_params['dictionary_min_dist'],
                   init_coder=False,

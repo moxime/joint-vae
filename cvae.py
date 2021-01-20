@@ -846,6 +846,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 time_per_i=time_per_i,
                                 batch_size=batch_size,
                                 preambule=print_result)
+        self.test_loss = mean_loss
         if sample_file:
             logging.debug(f'Saving examples in {sample_file}')
 
@@ -863,8 +864,6 @@ class ClassificationVariationalNetwork(nn.Module):
             torch.save(saved_dict, sample_file)
                 
         self._measures = measures
-
-        
         
         for m in predict_methods:
 
@@ -894,7 +893,6 @@ class ClassificationVariationalNetwork(nn.Module):
             if only_one_method:
                 return acc[m], mismatched[m]
             return acc, mismatched
-
         
         return acc[m] if only_one_method else acc
 
@@ -1288,6 +1286,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['train_accuracy'] = []
             self.train_history['train_measures'] = []
             self.train_history['test_measures'] = []
+            self.train_history['test_loss'] = []
             self.train_history['lr'] = []
             
         if not acc_methods:
@@ -1384,7 +1383,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   outputs=outputs,
                                                   sample_file=sample_file,
                                                   print_result='TEST' if full_test else 'test')
-
+                    test_loss = self.test_loss
                 if signal_handler.sig > 1:
                     logging.warning(f'Breaking training loop bc of {signal_handler}')
                     break
@@ -1412,6 +1411,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 decay = min(self.sigma_decay, 1)
                 sigma_n = ((1 - decay) * self.sigma +
                            decay * train_measures['std'] * self.sigma_reach )
+                # _std = train_measures['std']
+                # print('cvae:1415:', f'{1 - decay} * {self.sigma} + {decay} * {self.sigma_reach} * {_std}')
                 # print('*** sigma_n ***', type(sigma_n), sigma_n)
                 self.sigma = sigma_n
                 # print('*** sigma_ ***', type(self._sigma), self._sigma.device, type(self.sigma))   
@@ -1478,6 +1479,7 @@ class ClassificationVariationalNetwork(nn.Module):
             if testset:
                 self.train_history['test_accuracy'].append(test_accuracy)
                 self.train_history['test_measures'].append(test_measures)
+                self.train_history['test_loss'].append(test_loss)
             if train_accuracy:
                 self.train_history['train_accuracy'].append(train_accuracy)
             self.train_history['train_loss'].append(train_mean_loss)

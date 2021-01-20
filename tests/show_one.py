@@ -33,6 +33,7 @@ job_numbers = [_ for _ in range(107360, 107400)]
 job_numbers = [106754, 107365, 37, 107364, 107009]
 job_numbers = [107366]
 job_numbers = [_ for _ in range(107384, 107400)]
+job_numbers = [107600, 107638, 107496, 107495, 107494]
 
 def showable(x):
 
@@ -270,11 +271,14 @@ for job_number in jobs:
     mu_z_var_z_png = os.path.join('results', f'{job_number:06d}', 'z_mu_var.png')
     f.savefig(mu_z_var_z_png)
 
-if len(jobs) < 6:
+def do_show_fig():
     for j in jobs:
         fgrid[j].show()
         fmuvar[j].show()
 
+show_fig = False
+if show_fig:
+    do_show_fig()
     input('Press ANY button to close figs\n')
     print('Closing')
     plt.close('all')

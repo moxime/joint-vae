@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     log.debug(f'{trainset.name} dataset loaded')
         
-    _sigma_reach = f'--reach={sigma_reach:.1f}std--decay={sigma_decay:0.1f}' if sigma_reach else ''
+    _sigma_reach = f'--reach={sigma_reach:.1f}std--decay={sigma_decay:0.2f}' if sigma_reach else ''
     if not data_augmentation:
         _augment = ''
     else:

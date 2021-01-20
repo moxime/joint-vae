@@ -31,9 +31,9 @@ job_numbers = [_ for _ in range(107120, 107200)]
 job_numbers = [_ for _ in range(107050, 107400)]
 job_numbers = [_ for _ in range(107360, 107400)]
 job_numbers = [106754, 107365, 37, 107364, 107009]
-job_numbers = [107366]
 job_numbers = [_ for _ in range(107384, 107400)]
-job_numbers = [107600, 107638, 107496, 107495, 107494]
+job_numbers = [107384, 107600, 107638, 107496, 107495, 107494]
+# job_numbers = [107384]
 
 def showable(x):
 
@@ -271,14 +271,40 @@ for job_number in jobs:
     mu_z_var_z_png = os.path.join('results', f'{job_number:06d}', 'z_mu_var.png')
     f.savefig(mu_z_var_z_png)
 
-def do_show_fig():
-    for j in jobs:
-        fgrid[j].show()
-        fmuvar[j].show()
+    
+fx_ = {}
 
+for j in jobs:
+    f, a = plt.subplots(4, 6)
+    fx_[j] = f
+    a_ = a.reshape(-1)
+    vae = jobs[j]['net']
+    K = vae.latent_dim
+    z = torch.randn(len(a_), K, device=device)    
+    x_gen = vae.imager(vae.decoder(z))
+    for i, axis in enumerate(a_):
+
+        image = x_gen[i] 
+        axis.imshow(showable(image))
+        axis.get_xaxis().set_visible(False)
+        axis.get_yaxis().set_visible(False)
+
+    f.suptitle(f'{j} is a {net.type}')
+
+                      
+def do_show_fig(grid=True, muvar=True, gen=True):
+    for j in jobs:
+        if grid:
+            fgrid[j].show()
+        if muvar:
+            fmuvar[j].show()
+        if gen:
+            fx_[j].show()
+        
 show_fig = False
+show_fig = True
 if show_fig:
-    do_show_fig()
+    do_show_fig(grid=False, muvar=False)
     input('Press ANY button to close figs\n')
     print('Closing')
     plt.close('all')

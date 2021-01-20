@@ -168,7 +168,6 @@ class ConvFeatures(nn.Sequential):
 class Encoder(nn.Module):
 
     capacity_log_barrier = 0.001
-    default_encoder_min_dist = 6
 
     def __init__(self, input_shape, num_labels,
                  y_is_coded=False,
@@ -178,6 +177,7 @@ class Encoder(nn.Module):
                  activation='relu',
                  sampling_size=10,
                  sampling=True,
+                 dictionary_variance=1,
                  learned_dictionary=False,
                  dictionary_min_dist=None,
                  **kwargs):
@@ -210,14 +210,11 @@ class Encoder(nn.Module):
 
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
-        centroids = torch.randn(num_labels, latent_dim)
+        centroids = np.sqrt(dictionary_variance) * torch.randn(num_labels, latent_dim)
         
         self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
 
-        if dictionary_min_dist:
-            self.dictionary_dist_lb = dictionary_min_dist
-        else:
-            self.dictionary_dist_lb = self.default_encoder_min_dist
+        self.dictionary_dist_lb = dictionary_min_dist
         
     @property
     def sampling_size(self):
@@ -281,6 +278,9 @@ class Encoder(nn.Module):
     
     def init_dict(self):
 
+        if not self.dictionary_dist_lb:
+            logging.debug('No initialization of dictionary')
+            return
         logging.debug('Initialization of dictionary')
         dictionary = self.latent_dictionary
         learned = dictionary.requires_grad

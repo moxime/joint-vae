@@ -105,6 +105,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_norm=False,
                  encoder_layer_sizes=[36],
                  latent_dim=32,
+                 dictionary_variance=1,
                  learned_coder=False,
                  dictionary_min_dist=None,
                  init_coder=True,
@@ -210,12 +211,14 @@ class ClassificationVariationalNetwork(nn.Module):
                                latent_dim=latent_dim,
                                y_is_coded = self.y_is_coded,
                                sampling_size=latent_sampling,
+                               dictionary_variance=dictionary_variance,
                                learned_dictionary=learned_coder,
                                dictionary_min_dist=dictionary_min_dist,
                                activation=activation, sampling=sampling)
 
         if init_coder:
             self.encoder.init_dict()
+        
         self.coder_capacity_regularization = coder_capacity_regularization
         activation_layer = activation_layers[activation]()
 
@@ -300,6 +303,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.training = {'sigma': sigma,
                          'sigma_reach': sigma_reach,
                          'sigma_decay': sigma_decay,
+                         'dictionary_variance': dictionary_variance,
                          'learned_coder': learned_coder,
                          'dictionary_min_dist': self.encoder.dictionary_dist_lb,
                          'coder_capacity_regularization':coder_capacity_regularization,
@@ -1444,7 +1448,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_loss = batch_losses['total'].mean()
 
                 L = batch_loss
-                if self.coder_capacity_regularization:
+                if self.coder_capacity_regularization and self.encoder.dictionary_dist_lb:
                         L += self.encoder.dist_barrier()
 
                 for p in self.parameters():
@@ -1747,8 +1751,11 @@ class ClassificationVariationalNetwork(nn.Module):
             w += 'r'
         _md = self.training['dictionary_min_dist']
         if _md:
-            w += f'{_md:.1f}'
-        
+            w += f'>{_md:.1f}'
+        else:
+            _dv = self.training['dictionary_variance']
+            w += f'={_dv:.1f}'
+            
         v_.append(w)
             
         return ' '.join(v_)
@@ -1799,6 +1806,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'pretrained_upsampler': None,
                         'learned_coder': False,
                         'dictionary_min_dist': None,
+                        'dictionary_variance': 1,
                         'sigma_reach': 0,
                         'data_augmentation': [],
                         'fine_tuning': [],
@@ -1868,6 +1876,7 @@ class ClassificationVariationalNetwork(nn.Module):
                   sigma=train_params['sigma'],
                   sigma_reach=train_params['sigma_reach'],
                   sigma_decay=train_params.get('sigma_decay', 0),
+                  dictionary_variance=train_params['dictionary_variance'],
                   learned_coder=train_params['learned_coder'],
                   dictionary_min_dist=train_params['dictionary_min_dist'],
                   init_coder=False,

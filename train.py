@@ -124,7 +124,8 @@ if __name__ == '__main__':
                    for n in testset.same_size]
 
         data_augmentation = jvae.training['data_augmentation']
-        sigma = jvae.training['sigma']
+        # sigma = jvae.train['sigma']
+        sigma = jvae.train_history['train_measures'][0]['sigma']
         sigma_reach = jvae.training['sigma_reach']
         sigma_decay = jvae.training.get('sigma_decay', 0.1)
         latent_sampling = jvae.training['latent_sampling']

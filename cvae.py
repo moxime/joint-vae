@@ -1754,7 +1754,7 @@ class ClassificationVariationalNetwork(nn.Module):
             w += f'>{_md:.1f}'
         else:
             _dv = self.training['dictionary_variance']
-            w += f'={_dv:.1f}'
+            w += f'={_dv:.2f}'
             
         v_.append(w)
             

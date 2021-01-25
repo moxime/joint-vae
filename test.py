@@ -262,9 +262,8 @@ if __name__ == '__main__':
     if load_networks:
         logging.debug('Collecting networks')
         list_of_networks = collect_networks(search_dir,
-                                            load_net=not dry_run,
-                                            load_state=not dry_run) #, like=dummy_jvae)
-        
+                                            load_net=False,
+                                            load_state=False) 
         
     total = sum(map(len, list_of_networks))
     log.debug(f'{total} networks in {len(list_of_networks)} lists collected:')
@@ -335,10 +334,12 @@ if __name__ == '__main__':
             d = n['dir']
             derailed = os.path.join(d, 'derailed')
             if args.cautious:
+                log.warning('Cautious verifications to be implemented')
                 try:
-                    log.debug('Evaluation of one sample...')
-                    net.evaluate(torch.randn(1, *net.input_shape))
-                    log.debug('...done')
+                    pass
+                    # log.debug('Evaluation of one sample...')
+                    # net.evaluate(torch.randn(1, *net.input_shape))
+                    # log.debug('...done')
                 except ValueError:
                     open(derailed, 'a').close()
                     log.debug(f'Net in {d} has been marked as derailed')
@@ -402,6 +403,7 @@ if __name__ == '__main__':
 
         for n in enough_trained:
 
+            n['net'] = CVNet.load(n['dir'])
             trained_set = n['net'].training['set']
             transformer = n['net'].training['transformer']
             n['net'].to(device)

@@ -670,9 +670,9 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m == 'max':
                 measures = logp_max
             elif m == 'mag':
-                measures = logp_max - log_p.median(axis=0)[0]
+                measures = logp_max - logp.median(axis=0)[0]
             elif m == 'std':
-                measures = logp.std()
+                measures = logp.std(axis=0)
             elif m == 'mean':
                 measures = d_logp.exp().mean(axis=0).log() + logp_max
             elif m == 'nstd':

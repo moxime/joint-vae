@@ -561,6 +561,11 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
             d_s_[m] = pd.DataFrame(_v, index=df.index)
         if d_s_:
             d_[s] = pd.concat(d_s_, axis=1)
+            # print(d_[s].columns)
+            # print('==')
+            cols_fpr = d_[s].columns[~d_[s].columns.isin(['auc'], level=-1)]
+            d_[s][cols_fpr] = d_[s][cols_fpr].transform(lambda x: 1 - x)
+
         #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
 
     d_['measures'] = meas_df

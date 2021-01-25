@@ -697,6 +697,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.compute_max_batch_size(batch_size, which='test')
             return
 
+        logging.debug('Computing max batch size for %s', which)
         if 'max_batch_sizes' not in self.training:
             self.training['max_batch_sizes'] = {}
             
@@ -704,14 +705,15 @@ class ClassificationVariationalNetwork(nn.Module):
 
         x = torch.randn(batch_size, *self.input_shape, device=self.device)
         y = torch.ones(batch_size, dtype=int, device=self.device) if training else None
-        while True:
+        while batch_size > 2:
             x = x[:batch_size]
             if y is not None:
                 y = y[:batch_size]
             try:
-                logging.debug('Trying batch size of %s for %s.',
+                logging.debug('Trying batch size of %s for %s of %s.',
                               batch_size,
-                              which)
+                              which,
+                              self.job_number)
                 if training:
                     _, _, batch_losses, _ = self.evaluate(x, y=y)
                     L = batch_losses['total'].mean()
@@ -1751,6 +1753,7 @@ class ClassificationVariationalNetwork(nn.Module):
             ood_results = save_load.load_json(dir_name, 'ood.json')
             loaded_ood = True
         except(FileNotFoundError):
+            ood_results = {}
             pass
         
         loaded_train = False
@@ -1826,9 +1829,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if loaded_test:
             vae.testing.update(testing)
 
-        if load_test and loaded_ood:
+        if load_test:
             vae.ood_results = ood_results
-        
+            
         if load_state and vae.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:

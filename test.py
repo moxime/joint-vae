@@ -402,8 +402,14 @@ if __name__ == '__main__':
         dict_of_sets = {}
 
         for n in enough_trained:
-
-            n['net'] = CVNet.load(n['dir'])
+            try:
+                n['net'] = CVNet.load(n['dir'])
+            except RuntimeError as e:
+                directory = n['dir']
+                logging.warning(f'Load error in {directory} see log file')
+                logging.debug(f'Load error: {e}')
+                continue
+    
             trained_set = n['net'].training['set']
             transformer = n['net'].training['transformer']
             n['net'].to(device)
@@ -416,8 +422,11 @@ if __name__ == '__main__':
             batch_size = min(batch_sizes.get(arch, 0),
                              max_batch_size)
             if not batch_size:
-                batch_size = n['net'].compute_max_batch_size(max_batch_size,
-                                                             which='test')
+
+                n['net'].compute_max_batch_size(max_batch_size,
+                                                which='test')
+                batch_size = n['net'].max_batch_sizes['test']
+                
                 batch_sizes[arch] = batch_size
             
             log.info('Test %s with %s and batch size %s',
@@ -464,14 +473,16 @@ if __name__ == '__main__':
 
         save_json(d, search_dir, f'networks-{hostname}.json')
 
-        
-    show_best = False
-    show_best = True
 
-    # tpr = [i/100 for i in range(90, 100)]
+    first_method = args.expand < 2
+    show_best = args.expand < 1 
+
     tpr = [t/100 for t in args.tpr]
 
-    df = test_results_df(enough_trained, best_net=False, first_method=True, ood=True, tpr=tpr)
+    df = test_results_df(enough_trained, best_net=show_best,
+                         first_method=first_method,
+                         ood=True,
+                         tpr=tpr)
 
     log.info('')
     log.info('')
@@ -479,8 +490,12 @@ if __name__ == '__main__':
     
     pd.set_option('max_colwidth', 15)
 
+    sep = ['\n' * 2 + '=' * 180 for _ in df]
+    sep[0] = ''
+    
+    sep_ = iter(sep)
     for s, d in df.items():
-        print('\n' * 2 + '=' * 180)
+        print(next(sep_))
         print(f'Results for {s}')
         print(d.to_string())
 

@@ -184,7 +184,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                             batch_norm=batch_norm_encoder,
                                             pretrained=feat_dict)
                 features_arch = self.features.architecture
-
+                
             elif features == 'conv':
                 self.features = ConvFeatures(input_shape,
                                              features_channels,
@@ -195,6 +195,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                  'features_channels': features_channels,
                                  'conv_padding': conv_padding,}
 
+            features_arch['name'] = self.features.name
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')
             
@@ -300,23 +301,25 @@ class ClassificationVariationalNetwork(nn.Module):
             self.architecture['features'] = features_arch
 
         self.trained = 0
-        self.training = {'sigma': sigma,
-                         'sigma_reach': sigma_reach,
-                         'sigma_decay': sigma_decay,
-                         'dictionary_variance': dictionary_variance,
-                         'learned_coder': learned_coder,
-                         'dictionary_min_dist': self.encoder.dictionary_dist_lb,
-                         'coder_capacity_regularization':coder_capacity_regularization,
-                         'latent_sampling': latent_sampling,
-                         'set': None,
-                         'data_augmentation': [],
-                         'pretrained_features': pretrained_features,
-                         'pretrained_upsampler': pretrained_upsampler,
-                         'epochs': 0,
-                         'kl_loss_weight': None,
-                         'mse_loss_weight': None,
-                         'batch_size': None,
-                         'fine_tuning': [],}
+        self.training = {
+            'sigma0': sigma,
+            'sigma': sigma,
+            'sigma_reach': sigma_reach,
+            'sigma_decay': sigma_decay,
+            'dictionary_variance': dictionary_variance,
+            'learned_coder': learned_coder,
+            'dictionary_min_dist': self.encoder.dictionary_dist_lb,
+            'coder_capacity_regularization':coder_capacity_regularization,
+            'latent_sampling': latent_sampling,
+            'set': None,
+            'data_augmentation': [],
+            'pretrained_features': pretrained_features,
+            'pretrained_upsampler': pretrained_upsampler,
+            'epochs': 0,
+            'kl_loss_weight': None,
+            'mse_loss_weight': None,
+            'batch_size': None,
+            'fine_tuning': [],}
 
         self.testing = {m: {'n':0, 'epochs':0, 'accuracy':0}
                         for m in self.predict_methods}
@@ -1658,107 +1661,11 @@ class ClassificationVariationalNetwork(nn.Module):
         s = f'{set}: {sigma:.1e} -- L={sampling} {done_epochs}/{epochs}'
         return s
 
-    def print_architecture(self, sigma=False, sampling=False, excludes=[], short=False):
 
-        def _l2s(l, c='-', empty='.'):
-            if l:
-                return c.join(str(_) for _ in l)
-            return empty
+    print_architecture = save_load.print_architecture
 
-        def s_(s):
-            return s[0] if short else s
-        
-        features = None
-        if self.features:
-            features = self.features.name
-        s = ''
-        if 'type' not in excludes:
-            s += s_('type') + f'={self.type}--'
-        if 'activation' not in excludes:
-            if not self.is_vib:
-                s += s_('output') + f'={self.output_activation}--'
-            s += s_('activation') + f'={self.activation}--'
-        if 'latent_dim' not in excludes: 
-            s += s_('latent-dim') + f'={self.latent_dim}--'
-        # if sampling:
-        #    s += f'sampling={self.latent_sampling}--'
-        if features:
-            s += s_('features') + f'={features}--'
-        if 'batch_norm' not in excludes:
-            w = '-both' if self.batch_norm == 'both' else ''
-            s += f'batch-norm{w}--' if self. batch_norm else ''
-            
-        s += s_('encoder') + f'={_l2s(self.encoder_layer_sizes)}--'
-        if 'decoder' not in excludes:
-            s += s_('decoder') + f'={_l2s(self.decoder_layer_sizes)}--'
-            if self.upsampler_channels:
-                s += s_('upsampler') + f'={_l2s(self.upsampler_channels)}--'
-        s += s_('classifier') + f'={_l2s(self.classifier_layer_sizes)}'
-
-        if sigma:
-            s += '--'
-            s += s_('sigma')
-            s += f'={self.sigma:1.2e}'
-
-        if sampling:
-            s += '--'
-            s += s_('sampling')
-            s += f'={self.latent_sampling}'
-
-        return s
-
-    def option_vector(self):
-
-        v_ = []
-        if self.features:
-            w = ''
-            w += 'p:'
-            if self.training['pretrained_features']:
-                w+= 'f'
-            else:
-                w+= ' '
-
-            if self.upsampler_channels:
-                if self.training['pretrained_upsampler']:
-                    w += 'u'
-                else:
-                    w += ' '
-            v_.append(w)
-            
-        w = 't:' + self.training.get('transformer', 'd')[0]
-        v_.append(w)
-        
-        w = 'bn:'
-        if not self.batch_norm:
-            c = ' '
-        else:
-            # print('****', self.batch_norm)
-            c = self.batch_norm[0]
-        w += c
-        v_.append(w)
-        
-        w = 'a:'
-        for m in ('flip', 'crop'):
-            if m in self.training['data_augmentation']:
-                w += m[0]
-            else: w += ' '
-        v_.append(w)
-
-        w = 'c:'
-        if self.training['learned_coder']:
-                w += 'l'
-        else:
-            w += 'r'
-        _md = self.training['dictionary_min_dist']
-        if _md:
-            w += f'>{_md:.1f}'
-        else:
-            _dv = self.training['dictionary_variance']
-            w += f'={_dv:.1f}'
-            
-        v_.append(w)
-            
-        return ' '.join(v_)
+    option_vector = save_load.option_vector
+    
     
     def save(self, dir_name=None):
         """Save the params in params.json file in the directroy dir_name and, if
@@ -1771,6 +1678,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                     str(self.job_number))
 
         save_load.save_json(self.architecture, dir_name, 'params.json')
+        save_load.save_json(self.architecture, dir_name, 'architecture.json')
         save_load.save_json(self.training, dir_name, 'train.json')
         save_load.save_json(self.testing, dir_name, 'test.json')
         save_load.save_json(self.ood_results, dir_name, 'ood.json')
@@ -1855,40 +1763,61 @@ class ClassificationVariationalNetwork(nn.Module):
         
         try:
             train_history = save_load.load_json(dir_name, 'history.json')
-        except(FileNotFoundError):
+            train_params['sigma0'] = train_history['train_measures'][0]['sigma']
+        except(FileNotFoundError, IndexError):
             train_history = {'epochs': 0}
+            train_params['sigma0'] = train_params['sigma']
 
         if not params.get('features', None):
             params['features'] = {}
 
-        logging.debug('Building the network')
-        vae = cls(input_shape=params['input'],
-                  num_labels=params['labels'],
-                  type_of_net=params['type'],
-                  job_number=job_number,
-                  encoder_layer_sizes=params['encoder'],
-                  latent_dim=params['latent_dim'],
-                  decoder_layer_sizes=params['decoder'],
-                  classifier_layer_sizes=params['classifier'],
-                  latent_sampling=train_params['latent_sampling'],
-                  batch_norm=params['batch_norm'],
-                  activation=params['activation'],
-                  sigma=train_params['sigma'],
-                  sigma_reach=train_params['sigma_reach'],
-                  sigma_decay=train_params.get('sigma_decay', 0),
-                  dictionary_variance=train_params['dictionary_variance'],
-                  learned_coder=train_params['learned_coder'],
-                  dictionary_min_dist=train_params['dictionary_min_dist'],
-                  init_coder=False,
-                  optimizer=train_params['optim'],
-                  upsampler_channels=params['upsampler'],
-                  output_activation=params['output'],
-                  pretrained_features=train_params['pretrained_features'],
-                  pretrained_upsampler=train_params['pretrained_upsampler'],
-                  shadow=not load_net,
-                  **params['features'])
+        resave_arch = False
+        if not load_net:
+            vae = save_load.Shell()
+            try:
+                vae.architecture = save_load.load_json(dir_name, 'architecture.json')
+                logging.debug('Ghost network loaded')
+                vae.job_number = job_number
+                vae.ood_methods = cls.ood_methods_per_type[vae.architecture['type']]
+                vae.predict_methods = cls.predict_methods_per_type[vae.architecture['type']]
+                vae.testing = {}
+            except FileNotFoundError as e:
+                logging.debug(f'File {e.filename} not found, it will be created')
+                resave_arch = True
+                load_net = True 
+        if load_net:
+            logging.debug('Building the network')
+            vae = cls(input_shape=params['input'],
+                      num_labels=params['labels'],
+                      type_of_net=params['type'],
+                      job_number=job_number,
+                      encoder_layer_sizes=params['encoder'],
+                      latent_dim=params['latent_dim'],
+                      decoder_layer_sizes=params['decoder'],
+                      classifier_layer_sizes=params['classifier'],
+                      latent_sampling=train_params['latent_sampling'],
+                      batch_norm=params['batch_norm'],
+                      activation=params['activation'],
+                      sigma=train_params['sigma'],
+                      sigma_reach=train_params['sigma_reach'],
+                      sigma_decay=train_params.get('sigma_decay', 0),
+                      dictionary_variance=train_params['dictionary_variance'],
+                      learned_coder=train_params['learned_coder'],
+                      dictionary_min_dist=train_params['dictionary_min_dist'],
+                      init_coder=False,
+                      optimizer=train_params['optim'],
+                      upsampler_channels=params['upsampler'],
+                      output_activation=params['output'],
+                      pretrained_features=train_params['pretrained_features'],
+                      pretrained_upsampler=train_params['pretrained_upsampler'],
+                      shadow=not load_net,
+                      **params['features'])
 
-        logging.debug('Built')
+            logging.debug('Built')
+            if resave_arch:
+                save_load.save_json(vae.architecture, dir_name, 'architecture.json')
+                logging.debug('Architecture file saved')
+                
         vae.trained = train_history['epochs']
         vae.train_history = train_history
         vae.training = train_params

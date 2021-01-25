@@ -1,20 +1,17 @@
 from cvae import ClassificationVariationalNetwork
 import data.torch_load as dl
 import logging
-from utils.save_load import collect_networks
+from utils.save_load import collect_networks, find_by_job_number
 
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.WARNING)
 
-load_dir = './jobs/svhn/the'
-load_dir = './jobs/fashion32/the'
 
-# load_dir = './jobs/fashion32/the'
-# load_dir = './jobs/mnist/the'
-load_dir = 'jobs/cifar10/the-best'
+j = 108182
 
+load_dir = find_by_job_number('./jobs', j, load_net=False)[j]['dir']
 
 print('Load net', end='') 
-net = ClassificationVariationalNetwork.load(load_dir, load_state=False)
+net = ClassificationVariationalNetwork.load(load_dir, load_state=True)
 print(' to gpu')
 net.to('cuda')
 
@@ -35,10 +32,26 @@ print('Getting batches')
 x['ood'], y['ood'] = dl.get_batch(oodset, batch_size=batch_size)
 x['test'], y['test'] = dl.get_batch(testset, batch_size=batch_size)
 
-out = net.evaluate(x['test'], y['test'])
+losses = {}
+measures = {}
+ref = {}
+d_logp = {}
+logp = {}
+for s in ('test', 'ood'):
+    _, _, losses[s], measures[s] = net.evaluate(x[s]) #, y['test'])
+    logp[s] = - losses[s]['total']
+    ref[s] = logp[s].max(axis=0)[0]
+    d_logp[s] = logp[s] - ref[s]
+    
 
-x_reco, y_est, mu, log_var, z = net.forward(x['test'], y['test'])
-        
+
+
+
+# x_reco, y_est, mu, log_var, z = net.forward(x['test'], y['test'])
+
+
+
+
 
 """
 x_ = {}

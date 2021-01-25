@@ -87,7 +87,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type ={'cvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
+    ood_methods_per_type ={'cvae': ('max', 'std', 'mag'), # , 'mag', 'IYx'),
                            'xvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
                            'vae': ('logpx',),
@@ -655,23 +655,26 @@ class ClassificationVariationalNetwork(nn.Module):
             assert m in self.ood_methods
         
         loss = losses['total']
-        ref = -loss.min(axis=0)[0]
-        d_logp = -loss - ref
+
+        logp = - loss
+        # ref is max of logp
+        logp_max = logp.max(axis=0)[0]
+        d_logp = logp - logp_max
         for m in methods:
 
             if m == 'logpx':
                 assert not self.losses_might_be_computed_for_each_class
-                measures = -loss
+                measures = -logp
             elif m == 'sum':
-                measures = d_logp.exp().sum(axis=0).log() + ref 
+                measures = d_logp.exp().sum(axis=0).log() + logp_max 
             elif m == 'max':
-                measures = -loss.min(axis=0)[0]
+                measures = logp_max
             elif m == 'mag':
-                measures = d_logp.max(axis=0)[0] - d_logp.mean(axis=0)
+                measures = logp_max - log_p.median(axis=0)[0]
             elif m == 'std':
-                measures = d_logp.exp().std(axis=0).log() + ref
+                measures = logp.std()
             elif m == 'mean':
-                measures = d_logp.exp().mean(axis=0).log() + ref
+                measures = d_logp.exp().mean(axis=0).log() + logp_max
             elif m == 'nstd':
                 measures = (d_logp.exp().std(axis=0).log()
                             - d_logp.exp().mean(axis=0).log()).exp().pow(2)

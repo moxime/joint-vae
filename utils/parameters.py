@@ -314,9 +314,9 @@ def get_args_for_test():
     parser.add_argument('--cautious', action='store_true')
 
     parser.add_argument('--force-cpu', action='store_true')
-    parser.add_argument('--dry-run', action='store_true',
-                        help='will show you what it would do')
-
+    parser.add_argument('--compute', action='store_false',
+                        dest='dry_run',
+                        help='will compute missing rates')
     parser.add_argument('--flash', action='store_true')
 
     parser.add_argument('--show', action='store_true')

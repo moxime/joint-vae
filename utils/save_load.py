@@ -6,6 +6,8 @@ import pandas as pd
 import hashlib
 import data.torch_load as torchdl
 import numpy as np
+import torch
+from utils.optimizers import Optimizer
 
 # from cvae import ClassificationVariationalNetwork
 
@@ -124,6 +126,133 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
         return get_path_from_input(dir_path)
 
 
+class ObjFromDict:
+
+    def __init__(self, d, **defaults):
+        for k, v in defaults.items():
+            setattr(self, k, v)
+        for k, v in d.items():
+            setattr(self, k, v)
+
+def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False):
+
+    arch = ObjFromDict(o.architecture, features=None)
+    training = ObjFromDict(o.training)
+    
+    def _l2s(l, c='-', empty='.'):
+        if l:
+            return c.join(str(_) for _ in l)
+        return empty
+
+    def s_(s):
+        return s[0] if short else s
+
+    if arch.features:
+        features = arch.features['name']
+    s = ''
+    if 'type' not in excludes:
+
+        s += s_('type') + f'={arch.type}--'
+    if 'activation' not in excludes:
+        if arch.type != 'vib':
+            s += s_('output') + f'={arch.output}--'
+        s += s_('activation') + f'={arch.activation}--'
+    if 'latent_dim' not in excludes:
+        s += s_('latent-dim') + f'={arch.latent_dim}--'
+    # if sampling:
+    #    s += f'sampling={self.latent_sampling}--'
+    if arch.features:
+        s += s_('features') + f'={features}--'
+    if 'batch_norm' not in excludes:
+        w = '-' + arch.batch_norm if arch.batch_norm else ''
+        s += f'batch-norm{w}--' if arch. batch_norm else ''
+
+    s += s_('encoder') + f'={_l2s(arch.encoder)}--'
+    if 'decoder' not in excludes:
+        s += s_('decoder') + f'={_l2s(arch.decoder)}--'
+        if arch.upsampler:
+            s += s_('upsampler') + f'={_l2s(arch.upsampler)}--'
+    s += s_('classifier') + f'={_l2s(arch.classifier)}'
+
+    if sigma and 'sigma' not in excludes:
+        s += '--'
+        s += s_('sigma')+'='
+        if not training.sigma_decay:
+            _sigma = f'{training.sigma:1.2e}'
+        else:
+            _sigma0 = f'{training.sigma0:1.2e}' if training.sigma0 else '?'
+            _sigma = f'{_sigma0:}->{training.sigma_reach:.1}xstd-{training.sigma_decay}'
+        s += _sigma
+
+    if sampling and 'sampling' not in excludes:
+        s += '--'
+        s += s_('sampling')
+        s += f'={training.latent_sampling}'
+
+    return s
+
+def option_vector(o):
+
+    arch = ObjFromDict(o.architecture, features=None)
+    training = ObjFromDict(o.training, transformer='default')
+    v_ = []
+    if arch.features:
+        w = ''
+        w += 'p:'
+        if training.pretrained_features:
+            w+= 'f'
+        else:
+            w+= ' '
+
+        if arch.upsampler:
+            if training.pretrained_upsampler:
+                w += 'u'
+            else:
+                w += ' '
+        v_.append(w)
+
+    w = 't:' + training.transformer[0]
+    v_.append(w)
+
+    w = 'bn:'
+    if not arch.batch_norm:
+        c = ' '
+    else:
+        # print('****', self.batch_norm)
+        c = arch.batch_norm[0]
+    w += c
+    v_.append(w)
+
+    w = 'a:'
+    for m in ('flip', 'crop'):
+        if m in training.data_augmentation:
+            w += m[0]
+        else: w += ' '
+    v_.append(w)
+
+    if arch.type == 'cvae':
+        w = 'c:'
+        if training.learned_coder:
+                w += 'l'
+        else:
+            w += 'r'
+        _md = training.dictionary_min_dist
+        if _md:
+            w += f'>{_md:.1f}'
+        else:
+            _dv = training.dictionary_variance
+            w += f'={_dv:.1f}'
+
+        v_.append(w)
+
+    return ' '.join(v_)
+
+
+class Shell:
+    print_architecture = print_architecture
+    option_vector = option_vector
+
+
 def collect_networks(directory,
                      list_of_vae_by_architectures=None,
                      load_state=True,
@@ -158,19 +287,24 @@ def collect_networks(directory,
         vae = ClassificationVariationalNetwork.load(directory,
                                                     load_state=load_state,
                                                     **default_load_paramaters)
+        architecture = ObjFromDict(vae.architecture, features=None)
+        training = ObjFromDict(vae.training,
+                               transformer='default',
+                               pretrained_upsampler=None)
+        
         logging.debug(f'net found in {shorten_path(directory)}')
         arch =  vae.print_architecture(excludes=('latent_dim', 'batch_norm'))
         arch_code = hashlib.sha1(bytes(arch, 'utf-8')).hexdigest()[:6]
         # arch_code = hex(hash(arch))[2:10]
-        pretrained_features =  (None if not vae.features
-                                else vae.training['pretrained_features'])
-        pretrained_upsampler = vae.training.get('pretrained_upsampler', None)
-        predict_methods = vae.predict_methods
+        pretrained_features =  (None if not architecture.features
+                                else training.pretrained_features)
+        pretrained_upsampler = training.pretrained_upsampler
+        predict_methods =  vae.predict_methods
         ood_methods = vae.ood_methods
 
-        batch_size = vae.training['batch_size']
+        batch_size = training.batch_size
         if not batch_size:
-            train_batch_size = vae.training['max_batch_sizes']['train']
+            train_batch_size = vae.training.max_batch_sizes
         else:
             train_batch_size = batch_size
 
@@ -215,31 +349,39 @@ def collect_networks(directory,
             ood_fpr = {s: None for s in ood_sets}
             n_ood = {}
 
-        if vae.training['sigma_reach']:
-            _s = vae.training['sigma_reach']
-            _sigma = f'x{_s:4.1f}'
+        if training.sigma_reach:
+            _sigma = f'{training.sigma0}->x{training.sigma_reach:.1f}std\{1-training.sigma_decay:.2f}'
         else:
-            _s = vae.training['sigma']
-            _sigma = f'={_s:4.2f}'
+            _sigma = f'={training.sigma:4.2f}'
 
         history = vae.train_history
-        if history['test_measures']:
+        if history.get('test_measures', {}):
             mse = vae.train_history['test_measures'][-1].get('mse', np.nan)
             rmse = np.sqrt(mse)
         else:
             rmse = np.nan
+        empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
+        depth = (1 + len(architecture.encoder)
+                 + len(architecture.decoder) 
+                 + len(architecture.classifier))
+        
+        width = (architecture.latent_dim +
+                 sum(architecture.encoder) +
+                 sum(architecture.decoder) +
+                 sum(architecture.classifier)) 
+
         vae_dict = {'net': vae,
                     'job': vae.job_number,
-                    'type': vae.type,
+                    'type': architecture.type,
                     'arch': arch,
                     'arch_code': arch_code,
                     'dir': directory,
-                    'set': vae.training['set'],
+                    'set': training.set,
                     'train_batch_size': train_batch_size,
                     'sigma': _sigma,
-                    'done': vae.trained,
+                    'done': vae.train_history['epochs'],
                     'epochs': vae.training['epochs'],
-                    'finished': vae.trained >= vae.training['epochs'],
+                    'finished': vae.train_history['epochs'] >= vae.training['epochs'],
                     'n_tested': n_tested,
                     'epochs_tested': epochs_tested,
                     'accuracies': accuracies,
@@ -248,16 +390,16 @@ def collect_networks(directory,
                     'ood_fprs': ood_fprs,
                     'ood_fpr': ood_fpr,
                     'rmse': rmse,
-                    'K': vae.latent_dim,
-                    'L': vae.latent_sampling,
+                    'K': architecture.latent_dim,
+                    'L': training.latent_sampling,
                     'pretrained_features': str(pretrained_features),
                     'pretrained_upsampler': str(pretrained_upsampler),
-                    'depth': vae.depth,
-                    'width': vae.width,
+                    'depth': depth,
+                    'width': width,
                     'options': vae.option_vector(),
-                    'optim_str': f'{vae.optimizer:3}',
-                    'optim': vae.optimizer.kind,
-                    'lr': vae.optimizer.init_lr,
+                    'optim_str': f'{empty_optimizer:3}',
+                    'optim': empty_optimizer.kind,
+                    'lr': empty_optimizer.init_lr,
         }
         append_by_architecture(vae_dict, list_of_vae_by_architectures)
 

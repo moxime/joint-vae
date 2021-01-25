@@ -39,7 +39,7 @@ def test_accuracy_if(jvae=None,
     
     if not jvae:
         try:
-            jvae = CVNet.load(directory, load_state=not dry_run)
+            jvae = CVNet.load(directory, load_state=not dry_run, load_net=not dry_run)
         except FileNotFoundError:
             logging.warning(f'Has been asked to load net in {directory}'
                             'none found')
@@ -47,7 +47,7 @@ def test_accuracy_if(jvae=None,
     # deleting old testing methods
     jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods}
     if not jvae.testing:
-        if jvae.is_vae:
+        if jvae.architecture['type'] == 'vae':
             return True
         return None if dry_run else {}
         
@@ -115,7 +115,7 @@ def test_ood_if(jvae=None,
 
     if not jvae:
         try:
-            jvae = CVNet.load(directory, load_state=not dry_run)
+            jvae = CVNet.load(directory, load_state=not dry_run, load_net=not dry_run)
         except FileNotFoundError:
             logging.warning(f'Has been asked to load net in {directory}'
                             'none found')
@@ -261,7 +261,9 @@ if __name__ == '__main__':
 
     if load_networks:
         logging.debug('Collecting networks')
-        list_of_networks = collect_networks(search_dir, load_state=not dry_run) #, like=dummy_jvae)
+        list_of_networks = collect_networks(search_dir,
+                                            load_net=not dry_run,
+                                            load_state=not dry_run) #, like=dummy_jvae)
         
         
     total = sum(map(len, list_of_networks))

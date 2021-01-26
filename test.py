@@ -482,6 +482,7 @@ if __name__ == '__main__':
     df = test_results_df(enough_trained, best_net=show_best,
                          first_method=first_method,
                          ood=True,
+                         tnr=args.tnr,
                          tpr=tpr)
 
     log.info('')
@@ -491,7 +492,8 @@ if __name__ == '__main__':
     pd.set_option('max_colwidth', 15)
 
     sep = ['\n' * 2 + '=' * 180 for _ in df]
-    sep[0] = ''
+    if sep:
+        sep[0] = ''
     
     sep_ = iter(sep)
     for s, d in df.items():

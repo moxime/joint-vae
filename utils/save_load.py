@@ -241,7 +241,7 @@ def option_vector(o):
             w += f'>{_md:.1f}'
         else:
             _dv = training.dictionary_variance
-            w += f'={_dv:.1f}'
+            w += f'={_dv:5.2f}'
 
         v_.append(w)
 
@@ -486,7 +486,7 @@ def load_and_save(directory, output_directory=None, **kw):
     return list_of_vae
 
 
-def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=None, tpr=[0.95]):
+def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=None, tpr=[0.95], tnr=False):
     """
     nets : list of dicts n
     n['net'] : the network
@@ -505,7 +505,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
 
     if not dataset:
         testsets = {n['set'] for n in nets}
-        return {s: test_results_df(nets, best_net, first_method, ood, s, tpr) for s in testsets}
+        return {s: test_results_df(nets, best_net, first_method, ood, s, tpr, tnr) for s in testsets}
 
     arch_index = ['type',
                   'depth',
@@ -563,8 +563,10 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=No
             d_[s] = pd.concat(d_s_, axis=1)
             # print(d_[s].columns)
             # print('==')
-            cols_fpr = d_[s].columns[~d_[s].columns.isin(['auc'], level=-1)]
-            d_[s][cols_fpr] = d_[s][cols_fpr].transform(lambda x: 1 - x)
+
+            if tnr:
+                cols_fpr = d_[s].columns[~d_[s].columns.isin(['auc'], level=-1)]
+                d_[s][cols_fpr] = d_[s][cols_fpr].transform(lambda x: 1 - x)
 
         #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
 

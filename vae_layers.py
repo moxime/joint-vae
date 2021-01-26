@@ -177,6 +177,7 @@ class Encoder(nn.Module):
                  activation='relu',
                  sampling_size=10,
                  sampling=True,
+                 forced_variance=False,
                  dictionary_variance=1,
                  learned_dictionary=False,
                  dictionary_min_dist=None,
@@ -194,6 +195,8 @@ class Encoder(nn.Module):
         self.input_shape = input_shape
         self.num_labels = num_labels
 
+        self.forced_variance = forced_variance
+        
         self._sampling_size = sampling_size
 
         dense_layers = []
@@ -346,8 +349,11 @@ class Encoder(nn.Module):
         # debug_nan(u, self.dense_projs.parameters(), 'dpp')
         z_mean = self.dense_mean(u)
         # debug_nan(z_mean, u, 'µz')
-        z_log_var = self.dense_log_var(u)
-        # debug_nan(z_log_var, z_mean, 'sigz')
+        if self.forced_variance:
+            z_log_var = self.forced_variance * torch.ones_like(z_mean)
+        else:
+            z_log_var = self.dense_log_var(u)
+            # debug_nan(z_log_var, z_mean, 'sigz')
         z = self.sampling(z_mean, z_log_var)
 
         return z_mean, z_log_var, z

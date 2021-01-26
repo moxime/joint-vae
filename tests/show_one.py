@@ -34,9 +34,10 @@ job_numbers = [106754, 107365, 37, 107364, 107009]
 job_numbers = [_ for _ in range(107384, 107400)]
 job_numbers = [107384]
 job_numbers = [107384, 107600, 107638, 107496, 107495, 107494]
+job_numbers = [108160]
 
 def showable(x):
-
+    
     if x.shape[0] == 1:
         x_ = x.expand((3,) + x.shape[1:]).detach().cpu()
     else:
@@ -44,7 +45,7 @@ def showable(x):
 
     return x_.permute(1, 2, 0)
 
-def show_grid(net, x_in, x_out, y_in, y_out, order, axes):
+def show_grid(net, x_in, x_out, order, axes, y_in=None, y_out=None):
 
     for i, axis in enumerate(axes):
 
@@ -60,21 +61,22 @@ def show_grid(net, x_in, x_out, y_in, y_out, order, axes):
 
         if which:
             image = x0_
-            _y = y_out[im].item()
+            _y = y_out[im].item() if y_out is not None else -1
         else:
             image = x0
-            _y = y_in[im].item()
+            _y = y_in[im].item() if y_in is not None else -1
 
         axis.imshow(showable(image))
         snr = (x0_ - x0).pow(2).mean() / x0.pow(2).mean()
         snr_db = - 10 * np.log10(snr.item())
         _db = f' {snr_db:.1f}dB' if which else '' # f' (i={im})'
-        axis.set_title(testset.classes[_y] + _db) #, y=0, pad=25, verticalalignment="top")
+        class_= testset.classes[_y] if _y > -1 else ''
+        axis.set_title(class_ + _db) #, y=0, pad=25, verticalalignment="top")
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
 
-reload = True
 reload = False
+reload = True
 
 try:
     for j in job_numbers:
@@ -98,6 +100,7 @@ if reload:
     for j in to_be_removed: jobs.pop(j)
 
 fgrid = {}
+food = {}
 fmuvar = {}
 fhist = {}
 
@@ -154,6 +157,10 @@ for job_number in jobs:
     a_ = a.reshape(-1)
     n = len(a_) // 2
 
+    fo, aood = plt.subplots(4, 6)
+    food[job_number] = fo
+    aood_ = aood.reshape(-1)
+    
     if net.type != 'vae':
         y_ = net.predict(x['test'], method='esty' if net.is_vib else 'loss')
     else:
@@ -174,8 +181,12 @@ for job_number in jobs:
     else:
         order = i_true[:n]
 
-    show_grid(net, x['test'], x_['test'], y['test'], y_, order, a_)
+    show_grid(net, x['test'], x_['test'], order, a_, y_in=y['test'], y_out=y_)
 
+    order = np.random.permutation(batch_size)[:n]
+    show_grid(net, x['ood'], x_['ood'], order, aood_, y_out=y_)
+
+    
     _n = jobs[job_number]
     net_type = _n['type']
     K = _n['K']
@@ -282,10 +293,12 @@ for j in jobs:
     f.suptitle(f'{j} is a {vae.type} K={vae.latent_dim} sigma={_s}')
 
     
-def do_show_fig(grid=True, muvar=True, gen=True, hist=True):
+def do_show_fig(grid=True, ood=True, muvar=True, gen=True, hist=True):
     for j in jobs:
         if grid:
             fgrid[j].show()
+        if ood:
+            food[j].show()
         if muvar:
             fmuvar[j].show()
         if gen:
@@ -297,10 +310,11 @@ show_fig = False
 show_fig = True
 if show_fig:
     do_show_fig(
-        grid=False,
+        # grid=False,
+        # ood=False,
         muvar=False,
         gen=False,
-        hist=True,
+        hist=False,
     )
     input('Press ANY button to close figs\n')
     print('Closing')

@@ -117,6 +117,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  name='joint-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
+                 encoder_forced_variance=False,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
                  sigma=0.5,
                  sigma_reach=0,
@@ -211,6 +212,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                intermediate_dims=encoder_layer_sizes,
                                latent_dim=latent_dim,
                                y_is_coded = self.y_is_coded,
+                               forced_variance = encoder_forced_variance,
                                sampling_size=latent_sampling,
                                dictionary_variance=dictionary_variance,
                                learned_dictionary=learned_coder,
@@ -283,6 +285,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'encoder': encoder_layer_sizes,
                              'batch_norm': batch_norm,
                              'activation': activation,
+                             'encoder_forced_variance': self.encoder.forced_variance,
                              'latent_dim': latent_dim,
                              'decoder': decoder_layer_sizes,
                              'upsampler': upsampler_channels,
@@ -1711,7 +1714,8 @@ class ClassificationVariationalNetwork(nn.Module):
             
         # default
         params = {'type': 'jvae',
-                  'batch_norm': False
+                  'batch_norm': False,
+                  'encoder_forced_variance': False,
         }
         
         train_params = {'pretrained_features': None,

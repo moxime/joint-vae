@@ -220,6 +220,8 @@ def get_args_for_train(argv=None):
     parser.add_argument('--upsampler', type=alphanum, nargs='*', metavar='C')
     parser.add_argument('--classifier', type=alphanum, nargs='*', metavar='W')
 
+    parser.add_argument('--forced-encoder-variance', type=float, default=False, nargs='?', const=1.0)
+    
     parser.add_argument('--dataset', 
                         choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10'])
 

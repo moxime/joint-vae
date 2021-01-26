@@ -34,7 +34,8 @@ job_numbers = [106754, 107365, 37, 107364, 107009]
 job_numbers = [_ for _ in range(107384, 107400)]
 job_numbers = [107384]
 job_numbers = [107384, 107600, 107638, 107496, 107495, 107494]
-job_numbers = [108160]
+# job_numbers = [108160]
+# job_numbers = [65]
 
 def showable(x):
     
@@ -241,36 +242,53 @@ for job_number in jobs:
 
     f.savefig(mu_z_var_z_png)
 
-    f, a = plt.subplots(2, 2)
-    a_ = a.reshape(-1)
+    f, a = plt.subplots(2, 3)
+
     fhist[job_number] = f
     f.suptitle(f'{job_number} is a {net_type} K={K} sigma={_s}')
-    
-    a_[0].plot(_mu, var_, '.')
-    a_[0].set_xlabel('Variance sur un batch des moyennes par dimension')
-    a_[0].set_ylabel('Moyenne sur un batch des variances par dimension')
-    a_[0].set_xlim(0, 3.5)
-    a_[0].set_ylim(0, 1.2)
+
+    a_ = a[0, 0]
+    a_.plot(_mu, var_, '.')
+    a_.set_xlabel('Variance sur un batch des moyennes par dimension')
+    a_.set_ylabel('Moyenne sur un batch des variances par dimension')
+    a_.set_xlim(0, 3.5)
+    a_.set_ylim(0, 1.2)
     
     with torch.no_grad():
-        a_[1].plot(mu_z[0].view(-1).cpu(), var_z[0].view(-1).cpu(), '.')
-        a_[1].set_xlabel('moyennes sur une image')
-        a_[1].set_ylabel('variances sur une image')
-        a_[1].set_ylim(0, 1.2)
-        a_[1].set_xlim(-6, 6)
+        a_ = a[0, 1]
+        a_.plot(mu_z[0].view(-1).cpu(), var_z[0].view(-1).cpu(), '.')
+        a_.set_xlabel('moyennes sur une image')
+        a_.set_ylabel('variances sur une image')
+        a_.set_ylim(0, 1.2)
+        a_.set_xlim(-6, 6)
 
-        a_[2].hist(var_z[0].view(-1).cpu(), bins=10)
-        a_[2].set_title('Histogramme des variances sur une image')
+        a_ = a[0, 2]
+        a_.hist(var_z[0].view(-1).cpu(), bins=10)
+        a_.set_title('Histogramme des variances sur une image')
         _t1 = 0.25
         _t2 = 0.75
         _n1 = (var_z[0].view(-1) < _t1).sum().item()
         _n2 = (var_z[0].view(-1) > _t2).sum().item()
-        a_[2].set_xlabel(f'variances sur une image ({_n1} sont < à {_t1} et {_n2} > à {_t2})')
-        a_[2].set_xlim(0, 1.2)
+        a_.set_xlabel(f'variances sur une image ({_n1} sont < à {_t1} et {_n2} > à {_t2})')
+        a_.set_xlim(0, 1.2)
 
-        a_[3].hist(var_z.view(-1).cpu(), bins=100)
-        a_[3].set_title('Histogramme des variances sur le batch')
-        a_[3].set_xlim(0, 1.2)        
+        a_ = a[1, 0]
+        a_.hist(var_z.view(-1).cpu(), bins=100)
+        a_.set_title('Histogramme des variances sur le batch')
+        a_.set_xlim(0, 1.2)        
+
+        a_ = a[1, 1]
+
+        ratio = (mu_z[0].pow(2) / var_z[0]).view(-1).cpu()
+        min_ = min(ratio)
+        max_ = max(ratio)
+
+        a_.hist(ratio, bins=np.logspace(np.log10(min_), np.log10(max_), 10))
+
+        a_.set_xscale("log")
+        a_.set_title('Histogramme du rapport mu^2 /sigma sur une image')
+
+
         
 fx_ = {}
 
@@ -310,11 +328,11 @@ show_fig = False
 show_fig = True
 if show_fig:
     do_show_fig(
-        # grid=False,
-        # ood=False,
+        grid=False,
+        ood=False,
         muvar=False,
         gen=False,
-        hist=False,
+        # hist=False,
     )
     input('Press ANY button to close figs\n')
     print('Closing')

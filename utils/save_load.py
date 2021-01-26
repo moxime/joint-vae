@@ -177,7 +177,7 @@ def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False)
     if sigma and 'sigma' not in excludes:
         s += '--'
         s += s_('sigma')+'='
-        if not training.sigma_decay:
+        if not training.sigma_decay or not training.sigma_reach:
             _sigma = f'{training.sigma:1.2e}'
         else:
             _sigma0 = f'{training.sigma0:1.2e}' if training.sigma0 else '?'

@@ -667,7 +667,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if m == 'logpx':
                 assert not self.losses_might_be_computed_for_each_class
-                measures = -logp
+                measures = logp
             elif m == 'sum':
                 measures = d_logp.exp().sum(axis=0).log() + logp_max 
             elif m == 'max':

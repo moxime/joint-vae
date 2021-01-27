@@ -258,6 +258,9 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--output-dir', metavar='DIR/')
 
+    parser.add_argument('--show', action='store_true',
+                        help='Shiw network structure and exit')
+    
     parser.add_argument('--where', action='store_true',
                         help='Print saving dir and exit')
     

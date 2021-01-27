@@ -117,6 +117,10 @@ if __name__ == '__main__':
                      sigma_decay=args.sigma_decay,
                      output_activation=args.output_activation)
 
+    if args.show:
+        print(jvae)
+        sys.exit(0)
+        
     if resume:
         dataset, transformer = jvae.training['set'], jvae.training['transformer'] 
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)

@@ -462,31 +462,10 @@ def save_features_upsampler(net, dir='.', name=''):
     except:
         pass
         
-        
-def load_and_save(directory, output_directory=None, **kw):
-    """ load the incomplete params (with default missing parameter
-    that can be specified in **kw and save them
-    """
 
-    list_of_vae = []
-
-    collect_networks(directory, list_of_vae, **kw)
-    
-    for l in list_of_vae:
-        for d in l:
-            # print(d['net'].print_architecture())
-            saved_dir = d['dir']
-            if output_directory is not None:
-                saved_dir = os.path.join(output_directory, saved_dir)
-                # print(saved_dir)
-            d['net'].save(saved_dir)
-            v = ClassificationVariationalNetwork.load(saved_dir)
-            print('L:', d['net'].print_architecture())
-            print('S:', v.print_architecture())
-    return list_of_vae
-
-
-def test_results_df(nets, best_net=True, first_method=True, ood=True, dataset=None, tpr=[0.95], tnr=False):
+def test_results_df(nets, best_net=True, first_method=True, ood=True,
+                    dataset=None,
+                    tpr=[0.95], tnr=False):
     """
     nets : list of dicts n
     n['net'] : the network
@@ -677,6 +656,7 @@ def save_list_of_networks(list_of, dir_name, file_name='nets.json'):
 def load_list_of_networks(dir_name, file_name='nets.json'):
     
     return list(load_json(dir_name, file_name).values())
+
 if __name__ == '__main__':
 
     import numpy as np

@@ -32,10 +32,12 @@ job_numbers = [_ for _ in range(107050, 107400)]
 job_numbers = [_ for _ in range(107360, 107400)]
 job_numbers = [106754, 107365, 37, 107364, 107009]
 job_numbers = [_ for _ in range(107384, 107400)]
-job_numbers = [107384]
-job_numbers = [107384, 107600, 107638, 107496, 107495, 107494]
+job_numbers = [107384, 107600, 107638, 107496, 107495, 107494, 37]
 # job_numbers = [108160]
 # job_numbers = [65]
+job_numbers = [108047, 37]
+job_numbers = [37]
+
 
 def showable(x):
     
@@ -76,88 +78,120 @@ def show_grid(net, x_in, x_out, order, axes, y_in=None, y_out=None):
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
 
-reload = False
 reload = True
+reload = False
+recompute = True
+recompute = False
 
 try:
-    for j in job_numbers:
-        jobs[j]
+    for job_number in job_numbers:
+        jobs[job_number]
 
 except (NameError, KeyError):
     print('Loading jobs')
     reload = True
-
+    recompute=True
+    
 if reload:
     jobs = find_by_job_number(search_dir, *job_numbers, load_state=False, json_file='networks-lss.json')
 
     to_be_removed = []
-    for j in jobs:
+    for job_number in jobs:
         try:
-            jobs[j]['net'] = ClassificationVariationalNetwork.load(jobs[j]['dir'])
+            jobs[job_number]['net'] = ClassificationVariationalNetwork.load(jobs[job_number]['dir'])
         except RuntimeError:
-            print(f'Error loading {j}')
-            to_be_removed.append(j)
+            print(f'Error loading {job_number}')
+            to_be_removed.append(job_number)
 
-    for j in to_be_removed: jobs.pop(j)
+    for job_number in to_be_removed: jobs.pop(job_number)
 
 fgrid = {}
 food = {}
 fmuvar = {}
 fhist = {}
+fx_ = {}
+
+if recompute:
+    data_dict = {}
 
 for job_number in jobs:
 
-    net_dict = jobs[job_number]
-    net = net_dict['net']
+    if recompute:
+        net_dict = jobs[job_number]
+        net = net_dict['net']
 
-    device = 'cuda'
-    net.to(device)
+        device = 'cuda'
+        net.to(device)
 
-    trainset_name = net.training['set']
-    transformer = net.training['transformer']
-    trainset, testset = dl.get_dataset(trainset_name, transformer=transformer)
-    oodsets = [dl.get_dataset(n, transformer=transformer)[1] for n in testset.same_size]
+        trainset_name = net.training['set']
+        transformer = net.training['transformer']
+        trainset, testset = dl.get_dataset(trainset_name, transformer=transformer)
+        oodsets = [dl.get_dataset(n, transformer=transformer)[1] for n in testset.same_size]
 
-    oodset = oodsets[0]
+        oodset = oodsets[0]
 
-    batch_size = 50
+        batch_size = 50
 
-    shape = net.input_shape
-    C = len(trainset.classes)
+        shape = net.input_shape
+        C = len(trainset.classes)
 
-    x, y = {}, {}
+        x, y = {}, {}
 
-    x['ood'], y['ood'] = dl.get_batch(oodset, batch_size=batch_size)
-    x['test'], y['test'] = dl.get_batch(testset, batch_size=batch_size)
-    x['fake'], y['fake'] = torch.randn((batch_size,) + shape), torch.randint(C, (batch_size,) + shape)
+        x['ood'], y['ood'] = dl.get_batch(oodset, batch_size=batch_size)
+        x['test'], y['test'] = dl.get_batch(testset, batch_size=batch_size)
+        x['fake'], y['fake'] = torch.randn((batch_size,) + shape), torch.randint(C, (batch_size,) + shape)
 
-    x_ = {}
-    y_ = {}
-    mu = {}
-    log_var = {}
-    z = {}
-    losses = {}
-    measures = {}
-    loss_std = {}
-    loss_mean = {}
-    loss_min = {}
+        x_ = {}
+        y_ = {}
+        mu = {}
+        log_var = {}
+        z = {}
+        losses = {}
+        measures = {}
+        loss_std = {}
+        loss_mean = {}
+        loss_min = {}
 
-    sets = ('fake',)
-    sets = ('test', 'ood', 'fake')
-    for set_ in sets:
-        print(f'Evaluating {set_}_batch')
-        out = net.evaluate(x[set_].to(device), z_output=True)
-        x_[set_], y_[set_], losses[set_], measures[set_], mu[set_], log_var[set_], z[set_] = out
+        sets = ('fake',)
+        sets = ('test', 'ood', 'fake')
+        for set_ in sets:
+            print(f'Evaluating {set_}_batch')
+            out = net.evaluate(x[set_].to(device), z_output=True)
+            x_[set_], y_[set_], losses[set_], measures[set_], mu[set_], log_var[set_], z[set_] = out
 
-        loss_std[set_] = losses[set_]['total'].std(axis=0)
-        loss_mean[set_] = losses[set_]['total'].mean(axis=0)
-        loss_min[set_], _ = losses[set_]['total'].min(axis=0)
+            loss_std[set_] = losses[set_]['total'].std(axis=0)
+            loss_mean[set_] = losses[set_]['total'].mean(axis=0)
+            loss_min[set_], _ = losses[set_]['total'].min(axis=0)
 
+        def clone_dict(d):
+            return {s: d[s].clone().detach() for s in d}
+
+        data_dict[job_number] = dict(
+            x=clone_dict(x),
+            x_=clone_dict(x_),
+            y=clone_dict(y),
+            y_=clone_dict(y_),
+            mu=clone_dict(mu),
+            log_var=clone_dict(log_var),
+            net=net,
+            classes=testset.classes,
+        )
+
+    x = data_dict[job_number]['x']
+    x_ = data_dict[job_number]['x_']
+    y = data_dict[job_number]['y']
+    y_ = data_dict[job_number]['y_']
+    mu = data_dict[job_number]['mu']
+    log_var = data_dict[job_number]['log_var']
+    net = data_dict[job_number]['net']
+
+    print(f'Creating grid for {job_number}')
     f, a = plt.subplots(4, 6)
     fgrid[job_number] = f
     a_ = a.reshape(-1)
     n = len(a_) // 2
 
+    print(f'Creating ood figures for {job_number}')
     fo, aood = plt.subplots(4, 6)
     food[job_number] = fo
     aood_ = aood.reshape(-1)
@@ -204,23 +238,24 @@ for job_number in jobs:
     
     with torch.no_grad():
         if net.is_cvae or net.is_xvae:
-            mu_y = net.encoder.latent_dictionary.index_select(0, y['test'][_true])
+            mu_y = net.encoder.latent_dictionary.index_select(0, y['test'][_true]).cpu()
         else:
             mu_y = 0.
 
-        mu_z = mu['test'][_true]
-        var_z = log_var['test'][_true].exp()
+        mu_z = mu['test'][_true].cpu()
+        var_z = log_var['test'][_true].exp().cpu()
 
-        mu_ = (mu_z - mu_y).mean(0).cpu().numpy()
-        _mu = (mu_z - mu_y).std(0).cpu().numpy()
+        mu_ = (mu_z - mu_y).mean(0).numpy()
+        _mu = (mu_z - mu_y).std(0).numpy()
 
-        var_ = var_z.mean(0).cpu().numpy()
-        _var = var_z.std(0).cpu().numpy()
-        _var_ = np.quantile(var_z.cpu().numpy(), [0.25, 0.75], axis=0)
+        var_ = var_z.mean(0).numpy()
+        _var = var_z.std(0).numpy()
+        _var_ = np.quantile(var_z.numpy(), [0.25, 0.75], axis=0)
 
     np.set_printoptions(precision=1, suppress=True)
     # _f = {'float_kind': lambda x: f'{x:5.1f}'}
 
+    print(f'Creating latent quartiles for {job_number}')
     f, a = plt.subplots(1)
     fmuvar[job_number] = f
     
@@ -242,6 +277,7 @@ for job_number in jobs:
 
     f.savefig(mu_z_var_z_png)
 
+    print(f'Creating latent histograms for {job_number}')
     f, a = plt.subplots(2, 3)
 
     fhist[job_number] = f
@@ -279,39 +315,48 @@ for job_number in jobs:
 
         a_ = a[1, 1]
 
-        ratio = (mu_z[0].pow(2) / var_z[0]).view(-1).cpu()
-        min_ = min(ratio)
-        max_ = max(ratio)
+        ratio = (mu_z.pow(2) / var_z).mean(0).cpu()
+        sorted_ratio, sorting_index = ratio.sort(descending=True)
+        qratio = np.quantile((mu_z.pow(2) / var_z).cpu().numpy(), [0.25, 0.75], axis=0)
+        a_.semilogy(ratio[sorting_index])
+        # a_.semilogy(qratio[0][sorting_index], '--')
+        # a_.semilogy(qratio[1][sorting_index], '--')
+        
+        a_.set_title('Moyenne sur le batch du rapport mu^2 /sigma par dimension')
 
-        a_.hist(ratio, bins=np.logspace(np.log10(min_), np.log10(max_), 10))
+        a_ = a[1, 2]
+        a_.plot(mu_z.var(0).cpu()[sorting_index] + var_z.mean(0).cpu()[sorting_index])
 
-        a_.set_xscale("log")
-        a_.set_title('Histogramme du rapport mu^2 /sigma sur une image')
+        print(f'Creating fake images for {job_number}')
+        classes = data_dict[job_number]['classes']
+        C = len(classes)
+        f, a = plt.subplots(C, 20)
+        fx_[job_number] = f
 
+        vae = jobs[job_number]['net']
+        K = vae.latent_dim
+        z = torch.randn(a.shape+ (K,), device=device)
+        mu_y = torch.zeros_like(z)
+        if net.is_cvae:
+            for c in range(C):
+                for i, _ in enumerate(a[c]):
+                    mu_y[c][i] = net.encoder.latent_dictionary[c]
+
+        x_gen = vae.imager(vae.decoder(z + mu_y))
+        for c in range(C):
+            for i, axis in enumerate(a[c]):
+                image = x_gen[c][i] 
+                axis.imshow(showable(image))
+                axis.get_xaxis().set_visible(False)
+                axis.get_yaxis().set_visible(False)
+ 
+        _s = jobs[job_number]['sigma']
+        f.suptitle(f'{job_number} is a {vae.type} K={vae.latent_dim} sigma={_s}')
 
         
-fx_ = {}
-
-for j in jobs:
-    f, a = plt.subplots(4, 6)
-    fx_[j] = f
-    a_ = a.reshape(-1)
-    vae = jobs[j]['net']
-    K = vae.latent_dim
-    z = torch.randn(len(a_), K, device=device)    
-    x_gen = vae.imager(vae.decoder(z))
-    for i, axis in enumerate(a_):
-
-        image = x_gen[i] 
-        axis.imshow(showable(image))
-        axis.get_xaxis().set_visible(False)
-        axis.get_yaxis().set_visible(False)
-
-    _s = jobs[j]['sigma']
-    f.suptitle(f'{j} is a {vae.type} K={vae.latent_dim} sigma={_s}')
 
     
-def do_show_fig(grid=True, ood=True, muvar=True, gen=True, hist=True):
+def do_show_fig(grid=False, ood=False, muvar=False, gen=False, hist=False):
     for j in jobs:
         if grid:
             fgrid[j].show()
@@ -328,12 +373,12 @@ show_fig = False
 show_fig = True
 if show_fig:
     do_show_fig(
-        grid=False,
-        ood=False,
-        muvar=False,
-        gen=False,
-        # hist=False,
+        # grid=True,
+        # ood=True,
+        # muvar=True,
+        gen=True,
+        # hist=True,
     )
-    input('Press ANY button to close figs\n')
+    input('Press any button to close figs\n')
     print('Closing')
     plt.close('all')

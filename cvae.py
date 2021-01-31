@@ -1724,6 +1724,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'dictionary_min_dist': None,
                         'dictionary_variance': 1,
                         'sigma_reach': 0,
+                        'sigma_decay': 0,
                         'data_augmentation': [],
                         'fine_tuning': [],
                         'optim': {}}

@@ -15,7 +15,7 @@ import pandas as pd
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
 from utils.save_load import collect_networks, test_results_df, save_json, load_json
-
+from utils.tables import export_losses, tex_architecture
 
 def test_accuracy_if(jvae=None,
                      directory=None,
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     search_dir = load_dir if load_dir else job_dir
 
     load_networks = not flash
-    
+
     if flash:
         try:
             file_name = f'networks-{hostname}.json'
@@ -263,7 +263,7 @@ if __name__ == '__main__':
         logging.debug('Collecting networks')
         list_of_networks = collect_networks(search_dir,
                                             load_net=False,
-                                            load_state=False) 
+                                            load_state=False)
         
     total = sum(map(len, list_of_networks))
     log.debug(f'{total} networks in {len(list_of_networks)} lists collected:')
@@ -329,7 +329,7 @@ if __name__ == '__main__':
             ood_will_be_computed = 0
 
         is_derailed = False
-        
+
         if is_enough_trained:
             d = n['dir']
             derailed = os.path.join(d, 'derailed')
@@ -468,7 +468,10 @@ if __name__ == '__main__':
         d = {}
 
         for l in list_of_networks:
-            for n in l: n.pop('net')
+            for n in l:
+                tex_architecture(n['net'])
+                export_losses(n['net'], which='all')
+                n.pop('net')
             d[l[0]['arch']] = l
 
         save_json(d, search_dir, f'networks-{hostname}.json')
@@ -479,6 +482,7 @@ if __name__ == '__main__':
 
     tpr = [t/100 for t in args.tpr]
 
+        
     df = test_results_df(enough_trained, best_net=show_best,
                          first_method=first_method,
                          ood=True,

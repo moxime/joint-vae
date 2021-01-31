@@ -119,7 +119,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
                  encoder_forced_variance=False,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
-                 sigma={'value'=0.5},
+                 sigma={'value': 0.5},
                  optimizer={},
                  shadow=False,
                  *args, **kw):
@@ -204,11 +204,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.trained = 0
         if type(sigma) == Sigma:
-            self.sigma = Sigma
+            self.sigma = sigma
         elif type(sigma) == dict:
-            sigma = Sigma(**sigma)
+            self.sigma = Sigma(**sigma)
         else:
-            sigma = Sigma(value=sigma)
+            self.sigma = Sigma(value=sigma)
             
         sampling = latent_sampling > 1 or self.sigma > 0
         if not sampling:
@@ -306,7 +306,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.architecture['features'] = features_arch
 
         self.training = {
-            'sigma': sigma,
+            'sigma': self.sigma.params,
             'dictionary_variance': dictionary_variance,
             'learned_coder': learned_coder,
             'dictionary_min_dist': self.encoder.dictionary_dist_lb,
@@ -510,7 +510,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           'ld-norm',
                                           'zdist')}
             
-        total_measures['sigma'] = self.sigma
+        total_measures['sigma'] = self.sigma.value
 
         if not self.is_vib:
             batch_quants['mse'] = mse_loss(x, x_reco,
@@ -569,13 +569,13 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_mse = batch_quants['mse']
             D = np.prod(self.input_shape)
 
-            if sigma.is_mse:
+            if self.sigma.is_rmse:
                 batch_logpx = (- D / 2 * torch.log(batch_mse * np.pi)
                                - D / 2)
 
             else:
-                batch_logpx = (- D / 2 * torch.log(sigma**2 * np.pi)
-                               - D / (2 * sigma**2) * batch_mse)
+                batch_logpx = (- D / 2 * torch.log(self.sigma**2 * np.pi)
+                               - D / (2 * self.sigma**2) * batch_mse)
 
             batch_losses['cross_x'] = - batch_logpx
 
@@ -1352,7 +1352,7 @@ class ClassificationVariationalNetwork(nn.Module):
             train_total_loss = train_mean_loss.copy()
 
             if 'std' in train_measures:
-                sigma.decay_to(train_measures['std'])
+                self.sigma.decay_to(train_measures['std'])
                                
             if signal_handler.sig > 1:
                 logging.warning(f'Breaking training loop bc of {signal_handler}')
@@ -1557,11 +1557,11 @@ class ClassificationVariationalNetwork(nn.Module):
         done_epochs = self.trained
         if not epochs:
             epochs = self.training['epochs']
-        sigma = self.training['sigma']
+
         sampling = self.training['latent_sampling']
         if not set:
             set = self.training['set']
-        s = f'{set}: {sigma} -- L={sampling} {done_epochs}/{epochs}'
+        s = f'{set}: {self.sigma} -- L={sampling} {done_epochs}/{epochs}'
         return s
 
 
@@ -1618,7 +1618,6 @@ class ClassificationVariationalNetwork(nn.Module):
                         'learned_coder': False,
                         'dictionary_min_dist': None,
                         'dictionary_variance': 1,
-                        'sigma_reach': 0,
                         'data_augmentation': [],
                         'fine_tuning': [],
                         'optim': {}}
@@ -1658,19 +1657,15 @@ class ClassificationVariationalNetwork(nn.Module):
         loaded_train = False
         try:
             train_params.update(save_load.load_json(dir_name, 'train.json'))
-            if train_params['sigma_reach'] and 'sigma_decay' not in train_params:
-                train_params['sigma_decay'] = 0.1
-            loaded_train = load_train
             logging.debug('Training parameters loaded')
+            loaded_train = True
         except(FileNotFoundError):
             pass
         
         try:
             train_history = save_load.load_json(dir_name, 'history.json')
-            train_params['sigma0'] = train_history['train_measures'][0]['sigma']
         except(FileNotFoundError, IndexError):
             train_history = {'epochs': 0}
-            train_params['sigma0'] = train_params['sigma']
 
         if not params.get('features', None):
             params['features'] = {}
@@ -1685,6 +1680,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 vae.ood_methods = cls.ood_methods_per_type[vae.architecture['type']]
                 vae.predict_methods = cls.predict_methods_per_type[vae.architecture['type']]
                 vae.testing = {}
+                vae.sigma = Sigma(**train_params['sigma'])
+
             except FileNotFoundError as e:
                 logging.debug(f'File {e.filename} not found, it will be created')
                 resave_arch = True
@@ -1703,8 +1700,6 @@ class ClassificationVariationalNetwork(nn.Module):
                       batch_norm=params['batch_norm'],
                       activation=params['activation'],
                       sigma=train_params['sigma'],
-                      sigma_reach=train_params['sigma_reach'],
-                      sigma_decay=train_params.get('sigma_decay', 0),
                       dictionary_variance=train_params['dictionary_variance'],
                       learned_coder=train_params['learned_coder'],
                       dictionary_min_dist=train_params['dictionary_min_dist'],

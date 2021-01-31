@@ -179,12 +179,18 @@ def get_args_for_train(argv=None):
     parser.add_argument('--sigma-reach',
                         type=float,
                         nargs='?',
-                        default=0,
+                        default=1.,
                         const=4)
 
     parser.add_argument('--sigma-decay',
                         type=float,
-                        default=0.1)
+                        default=0.)
+
+    parser.add_argument('--sigma-learned',
+                        action='store_true',)
+
+    parser.add_argument('--sigma-is-rmse',
+                        action='store_true',)
 
     parser.add_argument('--dictionary-variance',
                         type=float,

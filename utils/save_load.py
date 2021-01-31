@@ -175,14 +175,8 @@ def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False)
     s += s_('classifier') + f'={_l2s(arch.classifier)}'
 
     if sigma and 'sigma' not in excludes:
-        s += '--'
-        s += s_('sigma')+'='
-        if not training.sigma_decay or not training.sigma_reach:
-            _sigma = f'{training.sigma:1.2e}'
-        else:
-            _sigma0 = f'{training.sigma0:1.2e}' if training.sigma0 else '?'
-            _sigma = f'{_sigma0:}->{training.sigma_reach:.1}xstd-{training.sigma_decay}'
-        s += _sigma
+        s += '--' + s_('sigma') + f'={o.sigma}'
+    
 
     if sampling and 'sampling' not in excludes:
         s += '--'
@@ -349,10 +343,6 @@ def collect_networks(directory,
             ood_fpr = {s: None for s in ood_sets}
             n_ood = {}
 
-        if training.sigma_reach:
-            _sigma = f'{training.sigma0}->x{training.sigma_reach:.1f}std\{1-training.sigma_decay:.2f}'
-        else:
-            _sigma = f'={training.sigma:4.2f}'
 
         history = vae.train_history
         if history.get('test_measures', {}):
@@ -378,7 +368,7 @@ def collect_networks(directory,
                     'dir': directory,
                     'set': training.set,
                     'train_batch_size': train_batch_size,
-                    'sigma': _sigma,
+                    'sigma': f'{vae.sigma}',
                     'done': vae.train_history['epochs'],
                     'epochs': vae.training['epochs'],
                     'finished': vae.train_history['epochs'] >= vae.training['epochs'],

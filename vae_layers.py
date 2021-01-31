@@ -87,13 +87,13 @@ class Sigma(Parameter):
         if self.is_rmse:
             return 'rmse'
         if self.learned:
-            return f'{self.sigma0}->rmse[l]'
-            return f'learned from {self.sigma0}'
+            return f'{self.sigma0:g}->rmse[l]'
+            return f'learned from {self.sigma0:g}'
         if not self.decay:
             with torch.no_grad():
-                return str(self.data.item())
-        _mult = '' if self.reach == 1 else f'{self.reach}*'
-        return f'{self.sigma0}->{_mult}rmse[*{self.decay}]'
+                return f'{self.data.item():g}'
+        _mult = '' if self.reach == 1 else f'{self.reach:g}*'
+        return f'{self.sigma0:g}->{_mult}rmse[-{self.decay:g}*]'
 
     def __repr__(self):
 

@@ -71,7 +71,7 @@ class Outputs:
         K_float = 11
         K_preambule = 9
         
-        num_format = {'default': '{' + f':^{K_float}.2e' + '}',
+        num_format = {'default': '{' + f':{K_float-1}.2e' + '} ',
                       'snr': '{' + f':{K_float-4}.1f' + '} dB '}
 
         if epoch == -2:

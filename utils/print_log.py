@@ -68,21 +68,21 @@ class Outputs:
         no_metrics = metrics is None
 
         K_epochs = 5
-        K_float = 11
+        cell_width = 11
         K_preambule = 9
         
-        num_format = {'default': '{' + f':{K_float-1}.2e' + '} ',
-                      'snr': '{' + f':{K_float-4}.1f' + '} dB '}
+        num_format = {'default': '{' + f':{cell_width-1}.2e' + '} ',
+                      'snr': '{' + f':{cell_width-4}.1f' + '} dB '}
 
         if epoch == -2:
             i = per_epoch - 1        
             preambule = f'{"epoch":_^{2 * K_epochs}}{preambule:_>{K_preambule}}_'
             if loss_components:
-                length = len('|'.join(f'{k:^10}' for k in loss_components))
+                length = len('|'.join(f'{k:^{cell_width}}' for k in loss_components))
                 loss_str = f'{"losses":_^{length}}'
             else: loss_str = ''
             if metrics:
-                length = len('|'.join(f'{k:^10}' for k in metrics))
+                length = len('|'.join(f'{k:^{cell_width}}' for k in metrics))
                 metrics_str = f'{"metrics":_^{length}}'
             else: metrics_str = ''
 
@@ -91,12 +91,12 @@ class Outputs:
             preambule = f'{" ":^{2 * K_epochs}}{preambule:>{K_preambule}} '
 
             if loss_components:
-                length = len('|'.join(f'{k:^{K_float}}' for k in loss_components))
-                loss_str = '|'.join(f'{k:^{K_float}}' for k in loss_components)
+                length = len('|'.join(f'{k:^{cell_width}}' for k in loss_components))
+                loss_str = '|'.join(f'{k:^{cell_width}}' for k in loss_components)
             else: loss_str = ''
             if metrics:
-                length = len('|'.join(f'{k:^{K_float}}' for k in metrics))
-                metrics_str = '|'.join(f'{k:^{K_float}}' for k in metrics)
+                length = len('|'.join(f'{k:^{cell_width}}' for k in metrics))
+                metrics_str = '|'.join(f'{k:^{cell_width}}' for k in metrics)
             else: metrics_str=''
             """
             elif epoch == 0:
@@ -117,7 +117,7 @@ class Outputs:
             if loss_components:
 
                 if no_loss:
-                    loss_str = '|'.join(K_float * ' ' for k in loss_components)
+                    loss_str = '|'.join(cell_width * ' ' for k in loss_components)
                 else:
                     formatted = {k: num_format.get(k, num_format['default'])
                                  for k in loss_components}
@@ -129,7 +129,7 @@ class Outputs:
             else: loss_str = ''
             if metrics:
                 if no_metrics:
-                    metrics_str = '|'.join(K_float * ' ' for k in metrics)
+                    metrics_str = '|'.join(cell_width * ' ' for k in metrics)
                 else:
                     formatted = {k: num_format.get(k, num_format['default'])
                              for k in metrics}

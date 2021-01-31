@@ -3,6 +3,7 @@ from __future__ import print_function
 import numpy as np
 import torch
 from cvae import ClassificationVariationalNetwork as CVNet
+from vae_layers import Sigma
 import data.torch_load as torchdl
 import os
 import sys
@@ -93,6 +94,12 @@ if __name__ == '__main__':
         log.info('Building network for shape %s (%s with %s)',
                  _shape, args.dataset, args.transformer)
 
+        sigma = Sigma(args.sigma,
+                      reach=args.sigma_reach,
+                      decay=args.sigma_decay,
+                      learned=args.sigma_learned,
+                      is_rmse=args.sigma_is_rmse)
+
         jvae = CVNet(input_shape, num_labels,
                      type_of_net=args.type,
                      features=args.features,
@@ -112,9 +119,7 @@ if __name__ == '__main__':
                      learned_coder=args.learned_coder,
                      dictionary_min_dist=args.dict_min_distance,
                      coder_capacity_regularization=args.dict_distance_regularization,
-                     sigma=args.sigma,
-                     sigma_reach=args.sigma_reach,
-                     sigma_decay=args.sigma_decay,
+                     sigma=sigma,
                      output_activation=args.output_activation)
 
     if args.show:
@@ -128,10 +133,6 @@ if __name__ == '__main__':
                    for n in testset.same_size]
 
         data_augmentation = jvae.training['data_augmentation']
-        # sigma = jvae.train['sigma']
-        sigma = jvae.train_history['train_measures'][0]['sigma']
-        sigma_reach = jvae.training['sigma_reach']
-        sigma_decay = jvae.training.get('sigma_decay', 0.1)
         latent_sampling = jvae.training['latent_sampling']
         
     else:
@@ -142,15 +143,11 @@ if __name__ == '__main__':
                    for n in testset.same_size]
 
         data_augmentation = args.data_augmentation
-        sigma_reach = args.sigma_reach
-        sigma_decay = args.sigma_decay
-        sigma = args.sigma
         latent_sampling = args.latent_sampling
 
 
     log.debug(f'{trainset.name} dataset loaded')
         
-    _sigma_reach = f'--reach={sigma_reach:.1f}std--decay={sigma_decay:0.2f}' if sigma_reach else ''
     if not data_augmentation:
         _augment = ''
     else:
@@ -160,8 +157,7 @@ if __name__ == '__main__':
 
     save_dir_root = os.path.join(job_dir, dataset,
                                  jvae.print_architecture(sampling=False),
-                                 f'sigma={sigma:1.2e}' +
-                                 _sigma_reach +
+                                 f'sigma={jvae.sigma}' +
                                  f'--optim={jvae.optimizer}' +
                                  f'--sampling={latent_sampling}'+
                                  _augment)

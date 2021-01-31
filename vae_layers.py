@@ -1,7 +1,8 @@
 import torch
+from torch import Tensor
 from torch import nn
 import numpy as np
-from torch.nn import functional as F
+from torch.nn import functional as F, Parameter
 from utils.print_log import debug_nan
 import logging
 
@@ -28,6 +29,81 @@ activation_layers = {'linear': nn.Identity,
                      'sigmoid': nn.Sigmoid, 
                      'relu': nn.ReLU} 
 
+
+class Sigma(Parameter):
+
+    @staticmethod
+    def __new__(cls, value=None, learned=False, is_rmse=False, **kw):
+
+        assert value is not None or is_rmse
+        if is_rmse:
+            value=0
+        return super().__new__(cls, Tensor([value]), requires_grad=learned)
+    
+    def __init__(self, value=None, learned=False,  is_rmse=False, reach=1, decay=0, sigma0=None):
+
+        assert not learned or not is_rmse
+        assert not decay or not is_rmse
+        assert not decay or not learned
+
+        self._rmse = np.nan
+        self.is_rmse = is_rmse
+        self.sigma0 = value if sigma0 is None else sigma0
+        self.learned = learned
+        self.decay = decay
+        self.reach = reach if decay else None
+
+    @property
+    def value(self):
+
+        if self.is_rmse:
+            return self._rmse
+        with torch.no_grad():
+            return self.data.item()
+        
+    @property
+    def params(self):
+
+        d = self.__dict__.copy()
+        d.pop('_rmse')
+        d['value'] = self.value
+        return d
+
+    def decay_to(self, rmse):
+
+        self._rmse = rmse
+        if self.learned or self.is_rmse or not self.decay:
+            return
+        self.data += self.decay * (self.reach * rmse - self.data) 
+
+    def __format__(self, spec):
+
+        if len(spec) and spec[-1] in 'fge':
+            return self.value.__format__(spec)
+        return str(self)
+        
+    def __str__(self):
+
+        if self.is_rmse:
+            return 'rmse'
+        if self.learned:
+            return f'{self.sigma0}->rmse[l]'
+            return f'learned from {self.sigma0}'
+        if not self.decay:
+            with torch.no_grad():
+                return str(self.data.item())
+        _mult = '' if self.reach == 1 else f'{self.reach}*'
+        return f'{self.sigma0}->{_mult}rmse[*{self.decay}]'
+
+    def __repr__(self):
+
+        if self.is_rmse:
+            return 'Sigma will be RMSE'
+        s = super().__repr__()
+        if self.decay:
+            return s[:-1] + f', decaying to {self.reach}*mse with rate {self.decay})'
+        return s
+        
 
 class Sampling(nn.Module):
     """Uses (z_mean, z_log_var) to sample z, the latent vector.

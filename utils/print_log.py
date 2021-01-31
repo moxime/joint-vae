@@ -68,7 +68,7 @@ class Outputs:
         no_metrics = metrics is None
 
         K_epochs = 5
-        K_float = 10
+        K_float = 11
         K_preambule = 9
         
         num_format = {'default': '{' + f':^{K_float}.2e' + '}',
@@ -195,6 +195,8 @@ def print_epoch(i, per_epoch, epoch, epochs, loss,
     print(f' (batch {i+1:{Ki}d}/{per_epoch})',
           end = end_of_epoch if i == per_epoch - 1 else '')
     # print(f' {blinker[i%len(blinker)]}', end='')
+
+
 def debug_nan(value, inspected, name):
 
     if torch.isnan(value).any():
@@ -202,6 +204,7 @@ def debug_nan(value, inspected, name):
             logging.error('%s : %s', name, torch.isnan(i).any().item())
         raise ValueError(name)
             
+
 def progress_bar(i, per_epoch, width=20):
 
     N = width ** 2

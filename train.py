@@ -110,6 +110,7 @@ if __name__ == '__main__':
                      batch_norm=args.batch_norm,
                      optimizer=args.optim_params,
                      encoder_layer_sizes=args.encoder,
+                     encoder_forced_variance=args.forced_encoder_variance,
                      latent_dim=args.latent_dim,
                      latent_sampling=args.latent_sampling,
                      decoder_layer_sizes=args.decoder,

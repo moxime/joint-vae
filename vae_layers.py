@@ -51,13 +51,13 @@ class Sigma(Parameter):
         self.sigma0 = value if sigma0 is None else sigma0
         self.learned = learned
         self.decay = decay
-        self.reach = reach if decay else None
+        self.reach = reach if decay or is_rmse else None
 
     @property
     def value(self):
 
         if self.is_rmse:
-            return self._rmse
+            return self._rmse * self.reach
         with torch.no_grad():
             return self.data.item()
         
@@ -426,12 +426,13 @@ class Encoder(nn.Module):
         z_mean = self.dense_mean(u)
         # debug_nan(z_mean, u, 'µz')
         if self.forced_variance:
-            z_log_var = self.forced_variance * torch.ones_like(z_mean)
+            z_log_var = np.log(self.forced_variance) * torch.ones_like(z_mean)
+            logging.debug(f'Variance forced {z_log_var.mean()} +- {z_log_var.std()}')
         else:
             z_log_var = self.dense_log_var(u)
-            # debug_nan(z_log_var, z_mean, 'sigz')
-        z = self.sampling(z_mean, z_log_var)
 
+        z = self.sampling(z_mean, z_log_var)
+        
         return z_mean, z_log_var, z
 
 

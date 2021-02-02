@@ -172,7 +172,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('-s', '--sigma',
                         type = float,
                         # type=alphanum,
-                        metavar='ß') #,
+                        metavar='S') #,
                         # nargs='*',
                         # help='several values can be provided for several trainings')
 
@@ -191,6 +191,10 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--sigma-is-rmse',
                         action='store_true',)
+
+    parser.add_argument('--beta', type=float, default=1.0,
+                        help='Beta-(C)VAE not implemented',
+                        metavar='ß')
 
     parser.add_argument('--dictionary-variance',
                         type=float,

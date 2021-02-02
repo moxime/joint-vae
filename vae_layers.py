@@ -427,7 +427,7 @@ class Encoder(nn.Module):
         # debug_nan(z_mean, u, 'µz')
         if self.forced_variance:
             z_log_var = np.log(self.forced_variance) * torch.ones_like(z_mean)
-            logging.debug(f'Variance forced {z_log_var.mean()} +- {z_log_var.std()}')
+            # logging.debug(f'Variance forced {z_log_var.mean()} +- {z_log_var.std()}')
         else:
             z_log_var = self.dense_log_var(u)
 

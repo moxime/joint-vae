@@ -239,11 +239,12 @@ if __name__ == '__main__':
     unfinished_training = args.unfinished
 
     filters = args.filters
+    log.debug('--'.join(f'{k}:{f}' for k, f in filters.items()))
     
     latex_formatting = args.latex
     
-    for k in vars(args).items():
-        log.debug('%s: %s', *k)
+    for k, v in vars(args).items():
+        log.debug('%s: %s', k, str(v))
     
     search_dir = load_dir if load_dir else job_dir
 

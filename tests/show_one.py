@@ -11,13 +11,13 @@ import os
 from torchvision.transforms import ToPILImage
 
 root_logger = logging.getLogger('')
-root_logger.setLevel(logging.DEBUG)
+# root_logger.setLevel(logging.DEBUG)
 file_logger = logging.FileHandler('/tmp/log')
 file_logger.setLevel(logging.DEBUG)
 
 sys_logger = logging.StreamHandler()
 sys_logger.setLevel(logging.WARNING)
-sys_logger.setLevel(logging.ERROR)
+# sys_logger.setLevel(logging.ERROR)
 
 root_logger.addHandler(sys_logger)
 root_logger.addHandler(file_logger)
@@ -32,11 +32,11 @@ job_numbers = [_ for _ in range(107050, 107400)]
 job_numbers = [_ for _ in range(107360, 107400)]
 job_numbers = [106754, 107365, 37, 107364, 107009]
 job_numbers = [_ for _ in range(107384, 107400)]
-job_numbers = [107384, 107600, 107638, 107496, 107495, 107494, 37]
 # job_numbers = [108160]
 # job_numbers = [65]
-job_numbers = [108047, 37]
 job_numbers = [37]
+job_numbers = [108047, 37]
+job_numbers = [107384, 107600, 107638, 107496, 107495, 107494, 37]
 
 
 def showable(x):

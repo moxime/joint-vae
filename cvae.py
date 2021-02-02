@@ -1730,6 +1730,10 @@ class ClassificationVariationalNetwork(nn.Module):
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:
                 state_dict = torch.load(w_p)
+                _sigma = state_dict.pop('_sigma', None)
+                if _sigma:
+                    print(f'cvae:1735: sigma: {vae.sigma.shape}, _sigma:{_sigma.shape}')
+                    state_dict['sigma'] = _sigma.reshape(1)
             except RuntimeError as e:
                 raise e
             try:

@@ -34,10 +34,11 @@ job_numbers = [106754, 107365, 37, 107364, 107009]
 job_numbers = [_ for _ in range(107384, 107400)]
 # job_numbers = [108160]
 # job_numbers = [65]
-job_numbers = [37]
-job_numbers = [108047, 37]
 job_numbers = [107384, 107600, 107638, 107496, 107495, 107494, 37]
-
+job_numbers = [108657]
+job_numbers = [108047, 37]
+job_numbers = [37]
+job_numbers = [75]
 
 def showable(x):
     
@@ -78,10 +79,12 @@ def show_grid(net, x_in, x_out, order, axes, y_in=None, y_out=None):
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
 
+        
 reload = True
 reload = False
 recompute = True
 recompute = False
+
 
 try:
     for job_number in job_numbers:
@@ -114,6 +117,7 @@ fx_ = {}
 if recompute:
     data_dict = {}
 
+plt.clf()
 for job_number in jobs:
 
     if recompute:
@@ -273,7 +277,7 @@ for job_number in jobs:
     a.set_ylabel('Moyenne des variances +/ quartiles pazr dimension de Z')
     # f.show()
     mu_z_var_z_png = os.path.join('results', f'{job_number:06d}', 'z_mu_var.png')
-    f.suptitle(f'{job_number} is a {net.type} K={net.latent_dim} sigma={net.sigma:.2f}')
+    f.suptitle(f'{job_number} is a {net.type} K={net.latent_dim} sigma={net.sigma}')
 
     f.savefig(mu_z_var_z_png)
 
@@ -316,18 +320,24 @@ for job_number in jobs:
         a_ = a[1, 1]
 
         ratio = (mu_z.pow(2) / var_z).mean(0).cpu()
-        sorted_ratio, sorting_index = ratio.sort(descending=True)
+        _, sorting_index = mu_z.pow(2).mean(0).cpu().sort(descending=True)
         qratio = np.quantile((mu_z.pow(2) / var_z).cpu().numpy(), [0.25, 0.75], axis=0)
         a_.semilogy(ratio[sorting_index])
         # a_.semilogy(qratio[0][sorting_index], '--')
         # a_.semilogy(qratio[1][sorting_index], '--')
         
-        a_.set_title('Moyenne sur le batch du rapport mu^2 /sigma par dimension')
+        a_.set_title('Moyenne sur le batch du rapport mu_z(x)^2 / var_z(x) par dimension')
 
         a_ = a[1, 2]
-        a_.plot(mu_z.var(0).cpu()[sorting_index] + var_z.mean(0).cpu()[sorting_index])
+        _v = var_z.mean(0).cpu()[sorting_index]
+        _m = mu_z.var(0).cpu()[sorting_index]
+        a_.bar(np.arange(len(_v)), _v)
+        a_.bar(np.arange(len(_v)), _m, bottom=_v)
+        a_.set_title('Moyenne sur le batch de var_z(x)'
+                     ' / variance sur le batch de mu_z(x), par dimension')
 
-        print(f'Creating fake images for {job_number}')
+        
+        print(f'Generating artificial images for {job_number}')
         classes = data_dict[job_number]['classes']
         C = len(classes)
         f, a = plt.subplots(C, 20)
@@ -371,13 +381,29 @@ def do_show_fig(grid=False, ood=False, muvar=False, gen=False, hist=False):
         
 show_fig = False
 show_fig = True
+
+show_grid = False
+show_grid= True
+
+show_ood = False
+show_ood = True
+
+show_muvar = False
+show_muvar = True
+
+show_gen = False
+show_gen = True
+
+show_hist= False
+show_hist = True
+
 if show_fig:
     do_show_fig(
-        # grid=True,
-        # ood=True,
-        # muvar=True,
-        gen=True,
-        # hist=True,
+        grid=show_grid,
+        ood=show_ood,
+        muvar=show_muvar,
+        gen=show_gen,
+        hist=show_hist,
     )
     input('Press any button to close figs\n')
     print('Closing')

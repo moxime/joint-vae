@@ -350,6 +350,10 @@ def collect_networks(directory,
             rmse = np.sqrt(mse)
         else:
             rmse = np.nan
+        nans = {'total': np.nan, 'zdist':np.nan}
+        loss_ = {s: ([nans] + history.get(s + '_loss', [nans]))[-1]
+                 for s in ('train', 'test')}        
+
         empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
         depth = (1 + len(architecture.encoder)
                  + len(architecture.decoder) 
@@ -380,6 +384,10 @@ def collect_networks(directory,
                     'ood_fprs': ood_fprs,
                     'ood_fpr': ood_fpr,
                     'rmse': rmse,
+                    'test_loss': loss_['test']['total'],
+                    'train_loss': loss_['train']['total'],
+                    'test_zdist': np.sqrt(loss_['test']['zdist']),
+                    'train_zdist': np.sqrt(loss_['train']['zdist']),
                     'K': architecture.latent_dim,
                     'L': training.latent_sampling,
                     'pretrained_features': str(pretrained_features),
@@ -498,7 +506,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
 
     acc_cols = ['accuracies']
     ood_cols = ['ood_fprs']
-    meas_cols = ['rmse']
+    meas_cols = ['rmse', 'train_loss', 'test_loss', 'train_zdist', 'test_zdist']
     
     columns = indices + acc_cols + ood_cols + meas_cols
 

@@ -3,6 +3,7 @@ from utils.save_load import find_by_job_number
 from sys import stdout
 import os.path
 import functools
+from utils.save_load import create_file_for_job as create_file
 
 def printout(s='', file_id=None, std=True, end='\n'):
     if file_id:
@@ -13,18 +14,6 @@ def printout(s='', file_id=None, std=True, end='\n'):
         
 def create_printout(file_id=None, std=True):
     return functools.partial(printout, file_id=file_id, std=std) 
-
-
-def create_file(number, directory, filename, mode='w'):
-    format_ = {int: '06d'}
-    job_format = format_.get(type(number), '')
-    directory = directory.replace('%j', f'{number:{job_format}}')
-
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    filepath = os.path.join(directory, filename)
-
-    return open(filepath, mode)
 
     
 def tex_architecture(net, filename='arch.tex', directory='results/%j',

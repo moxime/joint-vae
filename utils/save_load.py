@@ -9,7 +9,6 @@ import numpy as np
 import torch
 from utils.optimizers import Optimizer
 
-# from cvae import ClassificationVariationalNetwork
 
 def get_path(dir_name, file_name, create_dir=True):
 
@@ -17,19 +16,23 @@ def get_path(dir_name, file_name, create_dir=True):
     if not os.path.exists(dir_path) and create_dir:
         os.makedirs(dir_path)
 
-    return full_path(dir_name, file_name)
+    return os.path.join(dir_name, file_name)
 
 
-def save_net(net, dir_name, file_name):
+def job_to_str(number, string, formats={int: '{:06d}'}):
+    job_format = formats.get(type(number), '{}')
+    return string.replace('%j', job_format.format(number))
 
-    dir_path = os.path.realpath(dir_name)
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
+def create_file_for_job(number, directory, filename, mode='w'):
 
-    file_path = full_path(dir_name, file_name)
-    net.save(file_path)
+    directory = job_to_str(number, directory)
 
-    
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    filepath = os.path.join(directory, filename)
+
+    return open(filepath, mode)
+
 
 def save_json(d, dir_name, file_name, create_dir=True):
 
@@ -47,27 +50,6 @@ def load_json(dir_name, file_name):
         return json.load(f)
     
     
-def save_object(o, dir_name, file_name):
-    dir_path = os.path.realpath(dir_name)
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-    with open(os.path.join(dir_path, file_name), 'wb') as f:
-        pickle.dump(o, f)
-
-            
-def load_object(dir_path, file_name):
-
-    file_path = full_path(dir_path, file_name)
-
-    with open(file_path, 'rb') as f:
-        return pickle.load(f)
-
-
-def full_path(dir_name, file_name):
-
-    return os.path.join(os.path.realpath(dir_name), file_name)
-
-
 def shorten_path(path, max_length=30):
 
     if len(path) > max_length:
@@ -75,6 +57,7 @@ def shorten_path(path, max_length=30):
                 '...' + path[-max_length // 2 + 2:])
 
     return path
+
     
 def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
 
@@ -134,6 +117,7 @@ class ObjFromDict:
         for k, v in d.items():
             setattr(self, k, v)
 
+            
 def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False):
 
     arch = ObjFromDict(o.architecture, features=None)
@@ -184,6 +168,7 @@ def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False)
         s += f'={training.latent_sampling}'
 
     return s
+
 
 def option_vector(o):
 

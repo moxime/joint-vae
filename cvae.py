@@ -413,7 +413,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.is_vib:
             out = (x,)
         else:
-            out = (x_output.reshape((self.latent_sampling,) + reco_batch_shape),)
+            out = (x_output.reshape((self.latent_sampling + 1,) + reco_batch_shape),)
 
         out += (y_output,)
 
@@ -490,9 +490,9 @@ class ClassificationVariationalNetwork(nn.Module):
         y_in = y.view(y_shape) if self.y_is_coded else None
         
         if self.features:
-            x_reco, y_est, mu, log_var, z = self.forward_from_features(t, y_in, x)
+            x_reco, y_est, mu, log_var, z = self.forward_from_features(t, y_in, x, **kw)
         else:
-            x_reco, y_est, mu, log_var, z = self.forward(t, y_in, x)
+            x_reco, y_est, mu, log_var, z = self.forward(t, y_in, x, **kw)
 
         # print('*** cvae:472 logits:', 't:', *t.shape, 'x_:', *x_reco.shape)
             
@@ -513,7 +513,7 @@ class ClassificationVariationalNetwork(nn.Module):
         total_measures['sigma'] = self.sigma.value
 
         if not self.is_vib:
-            batch_quants['mse'] = mse_loss(x, x_reco,
+            batch_quants['mse'] = mse_loss(x, x_reco[1:],
                                            ndim=len(self.input_shape),
                                            batch_mean=False)
 

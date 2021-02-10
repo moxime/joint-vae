@@ -120,8 +120,9 @@ class Sampling(nn.Module):
     def forward(self, z_mean, z_log_var):
 
         sampling_size = self.sampling_size
-        size = (sampling_size,) + z_log_var.size()
+        size = (sampling_size + 1,) + z_log_var.size()
         epsilon = torch.randn(size, device=z_mean.device)
+        epsilon[0] = 0
         # print((f'***** z_log_var: {z_log_var.size()} '+
         #        f'z_mean: {z_mean.size()} ' +
         #        f'epsilon: {epsilon.size()}'))

@@ -36,9 +36,9 @@ job_numbers = [_ for _ in range(107384, 107400)]
 # job_numbers = [65]
 job_numbers = [107384, 107600, 107638, 107496, 107495, 107494, 37]
 job_numbers = [108657]
-job_numbers = [108047, 37]
-job_numbers = [37]
+job_numbers = [108182, 37]
 job_numbers = [75]
+job_numbers = [37]
 
 def showable(x):
     
@@ -79,6 +79,39 @@ def show_grid(net, x_in, x_out, order, axes, y_in=None, y_out=None):
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
 
+
+def show_examples(net, x_in, x_out, order, ax_matrix, y_in=None, y_out=None):
+
+    rows, cols = ax_matrix.shape
+
+    for c in range(cols):
+
+        axis = ax_matrix[0, c]
+        axis.get_xaxis().set_visible(False)
+        axis.get_yaxis().set_visible(False)
+        axis.set_title('var[^X]={:.3g}'.format(x_out[1:, c].var(0).mean()))
+        
+        axis.imshow(showable(x_in[c]))
+
+        axis = ax_matrix[1, c]
+        axis.get_xaxis().set_visible(False)
+        axis.get_yaxis().set_visible(False)
+        
+        _x = x_out[1:, c].mean(0)
+        axis.imshow(showable(_x))
+        
+        axis.set_title('rmse={:.3g}'.format((_x - x_in[c]).pow(2).mean()))
+        
+        for r in range(2, rows):
+
+            axis = ax_matrix[r, c]
+            axis.get_xaxis().set_visible(False)
+            axis.get_yaxis().set_visible(False)
+
+            _x = x_out[r - 2, c]
+            axis.imshow(showable(_x))
+            axis.set_title('rmse={:.3g}'.format((_x - x_in[c]).pow(2).mean()))
+        
         
 reload = True
 reload = False
@@ -109,7 +142,9 @@ if reload:
     for job_number in to_be_removed: jobs.pop(job_number)
 
 fgrid = {}
+fexamples = {}
 food = {}
+foodexamples = {}
 fmuvar = {}
 fhist = {}
 fx_ = {}
@@ -118,6 +153,7 @@ if recompute:
     data_dict = {}
 
 plt.clf()
+
 for job_number in jobs:
 
     if recompute:
@@ -143,7 +179,8 @@ for job_number in jobs:
 
         x['ood'], y['ood'] = dl.get_batch(oodset, batch_size=batch_size)
         x['test'], y['test'] = dl.get_batch(testset, batch_size=batch_size)
-        x['fake'], y['fake'] = torch.randn((batch_size,) + shape), torch.randint(C, (batch_size,) + shape)
+        x['fake'] = torch.randn((batch_size,) + shape)
+        y['fake'] = torch.randint(C, (batch_size,) + shape)
 
         x_ = {}
         y_ = {}
@@ -195,6 +232,13 @@ for job_number in jobs:
     a_ = a.reshape(-1)
     n = len(a_) // 2
 
+    print(f'Creating grid of outputs for {job_number}')
+    f, aex = plt.subplots(6, 10)
+    fexamples[job_number] = f
+    
+    f, aoex = plt.subplots(6, 10)
+    foodexamples[job_number] = f
+
     print(f'Creating ood figures for {job_number}')
     fo, aood = plt.subplots(4, 6)
     food[job_number] = fo
@@ -222,8 +266,11 @@ for job_number in jobs:
 
     show_grid(net, x['test'], x_['test'], order, a_, y_in=y['test'], y_out=y_)
 
+    show_examples(net, x['test'], x_['test'], order, aex, y_in=y['test'], y_out=y_)
+        
     order = np.random.permutation(batch_size)[:n]
     show_grid(net, x['ood'], x_['ood'], order, aood_, y_out=y_)
+    show_examples(net, x['ood'], x_['ood'], order, aoex, y_in=y['test'], y_out=y_)
 
     
     _n = jobs[job_number]
@@ -366,10 +413,13 @@ for job_number in jobs:
         
 
     
-def do_show_fig(grid=False, ood=False, muvar=False, gen=False, hist=False):
+def do_show_fig(grid=False, examples=False, ood=False, muvar=False, gen=False, hist=False):
     for j in jobs:
         if grid:
             fgrid[j].show()
+        if examples:
+            fexamples[j].show()
+            foodexamples[j].show()
         if ood:
             food[j].show()
         if muvar:
@@ -382,24 +432,27 @@ def do_show_fig(grid=False, ood=False, muvar=False, gen=False, hist=False):
 show_fig = False
 show_fig = True
 
+show_grid = True
 show_grid = False
-show_grid= True
 
-show_ood = False
+show_examples = True
+
 show_ood = True
+show_ood = False
 
-show_muvar = False
 show_muvar = True
+show_muvar = False
 
-show_gen = False
 show_gen = True
+show_gen = False
 
-show_hist= False
 show_hist = True
+show_hist= False
 
 if show_fig:
     do_show_fig(
         grid=show_grid,
+        examples=show_examples,
         ood=show_ood,
         muvar=show_muvar,
         gen=show_gen,

@@ -4,6 +4,7 @@ import logging
 from utils.save_load import collect_networks, find_by_job_number
 import torch
 from scipy import stats
+import numpy as np
 
 from matplotlib import pyplot as plt
 
@@ -11,7 +12,7 @@ logging.getLogger().setLevel(logging.WARNING)
 
 
 compute = False
-
+compute = True
 
 if compute:
     j = 107495
@@ -34,7 +35,7 @@ if compute:
 
 
     batch_size = 200
-    n_batch = 4000 // batch_size
+    n_batch = 1000 // batch_size
 
     loader = torch.utils.data.DataLoader(testset,
                                          shuffle=True,
@@ -53,7 +54,7 @@ if compute:
         y = data[1].to('cuda')
 
         with torch.no_grad():
-            _, _, _, _, z = net(x)
+            x_, _, _, _, z = net(x)
             if net.is_cvae:
                 mu_y = dictionary.index_select(0, y).expand_as(z)
             else:

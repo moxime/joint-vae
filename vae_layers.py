@@ -40,7 +40,7 @@ class Sigma(Parameter):
             value=0
         return super().__new__(cls, Tensor([value]), requires_grad=learned)
     
-    def __init__(self, value=None, learned=False,  is_rmse=False, reach=1, decay=0, sigma0=None):
+    def __init__(self, value=None, learned=False,  is_rmse=False, reach=1, decay=0, max_step=None, sigma0=None):
 
         assert not learned or not is_rmse
         assert not decay or not is_rmse
@@ -52,7 +52,8 @@ class Sigma(Parameter):
         self.learned = learned
         self.decay = decay
         self.reach = reach if decay or is_rmse else None
-
+        self.max_step = max_step
+        
     @property
     def value(self):
 
@@ -74,6 +75,9 @@ class Sigma(Parameter):
         self._rmse = rmse
         if self.learned or self.is_rmse or not self.decay:
             return
+        delta = self.decay * (self.reach * rmse - self.data)
+        if self.max_step and abs(delta) > self.max_step:
+            delta = self.max_step if delta > 0 else -self.max_step
         self.data += self.decay * (self.reach * rmse - self.data) 
 
     def __format__(self, spec):
@@ -93,7 +97,8 @@ class Sigma(Parameter):
             with torch.no_grad():
                 return f'{self.data.item():g}'
         _mult = '' if self.reach == 1 else f'{self.reach:g}*'
-        return f'{self.sigma0:g}->{_mult}rmse[-{self.decay:g}*]'
+        _max = f'<{self.max_step:g}' if self_max step else ''
+        return f'{self.sigma0:g}->{_mult}rmse[-{self.decay:g}*{_max}]'
 
     def __repr__(self):
 

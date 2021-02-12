@@ -237,9 +237,10 @@ def collect_networks(directory,
                      load_state=True,
                      **default_load_paramaters):
 
-    from cvae import ClassificationVariationalNetwork
+
     from roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
-        
+    from cvae import ClassificationVariationalNetwork
+    
     if list_of_vae_by_architectures is None:
         l = []
         collect_networks(directory, l, load_state, **default_load_paramaters)
@@ -408,28 +409,18 @@ def collect_networks(directory,
                   f'found in {shorten_path(directory)}')
 
 
-def find_by_job_number(dir, *numbers, json_file=None, **kw):
+def find_by_job_number(dir, *numbers, load_net=True, **kw):
 
+    from cvae import ClassificationVariationalNetwork
     d = {}
-    if json_file:
-        try:
-            networks_dict = load_json(dir, json_file)
-            l = sum(networks_dict.values(), [])
-            for n in l:
-                for num in numbers:
-                    if n['job'] == num:
-                        d[num] = n
-            return d
 
-        except FileNotFoundError:
-            print('File Error')
-            pass
-
-    v_ = sum(collect_networks(dir, **kw), [])
+    v_ = sum(collect_networks(dir, load_net=False, **kw), [])
     for number in numbers:
         for v in v_:
             if v['job'] == number:
                 d[number] = v
+                if load_net:
+                    d[number]['net'] = ClassificationVariationalNetwork.load(v['dir'], **kw)
 
     return d
 

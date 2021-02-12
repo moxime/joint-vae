@@ -97,6 +97,7 @@ if __name__ == '__main__':
         sigma = Sigma(args.sigma,
                       reach=args.sigma_reach,
                       decay=args.sigma_decay,
+                      max_step=args.max_step,
                       learned=args.sigma_learned,
                       is_rmse=args.sigma_is_rmse)
 

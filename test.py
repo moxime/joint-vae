@@ -477,7 +477,6 @@ if __name__ == '__main__':
 
         save_json(d, search_dir, f'networks-{hostname}.json')
 
-
     first_method = args.expand < 2
     show_best = args.expand < 1 
 

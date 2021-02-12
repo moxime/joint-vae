@@ -20,6 +20,7 @@ def tex_architecture(net, filename='arch.tex', directory='results/%j',
                      type_of_net = 'nettype',
                      architecture = 'netarch',
                      dataset = 'trainset',
+                     epochs = 'epochs',
                      stdout=False):
 
     f = create_file(net.job_number, directory, filename) if filename else None
@@ -27,10 +28,19 @@ def tex_architecture(net, filename='arch.tex', directory='results/%j',
 
     type_of_net_ = net.architecture['type']
     dataset_ = net.training['set']
+    epochs_ = net.train_history['epochs']
     architecture_ = net.print_architecture(excludes='type', sigma=True, sampling=True)
-    for cmd, k in zip((type_of_net, architecture, dataset),
-                      (type_of_net_, architecture_, dataset_)):
+    for cmd, k in zip((type_of_net, architecture, dataset, epochs),
+                      (type_of_net_, architecture_, dataset_, epochs_)):
         printout(f'\def\{cmd}{{{k}}}')
+
+    history = net.train_history
+
+    for _s in ('train', 'test'):
+        for _w in ('loss', 'measures', 'accuracy'):
+            _b = f'{_s}_{_w}' in history
+            printout(f'\{_s}{_w}{_b}'.lower())
+    
         
 def export_losses(net, which='loss',
                   directory='results/%j',
@@ -65,7 +75,7 @@ def export_losses(net, which='loss',
     type_of_net = net.architecture['type']
     arch = net.print_architecture(excludes=['type'])
     training_set = net.training['set']
-    printout(f'# {type_of_net} {arch} for  {training_set}')
+    printout(f'# {type_of_net} {arch} for {training_set}')
 
     for c in columns:
         printout(f'  {c:>{col_width[c]}}', end='')
@@ -82,8 +92,14 @@ def export_losses(net, which='loss',
     
 if __name__ == '__main__':
 
+    j_ = [37]
+    j_ = [107984, 37]
+    j_ = [_ for _ in range(109000, 110000)]
+    nets = find_by_job_number('jobs', *j_, load_net=False)
 
-    net = find_by_job_number('jobs', 108367, load_net=False)[108367]['net']
-
-    export_losses(net, which='measures', col_width=0, stdout=True)
-    tex_architecture(net, stdout=True) #, filename=None)
+    stdout = False
+    for n in nets.values():
+        net = n['net']
+        print(net.job_number)
+        export_losses(net, which='all', col_width=0, stdout=stdout)
+        tex_architecture(net, stdout=True) #, filename=None)

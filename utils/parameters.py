@@ -186,6 +186,10 @@ def get_args_for_train(argv=None):
                         type=float,
                         default=0.)
 
+    parser.add_argument('--sigma-max-step',
+                        type=float,
+                        default=None)
+    
     parser.add_argument('--sigma-learned',
                         action='store_true',)
 

@@ -78,7 +78,7 @@ class Sigma(Parameter):
         delta = self.decay * (self.reach * rmse - self.data)
         if self.max_step and abs(delta) > self.max_step:
             delta = self.max_step if delta > 0 else -self.max_step
-        self.data += self.decay * (self.reach * rmse - self.data) 
+        self.data += delta
 
     def __format__(self, spec):
 
@@ -97,7 +97,7 @@ class Sigma(Parameter):
             with torch.no_grad():
                 return f'{self.data.item():g}'
         _mult = '' if self.reach == 1 else f'{self.reach:g}*'
-        _max = f'<{self.max_step:g}' if self_max step else ''
+        _max = f'<{self.max_step:g}' if self.max_step else ''
         return f'{self.sigma0:g}->{_mult}rmse[-{self.decay:g}*{_max}]'
 
     def __repr__(self):

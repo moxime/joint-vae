@@ -4,6 +4,7 @@ import logging
 import torch
 import pandas as pd
 import sys
+import re
 
 class Outputs:
 
@@ -228,6 +229,11 @@ def progress_bar(i, per_epoch, width=20):
     print(str)
     return step, mss, lss
 
+
+def texify(s):
+    s = s.replace('->', '\\to{}')
+    return re.sub(r'[-+]?\d*\.\d+|\d+', r'\\num{\g<0>}', s)
+    
 
 class Time(float):
 

@@ -2,6 +2,7 @@ from torch import optim
 from torch import nn
 import torch
 import logging
+from utils.print_log import texify
 
 default_lr = {'sgd': 0.01,
               'adam': 0.001}
@@ -65,6 +66,8 @@ class Optimizer:
                     
     def __format__(self, format_spec):
 
+        if format_spec.endswith('x'):
+            return texify(self.__format__(format_spec[:-1]))
         try:
             level = int(format_spec)
         except ValueError:
@@ -74,23 +77,24 @@ class Optimizer:
             return self.__str__()
         
         s_ = [self.kind]
-        s_ += [f'-lr={self.init_lr}']
-        if self.lr_decay: s_ += [f'-decay={self.lr_decay}']
-        else: s_ += ['']
+        s_ += [f'lr={self.init_lr}']
+        if self.lr_decay: s_ += [f'decay={self.lr_decay}']
+        else: level -= 1
 
         d_ = self._opt.param_groups[0]
 
-        s = ''
+        s = []
         for k in params_by_type[self.kind]:
             v = d_[k]
             if v:
                 if type(v) is bool:
-                    s+= f'{v.lower()}'
+                    s.append(f'{v.lower()}')
                 else:
-                    s += f'-{k}={d_[k]}'
-        s_.append(s)
-                    
-        return ''.join(s_[:level])
+                    s.append(f'{k}={d_[k]}')
+        if s:
+            s_.append('--'.join(s))
+
+        return '--'.join(s_[:level])
 
     def zero_grad(self, *a, **kw):
         self._opt.zero_grad(*a, **kw)

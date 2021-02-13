@@ -4,6 +4,8 @@ from sys import stdout
 import os.path
 import functools
 from utils.save_load import create_file_for_job as create_file
+from utils.optimizers import Optimizer
+import torch
 
 def printout(s='', file_id=None, std=True, end='\n'):
     if file_id:
@@ -15,24 +17,31 @@ def printout(s='', file_id=None, std=True, end='\n'):
 def create_printout(file_id=None, std=True):
     return functools.partial(printout, file_id=file_id, std=std) 
 
-    
-def tex_architecture(net, filename='arch.tex', directory='results/%j',
-                     type_of_net = 'nettype',
-                     architecture = 'netarch',
-                     dataset = 'trainset',
-                     epochs = 'epochs',
-                     stdout=False):
+
+def tex_architecture(net, filename='arch.tex', directory='results/%j', stdout=False,):
 
     f = create_file(net.job_number, directory, filename) if filename else None
     printout = create_printout(file_id=f, std=stdout)
-
-    type_of_net_ = net.architecture['type']
-    dataset_ = net.training['set']
-    epochs_ = net.train_history['epochs']
-    architecture_ = net.print_architecture(excludes='type', sigma=True, sampling=True)
-    for cmd, k in zip((type_of_net, architecture, dataset, epochs),
-                      (type_of_net_, architecture_, dataset_, epochs_)):
-        printout(f'\def\{cmd}{{{k}}}')
+    arch = net.architecture
+    empty_optimizer = Optimizer([torch.nn.Parameter(torch.Tensor())], **net.training['optim'])
+    
+    exported_values = dict(
+        oftype = net.architecture['type'],
+        dataset = net.training['set'],
+        epochs = net.train_history['epochs'],
+        arch = net.print_architecture(excludes='type', sigma=True, sampling=True),
+        option = net.option_vector('-', '--'),
+        K = arch['latent_dim'],
+        L = net.training['latent_sampling'],
+        encoder = '-'.join(str(w) for w in arch['encoder']),
+        decoder = '-'.join(str(w) for w in arch['decoder']),
+        features = arch['features'].get('name', 'none'),
+        sigma = '{:x}'.format(net.sigma),
+        optimizer = '{:3x}'.format(empty_optimizer),
+        )
+        
+    for cmd, k in exported_values.items():
+        printout(f'\def\\net{cmd}{{{k}}}')
 
     history = net.train_history
 

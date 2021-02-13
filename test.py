@@ -239,7 +239,8 @@ if __name__ == '__main__':
     unfinished_training = args.unfinished
 
     filters = args.filters
-    log.debug('--'.join(f'{k}:{f}' for k, f in filters.items()))
+    filter_str = '--'.join(f'{k}:{f}' for k, f in filters.items())
+    log.debug(filter_str)
     
     latex_formatting = args.latex
     
@@ -463,19 +464,14 @@ if __name__ == '__main__':
             
             n['net'].save(n['dir'])
 
-    if load_networks:
-        _n = sum(map(len, list_of_networks))
-        logging.debug(f'About to save a list of {_n} networks')
-        d = {}
-
-        for l in list_of_networks:
-            for n in l:
-                tex_architecture(n['net'])
-                export_losses(n['net'], which='all')
-                n.pop('net')
-            d[l[0]['arch']] = l
-
-        save_json(d, search_dir, f'networks-{hostname}.json')
+    tex_list_of_jobs = os.path.join('results', filter_str + '.tex')
+    with open(tex_list_of_jobs, 'w') as f:
+        f.write('\def\joblist{')
+        f.write(','.join(['{:06d}'.format(n['job']) for n in enough_trained]))
+        f.write('}\n')
+    for n in enough_trained:
+        tex_architecture(n['net'])
+        export_losses(n['net'], which='all')
 
     first_method = args.expand < 2
     show_best = args.expand < 1 

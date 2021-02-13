@@ -170,7 +170,7 @@ def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False)
     return s
 
 
-def option_vector(o):
+def option_vector(o, empty=' ', space=' '):
 
     arch = ObjFromDict(o.architecture, features=None)
     training = ObjFromDict(o.training, transformer='default')
@@ -181,13 +181,13 @@ def option_vector(o):
         if training.pretrained_features:
             w+= 'f'
         else:
-            w+= ' '
+            w+= empty
 
         if arch.upsampler:
             if training.pretrained_upsampler:
                 w += 'u'
             else:
-                w += ' '
+                w += empty
         v_.append(w)
 
     w = 't:' + training.transformer[0]
@@ -195,7 +195,7 @@ def option_vector(o):
 
     w = 'bn:'
     if not arch.batch_norm:
-        c = ' '
+        c = empty
     else:
         # print('****', self.batch_norm)
         c = arch.batch_norm[0]
@@ -206,7 +206,7 @@ def option_vector(o):
     for m in ('flip', 'crop'):
         if m in training.data_augmentation:
             w += m[0]
-        else: w += ' '
+        else: w += empty
     v_.append(w)
 
     if arch.type == 'cvae':
@@ -224,7 +224,7 @@ def option_vector(o):
 
         v_.append(w)
 
-    return ' '.join(v_)
+    return space.join(v_)
 
 
 class Shell:

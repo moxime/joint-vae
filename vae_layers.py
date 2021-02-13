@@ -3,7 +3,7 @@ from torch import Tensor
 from torch import nn
 import numpy as np
 from torch.nn import functional as F, Parameter
-from utils.print_log import debug_nan
+from utils.print_log import debug_nan, texify
 import logging
 
 def onehot_encoding(y, C):
@@ -82,8 +82,10 @@ class Sigma(Parameter):
 
     def __format__(self, spec):
 
-        if len(spec) and spec[-1] in 'fge':
+        if spec.endswith(('f', 'g', 'e')):
             return self.value.__format__(spec)
+        if spec.endswith('x'):
+            return texify(str(self))
         return str(self)
         
     def __str__(self):

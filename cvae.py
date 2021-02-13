@@ -105,6 +105,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_norm=False,
                  encoder_layer_sizes=[36],
                  latent_dim=32,
+                 latent_prior_variance=1,
                  dictionary_variance=1,
                  learned_coder=False,
                  dictionary_min_dist=None,
@@ -213,7 +214,8 @@ class ClassificationVariationalNetwork(nn.Module):
         sampling = latent_sampling > 1 or self.sigma > 0
         if not sampling:
             logging.debug('Building a vanilla classifier')
-            
+
+        self.latent_prior_variance = latent_prior_variance
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,
                                latent_dim=latent_dim,
@@ -289,6 +291,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'activation': activation,
                              'encoder_forced_variance': self.encoder.forced_variance,
                              'latent_dim': latent_dim,
+                             'latent_prior_variance': latent_prior_variance,
                              'decoder': decoder_layer_sizes,
                              'upsampler': upsampler_channels,
                              'classifier': classifier_layer_sizes,
@@ -541,6 +544,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         kl_l, zdist = kl_loss(mu, log_var,
                               y=y if self.coder_has_dict else None,
+                              prior_variance = self.prior_variance,
                               latent_dictionary=dictionary,
                               out_zdist=True,
                               batch_mean=False)
@@ -1611,6 +1615,7 @@ class ClassificationVariationalNetwork(nn.Module):
         params = {'type': 'jvae',
                   'batch_norm': False,
                   'encoder_forced_variance': False,
+                  'latent_prior_variance': 1.,
         }
         
         train_params = {'pretrained_features': None,

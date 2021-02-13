@@ -217,6 +217,8 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('-L', '--latent-sampling', metavar='L', type=int)
 
+    parser.add_argument('--latent-prior-variance', type=float, default=1.)
+
     parser.add_argument('--features', metavar='NAME',
                         choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none'])
 

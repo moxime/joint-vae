@@ -84,7 +84,6 @@ if __name__ == '__main__':
 
         args.optim_params = {
             'optim_type': args.optimizer,
-
             'lr': args.lr,
             'lr_decay':args.lr_decay,
             }
@@ -113,6 +112,7 @@ if __name__ == '__main__':
                      encoder_layer_sizes=args.encoder,
                      encoder_forced_variance=args.forced_encoder_variance,
                      latent_dim=args.latent_dim,
+                     latent_prior_variance=args.latent_prior_variance,
                      latent_sampling=args.latent_sampling,
                      decoder_layer_sizes=args.decoder,
                      upsampler_channels=args.upsampler,

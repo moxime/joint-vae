@@ -56,17 +56,20 @@ def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
     # return (x_target - x_output).pow(2).mean(mean_dims)
 
 
-def kl_loss(mu_z, log_var_z, y=None, latent_dictionary=None, batch_mean=True, out_zdist=False):
+def kl_loss(mu_z, log_var_z, y=None,
+            latent_dictionary=None,
+            prior_variance=1.,
+            batch_mean=True, out_zdist=False):
 
     assert y is None or latent_dictionary is not None
 
-    loss = -0.5 * (1 + log_var_z - log_var_z.exp()).sum(-1)
+    loss = -0.5 * (1 + log_var_z - np.log(prior_variance) - log_var_z.exp() / prior_variance).sum(-1)
 
     _ = y.shape if y is not None else ('*',) 
     # print('*** losses:59', 'mu', *mu_z.shape, 'lv', *log_var_z.shape, 'y', *_)
 
     if y is None:
-        distances = mu_z.pow(2).sum(-1)
+        distances = mu_z.pow(2).sum(-1) / prior_variance
         loss += 0.5 * distances
         
     else:
@@ -77,7 +80,7 @@ def kl_loss(mu_z, log_var_z, y=None, latent_dictionary=None, batch_mean=True, ou
 
         centroids = latent_dictionary.index_select(0, y.view(-1)).view(centroids_shape)
         # print('*** losses:74', 'mu_', *mu_z.shape, 'centroids', *centroids.shape)
-        distances = (mu_z - centroids).pow(2).sum(-1)
+        distances = (mu_z - centroids).pow(2).sum(-1) / prior_variance
 
         # print('*** losses:76', 'loss', *loss.shape, 'dist', *distances.shape)
         loss = loss + 0.5 * distances

@@ -539,12 +539,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                              batch_mean=False)
 
             # print('*** cvae:485 cross_y', *batch_quants['cross_y'].shape)
-            
+
         dictionary = self.encoder.latent_dictionary if self.coder_has_dict else None
 
         kl_l, zdist = kl_loss(mu, log_var,
                               y=y if self.coder_has_dict else None,
-                              prior_variance = self.prior_variance,
+                              prior_variance = self.latent_prior_variance,
                               latent_dictionary=dictionary,
                               out_zdist=True,
                               batch_mean=False)
@@ -610,6 +610,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('******* x_', x_reco.shape)
             # x_reco = x_reco.mean(0)
 
+        logging.debug('Losses computed')
         out = (x_reco, y_est.mean(0), batch_losses, total_measures)
         if z_output:
             out += (mu, log_var, z)
@@ -724,8 +725,11 @@ class ClassificationVariationalNetwork(nn.Module):
                               which,
                               self.job_number)
                 if training:
+                    logging.debug('Evaling net')
                     _, _, batch_losses, _ = self.evaluate(x, y=y)
+                    logging.debug('Net evaled')
                     L = batch_losses['total'].mean()
+                    logging.debug('Backwarding net')
                     L.backward()
                 else:
                     with torch.no_grad():
@@ -744,7 +748,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 
     @property
     def max_batch_sizes(self):
-        # logging.debug('Calling max bathc size')
+        logging.debug('Calling max bathc size')
         max_batch_sizes = self.training.get('max_batch_sizes', {})
         if max_batch_sizes:
             return max_batch_sizes
@@ -1612,10 +1616,10 @@ class ClassificationVariationalNetwork(nn.Module):
             load_state = False
             
         # default
-        params = {'type': 'jvae',
-                  'batch_norm': False,
-                  'encoder_forced_variance': False,
-                  'latent_prior_variance': 1.,
+        default_params = {'type': 'jvae',
+                          'batch_norm': False,
+                          'encoder_forced_variance': False,
+                          'latent_prior_variance': 1.,
         }
         
         train_params = {'pretrained_features': None,
@@ -1640,7 +1644,8 @@ class ClassificationVariationalNetwork(nn.Module):
         logging.debug('Parameters loaded')
         if loaded_params.get('batch_norm', False) == True:
             loaded_params['batch_norm'] = 'encoder'
-        
+
+        params = default_params.copy()
         params.update(loaded_params)
         
         loaded_test = False
@@ -1679,7 +1684,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if not load_net:
             vae = save_load.Shell()
             try:
-                vae.architecture = save_load.load_json(dir_name, 'architecture.json')
+                vae.architecture = default_params.copy()
+                vae.architecture.update(save_load.load_json(dir_name, 'architecture.json'))
                 logging.debug('Ghost network loaded')
                 vae.job_number = job_number
                 vae.ood_methods = cls.ood_methods_per_type[vae.architecture['type']]

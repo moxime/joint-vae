@@ -156,9 +156,9 @@ def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False)
         s += s_('decoder') + f'={_l2s(arch.decoder)}--'
         if arch.upsampler:
             s += s_('upsampler') + f'={_l2s(arch.upsampler)}--'
-    s += s_('classifier') + f'={_l2s(arch.classifier)}'
+    s += s_('classifier') + f'={_l2s(arch.classifier)}--'
 
-    s += s_('variance') + f'={arch.latent_prior_variance}--'
+    s += s_('variance') + f'={arch.latent_prior_variance}'
     
     if sigma and 'sigma' not in excludes:
         s += '--' + s_('sigma') + f'={o.sigma}'

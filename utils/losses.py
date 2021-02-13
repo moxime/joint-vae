@@ -61,6 +61,7 @@ def kl_loss(mu_z, log_var_z, y=None,
             prior_variance=1.,
             batch_mean=True, out_zdist=False):
 
+    logging.debug('TBR l:64 Computing KL')
     assert y is None or latent_dictionary is not None
 
     loss = -0.5 * (1 + log_var_z - np.log(prior_variance) - log_var_z.exp() / prior_variance).sum(-1)
@@ -68,6 +69,7 @@ def kl_loss(mu_z, log_var_z, y=None,
     _ = y.shape if y is not None else ('*',) 
     # print('*** losses:59', 'mu', *mu_z.shape, 'lv', *log_var_z.shape, 'y', *_)
 
+    logging.debug('TBR l:72 Computing KL')
     if y is None:
         distances = mu_z.pow(2).sum(-1) / prior_variance
         loss += 0.5 * distances

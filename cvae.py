@@ -115,6 +115,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  upsampler_channels=None,
                  pretrained_upsampler=None,
                  classifier_layer_sizes=[36],
+                 force_cross_y=1.,
                  name='joint-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
@@ -155,8 +156,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         
         logging.debug('y is%s coded', '' if self.y_is_coded else ' not')
-        
-        if not self.y_is_decoded:
+
+        self.force_cross_y = force_cross_y
+        if force_cross_y:
+            self.loss_components += ('cross_y',)
+        if not self.y_is_decoded and not force_cross_y:
             classifier_layer_sizes = []
         if not self.x_is_generated:
             decoder_layer_sizes = []
@@ -532,8 +536,9 @@ class ClassificationVariationalNetwork(nn.Module):
             snr = total_measures['xpow'] / total_measures['mse']
             total_measures['snr'] = 10 * np.log10(snr)
             
-        if self.y_is_decoded:
+        if self.y_is_decoded or self.force_cross_y:
             y_target = y if y_in_input or losses_computed_for_each_class else None
+            print('*** cvae:451 y_target:', *y.shape, 'out', *y_est.shape)  
             batch_quants['cross_y'] = x_loss(y_target,
                                              y_est,
                                              batch_mean=False)
@@ -585,13 +590,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_losses['total'] += batch_losses['cross_x'] 
             
-        if self.y_is_decoded:
+        if self.y_is_decoded or self.force_cross_y:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',
                   'y', *batch_losses['cross_y'].shape,
                   'T', *batch_losses['total'].shape)
             """
-            batch_losses['total'] += batch_losses['cross_y']
+            if self.y_is_decoded:
+                batch_losses['total'] += batch_losses['cross_y']
                 
         batch_losses['kl'] = batch_quants['latent_kl']
         
@@ -1392,6 +1398,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 if self.coder_capacity_regularization and self.encoder.dictionary_dist_lb:
                         L += self.encoder.dist_barrier()
 
+                if self.force_cross_y and not self.y_is_decoded:
+                    L += batch_loss['cross_y'].mean()
+                    
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         print('GRAD NAN')

@@ -118,9 +118,9 @@ def x_loss(y_target, logits, batch_mean=True):
     
     if y_target is None:
 
-        # print('*** losses:125 target is none')
         log_p = (logits.softmax(dim=-1) + 1e-6).log()
-        return -log_p.mean(0).max(-1)[0]
+        # print('*** losses:125 target is none', *logits.shape, '-', *log_p.shape)
+        return -log_p[1:].mean(0) # .max(-1)[0]
         
     
     C = logits.shape[-1]

@@ -455,7 +455,6 @@ class ClassificationVariationalNetwork(nn.Module):
         losses_computed_for_each_class = (self.losses_might_be_computed_for_each_class
                                           and not y_in_input)
 
-        x_is_decoded = not self.is_vib
         C = self.num_labels
         
         if self.features:
@@ -517,7 +516,7 @@ class ClassificationVariationalNetwork(nn.Module):
             
         total_measures['sigma'] = self.sigma.value
 
-        if not self.is_vib:
+        if self.x_is_generated:
             batch_quants['mse'] = mse_loss(x, x_reco[1:],
                                            ndim=len(self.input_shape),
                                            batch_mean=False)
@@ -534,17 +533,6 @@ class ClassificationVariationalNetwork(nn.Module):
             snr = total_measures['xpow'] / total_measures['mse']
             total_measures['snr'] = 10 * np.log10(snr)
             
-        if self.y_is_decoded or self.force_cross_y:
-            if y_in_input or (self.y_is_decoded and losses_computed_for_each_class):
-                y_target = y
-            else:
-                y_target = None
-
-            batch_quants['cross_y'] = x_loss(y_target,
-                                             y_est,
-                                             batch_mean=False)
-
-            # print('*** cvae:545 cross_y', *batch_quants['cross_y'].shape)
 
         dictionary = self.encoder.latent_dictionary if self.coder_has_dict else None
 
@@ -563,6 +551,19 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_quants['latent_kl'] = kl_l
 
         batch_losses['zdist'] = zdist
+        
+        if not self.is_vae: # self.y_is_decoded or self.force_cross_y:
+            if y_in_input or (self.y_is_decoded and losses_computed_for_each_class):
+                y_target = y
+            else:
+                y_target = None
+
+            batch_quants['cross_y'] = x_loss(y_target,
+                                             y_est if self.classifier else zdist.T,
+                                             batch_mean=False)
+
+            # print('*** cvae:545 cross_y', *batch_quants['cross_y'].shape)
+
         batch_losses['total'] = torch.zeros_like(batch_quants['latent_kl'])
 
         if self.coder_has_dict:
@@ -591,28 +592,24 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_losses['total'] += batch_losses['cross_x'] 
             
-        if self.y_is_decoded or self.force_cross_y:
+        if not self.is_vae: #self.y_is_decoded or self.force_cross_y:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',
                   'y', *batch_losses['cross_y'].shape,
                   'T', *batch_losses['total'].shape)
             """
         
-            #  print('*** cvae:602', 'T:', *batch_losses['total'].shape,
+            # print('*** cvae:602', 'T:', *batch_losses['total'].shape,
             #      'Xy:', *batch_losses['cross_y'].shape)
             
             if self.y_is_decoded:
-                if self.is_jvae:
-                    batch_losses['total'] = batch_losses['total'] + batch_losses['cross_y']
-                else:
-                    batch_losses['total'] = batch_losses['total'].unsqueeze(-1) + batch_losses['cross_y']
-                # print('*** cvae:606, done')
+                batch_losses['total'] = batch_losses['total'] + batch_losses['cross_y']
                 
         batch_losses['kl'] = batch_quants['latent_kl']
         
         if self.is_vib:
             # print('*** cvae 612: T:', *batch_losses['total'].shape, 'kl', *batch_losses['kl'].shape)
-            batch_losses['total'] += self.sigma * batch_losses['kl'].unsqueeze(-1)
+            batch_losses['total'] += self.sigma * batch_losses['kl']
         else:
             batch_losses['total'] += batch_losses['kl']
             
@@ -844,26 +841,35 @@ class ClassificationVariationalNetwork(nn.Module):
                                                     current_measures=current_measures)
             current_measures = measures
 
-            if self.is_jvae or self.is_cvae or self.is_vib or self.is_xvae:
-                ind = y_test.unsqueeze(0)
-                ind_Xy = y_test.unsqueeze(-1)
-                if self.is_xvae:
-                    ind_Xy = ind_Xy.unsqueeze(0)
-                    
+            # print('*** 842', y_test[0].item(), *y_test.shape)
+            # print('*** 843', batch_losses['cross_y'].min(0)[0].mean())
+            ind = y_test.unsqueeze(0)
             for k in batch_losses:
-                print('*** cvae 848', *ind.shape, *ind_Xy.shape)
-                print('*** cvae 849', k, *batch_losses[k].shape)
-                if k is 'cross_y':
-                    batch_loss_y = batch_losses[k].gather(-1, ind_Xy)
-                    if self.is_jvae:
-                        print('*** cvae 856:', *batch_loss_y.shape)
-                        batch_loss_y = batch_loss_y.gather(0, ind)
-                elif self.is_jvae or (self.is_cvae and  k != 'cross_x'):
+                if k is 'cross_y' and self.is_xvae:
+                    shape = 'CxNxC'
+                elif k is 'cross_y' or self.is_jvae:
+                    shape = 'CxN'
+                elif self.is_cvae and k != 'cross_x':
+                    shape = 'CxN'
+                elif self.is_vib and k == 'total':
+                    shape = 'CxN'
+                elif self.is_xvae:
+                    shape = 'CxN'
+                else:
+                    shape = 'N'
+                # print('*** cvae 859', k, *batch_losses[k].shape, shape)
+
+                if shape == 'CxNxC':
+                    batch_loss_y = batch_losses[k].max(-1)[0].gather(0, ind)
+                elif shape == 'CxN':
                     batch_loss_y = batch_losses[k].gather(0, ind)
                 else:
-                    batch_loss_y = batch_losses[k].mean(0)
+                    batch_loss_y = batch_losses[k]
+                # print('*** cvae:866 bl_y:', *batch_loss_y.shape)
+                
                 if k not in total_loss:
                     total_loss[k] = 0.0
+
                 total_loss[k] += batch_loss_y.mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
 

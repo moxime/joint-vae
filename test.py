@@ -15,7 +15,7 @@ import pandas as pd
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
 from utils.save_load import collect_networks, test_results_df, save_json, load_json
-from utils.tables import export_losses, tex_architecture
+from utils.tables import export_losses, tex_architecture, output_df
 
 def test_accuracy_if(jvae=None,
                      directory=None,
@@ -499,7 +499,7 @@ if __name__ == '__main__':
     for s, d in df.items():
         print(next(sep_))
         print(f'Results for {s}')
-        print(d.to_string())
+        output_df(d)
 
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]

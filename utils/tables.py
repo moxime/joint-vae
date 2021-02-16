@@ -128,7 +128,7 @@ def adapt_df(df, style=''):
         
     return df
 
-def output_dataframe(df, *files, stdout=True, args=_to_string_args):
+def output_df(df, *files, stdout=True, args=_to_string_args):
 
     outputs = [dict(style='', f=sys.stdout)] if stdout else []
     for f in files:
@@ -152,4 +152,4 @@ if __name__ == '__main__':
         nets = sum(collect_networks('jobs', load_state=False, load_net=False), [])
 
     df = test_results_df(nets, dataset='cifar10', best_net=False, first_method=False)
-    output_dataframe(df, '/tmp/tab.tab')
+    output_df(df, '/tmp/tab.tab')

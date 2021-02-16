@@ -547,6 +547,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
     def _f(x, type='pc'):
         if type == 'pc':
             return 100 * x
+        return x
         
     col_format = {c: _f for c in df.columns}
     for c in df.columns[df.columns.isin(['measures'], level=0)]:

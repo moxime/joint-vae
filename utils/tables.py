@@ -35,7 +35,7 @@ def tex_architecture(net, filename='arch.tex', directory='results/%j', stdout=Fa
         L = net.training['latent_sampling'],
         encoder = '-'.join(str(w) for w in arch['encoder']),
         decoder = '-'.join(str(w) for w in arch['decoder']),
-        features = arch['features'].get('name', 'none'),
+        features = arch.get('features', {}).get('name', 'none'),
         sigma = '{:x}'.format(net.sigma),
         optimizer = '{:3x}'.format(empty_optimizer),
         )

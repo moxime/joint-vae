@@ -545,14 +545,8 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
         df.columns = df.columns.droplevel(1)
 
     def _f(x, type='pc'):
-        if np.isnan(x):
-            return ''
-        if np.isinf(x):
-            return 'inf'
-
         if type == 'pc':
-            return f'{100*x:4.1f}'
-        return f'{x:.1e}'
+            return 100 * x
         
     col_format = {c: _f for c in df.columns}
     for c in df.columns[df.columns.isin(['measures'], level=0)]:

@@ -6,17 +6,22 @@ import pandas as pd
 import sys
 import re
 
-class Outputs:
+class EpochOutput:
 
     EVERY_BATCH = 20
     END_OF_EPOCH = 10
     END_OF_SET = 0
 
     unix_tags = [('%B', '\033[1m'),
-                 ('%b', '\033[0m')]
+                 ('%b', '\033[0m'),
+                 ('%I', '\033[3m'),
+                 ('%i', '\033[0m')]
 
     no_style_tags =  [('%B', ''),
-                      ('%b', '')]
+                      ('%b', ''),
+                      ('%I', ''),
+                      ('%i', '')]
+
     
     def __init__(self):
 
@@ -60,8 +65,8 @@ class Outputs:
                 end_of_epoch='\n'):
 
         if preambule == 'train':
-            preambule = '%B' + preambule
-            end_of_format = '%b'
+            preambule = '%I' + preambule
+            end_of_format = '%i'
         else:
             end_of_format =''
 
@@ -180,59 +185,16 @@ class Outputs:
             self.write(line + '\n', when=self.END_OF_EPOCH) 
 
 
-def print_epoch(i, per_epoch, epoch, epochs, loss,
-                snake='=>', blinker='o ', line_length=50,
-                info='', end_of_epoch='\n'):
+def texify(s, num=False, space=None):
+    if type(s) != str:
+        return s
+    s = s.replace('->', '\\ensuremath\\to{}')
+    if space:
+        s = s.replace(' ', space)
+    if not num:
+        return s
+    return re.sub(r'[-+]?\d*\.\d+', r'\\num{\g<0>}', s)
 
-    steps = i * (line_length - len(info)) // per_epoch
-    K = int(np.log10(epochs))+1
-    Ki = int(np.log10(per_epoch))+1
-
-    print('\r', end='')
-    print(f'epoch {epoch+1:{K}d}/{epochs} ', end='')
-    print('=' * steps + snake[i % len(snake)] +
-          ' ' * (line_length - steps - len(info)) + f'{loss: .3e} {info}', end='')
-    
-    print(f' (batch {i+1:{Ki}d}/{per_epoch})',
-          end = end_of_epoch if i == per_epoch - 1 else '')
-    # print(f' {blinker[i%len(blinker)]}', end='')
-
-
-def debug_nan(value, inspected, name):
-
-    if torch.isnan(value).any():
-        for i in inspected:
-            logging.error('%s : %s', name, torch.isnan(i).any().item())
-        raise ValueError(name)
-            
-
-def progress_bar(i, per_epoch, width=20):
-
-    N = width ** 2
-
-    step = round(i * N / per_epoch)
-
-    lss = step % width
-    mss = step // width 
-
-    n_both = min(mss, lss)
-    n_mss = max(mss -  lss, 0)
-    n_lss = max(lss - mss, 0)
-    n_blk = width - n_both - n_mss - n_lss
-    str = 'ø' * n_both
-    str += 'o' * n_mss
-    str += '/' * n_lss
-    str += n_blk * ' ' 
-
-    return str
-
-    print(str)
-    return step, mss, lss
-
-
-def texify(s):
-    s = s.replace('->', '\\to{}')
-    return re.sub(r'[-+]?\d*\.\d+|\d+', r'\\num{\g<0>}', s)
     
 
 class Time(float):
@@ -312,18 +274,4 @@ class Time(float):
 
     
 if __name__ == '__main__':
-        
-    epochs = 10
-    per_epoch = 60
-
-    print_epoch(per_epoch-1, per_epoch, -1, epochs, 0)
-
-    for epoch in range(epochs):
-        for i in range(per_epoch):
-
-            l = np.random.randn()
-            time.sleep(5)
-            print_epoch(i, per_epoch, epoch, epochs, l, end_of_epoch='')
-
-
-    
+    pass

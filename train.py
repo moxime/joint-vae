@@ -11,7 +11,7 @@ import argparse
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
 from utils.save_load import collect_networks
-from utils.print_log import Outputs
+from utils.print_log import EpochOutput
 from utils.signaling import SIGHandler
 
 if __name__ == '__main__':
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
 
     log.debug(f'Outputs registered in {output_file}')
-    outputs = Outputs()
+    outputs = EpochOutput()
     outputs.add_file(output_file)
     
     while os.path.exists(save_dir):

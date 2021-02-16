@@ -18,7 +18,7 @@ import numpy as np
 from roc_curves import ood_roc, fpr_at_tpr
 from sklearn.metrics import auc, roc_curve
 
-from utils.print_log import Outputs, debug_nan
+from utils.print_log import EpochOutput
 
 from utils.parameters import get_args
 
@@ -776,7 +776,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  return_mismatched=False,
                  print_result=False,
                  update_self_testing=True,
-                 outputs=Outputs(),
+                 outputs=EpochOutput(),
                  sample_file='',
                  log=True):
 
@@ -955,7 +955,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             method='all',
                             print_result=False,
                             update_self_ood=True,
-                            outputs=Outputs(),
+                            outputs=EpochOutput(),
                             sample_file='',
                             log=True):
 
@@ -1177,7 +1177,7 @@ class ClassificationVariationalNetwork(nn.Module):
               ood_detection_every=10,
               train_accuracy=False,
               save_dir=None,
-              outputs=Outputs(),
+              outputs=EpochOutput(),
               signal_handler=SIGHandler()):
         """
 

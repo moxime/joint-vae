@@ -1,17 +1,19 @@
 from cvae import ClassificationVariationalNetwork as Net
 from utils.save_load import find_by_job_number
-from sys import stdout
+import sys
 import os.path
 import functools
 from utils.save_load import create_file_for_job as create_file
+from utils.print_log import texify
 from utils.optimizers import Optimizer
 import torch
+import numpy as np
 
 def printout(s='', file_id=None, std=True, end='\n'):
     if file_id:
         file_id.write(s + end)
     if std:
-        stdout.write(s + end)
+        sys.stdout.write(s + end)
 
         
 def create_printout(file_id=None, std=True):
@@ -35,7 +37,7 @@ def tex_architecture(net, filename='arch.tex', directory='results/%j', stdout=Fa
         L = net.training['latent_sampling'],
         encoder = '-'.join(str(w) for w in arch['encoder']),
         decoder = '-'.join(str(w) for w in arch['decoder']),
-        features = arch['features'].get('name', 'none'),
+        features = arch.get('features', {}).get('name', 'none'),
         sigma = '{:x}'.format(net.sigma),
         optimizer = '{:3x}'.format(empty_optimizer),
         )
@@ -98,17 +100,56 @@ def export_losses(net, which='loss',
         printout()
         
     f.close()
+
+
+_to_string_args = {'': dict(na_rep='', float_format='{:.3g}'.format, sparsify=True),
+                   'tab': dict(sparsify=False, index=False)}
+
+def flatten(t):
+
+    if type(t) == tuple:
+        return '-'.join(str(_) for _ in t if _).replace('_', '-')
+    return t
+    
+def adapt_df(df, style=''):
+
+    df = df.fillna(np.nan)
+    print('style:', style)
+    if style=='tab':
+        cols = df.columns
+        df2 = df.copy()
+        df2.columns = cols.to_flat_index()
+        df2 = df2.reset_index()
+        df2 = df2.applymap(lambda x: texify(x, space='-', num=True))
+        if 'job' in df2.columns:
+            return df2.set_index('job').reset_index().rename(columns=flatten)
+        else:
+            return df2.reset_index().rename(columns=flatten)
+        
+    return df
+
+def output_dataframe(df, *files, stdout=True, args=_to_string_args):
+
+    outputs = [dict(style='', f=sys.stdout)] if stdout else []
+    for f in files:
+        try:
+            style = os.path.splitext(f)[-1].split('.')[-1]
+            outputs.append(dict(style=style, f=open(f, 'w')))
+        except FileNotFoundError as e:
+            logging.error(f'{e.strerror}: {f}')
+
+    for o in outputs:
+        o['f'].write(adapt_df(df,o['style']).to_string(**_to_string_args.get(o['style'], {})))
+        
     
 if __name__ == '__main__':
 
-    j_ = [37]
-    j_ = [107984, 37]
-    j_ = [_ for _ in range(109000, 110000)]
-    nets = find_by_job_number('jobs', *j_, load_net=False)
+    from utils.save_load import collect_networks, test_results_df
 
-    stdout = False
-    for n in nets.values():
-        net = n['net']
-        print(net.job_number)
-        export_losses(net, which='all', col_width=0, stdout=stdout)
-        tex_architecture(net, stdout=True) #, filename=None)
+    load = False
+    load = True
+    if load:
+        nets = sum(collect_networks('jobs', load_state=False, load_net=False), [])
+
+    df = test_results_df(nets, dataset='cifar10', best_net=False, first_method=False)
+    output_dataframe(df, '/tmp/tab.tab')

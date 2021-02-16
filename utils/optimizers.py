@@ -67,7 +67,7 @@ class Optimizer:
     def __format__(self, format_spec):
 
         if format_spec.endswith('x'):
-            return texify(self.__format__(format_spec[:-1]))
+            return texify(self.__format__(format_spec[:-1]), num=True)
         try:
             level = int(format_spec)
         except ValueError:

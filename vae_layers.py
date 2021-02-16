@@ -3,7 +3,7 @@ from torch import Tensor
 from torch import nn
 import numpy as np
 from torch.nn import functional as F, Parameter
-from utils.print_log import debug_nan, texify
+from utils.print_log import texify
 import logging
 
 def onehot_encoding(y, C):
@@ -85,7 +85,7 @@ class Sigma(Parameter):
         if spec.endswith(('f', 'g', 'e')):
             return self.value.__format__(spec)
         if spec.endswith('x'):
-            return texify(str(self))
+            return texify(str(self), num=True)
         return str(self)
         
     def __str__(self):
@@ -422,7 +422,6 @@ class Encoder(nn.Module):
         u = u.reshape(s)
         """
 
-        # debug_nan(u, u, 'u1')
         u = self.dense_projs(u)
         if torch.isnan(u).any():
              for p in self.dense_projs.parameters():
@@ -430,9 +429,9 @@ class Encoder(nn.Module):
                        'parameters of size',
                        *p.shape)  
              raise ValueError('ERROR')
-        # debug_nan(u, self.dense_projs.parameters(), 'dpp')
+
         z_mean = self.dense_mean(u)
-        # debug_nan(z_mean, u, 'µz')
+
         if self.forced_variance:
             z_log_var = np.log(self.forced_variance) * torch.ones_like(z_mean)
             # logging.debug(f'Variance forced {z_log_var.mean()} +- {z_log_var.std()}')

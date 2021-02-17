@@ -102,16 +102,21 @@ def export_losses(net, which='loss',
     f.close()
 
 
-_to_string_args = {'': dict(na_rep='', float_format='{:.3g}'.format, sparsify=True),
-                   'tab': dict(sparsify=False, index=False)}
+def to_string_args(df, target=''):
 
+    if target=='':
+        return dict(na_rep='', float_format='{:.3g}'.format, sparsify=True),
+    if target='tab':
+        return dict(sparsify=False, index=False)}
+    return {}
+    
 def flatten(t):
 
     if type(t) == tuple:
         return '-'.join(str(_) for _ in t if _).replace('_', '-')
     return t
     
-def adapt_df(df, style=''):
+def format_df(df, style=''):
 
     df = df.fillna(np.nan)
     print('style:', style)
@@ -139,8 +144,8 @@ def output_df(df, *files, stdout=True, args=_to_string_args):
             logging.error(f'{e.strerror}: {f}')
 
     for o in outputs:
-        o['f'].write(adapt_df(df,o['style']).to_string(**_to_string_args.get(o['style'], {})))
-        
+        o['f'].write(format_df(df,o['style']).to_string(**to_string_args(df, o['style'])))
+        o['f'].write('\n')
     
 if __name__ == '__main__':
 

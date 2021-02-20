@@ -464,7 +464,8 @@ if __name__ == '__main__':
             
             n['net'].save(n['dir'])
 
-    tex_list_of_jobs = os.path.join('results', filter_str + '.tex')
+    tex_filter_str = filter_str.replace(':', '-')
+    tex_list_of_jobs = os.path.join('results', tex_filter_str + '.tex')
     with open(tex_list_of_jobs, 'w') as f:
         f.write('\def\joblist{')
         f.write(','.join(['{:06d}'.format(n['job']) for n in enough_trained]))
@@ -494,12 +495,16 @@ if __name__ == '__main__':
     sep = ['\n' * 2 + '=' * 180 for _ in df]
     if sep:
         sep[0] = ''
-    
+
+    if len(df) == 1:
+        tab_files = [os.path.join('results', tex_filter_str + '.tab')]
+    else: tab_files = []
+        
     sep_ = iter(sep)
     for s, d in df.items():
         print(next(sep_))
         print(f'Results for {s}')
-        output_df(d)
+        output_df(d, *tab_files)
 
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]

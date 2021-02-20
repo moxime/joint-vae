@@ -105,9 +105,9 @@ def export_losses(net, which='loss',
 def to_string_args(df, target=''):
 
     if target=='':
-        return dict(na_rep='', float_format='{:.3g}'.format, sparsify=True),
-    if target='tab':
-        return dict(sparsify=False, index=False)}
+        return dict(na_rep='', float_format='{:.3g}'.format, sparsify=True)
+    if target == 'tab':
+        return dict(sparsify=False, index=False)
     return {}
     
 def flatten(t):
@@ -133,7 +133,7 @@ def format_df(df, style=''):
         
     return df
 
-def output_df(df, *files, stdout=True, args=_to_string_args):
+def output_df(df, *files, stdout=True, args_mapper=to_string_args):
 
     outputs = [dict(style='', f=sys.stdout)] if stdout else []
     for f in files:
@@ -144,7 +144,8 @@ def output_df(df, *files, stdout=True, args=_to_string_args):
             logging.error(f'{e.strerror}: {f}')
 
     for o in outputs:
-        o['f'].write(format_df(df,o['style']).to_string(**to_string_args(df, o['style'])))
+
+        o['f'].write(format_df(df,o['style']).to_string(**args_mapper(df, o['style'])))
         o['f'].write('\n')
     
 if __name__ == '__main__':

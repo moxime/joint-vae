@@ -185,12 +185,14 @@ class EpochOutput:
             self.write(line + '\n', when=self.END_OF_EPOCH) 
 
 
-def texify(s, num=False, space=None):
+def texify(s, num=False, space=None, underscore=None, verbatim=False):
     if type(s) != str:
         return s
-    s = s.replace('->', '\\ensuremath\\to{}')
+    s = s.replace('->', '\\ensuremath{\\to{}}')
     if space:
         s = s.replace(' ', space)
+    if underscore:
+        s = s.replace('_', underscore)
     if not num:
         return s
     return re.sub(r'[-+]?\d*\.\d+', r'\\num{\g<0>}', s)

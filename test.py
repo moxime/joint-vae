@@ -15,7 +15,8 @@ import pandas as pd
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
 from utils.save_load import collect_networks, test_results_df, save_json, load_json
-from utils.tables import export_losses, tex_architecture, output_df, texify_test_results
+from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
+
 
 def test_accuracy_if(jvae=None,
                      directory=None,
@@ -482,10 +483,9 @@ if __name__ == '__main__':
                          tpr=tpr)
 
     filter_tex = filter_str.replace('_', '-').replace(':', '-')
-    if len(df) == 1:
-        tab_file = [os.path.join('results', filter_tex + '.tab')]
-    else: tab_file = []
-    tex_list_of_jobs = os.path.join('results', filter_tex + '.tex')
+    
+    tab_file = os.path.join('results', filter_tex + '.tab') if len(df) == 1 else None
+    tex_file = os.path.join('results', filter_tex + '.tex')
 
     log.info('')
     log.info('')
@@ -501,7 +501,14 @@ if __name__ == '__main__':
     for s, d in df.items():
         print(next(sep_))
         print(f'Results for {s}')
-        print(df.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True))
+        print(d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True))
+
+        texify_test_results_df(d, tex_file, tab_file)
+
+        with open(tex_file, 'a') as f:
+            f.write('\def\joblist{')
+            f.write(','.join(['{:06d}'.format(n['job']) for n in enough_trained]))
+            f.write('}\n')
 
         
         for a in archs[s]:

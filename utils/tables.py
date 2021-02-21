@@ -10,7 +10,7 @@ from utils.optimizers import Optimizer
 import torch
 import numpy as np
 import data.torch_load as torchdl
-
+import pandas as pd
 
 def printout(s='', file_id=None, std=True, end='\n'):
     if file_id:
@@ -208,18 +208,19 @@ def flatten(t):
     return t
 
 
-def infer_type(column, dataset, rate='fixed', measures='sci'):
+def infer_type(column, dataset, rate='my fixed', measures='my sci', string='my string'):
 
     datasets = torchdl.get_same_size_by_name(dataset)
     datasets.append(dataset)
 
     if column[0] in datasets:
-        return 'fixed'
+        return rate
 
     if column[0] == 'measures':
         return measures
 
-    return 'string'
+    return string
+
 
 def texify_test_results_df(df, tex_file, tab_file):
 
@@ -230,15 +231,16 @@ def texify_test_results_df(df, tex_file, tab_file):
     datasets = torchdl.get_same_size_by_name(dataset)
     datasets.append(dataset)
     
-    def _r(w, macros=datasets):
+    replacement_dict = {'sigma': r'$\sigma$',
+                        'optim_str': 'Optim',
+                        'auc': r'\acron{auc}',
+                        'measures': '',
+                        'rmse': r'\acron{rmse}',
+                        'rate': '',
+    }
+    
+    def _r(w, macros=datasets, rdict=replacement_dict):
 
-        replacement_dict = {'sigma': r'$\sigma$',
-                            'optim_str': 'Optim',
-                            'auc': r'\acron{auc}',
-                            'measures': '',
-                            'rmse': r'\acron{rmse}',
-                            'rate': '',
-        }
         if w in macros:
             return f'\\{w.rstrip(string.digits)}'
 
@@ -248,40 +250,36 @@ def texify_test_results_df(df, tex_file, tab_file):
         except ValueError:
             pass
         return replacement_dict.get(w, w.replace('_', ' '))
-    
+
     cols = df.columns
 
     tex_cols = pd.MultiIndex.from_tuples([tuple(_r(w) for w in c) for c in cols])
 
     tab_cols = ['-'.join([str(c) for c in col if c]).replace('_', '-') for col in cols] 
         
-    return tab_cols
+    # return tab_cols
     
     to_string_args = dict(sparsify=False, index=False)
 
     tab_df = df.copy()
-    tab_df.columns = cols.to_flat_index()
+    tab_df.columns = tab_cols
     tab_df = tab_df.reset_index()
     tab_df.columns = [texify(c, underscore='-') for c in tab_df.columns]
     tab_df = tab_df.applymap(lambda x: texify(x, space='-', num=True))
-    if 'job' in tab_df.columns:
-        return tab_df.set_index('job').reset_index().rename(columns=flatten)
-    else:
-        return tab_df.reset_index().rename(columns=flatten)
-
-    levels = len(df.columns.levels)
     
+    if 'job' in tab_df.columns:
+        tab_df = tab_df.set_index('job').reset_index()
 
+    levels = df.columns.nlevels
+    
     with open(tex_file, 'w') as f:
-        f.write('\def\joblist{')
-        f.write(','.join(['{:06d}'.format(n['job']) for n in enough_trained]))
-        f.write('}\n')
 
-        f.write(f'\\pgfplotstableread{{{tab_file[0]}}}{{\\testtab}}')
+        f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
         f.write('\n')
-        tab_df = format_df(df[dataset], 'tab')
-        ood_sets = tuple(torchdl.get_same_size_by_name(dataset))
-            
+
+    with open(tab_file, 'w') as f:
+        tab_df.to_string(buf=f, **to_string_args)
+        
 
 def pgfplotstable_preambule(df, dataset, file, mode='a'):
     replacement_dict = {'rmse': 'RMSE'}

@@ -188,6 +188,11 @@ class EpochOutput:
 def texify(s, num=False, space=None, underscore=None, verbatim=False):
     if type(s) != str:
         return s
+    try:
+        float(s)
+        return s
+    except ValueError:
+        pass
     s = s.replace('->', '\\ensuremath{\\to{}}')
     if space:
         s = s.replace(' ', space)

@@ -1,6 +1,7 @@
 from cvae import ClassificationVariationalNetwork as Net
 from utils.save_load import find_by_job_number
 import sys
+from datetime import datetime
 import string
 import os.path
 import functools
@@ -201,13 +202,6 @@ def texify_test_results(net,
     printout('\\end{tabular}')
 
 
-def flatten(t):
-
-    if type(t) == tuple:
-        return '-'.join(str(_) for _ in t if _).replace('_', '-')
-    return t
-
-
 def infer_type(column, dataset, rate='my fixed', measures='my sci', string='my string'):
 
     datasets = torchdl.get_same_size_by_name(dataset)
@@ -274,6 +268,8 @@ def texify_test_results_df(df, tex_file, tab_file):
     
     with open(tex_file, 'w') as f:
 
+        f.write(f'% Generated on {datetime.now()}')
+        f.write(f'\\def\\setname{{{dataset}}}')
         f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
         f.write('\n')
 

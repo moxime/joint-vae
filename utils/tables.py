@@ -52,6 +52,98 @@ def tex_architecture(net, filename='arch.tex', directory='results/%j', stdout=Fa
             _b = f'{_s}_{_w}' in history
             printout(f'\{_s}{_w}{_b}'.lower())
     
+def texify_test_results(net,
+                        directory='results/%j',
+                        filename='res.tex',
+                        which='all',
+                        tpr=[0.95, 'auc'],
+                        method='first',
+                        stdout=False):
+    """ 
+    which: 'ood' or 'test' or 'all'
+    method: 'first' or 'all' or a specific method (default, first)
+    
+    """
+    def _pcf(x):
+        if f is None:
+            return '-'
+        return f'{100 * x:5.2f}'
+
+    if filename:
+        f = create_file(net['job'], directory, filename)
+    else: f = None
+    
+    printout = create_printout(file_id=f, std=stdout)
+
+    show_ood = which in ('all', 'ood')
+    show_test = which in ('all', 'test')
+    all_methods = method == 'all'
+
+    ood_methods = net['net'].ood_methods
+    accuracies = net['accuracies']
+    
+    if not accuracies:
+        printout('no result')
+        return
+
+    if not net['ood_fpr']:
+        show_ood = False
+    elif not list(net['ood_fpr'].values())[0]:
+        show_ood = False
+    
+    
+    header = dict()
+
+    if show_test:
+        header[net['set']] = len(accuracies) - 1 if all_methods else 1
+    if show_ood:
+        ood_sets = list(net['ood_fprs'])
+        if not all_methods:
+            ood_methods = ood_methods[:1]
+        for dataset in net['ood_fprs']:
+            fprs = net['ood_fprs'][dataset]
+            header[dataset] = len(tpr) * ((len(fprs) - 1) if all_methods else 1)
+            
+    n_cols = sum(c for c in header.values())
+    col_style = 'l'
+    printout('\\begin{tabular}')
+    printout(f'{{{col_style * n_cols}}}')
+    printout('\\toprule')
+    printout(' & '.join(f'\\multicolumn{cols}c{{{dataset}}}'
+                      for dataset, cols in header.items()))
+    printout('\\\\ \\midrule')
+    if all_methods:
+        if show_test:
+            printout(' & '.join(list(accuracies)[:-1]), end='& ' if show_ood else '\n')
+        if show_ood:
+            printout(' & '.join(
+                ' & '.join(f'\\multicolumn{len(tpr)}c{{{_}}}' for _ in ood_methods)
+                           for s in ood_sets))
+        printout('\\\\')
+    if show_ood and len(tpr) > 1:
+        printout('    &' * header[net['set']], end=' ')
+        printout(' & '.join(' & '.join(' & '.join(str(t) for t in tpr)
+                                       for _ in range(header[dataset] // len(tpr)))
+                 for dataset in ood_sets))
+        printout('\\\\ \\midrule')
+    if show_test:
+        acc = list(accuracies.values())[:-1] if all_methods else [accuracies['first']] 
+        printout(' & '.join(_pcf(a) for a in acc), end=' & ' if show_ood else '\n')
+    if show_ood:
+        ood_ = []
+        for dataset in net['ood_fprs']:
+            if all_methods:
+                fprs = list(net['ood_fprs'][dataset].values())[:-1]
+            else:
+                fprs = [net['ood_fprs'][dataset]['first']]
+            ood_.append(' & '.join(' & '.join((_pcf(m[t]) if m is not None else '-')
+                                              for t in tpr) for m in fprs))
+        printout(' & '.join(ood_))
+
+    printout('\\\\ \\bottomrule')
+    printout('\\end{tabular}')
+
+
         
 def export_losses(net, which='loss',
                   directory='results/%j',

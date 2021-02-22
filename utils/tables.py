@@ -268,8 +268,10 @@ def texify_test_results_df(df, tex_file, tab_file):
     
     with open(tex_file, 'w') as f:
 
-        f.write(f'% Generated on {datetime.now()}')
-        f.write(f'\\def\\setname{{{dataset}}}')
+        f.write(f'% Generated on {datetime.now()}\n')
+        f.write(f'\\def\\setname{{{dataset}}}\n')
+        f.write(f'\\def\\testcolumn{{{dataset}-rate}}\n')
+
         f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
         f.write('\n')
 

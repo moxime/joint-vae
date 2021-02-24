@@ -275,6 +275,12 @@ def texify_test_results_df(df, tex_file, tab_file):
         f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
         f.write('\n')
 
+        f.write(r'\def\typeset{\pgfplotstabletypeset[columns={')
+        f.write(','.join(tab_cols))
+        # f.write('job,type')
+        f.write(r'}]{\testtab}}')
+        f.write('\n')
+        
     with open(tab_file, 'w') as f:
         tab_df.to_string(buf=f, **to_string_args)
         

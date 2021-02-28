@@ -12,6 +12,7 @@ import torch
 import numpy as np
 import data.torch_load as torchdl
 import pandas as pd
+import hashlib
 
 def printout(s='', file_id=None, std=True, end='\n'):
     if file_id:
@@ -272,6 +273,33 @@ def texify_test_results_df(df, tex_file, tab_file):
         f.write(f'\\def\\setname{{{dataset}}}\n')
         f.write(f'\\def\\testcolumn{{{dataset}-rate}}\n')
 
+        total_epochs = tab_df['done'].sum()
+        f.write(r'\def\totalepochs{')
+        f.write(f'{total_epochs}')
+        f.write(r'}')
+        f.write('\n')
+
+        file_code = hashlib.sha1(bytes(tab_file, 'utf-8')).hexdigest()[:6]
+        f.write(r'\def\tabcode{')
+        f.write(f'{file_code}')
+        f.write(r'}')
+        f.write('\n')
+
+        unique_dict_vars = tab_df['dict-var'].unique()
+        unique_dict_vars.sort()
+        f.write(r'\def\tabdictvars{')
+        f.write(','.join(str(a) for a in unique_dict_vars))
+        f.write(r'}')
+        f.write('\n')
+        
+        unique_sigmas = tab_df['sigma'].unique()
+        unique_sigmas.sort()
+        f.write(r'\def\tabsigmas{')
+        f.write(','.join(str(a) for a in unique_sigmas))
+        f.write(r'}')
+        f.write('\n')
+        
+        
         f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
         f.write('\n')
 

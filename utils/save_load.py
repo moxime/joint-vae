@@ -356,7 +356,7 @@ def collect_networks(directory,
                     'job': vae.job_number,
                     'type': architecture.type,
                     'arch': arch,
-                    'dictionary_variance': vae.training['dictionary_variance'],
+                    'dict_var': vae.training['dictionary_variance'],
                     'arch_code': arch_code,
                     'dir': directory,
                     'set': training.set,
@@ -467,6 +467,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
                   'depth',
                   'arch_code',
                   'K',
+                  'dict_var',
     ]
 
     all_nets = [] if best_net else ['job', 'done']

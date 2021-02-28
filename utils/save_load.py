@@ -356,6 +356,7 @@ def collect_networks(directory,
                     'job': vae.job_number,
                     'type': architecture.type,
                     'arch': arch,
+                    'dict_var': vae.training['dictionary_variance'],
                     'arch_code': arch_code,
                     'dir': directory,
                     'set': training.set,
@@ -466,6 +467,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
                   'depth',
                   'arch_code',
                   'K',
+                  'dict_var',
     ]
 
     all_nets = [] if best_net else ['job', 'done']
@@ -559,7 +561,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
         
         df = df.drop('accuracies', axis=1).join(pd.DataFrame(df.accuracies.values.tolist()))
         # print('\n\n**** 341 *** dict of accuracies \n', df.head(), '\n***************')
-    return df
+    return df.fillna(np.nan)
 
     if ood:
         # if best_method:
@@ -609,7 +611,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
         print('\n\n**** 366 *** unstack\n', df.head(), '\n***************')
     # return df
     
-    return df.reindex(sorted(df.columns), axis=1)
+    return df.reindex(sorted(df.columns), axis=1).fillna(np.nan)
 
 
 def save_list_of_networks(list_of, dir_name, file_name='nets.json'):
@@ -636,38 +638,21 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
 
     dir = 'old-jobs/saved-jobs/fashion32'
-    dir = './jobs/'
     dir ='./jobs/fashion'
+    dir = './jobs/'
 
-    reload = True
     reload = False
+    reload = True
     if reload:
-        l = sum(collect_networks(dir, load_state=False), [])
+        l = sum(collect_networks(dir, load_net=False), [])
 
     testsets = ('cifar10',  'fashion', 'mnist')
     
     df_ = test_results_df(l) # [n for n in l if n['set']==s])
 
 
-    def finite(u, f):
-        if np.isnan(u):
-            return ''
-        if np.isinf(u):
-            return 'inf'
-        return f.format(u)
-
-    def f_pc(u):
-        return finite(100 * u, '{:.1f}')
+    df = df_['cifar10']
     
-    def f_db(u):
-        return finite(u, '{:.1f}')
-
-    formats = {s: [] for s in testsets}
-    
-    for s, df in df_.items():
-        for _ in df.columns:
-            formats[s].append(f_pc)
-
     """
     for s, df in df_.items():
         print('=' * 80)

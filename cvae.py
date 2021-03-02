@@ -106,6 +106,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  latent_prior_variance=1,
+                 beta=1.,
                  dictionary_variance=1,
                  learned_coder=False,
                  dictionary_min_dist=None,
@@ -216,6 +217,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if not sampling:
             logging.debug('Building a vanilla classifier')
 
+        self.beta = beta
+            
         self.latent_prior_variance = latent_prior_variance
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,
@@ -311,6 +314,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.training = {
             'sigma': self.sigma.params,
+            'beta': self.beta,
             'dictionary_variance': dictionary_variance,
             'learned_coder': learned_coder,
             'dictionary_min_dist': self.encoder.dictionary_dist_lb,
@@ -431,6 +435,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  y=None,
                  batch=0,
                  current_measures=None,
+                 with_beta=False,
                  z_output=False,
                  **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
@@ -611,7 +616,8 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('*** cvae 612: T:', *batch_losses['total'].shape, 'kl', *batch_losses['kl'].shape)
             batch_losses['total'] += self.sigma * batch_losses['kl']
         else:
-            batch_losses['total'] += batch_losses['kl']
+            beta = self.beta if with_beta else 1.
+            batch_losses['total'] += beta * batch_losses['kl']
             
         if not self.is_vib:
             pass
@@ -1270,7 +1276,6 @@ class ClassificationVariationalNetwork(nn.Module):
             acc_methods = self.predict_methods
 
         if oodsets:
-
             ood_methods = self.ood_methods
         
         outputs.results(0, 0, -2, epochs,
@@ -1283,7 +1288,6 @@ class ClassificationVariationalNetwork(nn.Module):
                         acc_methods=acc_methods)
 
         if fine_tuning:
-
             for p in self.parameters():
                 p.requires_grad_(True)
             # if self.features:
@@ -1408,6 +1412,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 (_, y_est,
                  batch_losses, measures) = self.evaluate(x, y,
                                                          batch=i,
+                                                         with_beta=True,
                                                          current_measures=current_measures)
 
                 current_measures = measures
@@ -1653,6 +1658,7 @@ class ClassificationVariationalNetwork(nn.Module):
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
                         'learned_coder': False,
+                        'beta': 1.,
                         'dictionary_min_dist': None,
                         'dictionary_variance': 1,
                         'data_augmentation': [],
@@ -1741,6 +1747,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       batch_norm=params['batch_norm'],
                       activation=params['activation'],
                       sigma=train_params['sigma'],
+                      beta=train_params['beta'],
                       dictionary_variance=train_params['dictionary_variance'],
                       learned_coder=train_params['learned_coder'],
                       dictionary_min_dist=train_params['dictionary_min_dist'],

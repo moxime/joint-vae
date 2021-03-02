@@ -172,7 +172,7 @@ def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False)
     return s
 
 
-def option_vector(o, empty=' ', space=' '):
+def option_vector(o, empty=' ', space=' '): 
 
     arch = ObjFromDict(o.architecture, features=None)
     training = ObjFromDict(o.training, transformer='default')

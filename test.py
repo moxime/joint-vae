@@ -482,10 +482,10 @@ if __name__ == '__main__':
                          tnr=args.tnr,
                          tpr=tpr)
 
-    filter_tex = filter_str.replace('_', '-').replace(':', '-')
+    tex_filter_str = filter_str.replace('_', '-').replace(':', '-')
     
-    tab_file = os.path.join('results', filter_tex + '.tab') if len(df) == 1 else None
-    tex_file = os.path.join('results', filter_tex + '.tex')
+    tab_file = os.path.join('results', tex_filter_str + '.tab') if len(df) == 1 else None
+    tex_file = os.path.join('results', tex_filter_str + '.tex')
 
     log.info('')
     log.info('')

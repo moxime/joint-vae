@@ -119,6 +119,7 @@ if __name__ == '__main__':
                      upsampler_channels=args.upsampler,
                      classifier_layer_sizes=args.classifier,
                      dictionary_variance=args.dictionary_variance,
+                     beta=args.beta,
                      learned_coder=args.learned_coder,
                      dictionary_min_dist=args.dict_min_distance,
                      coder_capacity_regularization=args.dict_distance_regularization,

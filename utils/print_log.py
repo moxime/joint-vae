@@ -67,9 +67,13 @@ class EpochOutput:
         if preambule == 'train':
             preambule = '%I' + preambule
             end_of_format = '%i'
+            sep = '%i' + '|' + '%I'
+            double_sep = '%i' + '||' + '%I'
         else:
             end_of_format =''
-
+            sep = '|'
+            double_sep = '||'
+            
         no_loss = losses is None
         no_metrics = metrics is None
 
@@ -84,11 +88,11 @@ class EpochOutput:
             i = per_epoch - 1        
             preambule = f'{"epoch":_^{2 * K_epochs}}{preambule:_>{K_preambule}}_'
             if loss_components:
-                length = len('|'.join(f'{k:^{cell_width}}' for k in loss_components))
+                length = len(sep.join(f'{k:^{cell_width}}' for k in loss_components))
                 loss_str = f'{"losses":_^{length}}'
             else: loss_str = ''
             if metrics:
-                length = len('|'.join(f'{k:^{cell_width}}' for k in metrics))
+                length = len(sep.join(f'{k:^{cell_width}}' for k in metrics))
                 metrics_str = f'{"metrics":_^{length}}'
             else: metrics_str = ''
 
@@ -97,19 +101,19 @@ class EpochOutput:
             preambule = f'{" ":^{2 * K_epochs}}{preambule:>{K_preambule}} '
 
             if loss_components:
-                length = len('|'.join(f'{k:^{cell_width}}' for k in loss_components))
-                loss_str = '|'.join(f'{k:^{cell_width}}' for k in loss_components)
+                length = len(sep.join(f'{k:^{cell_width}}' for k in loss_components))
+                loss_str = sep.join(f'{k:^{cell_width}}' for k in loss_components)
             else: loss_str = ''
             if metrics:
-                length = len('|'.join(f'{k:^{cell_width}}' for k in metrics))
-                metrics_str = '|'.join(f'{k:^{cell_width}}' for k in metrics)
+                length = len(sep.join(f'{k:^{cell_width}}' for k in metrics))
+                metrics_str = sep.join(f'{k:^{cell_width}}' for k in metrics)
             else: metrics_str=''
             """
             elif epoch == 0:
                 preambule = f'{" ":^{2 * Kep + 1}} {preambule:>5} |'
 
                 if loss_components:
-                    loss_str = '|'.join(f'{losses.get(k, 0):^10.2e}'
+                    loss_str = sep.join(f'{losses.get(k, 0):^10.2e}'
                                         for k in loss_components)
                 else:
                     loss_str = ''
@@ -123,42 +127,42 @@ class EpochOutput:
             if loss_components:
 
                 if no_loss:
-                    loss_str = '|'.join(cell_width * ' ' for k in loss_components)
+                    loss_str = sep.join(cell_width * ' ' for k in loss_components)
                 else:
                     formatted = {k: num_format.get(k, num_format['default'])
                                  for k in loss_components}
                     value = {k: losses.get(k, np.nan)
                              for k in loss_components}
 
-                    loss_str = '|'.join(formatted[k].format(value[k])
+                    loss_str = sep.join(formatted[k].format(value[k])
                                         for k in loss_components)
             else: loss_str = ''
             if metrics:
                 if no_metrics:
-                    metrics_str = '|'.join(cell_width * ' ' for k in metrics)
+                    metrics_str = sep.join(cell_width * ' ' for k in metrics)
                 else:
                     formatted = {k: num_format.get(k, num_format['default'])
                              for k in metrics}
                     value = {k: measures.get(k, np.nan)
                              for k in metrics}
 
-                    metrics_str = '|'.join(formatted[k].format(value[k])
+                    metrics_str = sep.join(formatted[k].format(value[k])
                                            for k in metrics)
 
             else: metrics_str = ''
 
         if epoch == -2:
-            length = len('|'.join(f'{k:^9}' for k in acc_methods)) 
+            length = len(sep.join(f'{k:^9}' for k in acc_methods)) 
             acc_str = f'{"accuracy":_^{length}}'
         elif epoch == -1: 
-            acc_str = '|'.join(f'{k:^9}' for k in acc_methods)
+            acc_str = sep.join(f'{k:^9}' for k in acc_methods)
         elif accuracies:
             acc_str_ = []
             for k in acc_methods:
                 acc_str_.append(f' {accuracies[k]:7.2%} ')
-            acc_str = '|'.join(acc_str_)
+            acc_str = sep.join(acc_str_)
         else:
-            acc_str = '|'.join(9 * ' ' for k in acc_methods)
+            acc_str = sep.join(9 * ' ' for k in acc_methods)
 
         if time_per_i > 0:
             time_per_i = Time(time_per_i)
@@ -176,9 +180,9 @@ class EpochOutput:
                                loss_str,
                                metrics_str,
                                acc_str + end_of_format,
-                               eta_str] if s]
+                               eta_str + end_of_format] if s]
 
-        line = '\r' + '||'.join(strings) + ' '
+        line = '\r' + double_sep.join(strings) + ' '
         self.write(line, when=self.EVERY_BATCH)
 
         if i == per_epoch - 1:

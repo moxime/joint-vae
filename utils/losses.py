@@ -115,6 +115,7 @@ def x_loss(y_target, logits, batch_mean=True):
 
     """
 
+    # print('losses:118', type(y_target), 'logits:', *logits.shape)
     
     if y_target is None:
 
@@ -122,8 +123,10 @@ def x_loss(y_target, logits, batch_mean=True):
         permutation = [-1] + [_ for _ in range(len(log_p.shape) - 2)]
         # print('*** losses:125 target is none', *logits.shape[1:], '->', *permutation)
         # print(*[p.item() for p in log_p.mean(0)[0, :]])
-        return -log_p[1:].mean(0).permute(permutation) # .max(-1)[0]
-        
+        if log_p.shape[0] > 1:
+            return -log_p[1:].mean(0).permute(permutation) # .max(-1)[0]
+        else:
+            return -log_p[0].permute(permutation) # .max(-1)[0]
     
     C = logits.shape[-1]
     L = logits.shape[0]

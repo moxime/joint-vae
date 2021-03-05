@@ -133,6 +133,7 @@ class Sampling(nn.Module):
         # print((f'***** z_log_var: {z_log_var.size()} '+
         #        f'z_mean: {z_mean.size()} ' +
         #        f'epsilon: {epsilon.size()}'))
+        # print('vl:136', self.is_sampled)
         return z_mean + torch.exp(0.5 * z_log_var) * epsilon * self.is_sampled
 
 

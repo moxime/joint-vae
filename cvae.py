@@ -213,7 +213,7 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             self.sigma = Sigma(value=sigma)
             
-        sampling = latent_sampling > 1 or self.sigma > 0
+        sampling = latent_sampling > 1 or bool(self.sigma > 0)
         if not sampling:
             logging.debug('Building a vanilla classifier')
 

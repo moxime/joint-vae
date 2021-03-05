@@ -624,7 +624,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('******* x_', x_reco.shape)
             # x_reco = x_reco.mean(0)
 
-        logging.debug('Losses computed')
+        # logging.debug('Losses computed')
         out = (x_reco, y_est.mean(0), batch_losses, total_measures)
         if z_output:
             out += (mu, log_var, z)

@@ -342,6 +342,16 @@ def collect_networks(directory,
         loss_ = {s: ([nans] + history.get(s + '_loss', [nans]))[-1]
                  for s in ('train', 'test')}        
 
+        sigma = vae.sigma
+        if sigma.learned:
+            sigma_train = 'learned'
+        elif sigma.is_rmse:
+            sigma_train = 'rmse'
+        elif sigma.decay:
+            sigma_train = 'decay'
+        else:
+            sigma_train = 'constant'
+            
         empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
         depth = (1 + len(architecture.encoder)
                  + len(architecture.decoder) 
@@ -358,10 +368,13 @@ def collect_networks(directory,
                     'arch': arch,
                     'dict_var': vae.training['dictionary_variance'],
                     'arch_code': arch_code,
+                    'features': architecture.features['name'] if architecture.features else 'none',
                     'dir': directory,
                     'set': training.set,
                     'train_batch_size': train_batch_size,
-                    'sigma': f'{vae.sigma}',
+                    'sigma': f'{sigma}',
+                    'sigma_value': sigma.value,
+                    'sigma_train': sigma_train,
                     'done': vae.train_history['epochs'],
                     'epochs': vae.training['epochs'],
                     'finished': vae.train_history['epochs'] >= vae.training['epochs'],

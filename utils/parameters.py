@@ -373,7 +373,6 @@ def get_args_for_test():
                         action=FilterAction,
                         of_type=float)
 
-
     parser.add_argument('--optimizer',
                         dest='optim',
                         nargs='+',
@@ -385,11 +384,17 @@ def get_args_for_test():
                         nargs='+')
 
     parser.add_argument('-s', '--sigma',
+                        dest='sigma_value',
                         nargs='+',
                         action=FilterAction,
                         of_type=float,
                         metavar='S')
 
+    parser.add_argument('--sigma-train',
+                        action=FilterAction,
+                        nargs='+')
+                        
+    
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         dest='K',
                         nargs='+',

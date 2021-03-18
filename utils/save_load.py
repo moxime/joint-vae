@@ -478,6 +478,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
 
     arch_index = ['type',
                   'depth',
+                  'features',
                   'arch_code',
                   'K',
                   'dict_var',

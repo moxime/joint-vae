@@ -501,9 +501,6 @@ if __name__ == '__main__':
 
         texify_test_results_df(d, tex_file, tab_file)
 
-        print(d.index.levels)
-        d.drop(index=('sigma_train', 'sigma_value'))
-
         print(next(sep_))
         print(f'Results for {s}')
         print(d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True))

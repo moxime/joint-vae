@@ -474,7 +474,6 @@ if __name__ == '__main__':
     show_best = args.expand < 1 
 
     tpr = [t/100 for t in args.tpr]
-
         
     df = test_results_df(enough_trained, best_net=show_best,
                          first_method=first_method,
@@ -485,7 +484,7 @@ if __name__ == '__main__':
     tex_filter_str = filter_str.replace('_', '-').replace(':', '-')
     
     tab_file = os.path.join('results', tex_filter_str + '.tab') if len(df) == 1 else None
-    tex_file = os.path.join('results', tex_filter_str + '.tex')
+    tex_file = os.path.join('results', tex_filter_str + '.tex') if len(df) == 1 else None
 
     log.info('')
     log.info('')
@@ -497,24 +496,24 @@ if __name__ == '__main__':
     if sep:
         sep[0] = ''
 
-    if len(df) == 1:
-        tab_files = [os.path.join('results', tex_filter_str + '.tab')]
-    else: tab_files = []
-        
     sep_ = iter(sep)
     for s, d in df.items():
+
+        texify_test_results_df(d, tex_file, tab_file)
+
+        print(d.index.levels)
+        d.drop(index=('sigma_train', 'sigma_value'))
+
         print(next(sep_))
         print(f'Results for {s}')
         print(d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True))
 
-        texify_test_results_df(d, tex_file, tab_file)
+        if tex_file:
+            with open(tex_file, 'a') as f:
+                f.write('\def\joblist{')
+                f.write(','.join(['{:06d}'.format(n['job']) for n in enough_trained]))
+                f.write('}\n')
 
-        with open(tex_file, 'a') as f:
-            f.write('\def\joblist{')
-            f.write(','.join(['{:06d}'.format(n['job']) for n in enough_trained]))
-            f.write('}\n')
-
-        
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
             print(arch_code,':\n', a)

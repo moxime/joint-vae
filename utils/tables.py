@@ -265,50 +265,52 @@ def texify_test_results_df(df, tex_file, tab_file):
         tab_df = tab_df.set_index('job').reset_index()
 
     levels = df.columns.nlevels
-    
-    with open(tex_file, 'w') as f:
 
-        f.write(f'% Generated on {datetime.now()}\n')
-        f.write(f'\\def\\setname{{{dataset}}}\n')
-        f.write(f'\\def\\testcolumn{{{dataset}-rate}}\n')
+    if tex_file:
+        with open(tex_file, 'w') as f:
 
-        total_epochs = tab_df['done'].sum()
-        f.write(r'\def\totalepochs{')
-        f.write(f'{total_epochs}')
-        f.write(r'}')
-        f.write('\n')
+            f.write(f'% Generated on {datetime.now()}\n')
+            f.write(f'\\def\\setname{{{dataset}}}\n')
+            f.write(f'\\def\\testcolumn{{{dataset}-rate}}\n')
 
-        file_code = hashlib.sha1(bytes(tab_file, 'utf-8')).hexdigest()[:6]
-        f.write(r'\def\tabcode{')
-        f.write(f'{file_code}')
-        f.write(r'}')
-        f.write('\n')
+            total_epochs = tab_df['done'].sum()
+            f.write(r'\def\totalepochs{')
+            f.write(f'{total_epochs}')
+            f.write(r'}')
+            f.write('\n')
 
-        unique_dict_vars = tab_df['dict-var'].unique()
-        unique_dict_vars.sort()
-        f.write(r'\def\tabdictvars{')
-        f.write(','.join(str(a) for a in unique_dict_vars))
-        f.write(r'}')
-        f.write('\n')
-        
-        unique_sigmas = tab_df['sigma'].unique()
-        unique_sigmas.sort()
-        f.write(r'\def\tabsigmas{')
-        f.write(','.join(str(a) for a in unique_sigmas))
-        f.write(r'}')
-        f.write('\n')
-        
-        f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
-        f.write('\n')
+            file_code = hashlib.sha1(bytes(tab_file, 'utf-8')).hexdigest()[:6]
+            f.write(r'\def\tabcode{')
+            f.write(f'{file_code}')
+            f.write(r'}')
+            f.write('\n')
 
-        f.write(r'\def\typeset{\pgfplotstabletypeset[columns={')
-        f.write(','.join(tab_cols))
-        # f.write('job,type')
-        f.write(r'}]{\testtab}}')
-        f.write('\n')
-        
-    with open(tab_file, 'w') as f:
-        tab_df.to_string(buf=f, **to_string_args)
+            unique_dict_vars = tab_df['dict-var'].unique()
+            unique_dict_vars.sort()
+            f.write(r'\def\tabdictvars{')
+            f.write(','.join(str(a) for a in unique_dict_vars))
+            f.write(r'}')
+            f.write('\n')
+
+            unique_sigmas = tab_df['sigma'].unique()
+            unique_sigmas.sort()
+            f.write(r'\def\tabsigmas{')
+            f.write(','.join(str(a) for a in unique_sigmas))
+            f.write(r'}')
+            f.write('\n')
+
+            f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
+            f.write('\n')
+
+            f.write(r'\def\typeset{\pgfplotstabletypeset[columns={')
+            f.write(','.join(tab_cols))
+            # f.write('job,type')
+            f.write(r'}]{\testtab}}')
+            f.write('\n')
+
+    if tab_file:
+        with open(tab_file, 'w') as f:
+            tab_df.to_string(buf=f, **to_string_args)
         
 
 def pgfplotstable_preambule(df, dataset, file, mode='a'):

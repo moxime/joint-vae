@@ -490,6 +490,8 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
         'optim_str',
         'L',
         'sigma',
+        'sigma_train',
+        'sigma_value',
     ] + all_nets
 
     indices = arch_index + train_index

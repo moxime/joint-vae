@@ -499,7 +499,7 @@ if __name__ == '__main__':
     sep_ = iter(sep)
     for s, d in df.items():
 
-        texify_test_results_df(d, tex_file, tab_file)
+        texify_test_results_df(d, s, tex_file, tab_file)
 
         d.index = d.index.droplevel(('sigma_train', 'sigma_value', 'features'))
 

@@ -351,6 +351,10 @@ def collect_networks(directory,
             sigma_train = 'decay'
         else:
             sigma_train = 'constant'
+
+        if architecture.type == 'cvae':
+            dict_var = vae.training['dictionary_variance']
+        else: dict_var = 0.
             
         empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
         depth = (1 + len(architecture.encoder)
@@ -366,7 +370,7 @@ def collect_networks(directory,
                     'job': vae.job_number,
                     'type': architecture.type,
                     'arch': arch,
-                    'dict_var': vae.training['dictionary_variance'],
+                    'dict_var': dict_var,
                     'arch_code': arch_code,
                     'features': architecture.features['name'] if architecture.features else 'none',
                     'dir': directory,
@@ -375,6 +379,7 @@ def collect_networks(directory,
                     'sigma': f'{sigma}',
                     'sigma_value': sigma.value,
                     'sigma_train': sigma_train,
+                    'beta': vae.training['beta'],
                     'done': vae.train_history['epochs'],
                     'epochs': vae.training['epochs'],
                     'finished': vae.train_history['epochs'] >= vae.training['epochs'],
@@ -493,6 +498,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
         'sigma',
         'sigma_train',
         'sigma_value',
+        'beta',
     ] + all_nets
 
     indices = arch_index + train_index

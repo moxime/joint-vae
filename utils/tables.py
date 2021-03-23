@@ -216,11 +216,7 @@ def infer_type(column, dataset, rate='my fixed', measures='my sci', string='my s
     return string
 
 
-def texify_test_results_df(df, tex_file, tab_file):
-
-    for c in df.columns:
-        if c[-1] == 'rate':
-            dataset = c[0]
+def texify_test_results_df(df, dataset, tex_file, tab_file):
 
     datasets = torchdl.get_same_size_by_name(dataset)
     datasets.append(dataset)

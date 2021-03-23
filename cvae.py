@@ -15,7 +15,7 @@ from data.torch_load import choose_device
 from utils import save_load
 import numpy as np
 
-from roc_curves import ood_roc, fpr_at_tpr
+from utils.roc_curves import fpr_at_tpr
 from sklearn.metrics import auc, roc_curve
 
 from utils.print_log import EpochOutput
@@ -1128,43 +1128,6 @@ class ClassificationVariationalNetwork(nn.Module):
             if update_self_ood:
                 a = self.ood_results
                 self.ood_results[oodset.name] = ood_results
-
-
-        # for m in ood_methods:
-
-        #     if print_result:
-        #         print(m, ': ', end='')
-        #     result = ood_results[m]
-
-        #     with torch.no_grad():
-        # fpr, tpr, thresholds = ood_roc(self, testset, oodset,
-        #                                        method=m, batch_size=batch_size,
-        #                                        num_batch=num_batch,
-        #                                        print_result=print_result,
-        #                                        device=device)
-
-        #     auc_ = auc(fpr, tpr)
-        #     result['auc'] = auc_
-        #     n = min(len(oodset), len(testset))
-        #     if type(num_batch) is int:
-        #         n = min(n, batch_size * num_batch)
-                
-        #     result.update({'epochs': self.trained,
-        #                     'n': n})
-
-        #     str_res = []
-        #     for i, t  in enumerate(keeped_tpr):
-
-        #         r_ = fpr_at_tpr(fpr, tpr, t, thresholds, True)
-
-        #         result['fpr'][i], result['thresholds'][i] = r_
-        #         str_res.append(f'{t:.0%}:{r_[0]:.2%}')
-
-        #     if print_result:
-        #         print('--'.join(str_res + [f'auc:{auc_:.2%}']))
-
-        # if update_self_ood:
-
         
     def train(self,
               trainset=None,

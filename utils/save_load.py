@@ -8,6 +8,7 @@ import data.torch_load as torchdl
 import numpy as np
 import torch
 from utils.optimizers import Optimizer
+from utils.roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
 
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -240,7 +241,6 @@ def collect_networks(directory,
                      **default_load_paramaters):
 
 
-    from roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
     from cvae import ClassificationVariationalNetwork
     
     if list_of_vae_by_architectures is None:

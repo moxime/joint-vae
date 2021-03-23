@@ -59,6 +59,7 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
             _b = f'{_s}_{_w}' in history
             printout(f'\{_s}{_w}{_b}'.lower())
     
+
 def export_losses(net_dict, which='loss',
                   directory='results/%j',
                   filename='losses.tab',

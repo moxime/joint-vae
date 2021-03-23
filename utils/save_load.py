@@ -8,7 +8,7 @@ import data.torch_load as torchdl
 import numpy as np
 import torch
 from utils.optimizers import Optimizer
-from utils.roc_curves import ood_roc, fpr_at_tpr, load_roc, save_roc
+from utils.roc_curves import fpr_at_tpr
 
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -23,6 +23,7 @@ def get_path(dir_name, file_name, create_dir=True):
 def job_to_str(number, string, formats={int: '{:06d}'}):
     job_format = formats.get(type(number), '{}')
     return string.replace('%j', job_format.format(number))
+
 
 def create_file_for_job(number, directory, filename, mode='w'):
 
@@ -231,6 +232,7 @@ def option_vector(o, empty=' ', space=' '):
 
 
 class Shell:
+
     print_architecture = print_architecture
     option_vector = option_vector
 

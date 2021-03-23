@@ -1078,6 +1078,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             t_0 = time.time()
             iter_ = iter(loader)
+            
             for i in range(ood_n_batch):
 
                 data = next(iter_)
@@ -1296,7 +1297,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             
                         self.ood_detection_rates(oodsets=oodsets, testset=testset,
                                                  batch_size=test_batch_size,
-                                                 num_batch=len(testset) // batch_size,
+                                                 num_batch=len(testset) // test_batch_size,
                                                  outputs=outputs,
                                                  print_result='*')
 
@@ -1468,7 +1469,6 @@ class ClassificationVariationalNetwork(nn.Module):
     def summary(self):
 
         logging.warning('SUMMARY FUNCTION NOT IMPLEMENTED')
-
 
     @property
     def device(self):

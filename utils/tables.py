@@ -247,7 +247,11 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
     tex_cols = pd.MultiIndex.from_tuples([tuple(_r(w) for w in c) for c in cols])
 
     tab_cols = ['-'.join([str(c) for c in col if c]).replace('_', '-') for col in cols] 
-        
+
+
+    oodsets = [c[:-4] for c in tab_cols if c.endswith('-auc')]
+    
+    # print(cols, tab_cols)
     # return tab_cols
     
     to_string_args = dict(sparsify=False, index=False)
@@ -270,6 +274,28 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             f.write(f'\\def\\setname{{{dataset}}}\n')
             f.write(f'\\def\\testcolumn{{{dataset}-rate}}\n')
 
+            f.write(r'\def\oodsets{')
+            f.write(','.join(oodsets))
+            f.write(r'}')
+            f.write('\n')
+
+            if oodsets:
+                f.write(r'\def\oodset{')
+                f.write(oodsets[0])
+                f.write(r'}')
+                f.write('\n')                
+
+            f.write(r'\def\noodsets{')
+            f.write(str(len(oodsets)))
+            f.write(r'}')
+            f.write('\n')
+
+            # colors = ['green', 'magenta', 'cyan']
+            # f.write(r'\pgfplotscreateplotcyclelist{my colors}{')
+            # f.write(','.join([f'{{color={c}}}' for c in colors[:len(oodsets)]]))
+            # f.write(r'}')
+            # f.write('\n')
+                    
             total_epochs = tab_df['done'].sum()
             f.write(r'\def\totalepochs{')
             f.write(f'{total_epochs}')
@@ -299,10 +325,12 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
             f.write('\n')
 
-            f.write(r'\def\typeset{\pgfplotstabletypeset[columns={')
+            f.write(r'\def\typeset#1{\pgfplotstabletypeset[columns={')
             f.write(','.join(tab_cols))
             # f.write('job,type')
-            f.write(r'}]{\testtab}}')
+            f.write(r'},')
+            f.write(r'#1')
+            f.write(r']{\testtab}}')
             f.write('\n')
 
     if tab_file:

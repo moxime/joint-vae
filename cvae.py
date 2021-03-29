@@ -784,6 +784,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  update_self_testing=True,
                  outputs=EpochOutput(),
                  sample_file='',
+                 dataframe=None,
                  log=True):
 
         """return detection rate. If return_mismatched is True, indices of

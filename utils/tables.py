@@ -39,6 +39,7 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
         dataset = net.training['set'],
         epochs = net.train_history['epochs'],
         arch = net.print_architecture(excludes='type', sigma=True, sampling=True),
+        archcode = net_dict['arch_code'],
         option = net.option_vector('-', '--'),
         K = arch['latent_dim'],
         L = net.training['latent_sampling'],

@@ -387,6 +387,10 @@ def get_args_for_test():
                         action=FilterAction,
                         nargs='+')
 
+    parser.add_argument('--arch-code',
+                        action=FilterAction,
+                        nargs='+')
+
     parser.add_argument('-s', '--sigma',
                         dest='sigma_value',
                         nargs='+',

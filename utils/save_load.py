@@ -340,20 +340,27 @@ def collect_networks(directory,
             rmse = np.sqrt(mse)
         else:
             rmse = np.nan
+
         nans = {'total': np.nan, 'zdist':np.nan}
         loss_ = {s: ([nans] + history.get(s + '_loss', [nans]))[-1]
                  for s in ('train', 'test')}        
 
         sigma = vae.sigma
+        beta = vae.training['beta']
         if sigma.learned:
             sigma_train = 'learned'
+            sigma_value = rmse * beta
         elif sigma.is_rmse:
             sigma_train = 'rmse'
+            sigma_value = rmse * beta
         elif sigma.decay:
             sigma_train = 'decay'
+            sigma_value = rmse * beta
         else:
             sigma_train = 'constant'
+            sigma_value = sigma.value
 
+            
         if architecture.type == 'cvae':
             dict_var = vae.training['dictionary_variance']
         else: dict_var = 0.
@@ -379,9 +386,9 @@ def collect_networks(directory,
                     'set': training.set,
                     'train_batch_size': train_batch_size,
                     'sigma': f'{sigma}',
-                    'sigma_value': sigma.value,
+                    'sigma_value': sigma_value,
                     'sigma_train': sigma_train,
-                    'beta': vae.training['beta'],
+                    'beta': beta,
                     'done': vae.train_history['epochs'],
                     'epochs': vae.training['epochs'],
                     'finished': vae.train_history['epochs'] >= vae.training['epochs'],
@@ -579,7 +586,11 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
     for c in df.columns[df.columns.isin(['measures'], level=0)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
-    return df.sort_index().apply(col_format)
+    sorting_levels = list(df.index.names)
+    sorting_levels.remove('sigma')
+    sorting_levels.remove('sigma_train')
+    
+    return df.sort_index(level=sorting_levels).apply(col_format)
         
     if not best_method:
         

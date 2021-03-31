@@ -349,16 +349,16 @@ def collect_networks(directory,
         beta = vae.training['beta']
         if sigma.learned:
             sigma_train = 'learned'
-            sigma_value = rmse * beta
+            beta_sigma = rmse * beta
         elif sigma.is_rmse:
             sigma_train = 'rmse'
-            sigma_value = rmse * beta
+            beta_sigma = rmse * beta
         elif sigma.decay:
             sigma_train = 'decay'
-            sigma_value = rmse * beta
+            beta_sigma = rmse * beta
         else:
             sigma_train = 'constant'
-            sigma_value = sigma.value
+            beta_sigma = sigma.value
 
             
         if architecture.type == 'cvae':
@@ -386,7 +386,7 @@ def collect_networks(directory,
                     'set': training.set,
                     'train_batch_size': train_batch_size,
                     'sigma': f'{sigma}',
-                    'sigma_value': sigma_value,
+                    'beta_sigma': beta_sigma,
                     'sigma_train': sigma_train,
                     'beta': beta,
                     'done': vae.train_history['epochs'],
@@ -506,7 +506,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
         'L',
         'sigma',
         'sigma_train',
-        'sigma_value',
+        'beta_sigma',
         'beta',
     ] + all_nets
 

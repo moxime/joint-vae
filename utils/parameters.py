@@ -392,7 +392,7 @@ def get_args_for_test():
                         nargs='+')
 
     parser.add_argument('-s', '--sigma',
-                        dest='sigma_value',
+                        dest='beta_sigma',
                         nargs='+',
                         action=FilterAction,
                         of_type=float,

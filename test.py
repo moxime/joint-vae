@@ -501,7 +501,7 @@ if __name__ == '__main__':
 
         texify_test_results_df(d, s, tex_file, tab_file)
 
-        # d.index = d.index.droplevel(('sigma_train', 'sigma_value', 'features'))
+        # d.index = d.index.droplevel(('sigma_train', 'beta_sigma', 'features'))
         # d.index = d.index.droplevel(('sigma_train', 'sigma', 'features'))
         d.index = d.index.droplevel(('sigma', 'features'))
         

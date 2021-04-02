@@ -32,10 +32,17 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
     printout = create_printout(file_id=f, std=stdout)
     arch = net.architecture
     empty_optimizer = Optimizer([torch.nn.Parameter(torch.Tensor())], **net.training['optim'])
-
+    oftype = net.architecture['type']
+    dict_var = net.training['dictionary_variance'] if oftype == 'cvae' else 0
+    beta = net.training['beta']
+    
+    sigmabeta = r'\ensuremath\sigma=' +f'{net.sigma}'.upper()
+    if net.sigma.is_rmse:
+        sigmabeta += f' (\\ensuremath\\beta=\\num{{{beta}}})'
+    
     net = net_dict['net']
     exported_values = dict(
-        oftype = net.architecture['type'],
+        oftype = oftype,
         dataset = net.training['set'],
         epochs = net.train_history['epochs'],
         arch = net.print_architecture(excludes='type', sigma=True, sampling=True),
@@ -47,7 +54,10 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
         decoder = '-'.join(str(w) for w in arch['decoder']),
         features = arch.get('features', {}).get('name', 'none'),
         sigma = '{:x}'.format(net.sigma),
+        beta = beta,
+        dictvar = dict_var,
         optimizer = '{:3x}'.format(empty_optimizer),
+        betasigma=sigmabeta,
         )
         
     for cmd, k in exported_values.items():

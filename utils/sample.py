@@ -162,8 +162,8 @@ if __name__ == '__main__':
     L = 16
     list_of_images = sample(net, x['i'], # root='/tmp/%j',
                             directory='test',
-                            N=10, L=16)
+                            N=10, L=10)
     list_of_images = sample(net, x['o'], # root='/tmp/%j',
-                            directory='ood', N=20, L=16)
+                            directory='ood', N=10, L=10)
     list_of_images = sample(net, # root='/tmp/%j',
-                            directory='generate', N=20, L=16)
+                            directory='generate', N=10, L=12)

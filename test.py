@@ -212,7 +212,7 @@ if __name__ == '__main__':
     verbose = args.verbose
 
     log = set_log(verbose, debug, name='test')
-    log.debug('$ ' + ' '.join(sys.argv))
+    logging.debug('$ ' + ' '.join(sys.argv))
     if not args.force_cpu:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         log.info(f'Used device: {device} on {hostname}')
@@ -240,13 +240,14 @@ if __name__ == '__main__':
     unfinished_training = args.unfinished
 
     filters = args.filters
-    filter_str = '--'.join(f'{k}:{f}' for k, f in filters.items())
-    log.debug(filter_str)
+    comma=','
+    filter_str = '--'.join(f'{d}:{comma.join([str(_) for _ in f])}' for d, f in filters.items())
+    logging.debug('Filters: %s', filter_str)
     
     latex_formatting = args.latex
     
     for k, v in vars(args).items():
-        log.debug('%s: %s', k, str(v))
+        logging.debug('%s: %s', k, str(v))
     
     search_dir = load_dir if load_dir else job_dir
 
@@ -296,12 +297,21 @@ if __name__ == '__main__':
     testsets =  set()
     sigmas =  set()
     archs =  {}
-        
+
+
+    # for d in filters:
+    #     print('l302', d, ':', ','.join([str(f) for f in filters[d]]))
     networks_to_be_studied = []
     for n in sum(list_of_networks, []):
-        to_be_studied = all([filters[k].filter(n[k]) for k in filters])
+        filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters] ,[])
+        to_be_studied = all(filter_results)
+
         if to_be_studied:
             networks_to_be_studied.append(n)
+            # for d in filters:
+            #   print(d, n[d])
+            #   for f in filters[d]:
+            #       print(f, f.filter(n[d]))
 
     for n in networks_to_be_studied:
 
@@ -481,7 +491,10 @@ if __name__ == '__main__':
                          tnr=args.tnr,
                          tpr=tpr)
 
-    tex_filter_str = filter_str.replace('_', '-').replace(':', '-').replace(' ', '-')
+    _sep = ('_', ':', ',', ' ')
+    tex_filter_str = filter_str
+    for _ in _sep:
+        tex_filter_str = tex_filter_str.replace(_, '-')
     
     tab_file = os.path.join('results', tex_filter_str + '.tab') if len(df) == 1 else None
     tex_file = os.path.join('results', tex_filter_str + '.tex') if len(df) == 1 else None

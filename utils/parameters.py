@@ -5,7 +5,7 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 import re, numpy as np
 from socket import gethostname as getrawhostname
-
+from utils.param_filters import ParamFilter
 
 def gethostname():
 
@@ -425,6 +425,10 @@ def get_args_for_test():
                         nargs='+',
                         action=FilterAction)
 
+    parser.add_argument('--data-augmentation',
+                        nargs='+',
+                        action=FilterAction)
+    
     parser.add_argument('--job-number',
                         dest='job',
                         of_type=int,
@@ -439,123 +443,40 @@ def get_args_for_test():
     return args
 
 
-class ParamFilter():
-
-    def __init__(self, arg_str='',
-                 arg_type=int,
-                 neg=False,
-                 always_true=False,
-    ):
-
-        self.arg_str = arg_str
-        self.arg_type = arg_type
-        self.always_true = always_true
-        self.neg = neg
-        
-        interval_regex = '\.{2,}'
-        self.is_interval = re.search(re.compile(interval_regex),
-                                arg_str)
-
-        list_regex = '[\s\,]+\s*'
-        self.is_list = re.search(re.compile(list_regex),
-                            arg_str)
-
-        if self.is_interval:
-
-            endpoints = re.split(interval_regex, arg_str)
-            self.interval = [-np.inf, np.inf]
-            for i in (0, -1):
-                try:
-                    self.interval[i] = arg_type(endpoints[i])
-                except ValueError:
-                    pass
-
-        if self.is_list:
-
-            _values = re.split(list_regex, arg_str)
-            self.values = [arg_type(v) for v in _values]
-
-    def __str__(self):
-
-        pre = 'not ' if self.neg else ''
-
-        if self.is_interval:
-            return pre + '..'.join([str(a) for a in self.interval])
-
-        if self.is_list:
-            return pre + ' or '.join([str(v) for v in self.values])
-
-        if self.arg_type is bool:
-            return 'False' if self.neg else 'True'
-
-        else:
-            return pre + (self.arg_str if self.arg_str else 'any')
-        
-    def filter(self, value):
-
-        neg = self.neg
-        if self.always_true:
-            return False if neg else True
-        
-        if not self.arg_str:
-            return not value if neg else value
-        
-        # if not value:
-        #    return True
-        
-        if self.is_interval:
-            if value is None:
-                return False
-
-            try:
-                a, b = self.interval
-                in_ =  a <= value <= b
-                return not in_ if neg else in_
-            except TypeError as e:
-                print(a, type(a), b, type(b), value, type(value), self)
-                raise(e)
-            
-        if self.is_list:
-            in_ = value in self.values
-            return not in_ if neg else in_
-
-        # else
-        the_value = self.arg_type(self.arg_str)
-        in_ = value == the_value
-        return not in_ if neg else in_
-    
 class FilterAction(argparse.Action):
 
     def __init__(self, option_strings, dest, of_type=str, neg=False, **kwargs):
         super(FilterAction, self).__init__(option_strings, dest, **kwargs)
 
+        # print('FilterAction init', option_strings)
         self._type=of_type
-        self._neg=neg
         self.default=ParamFilter()
 
     def __call__(self, parser, namespace, values, option_string=None):
 
+        # print('FilterAction called', option_string, values)
+        
         if type(values) is not list:
             values= [values]
-            
+
+        neg = False
         if values and values[0].lower() == 'not':
-            self._neg = True
+            neg = True
             values.pop(0)
 
-        if values:
-            arg_str = ' '.join(str(v) for v in values)
-        else:
-            arg_str = ''
+        arg_str = ' '.join(str(v) for v in values)
 
         filter = ParamFilter(arg_str,
                              arg_type=self._type,
-                             neg=self._neg)
+                             neg=neg)
         # print(filter)
         if not hasattr(namespace, 'filters'):
             setattr(namespace, 'filters', {})
-        namespace.filters[self.dest] = filter
+        if self.dest not in namespace.filters:
+            namespace.filters[self.dest] = []
+        namespace.filters[self.dest].append(filter)
 
-
+        
 def same_dict(d1, d2):
 
     result = True

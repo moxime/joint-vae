@@ -70,7 +70,7 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
-                                'cvae': ('cross_x', 'kl', 'total', 'cross_y'),
+                                'cvae': ('cross_x', 'kl', 'total', 'dzdist', 'cross_y'),
                                 'xvae': ('cross_x', 'kl', 'total'),
                                 'vae': ('cross_x', 'kl', 'total'),
                                 'vib': ('cross_y', 'kl', 'total')}
@@ -107,6 +107,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  latent_dim=32,
                  latent_prior_variance=1,
                  beta=1.,
+                 gamma=0.,
                  dictionary_variance=1,
                  learned_coder=False,
                  dictionary_min_dist=None,
@@ -218,7 +219,8 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Building a vanilla classifier')
 
         self.beta = beta
-            
+        self.gamma = gamma if self.coder_has_dict else None
+        
         self.latent_prior_variance = latent_prior_variance
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,
@@ -315,6 +317,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.training = {
             'sigma': self.sigma.params,
             'beta': self.beta,
+            'gamma': self.gamma, 
             'dictionary_variance': dictionary_variance,
             'learned_coder': learned_coder,
             'dictionary_min_dist': self.encoder.dictionary_dist_lb,
@@ -556,7 +559,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_quants['latent_kl'] = kl_l
 
         batch_losses['zdist'] = zdist
-        
+
         if not self.is_vae: # self.y_is_decoded or self.force_cross_y:
             if y_in_input or (self.y_is_decoded and losses_computed_for_each_class):
                 y_target = y
@@ -573,9 +576,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if self.coder_has_dict:
             # batch_losses['zdist'] = 0
+            dict_mean = dictionary.mean(0)
+            zdist_to_mean = (mu - dict_mean).pow(2).sum(1)
+            dict_norm_var = dictionary.pow(2).sum(1).mean(0) - dict_mean.pow(2).sum()
+            batch_losses['dzdist'] = zdist_to_mean + dict_norm_var
             batch_quants['imut-zy'] = self.encoder.capacity()
             batch_quants['ld-norm'] = self.encoder.latent_dictionary.pow(2).mean()
             batch_quants['d-mind'] = self.encoder.dict_min_distance()
+
             for k in ('ld-norm', 'imut-zy', 'd-mind'):
                 # total_measures[k] = (current_measures[k] * batch +
                 #                     batch_quants[k].item()) / (batch + 1)
@@ -856,7 +864,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     shape = 'CxNxC'
                 elif k is 'cross_y' or self.is_jvae:
                     shape = 'CxN'
-                elif self.is_cvae and k != 'cross_x':
+                elif self.is_cvae and k != 'cross_x'and k != 'dzdist':
                     shape = 'CxN'
                 elif self.is_vib and k == 'total':
                     shape = 'CxN'
@@ -1389,6 +1397,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 if self.force_cross_y and not self.y_is_decoded:
                     L += self.force_cross_y * batch_losses['cross_y'].mean()
+
+                if self.coder_has_dict and self.encoder.dictionary_is_learned:
+                    L += self.gamma * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
                     
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():
@@ -1623,6 +1634,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'pretrained_upsampler': None,
                         'learned_coder': False,
                         'beta': 1.,
+                        'gamma': 0.,
                         'dictionary_min_dist': None,
                         'dictionary_variance': 1,
                         'data_augmentation': [],
@@ -1712,6 +1724,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       activation=params['activation'],
                       sigma=train_params['sigma'],
                       beta=train_params['beta'],
+                      gamma=train_params['gamma'],
                       dictionary_variance=train_params['dictionary_variance'],
                       learned_coder=train_params['learned_coder'],
                       dictionary_min_dist=train_params['dictionary_min_dist'],

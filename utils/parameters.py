@@ -197,12 +197,15 @@ def get_args_for_train(argv=None):
                         action='store_true',)
 
     parser.add_argument('--beta', type=float, default=1.0,
-                        help='Beta-(C)VAE not implemented',
+                        help='Beta-(C)VAE',
                         metavar='ß')
 
     parser.add_argument('--dictionary-variance',
                         type=float,
                         default=1)
+
+    parser.add_argument('--gamma', type=float,
+                        default=0.)
     
     parser.add_argument('--learned-coder',
                         action='store_true')

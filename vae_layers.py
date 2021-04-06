@@ -303,6 +303,8 @@ class Encoder(nn.Module):
         
         self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
 
+        self.dictionary_is_learned = learned_dictionary
+        
         self.dictionary_dist_lb = dictionary_min_dist
         
     @property

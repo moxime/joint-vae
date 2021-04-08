@@ -792,7 +792,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  update_self_testing=True,
                  outputs=EpochOutput(),
                  sample_file='',
-                 dataframe=None,
+                 record=None,
                  log=True):
 
         """return detection rate. If return_mismatched is True, indices of
@@ -1494,13 +1494,6 @@ class ClassificationVariationalNetwork(nn.Module):
         super().to(d)
         self.optimizer.to(d)
         
-    @property
-    def kl_loss_weight(self):
-        return self._kl_loss_weight
-
-    @kl_loss_weight.setter
-    def kl_loss_weight(self, value):
-        self._kl_loss_weight = value
 
     @property
     def latent_sampling(self):

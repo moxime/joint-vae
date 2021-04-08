@@ -237,6 +237,65 @@ class Shell:
     option_vector = option_vector
 
 
+class LossRecorder:
+
+    def __init__(self, loss_like, batch_size, num_batches, sets, y_pred=None, device=None):
+
+        self._recorded_batches=0
+
+        self._samples = num_batches * batch_size
+        self.num_batches = num_batches
+        
+        self._losses={s: {} for s in sets}
+
+        if not device:
+            device = loss_like.values[0].device
+        self.device=device
+
+        if y_pred:
+            if type(y_pred) is dict:
+                self.has_y_pred = tuple(y_pred.keys())
+            elif type(y_pred) in (list, tuple):
+                self.has_y_pred = tuple(y_pred)
+            else: raise TypeError
+        else:
+            self.has_y_pred=[]
+            
+        for s in sets:
+            for t, l in loss_like.items():
+                shape = l.shape[:1] + (_samples,)
+                self._losses[s][t] = torch.zeros(shape, device=self.device)
+
+        if self.has_y_pred:
+            self._losses['y_pred'] = {m: torch.zeros(_samples, dtype=int, device=self.device)
+                                      for m in self.has_y_pred}
+
+    def append_batch(self, losses, y_pred):
+
+        start = self._recorded_batches * batch_size
+        end = start + batch_size
+
+        if end > self._samples:
+            raise IndexError
+        
+        for k in losses:
+            self._losses[...,start:end] = losses[k]
+
+        for k in self.has_y_pred:
+            self._losses['y_pred'][k][start:end] = y_pred[k]
+
+        self._recorded_batches += 1
+
+    def has_batch(self, number):
+        r""" number starts at 0
+        """
+
+        return number < self._recorded_batches
+
+    def reset(self):
+
+        self._recorded_batches = 0
+            
 def collect_networks(directory,
                      list_of_vae_by_architectures=None,
                      load_state=True,

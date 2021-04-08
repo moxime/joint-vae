@@ -856,7 +856,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                         current_measures=current_measures)
 
             else:
-                
+                pass
             current_measures = measures
 
             # print('*** 842', y_test[0].item(), *y_test.shape)

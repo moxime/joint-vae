@@ -239,12 +239,12 @@ class Shell:
 
 class LossRecorder:
 
-    def __init__(self, loss_like, batch_size, num_batches, y_pred=None, measures=None, device=None):
+    def __init__(self, loss_like, batch_size, num_batch, y_pred=None, measures=None, device=None):
 
         self._recorded_batches = 0
 
-        self._samples = num_batches * batch_size
-        self.num_batches = num_batches
+        self._samples = num_batch * batch_size
+        self._num_batch = num_batch
         self.batch_size = batch_size
         
         self._tensors={'losses': {}}
@@ -278,13 +278,37 @@ class LossRecorder:
                                                  device=self.device)
                                   for m in self.has_y_pred}
 
-        self._tensors['measures'] = {m: torch.zeros(self.num_batches, device=self.device)
+        self._tensors['measures'] = {m: torch.zeros(self.num_batch, device=self.device)
                                      for m in self.has_measures}
 
     def reset(self):
 
         self._recorded_batches = 0
-            
+
+
+    @property
+    def num_batch(self):
+        return self._num_batch
+
+    @num_batch.setter
+    def num_batch(self, n):
+
+        first_tensor = next(iter(self._tensors['losses'].values()))
+        height = first_tensor.shape[-1]
+        n_sample = n * self.batch_size
+        
+        if n_sample > height:
+            d_h = n_sample - height
+            for f in self._tensors:
+                for k in self._tensors[f]:
+                    t = self._tensors[f][k]
+                    z = torch.zeros(t.shape[:-1] + (d_h,), device=self.device)
+                    self._tensors[f][k] = torch.cat([t, z], axis=-1)
+        
+        self._num_batch = n
+        self._samples = n * self.batch_size
+        self._recorded_batches = min(n, self._recorded_batches)
+                
     def has_batch(self, number):
         r""" number starts at 0
         """
@@ -326,7 +350,7 @@ class LossRecorder:
         for k in losses:
             self._tensors['losses'][k][...,start:end] = losses[k]
 
-        self._tensors['losses']['y_true'][...,start:end] = y_true
+        self._tensors['losses']['y_true'][..., start:end] = y_true
             
         for k in y_pred:
             self._tensors['y_pred'][k][start:end] = y_pred[k]

@@ -239,14 +239,14 @@ class Shell:
 
 class LossRecorder:
 
-    def __init__(self, loss_like, batch_size, num_batches, sets, y_pred=None, device=None):
+    def __init__(self, loss_like, batch_size, num_batches, y_pred=None, device=None):
 
-        self._recorded_batches=0
+        self._recorded_batches = 0
 
         self._samples = num_batches * batch_size
         self.num_batches = num_batches
         
-        self._losses={s: {} for s in sets}
+        self._losses={}
 
         if not device:
             device = loss_like.values[0].device
@@ -261,12 +261,10 @@ class LossRecorder:
         else:
             self.has_y_pred=[]
             
-        for s in sets:
-            for t, l in loss_like.items():
-                shape = l.shape[:1] + (_samples,)
-                self._losses[s][t] = torch.zeros(shape, device=self.device)
+        for t, l in loss_like.items():
+            shape = l.shape[:1] + (_samples,)
+            self._losses[t] = torch.zeros(shape, device=self.device)
 
-        if self.has_y_pred:
             self._losses['y_pred'] = {m: torch.zeros(_samples, dtype=int, device=self.device)
                                       for m in self.has_y_pred}
 
@@ -279,7 +277,7 @@ class LossRecorder:
             raise IndexError
         
         for k in losses:
-            self._losses[...,start:end] = losses[k]
+            self._losses[k][...,start:end] = losses[k]
 
         for k in self.has_y_pred:
             self._losses['y_pred'][k][start:end] = y_pred[k]

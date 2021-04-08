@@ -287,6 +287,28 @@ class LossRecorder:
 
         return number < self._recorded_batches
 
+    def get_batch(self, i, *which):
+
+        if len(which) > 1:
+            return tuple(self.get_batch(self, i, w, i) for w in which)
+
+        if not self.has_batch(i):
+            return None
+        
+        w = which[0]
+
+        if w == 'measures':
+            start = i
+            end = start + 1
+        else:
+            start = i * batch_size
+            end = start + batch_size
+            
+
+        t = self._tensors[w]
+        return {k: t[k][...,start:end] for k in t}
+        
+    
     def append_batch(self, losses, y_pred={}, measures={}):
 
         start = self._recorded_batches * self.batch_size

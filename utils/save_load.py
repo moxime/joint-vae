@@ -245,11 +245,12 @@ class LossRecorder:
 
         self._samples = num_batches * batch_size
         self.num_batches = num_batches
+        self.batch_size = batch_size
         
         self._losses={}
 
         if not device:
-            device = loss_like.values[0].device
+            device = next(iter(loss_like.values())).device
         self.device=device
 
         if y_pred:
@@ -262,16 +263,16 @@ class LossRecorder:
             self.has_y_pred=[]
             
         for t, l in loss_like.items():
-            shape = l.shape[:1] + (_samples,)
+            shape = l.shape[:1] + (self._samples,)
             self._losses[t] = torch.zeros(shape, device=self.device)
 
             self._losses['y_pred'] = {m: torch.zeros(_samples, dtype=int, device=self.device)
                                       for m in self.has_y_pred}
 
-    def append_batch(self, losses, y_pred):
+    def append_batch(self, losses, y_pred=None):
 
-        start = self._recorded_batches * batch_size
-        end = start + batch_size
+        start = self._recorded_batches * self.batch_size
+        end = start + self.batch_size
 
         if end > self._samples:
             raise IndexError

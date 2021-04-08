@@ -247,44 +247,47 @@ class LossRecorder:
         self.num_batches = num_batches
         self.batch_size = batch_size
         
-        self._tensors={'losses': None}
+        self._tensors={'losses': {}}
 
         if not device:
             device = next(iter(loss_like.values())).device
         self.device=device
 
+        self.has_losses = tuple(loss_like)
+        
         if y_pred:
-            if type(y_pred) is dict:
-                self.has_y_pred = tuple(y_pred.keys())
-            elif type(y_pred) in (list, tuple):
-                self.has_y_pred = tuple(y_pred)
-            else: raise TypeError
+            self.has_y_pred = tuple(y_pred)
         else:
             self.has_y_pred=[]
 
         if measures:
-            if type(measures) is dict:
-                self.has_measures = tuple(measures.keys())
-            elif type(measures) in (list, tuple):
-                self.has_measures = tuple(measures)
-            else: raise TypeError
+            self.has_measures = tuple(measures)
         else:
             self.has_measures=[]
             
         for t, l in loss_like.items():
             shape = l.shape[:1] + (self._samples,)
-            self._tensors['losses'] = {t: torch.zeros(shape, device=self.device)
-                                       for t in self.has_losses}
+            self._tensors['losses'][t] = torch.zeros(shape, device=self.device)
 
-            self._tensors['y_pred'] = {m: torch.zeros(self._samples,
-                                                     dtype=int,
-                                                     device=self.device)
-                                      for m in self.has_y_pred}
+        self._tensors['y_pred'] = {m: torch.zeros(self._samples,
+                                                 dtype=int,
+                                                 device=self.device)
+                                  for m in self.has_y_pred}
 
-            self._tensors['measures'] = {m: torch.zeros(self.num_batches, device=self.device)
-                                         for m in self.has_measures}
+        self._tensors['measures'] = {m: torch.zeros(self.num_batches, device=self.device)
+                                     for m in self.has_measures}
+
+    def reset(self):
+
+        self._recorded_batches = 0
             
-    def append_batch(self, losses, y_pred=None, measures=None):
+    def has_batch(self, number):
+        r""" number starts at 0
+        """
+
+        return number < self._recorded_batches
+
+    def append_batch(self, losses, y_pred={}, measures={}):
 
         start = self._recorded_batches * self.batch_size
         end = start + self.batch_size
@@ -295,23 +298,13 @@ class LossRecorder:
         for k in losses:
             self._tensors[losses][k][...,start:end] = losses[k]
             
-            for k in self.has_y_pred:
-                self._tensors['y_pred'][k][start:end] = y_pred[k]
+        for k in y_pred:
+            self._tensors['y_pred'][k][start:end] = y_pred[k]
 
-        for k in self.has_measures:
+        for k in measures:
             self._tensors['y_pred'][k][self._recorded_batches] = measures[k]
                                         
         self._recorded_batches += 1
-
-    def has_batch(self, number):
-        r""" number starts at 0
-        """
-
-        return number < self._recorded_batches
-
-    def reset(self):
-
-        self._recorded_batches = 0
     
             
 def collect_networks(directory,

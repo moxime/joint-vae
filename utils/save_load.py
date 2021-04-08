@@ -249,6 +249,7 @@ class LossRecorder:
         
         self._tensors={'losses': {}}
 
+        
         if not device:
             device = next(iter(loss_like.values())).device
         self.device=device
@@ -269,6 +270,9 @@ class LossRecorder:
             shape = l.shape[:1] + (self._samples,)
             self._tensors['losses'][t] = torch.zeros(shape, device=self.device)
 
+        self._tensors['losses']['y_true'] = torch.zeros(self._samples,
+                                                        device=self.device, dtype=int)
+        
         self._tensors['y_pred'] = {m: torch.zeros(self._samples,
                                                  dtype=int,
                                                  device=self.device)
@@ -289,6 +293,9 @@ class LossRecorder:
 
     def get_batch(self, i, *which):
 
+        if not which:
+            which = ['losses']
+            
         if len(which) > 1:
             return tuple(self.get_batch(self, i, w, i) for w in which)
 
@@ -301,15 +308,14 @@ class LossRecorder:
             start = i
             end = start + 1
         else:
-            start = i * batch_size
-            end = start + batch_size
+            start = i * self.batch_size
+            end = start + self.batch_size
             
 
         t = self._tensors[w]
         return {k: t[k][...,start:end] for k in t}
-        
     
-    def append_batch(self, losses, y_pred={}, measures={}):
+    def append_batch(self, losses, y_true, y_pred={}, measures={}):
 
         start = self._recorded_batches * self.batch_size
         end = start + self.batch_size
@@ -318,7 +324,9 @@ class LossRecorder:
             raise IndexError
         
         for k in losses:
-            self._tensors[losses][k][...,start:end] = losses[k]
+            self._tensors['losses'][k][...,start:end] = losses[k]
+
+        self._tensors['losses']['y_true'][...,start:end] = y_true
             
         for k in y_pred:
             self._tensors['y_pred'][k][start:end] = y_pred[k]

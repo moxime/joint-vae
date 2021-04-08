@@ -119,6 +119,29 @@ def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory=
     return list_of_images
     
 
+def losses_histogram(net, directory):
+
+    sample_dir = os.path.join(directory, 'samples')
+
+    if not os.path.exists(sample_dir):
+        raise FileNotFoundError(sample_dir)
+    
+    files = os.listdir(sample_dir)
+    last_sample=None
+    last_epoch=0
+    for f in files:
+        try:
+            epoch = int(f.rsplit('.', 1)[0])
+            if epoch > last_epoch:
+                last_epoch = epoch
+                last_sample = f
+        except ValueError:
+            pass
+
+    sample_dict = torch.load(os.path.join(sample_dir, last_sample))
+    return sample_dict
+
+           
 if __name__ == '__main__':
 
     j = 111028
@@ -136,7 +159,7 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.ERROR)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("j", type=int, default=j)
+    parser.add_argument("-j", type=int, default=j)
     j = parser.parse_args().j
     
     try:

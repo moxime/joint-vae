@@ -295,6 +295,10 @@ class LossRecorder:
     def reset(self):
 
         self._recorded_batches = 0
+
+    def save(self, file_path):
+
+        troch.save(self._losses, file_path)
             
 def collect_networks(directory,
                      list_of_vae_by_architectures=None,

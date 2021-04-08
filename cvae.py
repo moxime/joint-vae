@@ -787,16 +787,14 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_size=100,
                  num_batch='all',
                  method='all',
-                 return_mismatched=False,
                  print_result=False,
                  update_self_testing=True,
                  outputs=EpochOutput(),
                  sample_file='',
-                 record=None,
+                 recorder=None,
                  log=True):
 
-        """return detection rate. If return_mismatched is True, indices of
-        mismatched are also retuned.
+        """return detection rate. 
         method can be a list of methods
 
         """
@@ -839,7 +837,7 @@ class ClassificationVariationalNetwork(nn.Module):
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
                                                  shuffle=shuffle)
-        iter_ = iter(testloader)
+        test_iterator = iter(testloader)
         start = time.time()
 
         total_loss = {k: 0. for k in self.loss_components}
@@ -848,12 +846,17 @@ class ClassificationVariationalNetwork(nn.Module):
         current_measures = {}
 
         for i in range(num_batch):
-            data = next(iter_)
-            x_test, y_test = data[0].to(device), data[1].to(device)
+            data = next(test_iterator)
 
-            (x_, y_est,
-             batch_losses, measures) = self.evaluate(x_test, batch=i,
-                                                    current_measures=current_measures)
+            if not recorder.has_batch(i):
+                x_test, y_test = data[0].to(device), data[1].to(device)
+
+                (x_, y_est,
+                 batch_losses, measures) = self.evaluate(x_test, batch=i,
+                                                        current_measures=current_measures)
+
+            else:
+                
             current_measures = measures
 
             # print('*** 842', y_test[0].item(), *y_test.shape)
@@ -954,11 +957,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 logging.debug(f'Accuracies not updated')
 
-        if return_mismatched:
-            if only_one_method:
-                return acc[m], mismatched[m]
-            return acc, mismatched
-        
         return acc[m] if only_one_method else acc
 
 
@@ -1039,10 +1037,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                                  batch_size=batch_size)
             t_0 = time.time()
 
-            iter_ = iter(loader)
+            test_iterator = iter(loader)
             for i in range(test_n_batch):
 
-                data = next(iter_)
+                data = next(test_iterator)
                 x = data[0].to(device)
                 with torch.no_grad():
                     _, _, losses, _  = self.evaluate(x)
@@ -1086,11 +1084,11 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug(f'Computing measures for set {oodset.name} with {ood_n_batch} batches')
 
             t_0 = time.time()
-            iter_ = iter(loader)
+            test_iterator = iter(loader)
             
             for i in range(ood_n_batch):
 
-                data = next(iter_)
+                data = next(test_iterator)
                 x = data[0].to(device)
                 with torch.no_grad():
                     _, _, losses, _  = self.evaluate(x)

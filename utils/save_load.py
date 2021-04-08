@@ -239,7 +239,7 @@ class Shell:
 
 class LossRecorder:
 
-    def __init__(self, loss_like, batch_size, num_batches, y_pred=None, device=None):
+    def __init__(self, loss_like, batch_size, num_batches, y_pred=None, measures=None, device=None):
 
         self._recorded_batches = 0
 
@@ -247,7 +247,7 @@ class LossRecorder:
         self.num_batches = num_batches
         self.batch_size = batch_size
         
-        self._losses={}
+        self._tensors={'losses': None}
 
         if not device:
             device = next(iter(loss_like.values())).device
@@ -261,15 +261,30 @@ class LossRecorder:
             else: raise TypeError
         else:
             self.has_y_pred=[]
+
+        if measures:
+            if type(measures) is dict:
+                self.has_measures = tuple(measures.keys())
+            elif type(measures) in (list, tuple):
+                self.has_measures = tuple(measures)
+            else: raise TypeError
+        else:
+            self.has_measures=[]
             
         for t, l in loss_like.items():
             shape = l.shape[:1] + (self._samples,)
-            self._losses[t] = torch.zeros(shape, device=self.device)
+            self._tensors['losses'] = {t: torch.zeros(shape, device=self.device)
+                                       for t in self.has_losses}
 
-            self._losses['y_pred'] = {m: torch.zeros(_samples, dtype=int, device=self.device)
+            self._tensors['y_pred'] = {m: torch.zeros(self._samples,
+                                                     dtype=int,
+                                                     device=self.device)
                                       for m in self.has_y_pred}
 
-    def append_batch(self, losses, y_pred=None):
+            self._tensors['measures'] = {m: torch.zeros(self.num_batches, device=self.device)
+                                         for m in self.has_measures}
+            
+    def append_batch(self, losses, y_pred=None, measures=None):
 
         start = self._recorded_batches * self.batch_size
         end = start + self.batch_size
@@ -278,11 +293,14 @@ class LossRecorder:
             raise IndexError
         
         for k in losses:
-            self._losses[k][...,start:end] = losses[k]
+            self._tensors[losses][k][...,start:end] = losses[k]
+            
+            for k in self.has_y_pred:
+                self._tensors['y_pred'][k][start:end] = y_pred[k]
 
-        for k in self.has_y_pred:
-            self._losses['y_pred'][k][start:end] = y_pred[k]
-
+        for k in self.has_measures:
+            self._tensors['y_pred'][k][self._recorded_batches] = measures[k]
+                                        
         self._recorded_batches += 1
 
     def has_batch(self, number):

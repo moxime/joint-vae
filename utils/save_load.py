@@ -284,8 +284,11 @@ class LossRecorder:
     def reset(self):
 
         self._recorded_batches = 0
+        return
 
-
+    def __len__(self):
+        return self._recorded_batches
+        
     @property
     def num_batch(self):
         return self._num_batch

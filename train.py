@@ -142,7 +142,7 @@ if __name__ == '__main__':
     else:
 
         dataset, transformer = args.dataset, args.transformer
-        trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
+        trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)  # 
         oodsets = [torchdl.get_dataset(n, transformer=transformer)[1]
                    for n in testset.same_size]
 

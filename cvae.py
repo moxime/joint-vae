@@ -220,6 +220,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.beta = beta
         self.gamma = gamma if self.coder_has_dict else None
+        logging.debug(f'Gamma: {self.gamma:.2g}')
         
         self.latent_prior_variance = latent_prior_variance
         self.encoder = Encoder(encoder_input_shape, num_labels,
@@ -1400,6 +1401,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 if self.gamma:
                     L += self.gamma * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
+                    logging.debug('adding gamma loss')
                     
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():

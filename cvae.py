@@ -1398,7 +1398,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if self.force_cross_y and not self.y_is_decoded:
                     L += self.force_cross_y * batch_losses['cross_y'].mean()
 
-                if self.coder_has_dict and self.encoder.dictionary_is_learned:
+                if self.gamma:
                     L += self.gamma * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
                     
                 for p in self.parameters():

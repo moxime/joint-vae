@@ -819,7 +819,7 @@ class ClassificationVariationalNetwork(nn.Module):
             predict_methods = method
             only_one_method = False
 
-        shuffle = not recorder 
+        shuffle = True
         
         if num_batch == 'all':
             num_batch = len(testset) // batch_size
@@ -839,6 +839,9 @@ class ClassificationVariationalNetwork(nn.Module):
             n_err[m] = 0
             mismatched[m] = []
         n = 0
+
+        if recorder:
+            recorder.init_seed()
 
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
@@ -862,7 +865,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                         current_measures=current_measures)
 
             else:
-                batch_losses, measures, y_pred = recorder.get_batch(i, 'losses', 'measures', 'y_pred')
+                batch_losses, measures, y_pred = recorder.get_batch(i, 'losses',
+                                                                    'measures',
+                                                                    'y_pred')
                 
             current_measures = measures
 
@@ -980,6 +985,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             print_result=False,
                             update_self_ood=True,
                             outputs=EpochOutput(),
+                            recorders=None,
                             sample_file='',
                             log=True):
 
@@ -1011,6 +1017,25 @@ class ClassificationVariationalNetwork(nn.Module):
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 
+        all_set_names = [testset.name] + [o.name for o in oodsets] 
+
+        if not recorders:
+            recorders = {n: None for n in all_set_names}
+
+        max_num_batch = num_batch
+        num_batch = {testset.name: max(len(testset // batch_size), 1)}
+        for o in oodsets:
+            num_batch[o.name] = max(len(oodset // batch_size), 1)
+
+        shuffle = {s: False for s in all_set_names}
+        
+        if type(max_num_batch) is int:
+            for s in all_set_names:
+                num_batch[s] = max(num_batch[s], max_num_batch)
+                recording[s] = recorders[s] and len(recorders[s]) < num_batch[s]
+                recorded[s] = recorders[s] and len(recorders[s]) >= num_batch[s]
+                shuffle[s] = not recorder[s]
+        
         if ind_measures:
             try:
                 for m in ood_methods:

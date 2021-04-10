@@ -6,6 +6,7 @@ import pandas as pd
 import hashlib
 import data.torch_load as torchdl
 import numpy as np
+import random
 import torch
 from utils.optimizers import Optimizer
 from utils.roc_curves import fpr_at_tpr
@@ -239,9 +240,10 @@ class Shell:
 
 class LossRecorder:
 
-    def __init__(self, loss_like, batch_size, num_batch, y_pred=None, measures=None, device=None):
+    def __init__(self, loss_like, batch_size, num_batch,
+                 y_pred=None, measures=None, device=None):
 
-        self._recorded_batches = 0
+        self.reset()
 
         self._samples = num_batch * batch_size
         self._num_batch = num_batch
@@ -284,11 +286,24 @@ class LossRecorder:
     def reset(self):
 
         self._recorded_batches = 0
+        self._seed = np.random.randint(1, int(1e8))
         return
 
+    def init_seed(self):
+        seed = self._seed
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        random.seed(seed)
+    
     def __len__(self):
         return self._recorded_batches
-        
+
+    def __repr__(self):
+        return ('Recorder for '
+                + ' '.join(self.has_losses)
+                + ' '.join(self.has_y_pred)
+                + ' '.join(self.has_measures))
+
     @property
     def num_batch(self):
         return self._num_batch

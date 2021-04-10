@@ -860,7 +860,7 @@ class ClassificationVariationalNetwork(nn.Module):
             if not recorded:
                 x_test, y_test = data[0].to(device), data[1].to(device)
 
-                (x_, y_est,
+                (x_, logits,
                  batch_losses, measures) = self.evaluate(x_test, batch=i,
                                                         current_measures=current_measures)
 
@@ -868,6 +868,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_losses, measures, y_pred = recorder.get_batch(i, 'losses',
                                                                     'measures',
                                                                     'y_pred')
+                logits = batch_losses.pop('logits')
                 
             current_measures = measures
 
@@ -904,10 +905,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 mean_loss[k] = total_loss[k] / (i + 1)
 
             for m in predict_methods:
-                if not recorded:
-                    y_pred[m] = self.predict_after_evaluate(y_est,
-                                                         batch_losses,
-                                                         method=m)
+                y_pred[m] = self.predict_after_evaluate(logits,
+                                                        batch_losses,
+                                                        method=m)
 
                 n_err[m] += (y_pred[m] != y_test).sum().item()
                 mismatched[m] += [torch.where(y_test != y_pred[m])[0]]
@@ -917,8 +917,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 acc[m] = 1 - n_err[m] / n
 
             if recording:
+                batch_losses['logits'] = logits
                 recorder.append_batch(batch_losses, y_test, y_pred, measures)
-
+                batch_losses.pop('logits')
+                
             if print_result:
                 outputs.results(i, num_batch, 0, 0,
                                 loss_components=self.loss_components,

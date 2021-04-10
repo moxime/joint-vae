@@ -369,6 +369,7 @@ class LossRecorder:
             self._tensors['losses'][k][...,start:end] = losses[k]
 
         self._tensors['losses']['y_true'][..., start:end] = y_true
+        self._tensors['losses']['logits'][..., start:end] = y_true
             
         for k in y_pred:
             self._tensors['y_pred'][k][start:end] = y_pred[k]

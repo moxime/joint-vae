@@ -1401,7 +1401,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 if self.gamma:
                     L += self.gamma * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
-                    logging.debug('adding gamma loss')
+                    # logging.debug('adding gamma loss')
                     
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():

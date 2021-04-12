@@ -207,6 +207,9 @@ def get_args_for_train(argv=None):
     parser.add_argument('--gamma', type=float,
                         default=0.)
     
+    parser.add_argument('--gamma-rate', type=float,
+                        default=0.)
+    
     parser.add_argument('--learned-coder',
                         action='store_true')
 

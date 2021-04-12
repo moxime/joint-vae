@@ -452,12 +452,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         x_ (C,N1,..., D1...) tensor,
 
-        y_est (C,N1,...,C) tensor, 
+        logits (C,N1,...,C) tensor, 
 
-        batch_losses (C, N1,...N) tensor
-        total_losses
-        batch_metrics
-        total_metrics
+        batch_losses dict of tensors
+
+        mesures: dict of  tensor
 
         """
         y_in_input = y is not None
@@ -980,7 +979,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def ood_detection_rates(self, oodsets=None,
                             testset=None,
-                            ind_measures=None,
                             batch_size=100,
                             num_batch='all',
                             method='all',
@@ -991,7 +989,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             sample_file='',
                             log=True):
 
-        if not testset and not ind_measures:
+        if not testset:
             testset_name=self.training['set']
             transformer = self.training['transformer']
             _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
@@ -1015,19 +1013,19 @@ class ClassificationVariationalNetwork(nn.Module):
             return
         
         if oodsets is None:
-            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer)[1]
-                       for n in testset.same_size]
-            logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
+            oodsets = {n: torchdl.get_dataset(n, transformer=testset.transformer)[1]
+                       for n in testset.same_size}
+            logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets.values()))
 
-        all_set_names = [testset.name] + [o.name for o in oodsets] 
+        all_set_names = [testset.name] + [o for o in oodsets] 
 
         if not recorders:
             recorders = {n: None for n in all_set_names}
 
         max_num_batch = num_batch
-        num_batch = {testset.name: max(len(testset // batch_size), 1)}
+        num_batch = {testset.name: max(len(testset) // batch_size, 1)}
         for o in oodsets:
-            num_batch[o.name] = max(len(oodset // batch_size), 1)
+            num_batch[o] = max(len(oodsets[o]) // batch_size, 1)
 
         shuffle = {s: False for s in all_set_names}
         
@@ -1036,26 +1034,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 num_batch[s] = max(num_batch[s], max_num_batch)
                 recording[s] = recorders[s] and len(recorders[s]) < num_batch[s]
                 recorded[s] = recorders[s] and len(recorders[s]) >= num_batch[s]
-                shuffle[s] = not recorder[s]
+                shuffle[s] = True
         
-        if ind_measures:
-            try:
-                for m in ood_methods:
-                    assert m in ind_measures
-            except AssertionError:
-                ind_measures=None
-                logging.warning('Not all in distribution measures' 
-                                ' were provided')
-
         device = next(self.parameters()).device
-
-        shuffle = False
-        test_n_batch = len(testset) // batch_size
-        ood_n_batchs = [min(len(oodset), len(testset)) // batch_size for oodset in oodsets]
-        if type(num_batch) is int:
-            shuffle = True
-            test_n_batch = min(num_batch, test_n_batch)
-            ood_n_batchs = [min(num_batch, n) for n in ood_n_batchs]
 
         if oodsets:
             outputs.results(0, 0, -2, 0,
@@ -1064,25 +1045,35 @@ class ClassificationVariationalNetwork(nn.Module):
             outputs.results(0, 0, -1, 0, metrics=ood_methods,
                             acc_methods=ood_methods)
 
-        if not ind_measures and oodsets:
+        if oodsets:
 
             logging.debug(f'Computing measures for set {testset.name}')
             ind_measures = {m: np.ndarray(0)
                             for m in ood_methods}
 
+            s = testset.name
+            if recorders[s]:
+                recorders[s].init_seed()
+
             loader = torch.utils.data.DataLoader(testset,
-                                                 shuffle=shuffle,
+                                                 shuffle=shuffle[s],
                                                  batch_size=batch_size)
+            
             t_0 = time.time()
 
             test_iterator = iter(loader)
             for i in range(test_n_batch):
 
                 data = next(test_iterator)
-                x = data[0].to(device)
-                with torch.no_grad():
-                    _, _, losses, _  = self.evaluate(x)
-                measures = self.batch_dist_measures(None, losses, ood_methods)
+
+                if not recorded[s]:
+                    x = data[0].to(device)
+                    y = data[1].to(device)
+                    with torch.no_grad():
+                        _, logits, losses, _  = self.evaluate(x)
+                        
+                        
+                measures = self.batch_dist_measures(logits, losses, ood_methods)
                 for m in ood_methods:
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])

@@ -1018,7 +1018,7 @@ class ClassificationVariationalNetwork(nn.Module):
                        for n in testset.same_size}
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets.values()))
 
-        all_set_names = [testset.name] + [o for o in oodsets] 
+        all_set_names = [testset.name] + [o.name for o in oodsets] 
 
         if not recorders:
             recorders = {n: None for n in all_set_names}
@@ -1205,8 +1205,8 @@ class ClassificationVariationalNetwork(nn.Module):
               fine_tuning=False,
               latent_sampling=None,
               sample_size=1000,
-              full_test_every=10,
-              ood_detection_every=10,
+              full_test_every=2,
+              ood_detection_every=2,
               train_accuracy=False,
               save_dir=None,
               outputs=EpochOutput(),

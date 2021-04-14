@@ -108,7 +108,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  latent_prior_variance=1,
                  beta=1.,
                  gamma=0.,
-                 gamma_rate=0.,
+                 gamma_temp=np.inf,
                  dictionary_variance=1,
                  learned_coder=False,
                  dictionary_min_dist=None,
@@ -220,10 +220,10 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Building a vanilla classifier')
 
         self.beta = beta
-        if gamma_rate and not gamma:
+        if np.isfinite(gamma_temp) and not gamma:
             gamma = 1
         self.gamma = gamma if self.coder_has_dict else None
-        self.gamma_rate = gamma_rate if self.coder_has_dict else None
+        self.gamma_temp = gamma_temp if self.coder_has_dict else None
         
         logging.debug(f'Gamma: {self.gamma:.2g}')
         
@@ -324,7 +324,7 @@ class ClassificationVariationalNetwork(nn.Module):
             'sigma': self.sigma.params,
             'beta': self.beta,
             'gamma': self.gamma,
-            'gamma_rate': self.gamma_rate,
+            'gamma_temp': self.gamma_temp,
             'dictionary_variance': dictionary_variance,
             'learned_coder': learned_coder,
             'dictionary_min_dist': self.encoder.dictionary_dist_lb,
@@ -1406,8 +1406,9 @@ class ClassificationVariationalNetwork(nn.Module):
                     L += self.force_cross_y * batch_losses['cross_y'].mean()
 
                 if self.gamma:
-                    dict_var = batch_quants['ld-norm']
-                    g_ = self.gamma * torch.exp(-self.gamma_rate * dict_var)
+                    dict_var = self.encoder.latent_dictionary.pow(2).mean()
+                    reach = 0.0
+                    g_ = self.gamma * ((1 - reach) * torch.exp(-dict_var / self.gamma_temp) + reach)
                     L += g_ * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
                     # logging.debug('adding gamma loss')
                     
@@ -1645,7 +1646,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'learned_coder': False,
                         'beta': 1.,
                         'gamma': 0.,
-                        'gamma_rate':0,
+                        'gamma_temp':np.inf,
                         'dictionary_min_dist': None,
                         'dictionary_variance': 1,
                         'data_augmentation': [],
@@ -1736,7 +1737,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       sigma=train_params['sigma'],
                       beta=train_params['beta'],
                       gamma=train_params['gamma'],
-                      gamma_rate=train_params['gamma-rate'],
+                      gamma_temp=train_params['gamma_temp'],
                       dictionary_variance=train_params['dictionary_variance'],
                       learned_coder=train_params['learned_coder'],
                       dictionary_min_dist=train_params['dictionary_min_dist'],

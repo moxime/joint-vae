@@ -121,7 +121,7 @@ if __name__ == '__main__':
                      dictionary_variance=args.dictionary_variance,
                      beta=args.beta,
                      gamma=args.gamma,
-                     gamma_rate=args.gamma_rate,
+                     gamma_temp=args.gamma_temp,
                      learned_coder=args.learned_coder,
                      dictionary_min_dist=args.dict_min_distance,
                      coder_capacity_regularization=args.dict_distance_regularization,

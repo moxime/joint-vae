@@ -824,10 +824,18 @@ class ClassificationVariationalNetwork(nn.Module):
             num_batch = len(testset) // batch_size
             shuffle = False
 
+        logging.debug('Recorder: %s of length %s', recorder, len(recorder) if recorder else -1)
+        
         recorded = recorder and len(recorder) >= num_batch
         recording = recorder and len(recorder) < num_batch
 
+        _w = 'U' if recorder else 'Not u'
+        logging.debug(f'{_w}sing recorder')
+        if recorded:
+            logging.deug('Losses already recorded')
+        
         if recording:
+            logging.debug('Recording session loss for accruacy')
             recorder.reset()
             recorder.num_batch = num_batch
 
@@ -1038,7 +1046,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 recording[s] = recorders[s] and len(recorders[s]) < num_batch[s]
                 recorded[s] = recorders[s] and len(recorders[s]) >= num_batch[s]
                 shuffle[s] = True
-        
+                if recorded[s]:
+                    logging.debug('Losses already computed for %s', s)
+                if recording[s]:
+                    logging.debug('Recording session for %s"', s)
+                
         device = next(self.parameters()).device
 
         if oodsets:
@@ -1088,7 +1100,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                       measures[m].cpu()])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
-                outputs.results(i, test_n_batch, 0, 1, metrics=ood_methods,
+                outputs.results(i, num_batch[s], 0, 1, metrics=ood_methods,
                                 measures = {m: ind_measures[m].mean()
                                             for m in ood_methods},
                                 acc_methods = ood_methods,
@@ -1111,7 +1123,7 @@ class ClassificationVariationalNetwork(nn.Module):
             
             ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
             i_ood_measures = {m: ind_measures[m] for m in ood_methods}
-            ood_labels = np.ones(batch_size * test_n_batch)
+            ood_labels = np.ones(batch_size * num_batch[testset.name])
             fpr_ = {}
             tpr_ = {}
             thresholds_ = {}
@@ -1286,7 +1298,10 @@ class ClassificationVariationalNetwork(nn.Module):
             
         recorders = {s: LossRecorder(losses, train_batch_size, 1, y_pred=y_pred, measures=measures)
                      for s in sets}
-        
+
+        for s in recorders:
+            logging.debug('Recorder created for %s', s)
+            
         logging.debug('Creating dataloader for training with batch size %s',
                       train_batch_size)
         trainloader = torch.utils.data.DataLoader(trainset,
@@ -1402,6 +1417,8 @@ class ClassificationVariationalNetwork(nn.Module):
                         # recorder.reset()
                     else:
                         recorder = None
+
+                    logging.debug(recorder)
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=test_batch_size,
                                                   num_batch='all' if full_test else num_batch,

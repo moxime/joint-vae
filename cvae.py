@@ -1026,7 +1026,7 @@ class ClassificationVariationalNetwork(nn.Module):
         max_num_batch = num_batch
         num_batch = {testset.name: max(len(testset) // batch_size, 1)}
         for o in oodsets:
-            num_batch[o] = max(len(oodsets[o]) // batch_size, 1)
+            num_batch[o.name] = max(len(o) // batch_size, 1)
 
         shuffle = {s: False for s in all_set_names}
         recording = {}

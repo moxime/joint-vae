@@ -271,9 +271,6 @@ class LossRecorder:
         for t, l in loss_like.items():
             shape = l.shape[:1] + (self._samples,)
             self._tensors['losses'][t] = torch.zeros(shape, device=self.device)
-
-        self._tensors['losses']['y_true'] = torch.zeros(self._samples,
-                                                        device=self.device, dtype=int)
         
         self._tensors['y_pred'] = {m: torch.zeros(self._samples,
                                                  dtype=int,
@@ -355,9 +352,10 @@ class LossRecorder:
             
 
         t = self._tensors[w]
+        
         return {k: t[k][...,start:end] for k in t}
     
-    def append_batch(self, losses, y_true, y_pred={}, measures={}):
+    def append_batch(self, losses, y_pred={}, measures={}):
 
         start = self._recorded_batches * self.batch_size
         end = start + self.batch_size
@@ -367,15 +365,12 @@ class LossRecorder:
         
         for k in losses:
             self._tensors['losses'][k][...,start:end] = losses[k]
-
-        self._tensors['losses']['y_true'][..., start:end] = y_true
-        self._tensors['losses']['logits'][..., start:end] = y_true
             
         for k in y_pred:
             self._tensors['y_pred'][k][start:end] = y_pred[k]
 
         for k in measures:
-            self._tensors['y_pred'][k][self._recorded_batches] = measures[k]
+            self._tensors['measures'][k][self._recorded_batches] = measures[k]
                                         
         self._recorded_batches += 1
     

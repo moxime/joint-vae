@@ -840,7 +840,7 @@ class ClassificationVariationalNetwork(nn.Module):
         n = 0
 
         if recorder:
-            recorder.init_seed()
+            recorder.init_seed_for_dataloader()
 
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
@@ -1028,10 +1028,12 @@ class ClassificationVariationalNetwork(nn.Module):
             num_batch[o] = max(len(oodsets[o]) // batch_size, 1)
 
         shuffle = {s: False for s in all_set_names}
+        recording = {}
+        recorded = {}
         
         if type(max_num_batch) is int:
             for s in all_set_names:
-                num_batch[s] = max(num_batch[s], max_num_batch)
+                num_batch[s] = min(num_batch[s], max_num_batch)
                 recording[s] = recorders[s] and len(recorders[s]) < num_batch[s]
                 recorded[s] = recorders[s] and len(recorders[s]) >= num_batch[s]
                 shuffle[s] = True
@@ -1053,7 +1055,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             s = testset.name
             if recorders[s]:
-                recorders[s].init_seed()
+                recorders[s].init_seed_for_dataloader()
 
             loader = torch.utils.data.DataLoader(testset,
                                                  shuffle=shuffle[s],
@@ -1071,8 +1073,14 @@ class ClassificationVariationalNetwork(nn.Module):
                     y = data[1].to(device)
                     with torch.no_grad():
                         _, logits, losses, _  = self.evaluate(x)
-                        
-                        
+                else:
+                    losses = recorders[s].get_batch(i, 'losses')
+                    logits = batch_losses.pop('logits')
+
+                if recording[s]:
+                    losses['logits'] = logits
+                    recorders[s].append_batch(losses, y)
+                    
                 measures = self.batch_dist_measures(logits, losses, ood_methods)
                 for m in ood_methods:
                     ind_measures[m] = np.concatenate([ind_measures[m],
@@ -1095,8 +1103,11 @@ class ClassificationVariationalNetwork(nn.Module):
                      'fpr': [1 for _ in keeped_tpr],
                      'thresholds':[None for _ in keeped_tpr]}
                      
-        for oodset, ood_n_batch in zip(oodsets, ood_n_batchs):
-                        
+        for oodset in oodsets:
+
+            s = oodset.name
+            ood_n_batch = num_batch[s]
+            
             ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
             i_ood_measures = {m: ind_measures[m] for m in ood_methods}
             ood_labels = np.ones(batch_size * test_n_batch)
@@ -1106,8 +1117,11 @@ class ClassificationVariationalNetwork(nn.Module):
             auc_ = {}
             r_ = {}
 
+            if recorders[s]:
+                recorders[s].init_seed_for_datatloader()
+
             loader = torch.utils.data.DataLoader(oodset,
-                                                 shuffle=shuffle,
+                                                 shuffle=shuffle[s],
                                                  batch_size=batch_size)
 
             logging.debug(f'Computing measures for set {oodset.name} with {ood_n_batch} batches')
@@ -1118,9 +1132,20 @@ class ClassificationVariationalNetwork(nn.Module):
             for i in range(ood_n_batch):
 
                 data = next(test_iterator)
-                x = data[0].to(device)
-                with torch.no_grad():
-                    _, _, losses, _  = self.evaluate(x)
+
+                if not recorded[s]:
+                    x = data[0].to(device)
+                    y = data[1].to(device)
+                    with torch.no_grad():
+                        _, logits, losses, _  = self.evaluate(x)
+                else:
+                    losses = recorders[s].get_batch(i, 'losses')
+                    logits = batch_losses.pop('logits')
+
+                if recording[s]:
+                    losses['logits'] = logits
+                    recorders[s].append_batch(losses, y)
+
                 measures = self.batch_dist_measures(None, losses, ood_methods)
                 for m in ood_methods:
                     i_ood_measures[m] = np.concatenate([i_ood_measures[m],
@@ -1374,7 +1399,8 @@ class ClassificationVariationalNetwork(nn.Module):
                     if full_test:
                         recorder = recorders[set_name]
                         # recorder.reset()
-                    else: recorder = None
+                    else:
+                        recorder = None
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=test_batch_size,
                                                   num_batch='all' if full_test else num_batch,

@@ -289,7 +289,7 @@ class LossRecorder:
         self._seed = np.random.randint(1, int(1e8))
         return
 
-    def init_seed(self):
+    def init_seed_for_dataloader(self):
         seed = self._seed
         np.random.seed(seed)
         torch.manual_seed(seed)

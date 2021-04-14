@@ -880,6 +880,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_losses, measures, y_pred = recorder.get_batch(i, 'losses',
                                                                     'measures',
                                                                     'y_pred')
+                y_pred.pop('true')
                 logits = batch_losses.pop('logits')
                 
             current_measures = measures
@@ -926,8 +927,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if recording:
                 batch_losses['logits'] = logits
-                recorder.append_batch(batch_losses, y_test, y_pred, measures)
+                y_pred['true'] = y_test
+                recorder.append_batch(batch_losses, y_pred, measures)
                 batch_losses.pop('logits')
+                y_pred.pop('true')
                 
             if print_result:
                 outputs.results(i, num_batch, 0, 0,
@@ -1089,10 +1092,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     losses = recorders[s].get_batch(i, 'losses')
                     logits = batch_losses.pop('logits')
-
+                    
                 if recording[s]:
                     losses['logits'] = logits
-                    recorders[s].append_batch(losses, y)
+                    recorders[s].append_batch(losses, {'true': y})
                     
                 measures = self.batch_dist_measures(logits, losses, ood_methods)
                 for m in ood_methods:
@@ -1157,7 +1160,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 if recording[s]:
                     losses['logits'] = logits
-                    recorders[s].append_batch(losses, y)
+                    recorders[s].append_batch(losses, {'true': y})
 
                 measures = self.batch_dist_measures(None, losses, ood_methods)
                 for m in ood_methods:
@@ -1287,10 +1290,13 @@ class ClassificationVariationalNetwork(nn.Module):
             train_batch_size = max_batch_sizes['train']
 
         x_fake = torch.randn(train_batch_size, *self.input_shape, device=self.device)
+        y_fake = torch.randint(0, 1, size=(batch_size,), device=self.device)
         
         _, logits, losses, measures = self.evaluate(x_fake)
         y_pred = {m: self.predict_after_evaluate(logits, losses, method=m)
                   for m in self.predict_methods}
+
+        y_pred['true'] = y_fake
         
         sets = [set_name]
         for s in oodsets:

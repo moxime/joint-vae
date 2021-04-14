@@ -1407,8 +1407,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 if self.gamma:
                     dict_var = self.encoder.latent_dictionary.pow(2).mean()
-                    reach = 0.0
-                    g_ = self.gamma * ((1 - reach) * torch.exp(-dict_var / self.gamma_temp) + reach)
+                    log2 = np.log(2)
+                    
+                    g_ = self.gamma * torch.exp(-dict_var / self.gamma_temp * log2)
                     L += g_ * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
                     # logging.debug('adding gamma loss')
                     

@@ -863,6 +863,11 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_losses, measures) = self.evaluate(x_test, batch=i,
                                                         current_measures=current_measures)
 
+                y_pred = {}
+                for m in predict_methods:
+                    y_pred[m] = self.predict_after_evaluate(logits,
+                                                            batch_losses,
+                                                            method=m)
             else:
                 batch_losses, measures, y_pred = recorder.get_batch(i, 'losses',
                                                                     'measures',
@@ -904,10 +909,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 mean_loss[k] = total_loss[k] / (i + 1)
 
             for m in predict_methods:
-                y_pred[m] = self.predict_after_evaluate(logits,
-                                                        batch_losses,
-                                                        method=m)
-
                 n_err[m] += (y_pred[m] != y_test).sum().item()
                 mismatched[m] += [torch.where(y_test != y_pred[m])[0]]
             n += len(y_test)
@@ -1276,14 +1277,14 @@ class ClassificationVariationalNetwork(nn.Module):
         x_fake = torch.randn(train_batch_size, *self.input_shape, device=self.device)
         
         _, logits, losses, measures = self.evaluate(x_fake)
-        y_pred = {m: self.predict_after_evaluate(losses, logits, method=m)
+        y_pred = {m: self.predict_after_evaluate(logits, losses, method=m)
                   for m in self.predict_methods}
         
         sets = [set_name]
         for s in oodsets:
             sets.append(s.name)
             
-        recorders = {s: LossRecorder(loss, train_batch_size, 1, y_pred=y_pred, measures=measures)
+        recorders = {s: LossRecorder(losses, train_batch_size, 1, y_pred=y_pred, measures=measures)
                      for s in sets}
         
         logging.debug('Creating dataloader for training with batch size %s',

@@ -1065,7 +1065,7 @@ class ClassificationVariationalNetwork(nn.Module):
             t_0 = time.time()
 
             test_iterator = iter(loader)
-            for i in range(test_n_batch):
+            for i in range(num_batch[s]):
 
                 data = next(test_iterator)
 

@@ -362,8 +362,15 @@ def collect_networks(directory,
 
             
         if architecture.type == 'cvae':
-            dict_var = vae.training['dictionary_variance']
-        else: dict_var = 0.
+            if vae.training['learned_coder']:
+                coder_dict = 'learned'
+                dict_var = vae.train_history['train_measures'][-1]
+            else:
+                coder_dict = 'constant'
+                dict_var = vae.training['dictionary_variance']
+        else:
+            coder_dict = None
+            dict_var = 0.
             
         empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
         depth = (1 + len(architecture.encoder)

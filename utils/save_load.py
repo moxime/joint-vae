@@ -236,50 +236,34 @@ class Shell:
     print_architecture = print_architecture
     option_vector = option_vector
 
+    
+class LossRecorder:
 
-class LossRecorder(object):
-
-    def __init__(self, loss_like, batch_size, num_batch,
-                 y_pred=None, measures=None, device=None):
+    def __init__(self,
+                 batch_size,
+                 num_batch=0,
+                 device=None,
+                 **tensors):
 
         self.reset()
 
         self._samples = num_batch * batch_size
         self._num_batch = num_batch
         self.batch_size = batch_size
-        
-        self._tensors = {'losses': {}}
 
+        
+        self._tensors={}
+        
         if not device:
-            device = next(iter(loss_like.values())).device
-        self.device = device
+            device = next(iter(tensors.values())).device
 
-        self.has_losses = tuple(loss_like)
-        
-        if y_pred:
-            self.has_y_pred = tuple(y_pred)
-        else:
-            self.has_y_pred = []
+        self.device=device
 
-        if measures:
-            self.has_measures = tuple(measures)
-        else:
-            self.has_measures = []
-            
-        for t, l in loss_like.items():
-            shape = l.shape[:-1] + (self._samples,)
-            self._tensors['losses'][t] = torch.zeros(shape, device=self.device)
-        
-        self._tensors['y_pred'] = {m: torch.zeros(self._samples,
-                                                  dtype=int,
-                                                  device=self.device)
-                                   for m in self.has_y_pred}
-
-        for m, _y in self._tensors['y_pred'].items():
-            print('sl:279', m, _y.dtype)
-        self._tensors['measures'] = {m: torch.zeros(self.num_batch,
-                                                    device=self.device)
-                                     for m in self.has_measures}
+        for k, t in tensors.items():
+            shape = t.shape[:-1] + (self._samples,)
+            self._tensors[k] = torch.zeros(shape,
+                                           dtype=t.dtype,
+                                           device=self.device)
 
     def reset(self):
 
@@ -288,39 +272,42 @@ class LossRecorder(object):
         return
 
     def init_seed_for_dataloader(self):
+    
         seed = self._seed
         np.random.seed(seed)
         torch.manual_seed(seed)
         random.seed(seed)
         
+    def keys(self):
+        return self._tensors.keys()
+    
     def __len__(self):
         return self._recorded_batches
 
     def __repr__(self):
         return ('Recorder for '
-                + ' '.join(self.has_losses)
-                + ' '.join(self.has_y_pred)
-                + ' '.join(self.has_measures))
+                + ' '.join([str(k) for k in self.keys()]))
 
     @property
     def num_batch(self):
         return self._num_batch
-
+    
     @num_batch.setter
     def num_batch(self, n):
 
-        first_tensor = next(iter(self._tensors['losses'].values()))
+        first_tensor = next(iter(self._tensors.values()))
         height = first_tensor.shape[-1]
         n_sample = n * self.batch_size
         
         if n_sample > height:
             d_h = n_sample - height
-            for f in self._tensors:
-                for k in self._tensors[f]:
-                    t = self._tensors[f][k]
-                    z = torch.zeros(t.shape[:-1] + (d_h,), device=self.device)
-                    self._tensors[f][k] = torch.cat([t, z], axis=-1)
-        
+            for k in self._tensors:
+                    t = self._tensors[k]
+                    z = torch.zeros(t.shape[:-1] + (d_h,),
+                                    dtype=t.dtype,
+                                    device=self.device)
+                    self._tensors[k] = torch.cat([t, z], axis=-1)
+                    
         self._num_batch = n
         self._samples = n * self.batch_size
         self._recorded_batches = min(n, self._recorded_batches)
@@ -330,33 +317,28 @@ class LossRecorder(object):
         """
 
         return number < self._recorded_batches
-
+    
     def get_batch(self, i, *which):
-
+        
         if not which:
-            which = ['losses']
+            return self.get_batch(i, *self.keys())
             
         if len(which) > 1:
-            return tuple(self.get_batch(i, w) for w in which)
+            return {w: self.get_batch(i, w) for w in which}
 
         if not self.has_batch(i):
-            return None
-
+            raise IndexError(f'{i} >= {len(self)}')
+        
+        start = i * self.batch_size
+        end = start + self.batch_size
+        
         w = which[0]
-
-        if w == 'measures':
-            start = i
-            end = start + 1
-        else:
-            start = i * self.batch_size
-            end = start + self.batch_size
-            
 
         t = self._tensors[w]
         
-        return {k: t[k][...,start:end] for k in t}
+        return t[..., start:end]
     
-    def append_batch(self, losses, y_pred={}, measures={}):
+    def append_batch(self, **tensors):
 
         start = self._recorded_batches * self.batch_size
         end = start + self.batch_size
@@ -364,23 +346,14 @@ class LossRecorder(object):
         if end > self._samples:
             raise IndexError
         
-        for k in losses:
-            # print('*** sv:366:', k, *losses[k].shape)
-            self._tensors['losses'][k][..., start:end] = losses[k]
-            
-        for k in y_pred:
-            self._tensors['y_pred'][k][start:end] = y_pred[k]
-            print('save_load:371:',
-                  k,
-                  self._tensors['y_pred'][k].dtype,
-                  y_pred[k].dtype)
-            
-        for k in measures:
-            self._tensors['measures'][k][self._recorded_batches] = measures[k]
-                                        
+        for k in tensors:
+            if k not in self.keys():
+                raise KeyError(k)
+            self._tensors[k][...,start:end] = tensors[k]
+                                                    
         self._recorded_batches += 1
     
-            
+
 def collect_networks(directory,
                      list_of_vae_by_architectures=None,
                      load_state=True,

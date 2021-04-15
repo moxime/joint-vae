@@ -856,6 +856,7 @@ class ClassificationVariationalNetwork(nn.Module):
         mean_loss = total_loss.copy()
 
         current_measures = {}
+        measures = {}
 
         for i in range(num_batch):
             data = next(test_iterator)
@@ -872,24 +873,15 @@ class ClassificationVariationalNetwork(nn.Module):
                     y_pred[m] = self.predict_after_evaluate(logits,
                                                             batch_losses,
                                                             method=m)
+                current_measures = measures
             else:
-                batch_losses, measures, y_pred = recorder.get_batch(i, 'losses',
-                                                                    'measures',
-                                                                    'y_pred')
-                y_test = y_pred.pop('true')                
-                logits = batch_losses.pop('logits').T
-                print('cvae:881', y_test.dtype)
+                batch_losses = recorder.get_batch(i, *self.loss_components)
+                logits = recorder.get_batch(i, 'logits').T
+                y_test =  recorder.get_batch(i, 'y_true')
 
             if recording:
-                batch_losses['logits'] = logits.T
-                y_pred['true'] = y_test
-                recorder.append_batch(batch_losses, y_pred, measures)
-                print('cvae:887:', y_test.dtype)
-                batch_losses.pop('logits')
-                _ = y_pred.pop('true')
+                recorder.append_batch(**batch_losses, y_true=y_test, logits=logits.T)
                 
-            current_measures = measures
-
             # print('*** 842', y_test[0].item(), *y_test.shape)
             # print('*** 843', batch_losses['cross_y'].min(0)[0].mean())
             ind = y_test.unsqueeze(0)
@@ -936,7 +928,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 losses=mean_loss,
                                 acc_methods=predict_methods,
                                 accuracies=acc,
-                                metrics=self.metrics,
+                                metrics=self.metrics if measures else None,
                                 measures=measures,
                                 time_per_i=time_per_i,
                                 batch_size=batch_size,
@@ -1089,14 +1081,11 @@ class ClassificationVariationalNetwork(nn.Module):
                     with torch.no_grad():
                         _, logits, losses, _  = self.evaluate(x)
                 else:
-                    losses = recorders[s].get_batch(i, 'losses')
-                    logits = batch_losses.pop('logits').T
+                    losses = recorders[s].get_batch(i, *self.loss_components)
+                    logits = recorders[s].get_batch(i, 'logits').T
                     
                 if recording[s]:
-                    losses['logits'] = logits.T
-                    recorders[s].append_batch(losses, {'true': y})
-                    print('cvae:1098', y.dtype,
-                          recorders[s]._tensors['y_pred']['true'].dtype)
+                    recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
                     
                 measures = self.batch_dist_measures(logits, losses, ood_methods)
                 for m in ood_methods:
@@ -1156,12 +1145,11 @@ class ClassificationVariationalNetwork(nn.Module):
                     with torch.no_grad():
                         _, logits, losses, _  = self.evaluate(x)
                 else:
-                    losses = recorders[s].get_batch(i, 'losses')
-                    logits = batch_losses.pop('logits').T
-
+                    losses = recorders[s].get_batch(i, *self.loss_components)
+                    logits = recorders[s].get_batch(i, 'logits').T
+                    
                 if recording[s]:
-                    losses['logits'] = logits.T
-                    recorders[s].append_batch(losses, {'true': y})
+                    recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
 
                 measures = self.batch_dist_measures(None, losses, ood_methods)
                 for m in ood_methods:
@@ -1294,19 +1282,14 @@ class ClassificationVariationalNetwork(nn.Module):
         y_fake = torch.randint(0, 1, size=(test_batch_size,), device=self.device)
         
         _, logits, losses, measures = self.evaluate(x_fake)
-        y_pred = {m: self.predict_after_evaluate(logits, losses, method=m)
-                  for m in self.predict_methods}
-        
-        y_pred['true'] = y_fake
-        losses['logits'] = logits.T
-
-        for k, _y in y_pred.items(): print('cvae:1300', k, _y.dtype)
         
         sets = [set_name]
         for s in oodsets:
             sets.append(s.name)
             
-        recorders = {s: LossRecorder(losses, test_batch_size, 1, y_pred=y_pred, measures=measures)
+        recorders = {s: LossRecorder(test_batch_size, **losses,
+                                     logits=logits.T,
+                                     y_true=y_fake)
                      for s in sets}
 
         for s in recorders:

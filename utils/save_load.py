@@ -1,5 +1,4 @@
 import os
-import pickle
 import json
 import logging
 import pandas as pd
@@ -9,7 +8,7 @@ import numpy as np
 import random
 import torch
 from utils.optimizers import Optimizer
-from utils.roc_curves import fpr_at_tpr
+
 
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -238,7 +237,7 @@ class Shell:
     option_vector = option_vector
 
 
-class LossRecorder:
+class LossRecorder(object):
 
     def __init__(self, loss_like, batch_size, num_batch,
                  y_pred=None, measures=None, device=None):
@@ -249,35 +248,37 @@ class LossRecorder:
         self._num_batch = num_batch
         self.batch_size = batch_size
         
-        self._tensors={'losses': {}}
+        self._tensors = {'losses': {}}
 
-        
         if not device:
             device = next(iter(loss_like.values())).device
-        self.device=device
+        self.device = device
 
         self.has_losses = tuple(loss_like)
         
         if y_pred:
             self.has_y_pred = tuple(y_pred)
         else:
-            self.has_y_pred=[]
+            self.has_y_pred = []
 
         if measures:
             self.has_measures = tuple(measures)
         else:
-            self.has_measures=[]
+            self.has_measures = []
             
         for t, l in loss_like.items():
-            shape = l.shape[:1] + (self._samples,)
+            shape = l.shape[:-1] + (self._samples,)
             self._tensors['losses'][t] = torch.zeros(shape, device=self.device)
         
         self._tensors['y_pred'] = {m: torch.zeros(self._samples,
-                                                 dtype=int,
-                                                 device=self.device)
-                                  for m in self.has_y_pred}
+                                                  dtype=int,
+                                                  device=self.device)
+                                   for m in self.has_y_pred}
 
-        self._tensors['measures'] = {m: torch.zeros(self.num_batch, device=self.device)
+        for m, _y in self._tensors['y_pred'].items():
+            print('sl:279', m, _y.dtype)
+        self._tensors['measures'] = {m: torch.zeros(self.num_batch,
+                                                    device=self.device)
                                      for m in self.has_measures}
 
     def reset(self):
@@ -291,7 +292,7 @@ class LossRecorder:
         np.random.seed(seed)
         torch.manual_seed(seed)
         random.seed(seed)
-    
+        
     def __len__(self):
         return self._recorded_batches
 
@@ -336,11 +337,11 @@ class LossRecorder:
             which = ['losses']
             
         if len(which) > 1:
-            return tuple(self.get_batch(self, i, w, i) for w in which)
+            return tuple(self.get_batch(i, w) for w in which)
 
         if not self.has_batch(i):
             return None
-        
+
         w = which[0]
 
         if w == 'measures':
@@ -364,11 +365,16 @@ class LossRecorder:
             raise IndexError
         
         for k in losses:
-            self._tensors['losses'][k][...,start:end] = losses[k]
+            # print('*** sv:366:', k, *losses[k].shape)
+            self._tensors['losses'][k][..., start:end] = losses[k]
             
         for k in y_pred:
             self._tensors['y_pred'][k][start:end] = y_pred[k]
-
+            print('save_load:371:',
+                  k,
+                  self._tensors['y_pred'][k].dtype,
+                  y_pred[k].dtype)
+            
         for k in measures:
             self._tensors['measures'][k][self._recorded_batches] = measures[k]
                                         

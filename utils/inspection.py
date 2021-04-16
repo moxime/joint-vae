@@ -94,3 +94,26 @@ def latent_distribution(mu_z, var_z, result_type='hist_of_var',
         for a, b in zip(x, y):
             write(f'{a:-13.6e} {b:-12g}\n')
         close()
+
+
+if __name__ == '__main__':
+
+    plt.clf()
+    plt.close()
+    N = 500
+    K = 16
+    mu_z = torch.randn(N, K)
+    var_z = (1 - mu_z)**2 + torch.randn(N, K)**2
+
+    output=None
+    plot = True
+    if plot:
+        f, a = plt.subplots()
+        output = a
+    
+    latent_distribution(mu_z, var_z,
+                        # result_type='scatter',
+                        # per_dim=True,
+                        output=output)
+
+    plt.show()

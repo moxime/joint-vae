@@ -155,12 +155,30 @@ if __name__ == '__main__':
     reload = False
 
     N = 20
-
+    batch_size = 512
+    root = 'results/%j/samples'
+    root = '/tmp/%j'
+    
     logging.getLogger().setLevel(logging.ERROR)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-j", type=int, default=j)
-    j = parser.parse_args().j
+
+    parser.add_argument('-j', '--jobs', type=int,
+                        # nargs='+',
+                        default=j,)
+    parser.add_argument('-m', '--batch-size', type=int, default=batch_size)
+    parser.add_argument('-L', '--grid-width', type=int, default=N)
+    parser.add_argument('-N', '--grid-height', type=int, default=N)
+    parser.add_argument('-D', '--directory', default=root)
+    
+    a = parser.parse_args()
+    j = a.jobs
+    L = a.grid_width
+    N = a.grid_height
+    m = a.batch_size
+    root = a.directory
+    
+    m = max(m, N)
     
     try:
         if reload: del net
@@ -177,16 +195,15 @@ if __name__ == '__main__':
         print('done')
         dataset, transformer = (shell['net'].training[k] for k in ('set', 'transformer'))
         _, testset = tl.get_dataset(dataset=shell['set'], transformer=transformer)
-        x['i'], y['i'] = tl.get_batch(testset,device=device, batch_size=N)
+        x['i'], y['i'] = tl.get_batch(testset,device=device, batch_size=m)
         _, oodset = tl.get_dataset(testset.same_size[0], transformer=transformer)
-        x['o'], y['o'] = tl.get_batch(oodset,device=device, batch_size=N)
+        x['o'], y['o'] = tl.get_batch(oodset, device=device, batch_size=m)
         net.to(device)
 
-    L = 16
-    list_of_images = sample(net, x['i'], # root='/tmp/%j',
+    list_of_images = sample(net, x['i'], root=root,
                             directory='test',
-                            N=10, L=10)
-    list_of_images = sample(net, x['o'], # root='/tmp/%j',
-                            directory='ood', N=10, L=10)
-    list_of_images = sample(net, # root='/tmp/%j',
-                            directory='generate', N=10, L=12)
+                            N=10, L=L)
+    list_of_images = sample(net, x['o'], root=root,
+                            directory='ood', N=10, L=L)
+    list_of_images = sample(net, root=root,
+                            directory='generate', N=N, L=L)

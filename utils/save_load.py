@@ -10,7 +10,6 @@ import torch
 from utils.optimizers import Optimizer
 
 
-
 def get_path(dir_name, file_name, create_dir=True):
 
     dir_path = os.path.realpath(dir_name)
@@ -120,7 +119,8 @@ class ObjFromDict:
             setattr(self, k, v)
 
             
-def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False):
+def print_architecture(o, sigma=False, sampling=False,
+                       excludes=[], short=False):
 
     arch = ObjFromDict(o.architecture, features=None)
     training = ObjFromDict(o.training)
@@ -165,7 +165,6 @@ def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False)
     if sigma and 'sigma' not in excludes:
         s += '--' + s_('sigma') + f'={o.sigma}'
     
-
     if sampling and 'sampling' not in excludes:
         s += '--'
         s += s_('sampling')
@@ -288,6 +287,28 @@ class LossRecorder:
         return ('Recorder for '
                 + ' '.join([str(k) for k in self.keys()]))
 
+    def save(self, file_path):
+
+        """dict_ = self.__dict__.copy()
+        tensors = dict.pop('_tensors')
+        """
+
+        torch.save(self.__dict__, file_path)
+
+    @classmethod
+    def load(cls, file_path):
+
+        dict_of_params = torch.load(file_path)
+        num_batch = dict_of_params['_num_batch']
+        batch_size = dict_of_params['batch_size']
+        
+        r = LossRecorder(batch_size, num_batch, **tensors)
+
+        for k in ('_seed', '_tensors', '_recorded_batches'):
+            setattr(r, k, dict_of_params[k])
+        
+        return r
+        
     @property
     def num_batch(self):
         return self._num_batch
@@ -783,35 +804,20 @@ def load_list_of_networks(dir_name, file_name='nets.json'):
     
     return list(load_json(dir_name, file_name).values())
 
+
 if __name__ == '__main__':
 
-    import numpy as np
-    import logging
+    dim = {'A': 10, 'B': 1}
+    batch_size = 512
 
-    logging.getLogger().setLevel(logging.DEBUG)
-
-    dir = 'old-jobs/saved-jobs/fashion32'
-    dir ='./jobs/fashion'
-    dir = './jobs/'
-
-    reload = False
-    reload = True
-    if reload:
-        l = sum(collect_networks(dir, load_net=False), [])
-
-    testsets = ('cifar10',  'fashion', 'mnist')
+    tensors = {k: torch.randn(dim[k], 7) for k in dim}
     
-    df_ = test_results_df(l) # [n for n in l if n['set']==s])
+    r = LossRecorder(batch_size, **tensors)    
+    r.num_batch = 4
 
+    for _ in range(r.num_batch - 1):
+        r.append_batch(**{k: torch.randn(dim[k], batch_size) for k in dim})
 
-    df = df_['cifar10']
-    
-    """
-    for s, df in df_.items():
-        print('=' * 80)
-        print(f'Results for {s}')
-        print(df.to_string(na_rep='', decimal=',', formatters=formats[s]))
-    """
-        # for a in archs[s]:
-        #     arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
-        #     print(arch_code,':\n', a)
+    r.save('/tmp/r.pth')
+
+    r_ = LossRecorder.load('/tmp/r.pth')

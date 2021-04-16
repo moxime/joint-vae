@@ -72,7 +72,7 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
-                                'cvae': ('cross_x', 'kl', 'total', 'dzdist', 'cross_y'),
+                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'dzdist', 'cross_y'),
                                 'xvae': ('cross_x', 'kl', 'total'),
                                 'vae': ('cross_x', 'kl', 'total'),
                                 'vib': ('cross_y', 'kl', 'total')}
@@ -84,7 +84,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vib': ('esty',)}
 
     metrics_per_type = {'jvae': ('std', 'snr', 'sigma'),
-                        'cvae': ('std', 'snr', 'zdist', 'd-mind', 'ld-norm', 'sigma'),
+                        'cvae': ('std', 'snr',  'd-mind', 'ld-norm', 'sigma'),
                         'xvae': ('std', 'snr', 'zdist', 'd-mind', 'ld-norm', 'sigma'),
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
@@ -791,7 +791,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  print_result=False,
                  update_self_testing=True,
                  outputs=EpochOutput(),
-                 sample_file='',
+                 sample_dir='',
                  recorder=None,
                  log=True):
 
@@ -829,12 +829,18 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if recorded:
             logging.debug('Losses already recorded')
+
+        sample_file = ''
+        recorder_file = ''
         
         if recording:
             logging.debug('Recording session loss for accruacy')
             recorder.reset()
             recorder.num_batch = num_batch
-
+            if sample_dir:
+                sample_file = os.path.join(sample_dir, f'{testset.name}-{epoch:04d}.pth')
+                recorder_file = = os.path.join(sample_dir, f'{testset.name}-record.pth')
+                
         n_err = dict()
         mismatched = dict()
         acc = dict()
@@ -848,6 +854,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         testloader = torch.utils.data.DataLoader(testset,
                                                  batch_size=batch_size,
+                                                 pin_memory=True,
+                                                 num_workers=0,
                                                  shuffle=shuffle)
         test_iterator = iter(testloader)
         start = time.time()
@@ -859,25 +867,28 @@ class ClassificationVariationalNetwork(nn.Module):
         measures = {}
 
         for i in range(num_batch):
-            data = next(test_iterator)
 
             if not recorded:
+                data = next(test_iterator)
                 x_test, y_test = data[0].to(device), data[1].to(device)
-                print('cvae:865:', y_test.dtype)
                 (x_, logits,
                  batch_losses, measures) = self.evaluate(x_test, batch=i,
                                                         current_measures=current_measures)
 
-                y_pred = {}
-                for m in predict_methods:
-                    y_pred[m] = self.predict_after_evaluate(logits,
-                                                            batch_losses,
-                                                            method=m)
                 current_measures = measures
+                self._measures = measures
             else:
                 batch_losses = recorder.get_batch(i, *self.loss_components)
+                logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
                 logits = recorder.get_batch(i, 'logits').T
                 y_test =  recorder.get_batch(i, 'y_true')
+
+            y_pred = {}
+            logging.debug('TBD cvae:878: %s', ' '.join(batch_losses.keys()))
+            for m in predict_methods:
+                y_pred[m] = self.predict_after_evaluate(logits,
+                                                        batch_losses,
+                                                        method=m)
 
             if recording:
                 recorder.append_batch(**batch_losses, y_true=y_test, logits=logits.T)
@@ -928,13 +939,14 @@ class ClassificationVariationalNetwork(nn.Module):
                                 losses=mean_loss,
                                 acc_methods=predict_methods,
                                 accuracies=acc,
-                                metrics=self.metrics if measures else None,
-                                measures=measures,
+                                metrics=self.metrics,
+                                measures=self._measures,
                                 time_per_i=time_per_i,
                                 batch_size=batch_size,
                                 preambule=print_result)
         self.test_loss = mean_loss
-        if sample_file:
+
+        if sample_file and recording:
             logging.debug(f'Saving examples in {sample_file}')
 
             saved_dict = {
@@ -950,8 +962,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 saved_dict['mu_y'] = mu_y[:MAX_SAMPLE_SAVE]
             torch.save(saved_dict, sample_file)
                 
-        self._measures = measures
-        
         for m in predict_methods:
 
             update_self_testing_method = (update_self_testing and
@@ -1040,10 +1050,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorded[s] = recorders[s] is not None and len(recorders[s]) >= num_batch[s]
                 shuffle[s] = True
                 if recorded[s]:
-                    logging.debug('Losses already computed for %s', s)
+                    logging.debug('Losses already computed for %s %s', s, recorders[s])
                 if recording[s]:
                     recorders[s].num_batch = num_batch[s]
-                    logging.debug('Recording session for %s"', s)
+                    logging.debug('Recording session for %s %s', s, recorders[s])
                 
         device = next(self.parameters()).device
 
@@ -1066,6 +1076,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             loader = torch.utils.data.DataLoader(testset,
                                                  shuffle=shuffle[s],
+                                                 num_workers=0,
                                                  batch_size=batch_size)
             
             t_0 = time.time()
@@ -1127,6 +1138,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorders[s].init_seed_for_dataloader()
 
             loader = torch.utils.data.DataLoader(oodset,
+                                                 num_workers=0,
                                                  shuffle=shuffle[s],
                                                  batch_size=batch_size)
 
@@ -1293,13 +1305,16 @@ class ClassificationVariationalNetwork(nn.Module):
                      for s in sets}
 
         for s in recorders:
-            logging.debug('Recorder created for %s', s)
+            logging.debug('Recorder created for %s %s', s, recorders[s])
             
         logging.debug('Creating dataloader for training with batch size %s',
                       train_batch_size)
+
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=train_batch_size,
-                                                  shuffle=True, num_workers=0)
+                                                  # pin_memory=True,
+                                                  shuffle=True,
+                                                  num_workers=0)
 
         logging.debug('...done')
         
@@ -2003,7 +2018,7 @@ if __name__ == '__main__':
     trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
     _, oodset = torchdl.get_svhn()
 
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+    testloader = torch.utils.data.DataLoader(testset, batch_size=2,
                                              shuffle=True, num_workers=0)
 
     test_batch = next(iter(testloader))

@@ -452,6 +452,9 @@ show_gen = False
 show_hist= False
 show_hist = True
 
+
+
+
 if show_fig:
     do_show_fig(
         grid=show_grid,
@@ -464,3 +467,4 @@ if show_fig:
     input('Press any button to close figs\n')
     print('Closing')
     plt.close('all')
+    

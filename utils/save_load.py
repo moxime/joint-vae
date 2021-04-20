@@ -333,7 +333,6 @@ def collect_networks(directory,
             ood_fpr = {s: None for s in ood_sets}
             n_ood = {}
 
-
         history = vae.train_history
         if history.get('test_measures', {}):
             mse = vae.train_history['test_measures'][-1].get('mse', np.nan)
@@ -349,22 +348,25 @@ def collect_networks(directory,
         beta = vae.training['beta']
         if sigma.learned:
             sigma_train = 'learned'
-            beta_sigma = rmse * beta
+            beta_sigma = rmse * np.sqrt(beta)
         elif sigma.is_rmse:
             sigma_train = 'rmse'
-            beta_sigma = rmse * beta
+            beta_sigma = rmse * np.sqrt(beta)
         elif sigma.decay:
             sigma_train = 'decay'
-            beta_sigma = rmse * beta
+            beta_sigma = rmse * np.sqrt(beta)
         else:
             sigma_train = 'constant'
             beta_sigma = sigma.value
 
-            
         if architecture.type == 'cvae':
             if vae.training['learned_coder']:
                 coder_dict = 'learned'
-                dict_var = vae.train_history['train_measures'][-1]
+                if history['train_measures']:
+                    # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
+                    dict_var = history['train_measures'][-1]['ld-norm']
+                else:
+                    dict_var = vae.training['dictionary_variance']
             else:
                 coder_dict = 'constant'
                 dict_var = vae.training['dictionary_variance']
@@ -387,6 +389,8 @@ def collect_networks(directory,
                     'type': architecture.type,
                     'arch': arch,
                     'dict_var': dict_var,
+                    'coder_dict': coder_dict,
+                    'gamma': vae.training['gamma'],
                     'arch_code': arch_code,
                     'features': architecture.features['name'] if architecture.features else 'none',
                     'dir': directory,
@@ -520,8 +524,8 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
 
     indices = arch_index + train_index
     
-    #acc_cols = ['best_accuracy', 'accuracies']
-    #ood_cols = ['ood_fpr', 'ood_fprs']
+    # acc_cols = ['best_accuracy', 'accuracies']
+    # ood_cols = ['ood_fpr', 'ood_fprs']
 
     acc_cols = ['accuracies']
     ood_cols = ['ood_fprs']
@@ -530,7 +534,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
     columns = indices + acc_cols + ood_cols + meas_cols
 
     df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
-                                    columns=columns)
+                                   columns=columns)
 
     df.set_index(indices, inplace=True)
     

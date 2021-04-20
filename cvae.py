@@ -1758,6 +1758,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 
         vae.trained = train_history['epochs']
         vae.train_history = train_history
+
         vae.training = train_params
         if loaded_test:
             vae.testing.update(testing)

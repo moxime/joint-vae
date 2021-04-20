@@ -408,10 +408,12 @@ def get_args_for_test():
                         action=FilterAction,
                         nargs='+')
                         
-
     parser.add_argument('--gamma', action=FilterAction, of_type=float,
                         nargs='+')
-    
+
+    parser.add_argument('--coder-dict', action=FilterAction, 
+                        nargs='+')
+
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         dest='K',
                         nargs='+',

@@ -39,6 +39,7 @@ job_numbers = [108657]
 job_numbers = [108182, 37]
 job_numbers = [75]
 job_numbers = [37]
+job_numbers = [112152, 112410, 112267]
 
 def showable(x):
     
@@ -129,7 +130,8 @@ except (NameError, KeyError):
     recompute=True
     
 if reload:
-    jobs = find_by_job_number(search_dir, *job_numbers, load_state=False, json_file='networks-lss.json')
+    jobs = find_by_job_number(search_dir, *job_numbers, load_state=False)
+    #, json_file='networks-lss.json')
 
     to_be_removed = []
     for job_number in jobs:
@@ -436,6 +438,7 @@ show_grid = True
 show_grid = False
 
 show_examples = True
+show_examples = False
 
 show_ood = True
 show_ood = False
@@ -446,8 +449,11 @@ show_muvar = False
 show_gen = True
 show_gen = False
 
-show_hist = True
 show_hist= False
+show_hist = True
+
+
+
 
 if show_fig:
     do_show_fig(
@@ -461,3 +467,4 @@ if show_fig:
     input('Press any button to close figs\n')
     print('Closing')
     plt.close('all')
+    

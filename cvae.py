@@ -225,7 +225,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.gamma = gamma if self.coder_has_dict else None
         self.gamma_temp = gamma_temp if self.coder_has_dict else None
         
-        logging.debug(f'Gamma: {self.gamma:.2g}')
+        logging.debug(f'Gamma: {self.gamma}')
         
         self.latent_prior_variance = latent_prior_variance
         self.encoder = Encoder(encoder_input_shape, num_labels,

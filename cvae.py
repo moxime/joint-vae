@@ -89,7 +89,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type ={'cvae': ('max', 'std', 'mag'), # , 'mag', 'IYx'),
+    ood_methods_per_type ={'cvae': ('max', 'kl', 'mse', 'std', 'mag'), # , 'mag', 'IYx'),
                            'xvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
                            'vae': ('logpx',),
@@ -700,6 +700,7 @@ class ClassificationVariationalNetwork(nn.Module):
         # ref is max of logp
         logp_max = logp.max(axis=0)[0]
         d_logp = logp - logp_max
+        
         for m in methods:
 
             if m == 'logpx':
@@ -724,6 +725,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 
                 measures =  ( (d_logp * (d_logp.exp())).sum(axis=0) / (C * d_logp_x.exp())
                             - d_logp_x )
+            elif m == 'kl':
+                measures = -losses['kl'].min(axis=0)
+            elif m == 'mse':
+                measures = -losses['cross_x'].min(axis=0)
+                    
             else:
                 raise ValueError(f'{m} is an unknown ood method')
 

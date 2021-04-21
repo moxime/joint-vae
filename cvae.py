@@ -799,7 +799,8 @@ class ClassificationVariationalNetwork(nn.Module):
         method can be a list of methods
 
         """
-        MAX_SAMPLE_SAVE = 100
+
+        MAX_SAMPLE_SAVE = 200
         
         device = next(self.parameters()).device
         
@@ -839,6 +840,7 @@ class ClassificationVariationalNetwork(nn.Module):
             recorder.num_batch = num_batch
             if sample_dir:
                 sample_file = os.path.join(sample_dir, f'{testset.name}-{epoch:04d}.pth')
+                sample_dict = {}
                 recorder_file = = os.path.join(sample_dir, f'{testset.name}-record.pth')
                 
         n_err = dict()
@@ -868,6 +870,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         for i in range(num_batch):
 
+            save_batch_as_sample = sample_file i < sample_save // batch_size
+            
+            
             if not recorded:
                 data = next(test_iterator)
                 x_test, y_test = data[0].to(device), data[1].to(device)
@@ -892,6 +897,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if recording:
                 recorder.append_batch(**batch_losses, y_true=y_test, logits=logits.T)
+                if recorder_file:
+                    recorder.save(recorder_file)
                 
             # print('*** 842', y_test[0].item(), *y_test.shape)
             # print('*** 843', batch_losses['cross_y'].min(0)[0].mean())

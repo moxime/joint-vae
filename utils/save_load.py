@@ -287,11 +287,18 @@ class LossRecorder:
         return ('Recorder for '
                 + ' '.join([str(k) for k in self.keys()]))
 
-    def save(self, file_path):
+    def save(self, file_path, cut=True):
 
         """dict_ = self.__dict__.copy()
         tensors = dict.pop('_tensors')
         """
+
+        if cut:
+            self.num_batch = len(self)
+            t = self._tensors
+            end = self.num_batch * self.batch_size
+            for k in t:
+                t[k] = t[k][..., 0:end]
 
         torch.save(self.__dict__, file_path)
 
@@ -301,12 +308,17 @@ class LossRecorder:
         dict_of_params = torch.load(file_path)
         num_batch = dict_of_params['_num_batch']
         batch_size = dict_of_params['batch_size']
+        tensors = dict_of_params['_tensors']
         
         r = LossRecorder(batch_size, num_batch, **tensors)
 
         for k in ('_seed', '_tensors', '_recorded_batches'):
             setattr(r, k, dict_of_params[k])
-        
+
+        for k in dict_of_params:
+            if not k.startswith('_'):
+                setattr(r, k, dict_of_params[k])
+            
         return r
         
     @property
@@ -359,13 +371,16 @@ class LossRecorder:
         
         return t[..., start:end]
     
-    def append_batch(self, **tensors):
+    def append_batch(self, extend=True, **tensors):
 
         start = self._recorded_batches * self.batch_size
         end = start + self.batch_size
 
         if end > self._samples:
-            raise IndexError
+            if extend:
+                self.num_batch *=2
+            else:
+                raise IndexError
         
         for k in tensors:
             if k not in self.keys():
@@ -807,16 +822,18 @@ def load_list_of_networks(dir_name, file_name='nets.json'):
 
 if __name__ == '__main__':
 
-    dim = {'A': 10, 'B': 1}
+    dim = {'A': (10,), 'B': (1,), 'I': (3, 32, 32)}
     batch_size = 512
-
-    tensors = {k: torch.randn(dim[k], 7) for k in dim}
+    device = 'cuda'
+    
+    tensors = {k: torch.randn(*dim[k], 7, device=device) for k in dim}
     
     r = LossRecorder(batch_size, **tensors)    
     r.num_batch = 4
-
+    r.epochs = 10
+    
     for _ in range(r.num_batch - 1):
-        r.append_batch(**{k: torch.randn(dim[k], batch_size) for k in dim})
+        r.append_batch(**{k: torch.randn(*dim[k], batch_size) for k in dim})
 
     r.save('/tmp/r.pth')
 

@@ -164,8 +164,8 @@ if __name__ == '__main__':
 
     N = 20
     batch_size = 512
-    root = 'results/%j/samples'
     root = '/tmp/%j'
+    root = 'results/%j/samples'
     
     logging.getLogger().setLevel(logging.ERROR)
 

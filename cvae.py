@@ -330,7 +330,7 @@ class ClassificationVariationalNetwork(nn.Module):
             'dictionary_variance': dictionary_variance,
             'learned_coder': learned_coder,
             'dictionary_min_dist': self.encoder.dictionary_dist_lb,
-            'coder_capacity_regularization':coder_capacity_regularization,
+            'coder_capacity_regularization': coder_capacity_regularization,
             'force_cross_y': force_cross_y,
             'latent_sampling': latent_sampling,
             'set': None,
@@ -613,7 +613,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_losses['total'] += batch_losses['cross_x'] 
             
-        if not self.is_vae: #self.y_is_decoded or self.force_cross_y:
+        if not self.is_vae:  # self.y_is_decoded or self.force_cross_y:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',
                   'y', *batch_losses['cross_y'].shape,
@@ -726,9 +726,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures =  ( (d_logp * (d_logp.exp())).sum(axis=0) / (C * d_logp_x.exp())
                             - d_logp_x )
             elif m == 'kl':
-                measures = -losses['kl'].min(axis=0)
-            elif m == 'mse':
-                measures = -losses['cross_x'].min(axis=0)
+                measures = -losses['kl'].min(axis=0)[0]
+            elif m == 'mse' and self.is_cvae:
+                measures = -losses['cross_x']
                     
             else:
                 raise ValueError(f'{m} is an unknown ood method')
@@ -1720,8 +1720,7 @@ class ClassificationVariationalNetwork(nn.Module):
             torch.save(self.state_dict(), w_p)
             w_p = save_load.get_path(dir_name, 'optimizer.pth')
             torch.save(self.optimizer.state_dict(), w_p)
-            
-            
+                        
     @classmethod
     def load(cls, dir_name,
              load_net=True,

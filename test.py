@@ -103,8 +103,7 @@ def test_ood_if(jvae=None,
                 min_epochs=0,
                 min_test_sample_size=1000,
                 dict_of_sets={},
-                **kw,
-                      ):
+                **kw, ):
 
     assert jvae or directory
 
@@ -180,13 +179,13 @@ def test_ood_if(jvae=None,
     if not dry_run:
         # print('**** test.py:175', testset_name)
         _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
-                                                 testset_name,
-                                                 transformer=transformer)
+                                                   testset_name,
+                                                   transformer=transformer)
 
         for n in [n for n in has_been_tested if not has_been_tested[n]]:
             # print('**** test.py:180', n)
             _, oodset = torchdl.get_dataset_from_dict(dict_of_sets, n,
-                                                    transformer=transformer)
+                                                      transformer=transformer)
             oodsets_to_be_tested.append(oodset)
             
         _o = ' - '.join([o.name for o in oodsets_to_be_tested])
@@ -445,8 +444,8 @@ if __name__ == '__main__':
                      n['dir'], trained_set, batch_size)
 
             _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
-                                                    trained_set,
-                                                    transformer)
+                                                       trained_set,
+                                                       transformer)
         
             test_accuracy_if(jvae=n['net'],
                              testset=testset,

@@ -1,36 +1,39 @@
 from __future__ import print_function
-from torchvision.utils import save_image
+
 import torch
-import matplotlib.pyplot as plt
-
 import data.torch_load as torchdl
-import numpy as np
+import time
 
+device = torch.device('cuda')
 device = torch.device('cpu')
-batch_size = 200
+shuffle = False
+shuffle = True
+batch_size = 512
+pin_memory = False
+pin_memory = True
+transformer = 'pad'
+transformer = 'default'
 
-trainset, testset = torchdl.get_dataset('letters', transformer='pad')
+trainset, testset = torchdl.get_dataset('letters', transformer=transformer)
 
-x, y = torchdl.get_batch(trainset, batch_size=batch_size, device=device)
+testloader = torch.utils.data.DataLoader(testset,
+                                         pin_memory=pin_memory,
+                                         num_workers=0,
+                                         batch_size=batch_size,
+                                         shuffle=shuffle)
 
+test_iterator = iter(testloader)
 
-plt.imshow(x[0, 0])
+nbatch = len(testset) // batch_size
 
-shape = (6, 10)
+t0 = time.time()
 
-f, axis = plt.subplots(*shape)
+for i in range(nbatch):
 
-for i, a in enumerate(axis.flat):
+    data = next(test_iterator)
+    x, y = (d.to(device) for d in data)
 
-    im = x[i, 0, :, :]
-    label = trainset.classes[y[i]-1]
+    t = time.time() - t0
+    print(f'\r{t / (i + 1) / batch_size * 1e6:6.0f} mus / i', end='')
 
-    a.imshow(im, cmap='gray')
-    a.set_title(label)
-    a.get_xaxis().set_visible(False)
-    a.get_yaxis().set_visible(False)
-
-    print(label, end=' ')
-    
-f.show()
-
+print()

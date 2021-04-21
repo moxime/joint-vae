@@ -26,7 +26,7 @@ def suppress_stdout():
             yield
         finally:
             sys.stdout = orig
-
+            
 @contextmanager
 def stdout_as_debug():
     orig = sys.stdout
@@ -123,9 +123,6 @@ set_dict['svhn'].pop('means')
 set_dict['svhn'].pop('stds')
 set_dict['svhn']['classes'] = [str(i) for i in range(10)]
 set_dict['svhn']['getter'] = _svhn_getter
-
-
-
 
 transformers = {'simple': {n: transforms.ToTensor() for n in set_dict}}
 

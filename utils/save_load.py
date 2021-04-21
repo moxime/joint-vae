@@ -1,14 +1,13 @@
 import os
-import pickle
 import json
 import logging
 import pandas as pd
 import hashlib
 import data.torch_load as torchdl
 import numpy as np
+import random
 import torch
 from utils.optimizers import Optimizer
-from utils.roc_curves import fpr_at_tpr
 
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -120,7 +119,8 @@ class ObjFromDict:
             setattr(self, k, v)
 
             
-def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False):
+def print_architecture(o, sigma=False, sampling=False,
+                       excludes=[], short=False):
 
     arch = ObjFromDict(o.architecture, features=None)
     training = ObjFromDict(o.training)
@@ -165,7 +165,6 @@ def print_architecture(o, sigma=False, sampling=False, excludes=[], short=False)
     if sigma and 'sigma' not in excludes:
         s += '--' + s_('sigma') + f'={o.sigma}'
     
-
     if sampling and 'sampling' not in excludes:
         s += '--'
         s += s_('sampling')
@@ -236,6 +235,160 @@ class Shell:
     print_architecture = print_architecture
     option_vector = option_vector
 
+    
+class LossRecorder:
+
+    def __init__(self,
+                 batch_size,
+                 num_batch=0,
+                 device=None,
+                 **tensors):
+
+        self.reset()
+
+        self._samples = num_batch * batch_size
+        self._num_batch = num_batch
+        self.batch_size = batch_size
+
+        
+        self._tensors={}
+        
+        if not device:
+            device = next(iter(tensors.values())).device
+
+        self.device=device
+
+        for k, t in tensors.items():
+            shape = t.shape[:-1] + (self._samples,)
+            self._tensors[k] = torch.zeros(shape,
+                                           dtype=t.dtype,
+                                           device=self.device)
+
+    def reset(self):
+
+        self._recorded_batches = 0
+        self._seed = np.random.randint(1, int(1e8))
+        return
+
+    def init_seed_for_dataloader(self):
+    
+        seed = self._seed
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        random.seed(seed)
+        
+    def keys(self):
+        return self._tensors.keys()
+    
+    def __len__(self):
+        return self._recorded_batches
+
+    def __repr__(self):
+        return ('Recorder for '
+                + ' '.join([str(k) for k in self.keys()]))
+
+    def save(self, file_path, cut=True):
+
+        """dict_ = self.__dict__.copy()
+        tensors = dict.pop('_tensors')
+        """
+
+        if cut:
+            self.num_batch = len(self)
+            t = self._tensors
+            end = self.num_batch * self.batch_size
+            for k in t:
+                t[k] = t[k][..., 0:end]
+
+        torch.save(self.__dict__, file_path)
+
+    @classmethod
+    def load(cls, file_path):
+
+        dict_of_params = torch.load(file_path)
+        num_batch = dict_of_params['_num_batch']
+        batch_size = dict_of_params['batch_size']
+        tensors = dict_of_params['_tensors']
+        
+        r = LossRecorder(batch_size, num_batch, **tensors)
+
+        for k in ('_seed', '_tensors', '_recorded_batches'):
+            setattr(r, k, dict_of_params[k])
+
+        for k in dict_of_params:
+            if not k.startswith('_'):
+                setattr(r, k, dict_of_params[k])
+            
+        return r
+        
+    @property
+    def num_batch(self):
+        return self._num_batch
+    
+    @num_batch.setter
+    def num_batch(self, n):
+
+        first_tensor = next(iter(self._tensors.values()))
+        height = first_tensor.shape[-1]
+        n_sample = n * self.batch_size
+        
+        if n_sample > height:
+            d_h = n_sample - height
+            for k in self._tensors:
+                    t = self._tensors[k]
+                    z = torch.zeros(t.shape[:-1] + (d_h,),
+                                    dtype=t.dtype,
+                                    device=self.device)
+                    self._tensors[k] = torch.cat([t, z], axis=-1)
+                    
+        self._num_batch = n
+        self._samples = n * self.batch_size
+        self._recorded_batches = min(n, self._recorded_batches)
+                
+    def has_batch(self, number):
+        r""" number starts at 0
+        """
+
+        return number < self._recorded_batches
+    
+    def get_batch(self, i, *which):
+        
+        if not which:
+            return self.get_batch(i, *self.keys())
+            
+        if len(which) > 1:
+            return {w: self.get_batch(i, w) for w in which}
+
+        if not self.has_batch(i):
+            raise IndexError(f'{i} >= {len(self)}')
+        
+        start = i * self.batch_size
+        end = start + self.batch_size
+        
+        w = which[0]
+
+        t = self._tensors[w]
+        
+        return t[..., start:end]
+    
+    def append_batch(self, extend=True, **tensors):
+
+        start = self._recorded_batches * self.batch_size
+        end = start + self.batch_size
+
+        if end > self._samples:
+            if extend:
+                self.num_batch *=2
+            else:
+                raise IndexError
+        
+        for k in tensors:
+            if k not in self.keys():
+                raise KeyError(k)
+            self._tensors[k][...,start:end] = tensors[k]
+                                                    
+        self._recorded_batches += 1
+    
 
 def collect_networks(directory,
                      list_of_vae_by_architectures=None,
@@ -677,35 +830,22 @@ def load_list_of_networks(dir_name, file_name='nets.json'):
     
     return list(load_json(dir_name, file_name).values())
 
+
 if __name__ == '__main__':
 
-    import numpy as np
-    import logging
-
-    logging.getLogger().setLevel(logging.DEBUG)
-
-    dir = 'old-jobs/saved-jobs/fashion32'
-    dir ='./jobs/fashion'
-    dir = './jobs/'
-
-    reload = False
-    reload = True
-    if reload:
-        l = sum(collect_networks(dir, load_net=False), [])
-
-    testsets = ('cifar10',  'fashion', 'mnist')
+    dim = {'A': (10,), 'B': (1,), 'I': (3, 32, 32)}
+    batch_size = 512
+    device = 'cuda'
     
-    df_ = test_results_df(l) # [n for n in l if n['set']==s])
-
-
-    df = df_['cifar10']
+    tensors = {k: torch.randn(*dim[k], 7, device=device) for k in dim}
     
-    """
-    for s, df in df_.items():
-        print('=' * 80)
-        print(f'Results for {s}')
-        print(df.to_string(na_rep='', decimal=',', formatters=formats[s]))
-    """
-        # for a in archs[s]:
-        #     arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
-        #     print(arch_code,':\n', a)
+    r = LossRecorder(batch_size, **tensors)    
+    r.num_batch = 4
+    r.epochs = 10
+    
+    for _ in range(r.num_batch - 1):
+        r.append_batch(**{k: torch.randn(*dim[k], batch_size) for k in dim})
+
+    r.save('/tmp/r.pth')
+
+    r_ = LossRecorder.load('/tmp/r.pth')

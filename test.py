@@ -13,8 +13,8 @@ import logging
 
 import pandas as pd
 
-from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
-from utils.save_load import collect_networks, test_results_df, save_json, load_json
+from utils.parameters import get_args, set_log, gethostname
+from utils.save_load import collect_networks, test_results_df, load_json
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
 
 
@@ -28,8 +28,7 @@ def test_accuracy_if(jvae=None,
                      min_epochs=0,
                      min_test_sample_size=1000,
                      dict_of_sets={},
-                     **kw,
-):
+                     **kw,):
 
     assert jvae or directory
 

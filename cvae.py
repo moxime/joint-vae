@@ -791,7 +791,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  print_result=False,
                  update_self_testing=True,
                  outputs=EpochOutput(),
-                 sample_dir='',
+                 sample_dirs=[],
                  recorder=None,
                  log=True):
 
@@ -805,7 +805,7 @@ class ClassificationVariationalNetwork(nn.Module):
         device = next(self.parameters()).device
         
         if not testset:
-            testset_name=self.training['set']
+            testset_name = self.training['set']
             _, testset = torchdl.get_dataset(testset_name)
         
         if method == 'all':
@@ -828,21 +828,15 @@ class ClassificationVariationalNetwork(nn.Module):
         recorded = recorder is not None and len(recorder) >= num_batch
         recording = recorder is not None and len(recorder) < num_batch
 
+        
         if recorded:
             logging.debug('Losses already recorded')
 
-        sample_file = ''
-        recorder_file = ''
-        
         if recording:
             logging.debug('Recording session loss for accruacy')
             recorder.reset()
             recorder.num_batch = num_batch
-            if sample_dir:
-                sample_file = os.path.join(sample_dir, f'{testset.name}-{epoch:04d}.pth')
-                sample_dict = {}
-                recorder_file = = os.path.join(sample_dir, f'{testset.name}-record.pth')
-                
+
         n_err = dict()
         mismatched = dict()
         acc = dict()
@@ -870,8 +864,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         for i in range(num_batch):
 
-            save_batch_as_sample = sample_file i < sample_save // batch_size
-            
+            # save_batch_as_sample = sample_file and i < sample_save // batch_size            
             
             if not recorded:
                 data = next(test_iterator)
@@ -886,7 +879,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_losses = recorder.get_batch(i, *self.loss_components)
                 logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
                 logits = recorder.get_batch(i, 'logits').T
-                y_test =  recorder.get_batch(i, 'y_true')
+                y_test = recorder.get_batch(i, 'y_true')
 
             y_pred = {}
             logging.debug('TBD cvae:878: %s', ' '.join(batch_losses.keys()))
@@ -897,18 +890,16 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if recording:
                 recorder.append_batch(**batch_losses, y_true=y_test, logits=logits.T)
-                if recorder_file:
-                    recorder.save(recorder_file)
                 
             # print('*** 842', y_test[0].item(), *y_test.shape)
             # print('*** 843', batch_losses['cross_y'].min(0)[0].mean())
             ind = y_test.unsqueeze(0)
             for k in batch_losses:
-                if k is 'cross_y' and self.is_xvae:
+                if k == 'cross_y' and self.is_xvae:
                     shape = 'CxNxC'
-                elif k is 'cross_y' or self.is_jvae:
+                elif k == 'cross_y' or self.is_jvae:
                     shape = 'CxN'
-                elif self.is_cvae and k != 'cross_x'and k != 'dzdist':
+                elif self.is_cvae and k != 'cross_x' and k != 'dzdist':
                     shape = 'CxN'
                 elif self.is_vib and k == 'total':
                     shape = 'CxN'
@@ -953,8 +944,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                 preambule=print_result)
         self.test_loss = mean_loss
 
-        if sample_file and recording:
-            logging.debug(f'Saving examples in {sample_file}')
+        if recording:
+            logging.debug('Saving examples in' + ', '.join(sample_dirs))
 
             saved_dict = {
                 'losses': {m: batch_losses[m][:MAX_SAMPLE_SAVE] for m in batch_losses},
@@ -967,8 +958,14 @@ class ClassificationVariationalNetwork(nn.Module):
             if self.is_xvae or self.is_cvae:
                 mu_y = self.encoder.latent_dictionary.index_select(0, y_test)
                 saved_dict['mu_y'] = mu_y[:MAX_SAMPLE_SAVE]
-            torch.save(saved_dict, sample_file)
-                
+
+            for d in sample_dirs:
+                f = os.path.join(d, f'sample-{testset.name}.pth')
+                torch.save(saved_dict, f)
+
+                f = os.path.join(d, f'record-{testset.name}.pth')
+                recorder.save(f)
+
         for m in predict_methods:
 
             update_self_testing_method = (update_self_testing and
@@ -995,7 +992,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return acc[m] if only_one_method else acc
 
-
     def ood_detection_rates(self, oodsets=None,
                             testset=None,
                             batch_size=100,
@@ -1005,11 +1001,11 @@ class ClassificationVariationalNetwork(nn.Module):
                             update_self_ood=True,
                             outputs=EpochOutput(),
                             recorders=None,
-                            sample_file='',
+                            sample_dirs=[],
                             log=True):
 
         if not testset:
-            testset_name=self.training['set']
+            testset_name = self.training['set']
             transformer = self.training['transformer']
             _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
         
@@ -1162,7 +1158,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     x = data[0].to(device)
                     y = data[1].to(device)
                     with torch.no_grad():
-                        _, logits, losses, _  = self.evaluate(x)
+                        _, logits, losses, _ = self.evaluate(x)
                 else:
                     losses = recorders[s].get_batch(i, *self.loss_components)
                     logits = recorders[s].get_batch(i, 'logits').T
@@ -1214,6 +1210,12 @@ class ClassificationVariationalNetwork(nn.Module):
             if update_self_ood:
                 a = self.ood_results
                 self.ood_results[oodset.name] = ood_results
+
+        for s in recording:
+            if recording[s]:
+                for d in sample_dirs:
+                    f = os.path.join(d, f'record-{s}.pth')
+                    recorders[s].save(f.format(s=s))
         
     def train(self,
               trainset=None,
@@ -1390,23 +1392,26 @@ class ClassificationVariationalNetwork(nn.Module):
                 ood_detection = ((epoch - done_epochs) and
                              epoch % ood_detection_every == 0)
 
+                if (full_test or not epoch or ood_detection) and save_dir:
+                    sample_dirs = [os.path.join(save_dir, 'samples', d)
+                                   for d in ('last', f'{epoch:04d}')]
+
+                    for d in sample_dirs:
+                        if not os.path.exists(d):
+                            os.makedirs(d)
+                else:
+                    sample_dirs = []
+
                 with torch.no_grad():
 
                     if oodsets and ood_detection:
-
-                        if save_dir:
-                            sample_dir = os.path.join(save_dir, 'samples')
-                            if not os.path.exists(sample_dir):
-                                os.makedirs(sample_dir)
-                            sample_file = os.path.join(sample_dir, f'ood-{epoch:04d}.pth')
-                        else:
-                            sample_file = ''
                             
                         self.ood_detection_rates(oodsets=oodsets, testset=testset,
                                                  batch_size=test_batch_size,
                                                  num_batch=len(testset) // test_batch_size,
                                                  outputs=outputs,
                                                  recorders=recorders,
+                                                 sample_dirs=sample_dirs,
                                                  print_result='*')
 
                         outputs.results(0, 0, -2, epochs,
@@ -1417,15 +1422,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                         metrics=self.metrics,
                                         loss_components=self.loss_components,
                                         acc_methods=acc_methods)
-
-                    if (full_test or not epoch) and save_dir:
-                        sample_dir = os.path.join(save_dir, 'samples')
-                        if not os.path.exists(sample_dir):
-                            os.makedirs(sample_dir)
-                        sample_file = os.path.join(sample_dir, f'{epoch:04d}.pth')
-
-                    else:
-                        sample_file = ''
 
                     if full_test:
                         recorder = recorders[set_name]
@@ -1440,7 +1436,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   method=acc_methods,
                                                   # log=False,
                                                   outputs=outputs,
-                                                  sample_file=sample_file,
+                                                  sample_dirs=sample_dirs,
                                                   recorder=recorder,
                                                   print_result='TEST' if full_test else 'test')
                     test_loss = self.test_loss

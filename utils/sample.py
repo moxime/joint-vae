@@ -126,29 +126,6 @@ def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory=
         
     return list_of_images
     
-
-def losses_histogram(net, directory):
-
-    sample_dir = os.path.join(directory, 'samples')
-
-    if not os.path.exists(sample_dir):
-        raise FileNotFoundError(sample_dir)
-    
-    files = os.listdir(sample_dir)
-    last_sample = None
-    last_epoch = 0
-    for f in files:
-        try:
-            epoch = int(f.rsplit('.', 1)[0])
-            if epoch > last_epoch:
-                last_epoch = epoch
-                last_sample = f
-        except ValueError:
-            pass
-
-    sample_dict = torch.load(os.path.join(sample_dir, last_sample))
-    return sample_dict
-
            
 if __name__ == '__main__':
 
@@ -202,6 +179,11 @@ if __name__ == '__main__':
         shell = find_by_job_number('jobs', j, load_net=False)[j]
         net = Net.load(shell['dir'])
         print('done')
+        print('Compute max batch size', flush=True, end= '...')
+        
+        net.compute_max_batch_size(batch_size=m, which='test')
+        print('done ({})'.format(net.max_batch_sizes('test')))
+        
         testset, transformer = (shell['net'].training[k] for k in ('set', 'transformer'))
         _, test_dataset = tl.get_dataset(testset, transformer=transformer)
         x[testset], y[testset] = tl.get_batch(testset, device=device, batch_size=m)
@@ -214,10 +196,10 @@ if __name__ == '__main__':
 
         net.to(device)
 
-    list_of_images = sample(net, x[testset], root=root,
-                            directory=testset,
-                            N=10, L=L)
-    list_of_images = sample(net, x['o'], root=root,
-                            directory='ood', N=10, L=L)
+    for s in x:
+        list_of_images = sample(net, x[s], root=root,
+                                directory=s,
+                                N=N, L=L - 2)
+
     list_of_images = sample(net, root=root,
                             directory='generate', N=N, L=L)

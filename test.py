@@ -14,7 +14,7 @@ import logging
 import pandas as pd
 
 from utils.parameters import get_args, set_log, gethostname
-from utils.save_load import collect_networks, test_results_df, load_json
+from utils.save_load import collect_networks, test_results_df, load_json, LossRecorder
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
 
 
@@ -25,14 +25,15 @@ def test_accuracy_if(jvae=None,
                      batch_size=100,
                      unfinished=False,
                      dry_run=False,
-                     min_epochs=0,
                      min_test_sample_size=1000,
+                     train_tolerance=10,
                      dict_of_sets={},
+                     recorder=None,
                      **kw,):
 
     assert jvae or directory
 
-    num_batch = test_sample_size
+    num_batch = test_sample_size // batch_size
     if type(test_sample_size) is int:
         num_batch = test_sample_size // batch_size
         min_test_sample_size = min(test_sample_size, min_test_sample_size)
@@ -46,30 +47,22 @@ def test_accuracy_if(jvae=None,
 
     # deleting old testing methods
     jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods}
-    if not jvae.testing:
-        if jvae.architecture['type'] == 'vae':
-            return True
-        return None if dry_run else {}
         
     is_trained = jvae.trained >= jvae.training['epochs']
-    enough_trained_epochs = jvae.trained >= min_epochs
-
-    min_tested_epochs = min(d['epochs'] for d in jvae.testing.values())
-    min_tested_sample_size = min(d['n'] for d in jvae.testing.values())
-    enough_samples = min_tested_sample_size >= min_test_sample_size
-    enough_tested_epochs = min_tested_epochs >= jvae.trained
-
-    desc = 'in ' + directory if directory else jvae.print_architecture()
 
     if not is_trained and not unfinished:
         logging.debug(f'Net {desc} not trained, will not be tested')
         return None
 
-    if not enough_trained_epochs:
-        logging.debug(f'Net {desc} not trained enough, will not be tested')
-        return None
+    enough_samples = True
+    tested_at_last_epoch = True
+
+    for m in jvae.predict_methods:
+        t = jvae.testing.get(m, {'n': 0, 'epochs': 0})
+        enough_samples = enough_samples and t['n'] >= min_test_sample_size 
+        tested_at_last_epoch =  tested_at_last_epoch and t['epochs'] >= jvae.trained - train_tolerance
     
-    has_been_tested = enough_tested_epochs and enough_samples
+    has_been_tested = tested_at_last_epochs and enough_samples
 
     if dry_run:
         return has_been_tested
@@ -86,6 +79,7 @@ def test_accuracy_if(jvae=None,
             jvae.accuracy(testset,
                           batch_size=batch_size,
                           num_batch=num_batch,
+                          recorder=recorder,
                           print_result = 'TEST',
                           **kw)
 
@@ -100,14 +94,16 @@ def test_ood_if(jvae=None,
                 batch_size=100,
                 unfinished=False,
                 dry_run=False,
-                min_epochs=0,
+                train_tolerance=10,
                 min_test_sample_size=1000,
                 dict_of_sets={},
+                recorders=None,
                 **kw, ):
 
     assert jvae or directory
 
-    num_batch = test_sample_size
+    num_batch = test_sample_size // batch_size
+                             
     if type(test_sample_size) is int:
         num_batch = test_sample_size // batch_size
         min_test_sample_size = min(test_sample_size, min_test_sample_size)
@@ -129,14 +125,9 @@ def test_ood_if(jvae=None,
     assert jvae.training['set']
 
     is_trained = jvae.trained >= jvae.training['epochs']
-    enough_trained_epochs = jvae.trained >= min_epochs
 
     if not is_trained and not unfinished:
         logging.debug(f'Net {desc} training not ended, will not be tested')
-        return None
-
-    if not enough_trained_epochs:
-        logging.debug(f'Net {desc} not trained enough, will not be tested')
         return None
 
     transformer = jvae.training['transformer']
@@ -150,54 +141,59 @@ def test_ood_if(jvae=None,
     if oodsets:
         oodset_names = [o.name for o in oodsets]
         dict_of_sets.update({o.name: {transformer: (None, o)} for o in oodsets})
+
     else:
         oodset_names = torchdl.get_same_size_by_name(testset_name)
+                             
+    enough_tested_samples = {o: True for o in oodset_names}
+    tested_at_latest_epoch = {o: True for o in oodset_names}
     
-    min_tested_epochs = {}
-    min_tested_sample_size = {}
-    enough_tested_samples = {}
-    enough_tested_epochs = {}
-    has_been_tested = {}
+
     zero = {'epochs': 0, 'n': 0}
     zeros = {m: zero for m in jvae.ood_methods}
     oodsets_to_be_tested = []
     
-    for n in oodset_names:
+    for o in oodset_names:
 
-        ood_result = jvae.ood_results.get(n, zeros)
-        tested_epochs = [ood_result.get(m, zero)['epochs'] for m in jvae.ood_methods]
-        min_tested_epochs = min(tested_epochs)
-        tested_sample_size = [ood_result.get(m, zero)['n'] for m in jvae.ood_methods]
-        min_tested_sample_size = min(tested_sample_size)
-        enough_tested_samples = min_tested_sample_size >= min_test_sample_size
-        enough_tested_epochs = min_tested_epochs >= jvae.trained
+        r = jvae.ood_results.get(o, {})
+        for m in jvae.ood_methods:
+            n = r.get(m, zero)['n']
+            enough_tested_samples[o] = enough_tested_samples[o] and n >= min_test_sample_size
+            ep = r.get(m, zero)['epochs']
+            tested_at_latest_epoch[o] = (tested_at_latest_epochs[o]
+                                         and ep >= jvae.trained - train_tolerance)
     
-        has_been_tested[n] = enough_tested_epochs and enough_tested_samples
-        _w = '' if has_been_tested[n] else 'not ' 
-        logging.debug(f'ood rate has {_w}been computed with enough samples for {n}')
+        has_been_tested[o] = enough_tested_samples[o] and tested_at_last_epoch[o]
+        
+        _w = '' if has_been_tested[o] else 'not ' 
+        logging.debug(f'ood rate has {_w}been computed with enough samples for {o}')
 
     if not dry_run:
         # print('**** test.py:175', testset_name)
-        _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
-                                                   testset_name,
-                                                   transformer=transformer)
 
-        for n in [n for n in has_been_tested if not has_been_tested[n]]:
+        for o in [n for n in has_been_tested if not has_been_tested[o]]:
             # print('**** test.py:180', n)
-            _, oodset = torchdl.get_dataset_from_dict(dict_of_sets, n,
+            _, oodset = torchdl.get_dataset_from_dict(dict_of_sets, o,
                                                       transformer=transformer)
             oodsets_to_be_tested.append(oodset)
-            
-        _o = ' - '.join([o.name for o in oodsets_to_be_tested])
-        logging.debug(f'OOD sets that will be tested: {_o}')
-        jvae.ood_detection_rates(oodsets_to_be_tested, testset,
-                                 batch_size=batch_size,
-                                 num_batch=num_batch,
-                                 print_result='*',
-                                 **kw)
+
+        if oodsets_to_be_tested:
+            _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
+                                           testset_name,
+                                           transformer=transformer)
+
+            _o = ' - '.join([o.name for o in oodsets_to_be_tested])
+            logging.debug(f'OOD sets that will be tested: {_o}')
+            jvae.ood_detection_rates(oodsets_to_be_tested, testset,
+                                     batch_size=batch_size,
+                                     num_batch=num_batch,
+                                     print_result='*',
+                                     recorders=recorders,
+                                     **kw)
 
     else:
         return has_been_tested
+
     return jvae.ood_results
         
     
@@ -225,13 +221,6 @@ if __name__ == '__main__':
     dry_run = args.dry_run
     flash = args.flash
 
-    if flash:
-       logging.debug('Flash test')
-       if not dry_run:
-           dry_run = True
-           logging.debug('Setting dry_run at True')
-           
-    epochs = args.epochs
     test_sample_size = args.test_sample_size
     ood_sample_size = args.ood
     min_test_sample_size = args.min_test_sample_size
@@ -249,23 +238,10 @@ if __name__ == '__main__':
     
     search_dir = load_dir if load_dir else job_dir
 
-    load_networks = not flash
-
-    if flash:
-        try:
-            file_name = f'networks-{hostname}.json'
-            dict_of_networks = load_json(search_dir, file_name)
-            list_of_networks = list(dict_of_networks.values())
-            logging.debug(f'File {file_name} loaded')
-        except FileNotFoundError:
-            logging.debug(f'File {file_name} not found')
-            load_networks = True
-
-    if load_networks:
-        logging.debug('Collecting networks')
-        list_of_networks = collect_networks(search_dir,
-                                            load_net=False,
-                                            load_state=False)
+    logging.debug('Collecting networks')
+    list_of_networks = collect_networks(search_dir,
+                                        load_net=False,
+                                        load_state=False)
         
     total = sum(map(len, list_of_networks))
     log.debug(f'{total} networks in {len(list_of_networks)} lists collected:')
@@ -275,11 +251,6 @@ if __name__ == '__main__':
         w = 'networks' if len(l) > 1 else 'network '
         log.debug('|')
         log.debug(f'|_{len(l)} {w} of type {a}')
-        sigmas, num = np.unique([n['sigma'] for n in l], return_counts=True)
-
-        sigma_s = ' '.join([f'{sigma} ({n})'
-                           for (sigma, n) in zip(sigmas, num)])
-        log.debug(f'| |_ sigma={sigma_s}')
 
     log.info('Is trained and is tested (*) or will be (.)')
     log.info('|ood is tested (*) or will be (.)')
@@ -293,12 +264,8 @@ if __name__ == '__main__':
     n_ood_computed = 0
     n_ood_to_be_computed = 0
     testsets =  set()
-    sigmas =  set()
     archs =  {}
 
-
-    # for d in filters:
-    #     print('l302', d, ':', ','.join([str(f) for f in filters[d]]))
     networks_to_be_studied = []
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters] ,[])
@@ -320,8 +287,7 @@ if __name__ == '__main__':
                                      dry_run=True,
                                      min_test_sample_size=min_test_sample_size,
                                      batch_size=batch_size,
-                                     unfinished=unfinished_training,
-                                     min_epochs=epochs)
+                                     unfinished=unfinished_training)
         
         is_enough_trained = is_tested is not None
         will_be_tested = is_enough_trained and not is_tested
@@ -358,8 +324,8 @@ if __name__ == '__main__':
             is_derailed = os.path.exists(derailed)
             if not is_derailed:
                 enough_trained.append(n)
-                sigmas.add(n['sigma'])
                 testsets.add(n['set'])
+
                 if n['set'] in archs:
                     archs[n['set']].add(n['arch'])
                 else:
@@ -446,7 +412,26 @@ if __name__ == '__main__':
             _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
                                                        trained_set,
                                                        transformer)
-        
+
+            sample_dir = os.path.join(n['dir'], 'samples')
+            samples = {int(_): _ for _ in os.listdir(sample_dir) if _.isnumeric()}
+            last_sample = max(samples)
+            # TO BE CONTINUED
+
+            recorders = {}
+            if last_sample >= jvae.trained - train_tolerance:
+                try:
+                    f = os.path.join(sample_dir,
+                                     samples[last_sample],
+                                     f'record-{testset.name}.pth)')
+
+                    recorders[testset.name] = LossRecorder.load(f)
+                except Exception as e:
+                    log.warning(str(e))
+
+            if testset.name not in recorders:
+                recorders[testset.name] = LossRecorder()
+                    
             test_accuracy_if(jvae=n['net'],
                              testset=testset,
                              unfinished=unfinished_training,
@@ -454,6 +439,7 @@ if __name__ == '__main__':
                              min_test_sample_size=min_test_sample_size,
                              batch_size=batch_size,
                              dict_of_sets=dict_of_sets,
+                             recorder=recoorders[testset.name]
                              method='all')
 
             if ood_sample_size:

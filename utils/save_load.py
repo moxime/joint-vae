@@ -31,7 +31,7 @@ def create_file_for_job(number, directory, filename, mode='w'):
     if not os.path.exists(directory):
         os.makedirs(directory)
     filepath = os.path.join(directory, filename)
-
+    
     return open(filepath, mode)
 
 
@@ -246,23 +246,34 @@ class LossRecorder:
 
         self.reset()
 
-        self._samples = num_batch * batch_size
-        self._num_batch = num_batch
+        self._num_batch = 0
+        self._samples = 0
+        
         self.batch_size = batch_size
 
-        
         self._tensors={}
-        
-        if not device:
-            device = next(iter(tensors.values())).device
 
         self.device=device
 
+        if tensors:
+            self._create_tensors(num_batch, device=device, **tensors)
+            
+    def _create_tensors(self, num_batch, device=None, **tensors):
+
+        assert not self._tensors
+        self._num_batch = num_batch
+        self._samples = num_batch * batch_size
+        
         for k, t in tensors.items():
             shape = t.shape[:-1] + (self._samples,)
             self._tensors[k] = torch.zeros(shape,
                                            dtype=t.dtype,
                                            device=self.device)
+
+        if not device and not self.device:
+            device = next(iter(tensors.values())).device
+
+        self.device=device
 
     def reset(self):
 
@@ -328,6 +339,9 @@ class LossRecorder:
     @num_batch.setter
     def num_batch(self, n):
 
+        if not self._tensors:
+            return
+        
         first_tensor = next(iter(self._tensors.values()))
         height = first_tensor.shape[-1]
         n_sample = n * self.batch_size
@@ -373,6 +387,9 @@ class LossRecorder:
     
     def append_batch(self, extend=True, **tensors):
 
+        if not self._tensors:
+            self._create_tensors(1, **tensors)
+            
         start = self._recorded_batches * self.batch_size
         end = start + self.batch_size
 
@@ -839,11 +856,11 @@ if __name__ == '__main__':
     
     tensors = {k: torch.randn(*dim[k], 7, device=device) for k in dim}
     
-    r = LossRecorder(batch_size, **tensors)    
+    r = LossRecorder(batch_size)  # , **tensors)    
     r.num_batch = 4
     r.epochs = 10
     
-    for _ in range(r.num_batch - 1):
+    for _ in range(3):
         r.append_batch(**{k: torch.randn(*dim[k], batch_size) for k in dim})
 
     r.save('/tmp/r.pth')

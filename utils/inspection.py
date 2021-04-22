@@ -90,7 +90,7 @@ def latent_distribution(mu_z, var_z, result_type='hist_of_var',
 
         plot, write, close = _create_output(output, pltf='scatter')
         plot(x, y)
-        write(f'{x_title}   {y_title}')
+        write(f'{x_title}   {y_title}\n')
         for a, b in zip(x, y):
             write(f'{a:-13.6e} {b:-12g}\n')
         close()

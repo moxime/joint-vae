@@ -738,7 +738,7 @@ class ClassificationVariationalNetwork(nn.Module):
         return dist_measures
 
     def compute_max_batch_size(self, batch_size=1024, which='all'):
-        if which=='all':
+        if which == 'all':
             self.compute_max_batch_size(batch_size, which='train')
             self.compute_max_batch_size(batch_size, which='test')
             return
@@ -747,10 +747,11 @@ class ClassificationVariationalNetwork(nn.Module):
         if 'max_batch_sizes' not in self.training:
             self.training['max_batch_sizes'] = {}
             
-        training = which=='train'  
+        training = which == 'train'
 
         x = torch.randn(batch_size, *self.input_shape, device=self.device)
         y = torch.ones(batch_size, dtype=int, device=self.device) if training else None
+
         while batch_size > 2:
             x = x[:batch_size]
             if y is not None:
@@ -780,11 +781,11 @@ class ClassificationVariationalNetwork(nn.Module):
                               which)
                 _s = str(e).split('\n')[0]
                 logging.debug(_s)
-                batch_size//=2
+                batch_size //= 2
                 
     @property
     def max_batch_sizes(self):
-        logging.debug('Calling max bathc size')
+        logging.debug('Calling max batch size')
         max_batch_sizes = self.training.get('max_batch_sizes', {})
         if max_batch_sizes:
             return max_batch_sizes

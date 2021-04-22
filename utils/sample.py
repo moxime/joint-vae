@@ -202,15 +202,20 @@ if __name__ == '__main__':
         shell = find_by_job_number('jobs', j, load_net=False)[j]
         net = Net.load(shell['dir'])
         print('done')
-        dataset, transformer = (shell['net'].training[k] for k in ('set', 'transformer'))
-        _, testset = tl.get_dataset(dataset=shell['set'], transformer=transformer)
-        x['i'], y['i'] = tl.get_batch(testset,device=device, batch_size=m)
-        _, oodset = tl.get_dataset(testset.same_size[0], transformer=transformer)
-        x['o'], y['o'] = tl.get_batch(oodset, device=device, batch_size=m)
+        testset, transformer = (shell['net'].training[k] for k in ('set', 'transformer'))
+        _, test_dataset = tl.get_dataset(testset, transformer=transformer)
+        x[testset], y[testset] = tl.get_batch(testset, device=device, batch_size=m)
+
+        oodsets = test_dataset.same_size
+
+        for o in oodsets:
+            _, ood_dataset = tl.get_dataset(o, transformer=transformer)
+            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=m)
+
         net.to(device)
 
-    list_of_images = sample(net, x['i'], root=root,
-                            directory='test',
+    list_of_images = sample(net, x[testset], root=root,
+                            directory=testset,
                             N=10, L=L)
     list_of_images = sample(net, x['o'], root=root,
                             directory='ood', N=10, L=L)

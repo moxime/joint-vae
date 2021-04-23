@@ -251,9 +251,9 @@ class LossRecorder:
         
         self.batch_size = batch_size
 
-        self._tensors={}
+        self._tensors = {}
 
-        self.device=device
+        self.device = device
 
         if tensors:
             self._create_tensors(num_batch, device=device, **tensors)
@@ -262,18 +262,19 @@ class LossRecorder:
 
         assert not self._tensors
         self._num_batch = num_batch
-        self._samples = num_batch * batch_size
+        self._samples = num_batch * self.batch_size
         
+        if not device and not self.device:
+            device = next(iter(tensors.values())).device
+
+        self.device = device
+
         for k, t in tensors.items():
             shape = t.shape[:-1] + (self._samples,)
             self._tensors[k] = torch.zeros(shape,
                                            dtype=t.dtype,
                                            device=self.device)
 
-        if not device and not self.device:
-            device = next(iter(tensors.values())).device
-
-        self.device=device
 
     def reset(self):
 
@@ -349,11 +350,13 @@ class LossRecorder:
         if n_sample > height:
             d_h = n_sample - height
             for k in self._tensors:
-                    t = self._tensors[k]
-                    z = torch.zeros(t.shape[:-1] + (d_h,),
-                                    dtype=t.dtype,
-                                    device=self.device)
-                    self._tensors[k] = torch.cat([t, z], axis=-1)
+
+                t = self._tensors[k]
+                # print('sl353:', 'rec', self.device, k, t.device)
+                z = torch.zeros(t.shape[:-1] + (d_h,),
+                                dtype=t.dtype,
+                                device=self.device)
+                self._tensors[k] = torch.cat([t, z], axis=-1)
                     
         self._num_batch = n
         self._samples = n * self.batch_size
@@ -395,14 +398,15 @@ class LossRecorder:
 
         if end > self._samples:
             if extend:
-                self.num_batch *=2
+                self.num_batch *= 2
             else:
                 raise IndexError
         
         for k in tensors:
             if k not in self.keys():
                 raise KeyError(k)
-            self._tensors[k][...,start:end] = tensors[k]
+            self._tensors[k][..., start:end] = tensors[k]
+            # print('sl:396', 'rec', self.device, k, tensors[k].device)  # 
                                                     
         self._recorded_batches += 1
     

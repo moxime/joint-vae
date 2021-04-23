@@ -26,6 +26,7 @@ def suppress_stdout():
             yield
         finally:
             sys.stdout = orig
+
             
 @contextmanager
 def stdout_as_debug():
@@ -49,10 +50,9 @@ def modify_getter(getter, pretransform=None, **added_kw):
 
         
 def choose_device(device=None):
-    """
-
-    if device is None, returns cuda or cpu if not available.
+    """if device is None, returns cuda or cpu if not available.
     else returns device
+
     """    
 
     if device is None:
@@ -61,6 +61,7 @@ def choose_device(device=None):
         device = torch.device('cuda' if has_cuda else 'cpu')
 
     return device
+
 
 cifar_shape = (3, 32 , 32)
 mnist_shape = (1, 28, 28)
@@ -84,6 +85,7 @@ set_dict['fashion'] = set_dict['mnist'].copy()
 set_dict['fashion']['getter'] = datasets.FashionMNIST
 set_dict['fashion']['classes'] = datasets.FashionMNIST.classes
 
+
 set_dict['letters'] = set_dict['mnist'].copy()
 
 pretransform = transforms.Compose([
@@ -94,24 +96,32 @@ set_dict['letters'].update({'classes': list(string.ascii_lowercase),
                             'labels': 26,
                             'getter': modify_getter(datasets.EMNIST,
                                                     pretransform=pretransform,
-                                                    split='letters')
-})
+                                                    split='letters')})
 
 
-# set_dict['lsun-c'] = set_dict['cufar10'].copy()
+set_dict['lsunc'] = set_dict['cifar10'].copy()
 
-# crop_transform = transforms.RandomCrop((32, 32))
+crop_transform = transforms.RandomCrop((32, 32))
+resize_transform = transforms.Resize((32, 32))
 
+def _lsun_getter(train=True, download=True, root='./data', **kw):
 
-"""
-def _lsun_getter(train=True, **kw):
-    set_ = datasets.LSUN(classes='train' if train else 'test', **kw)
+    if train:
+        return None
     
-set_dict['lsun'] = set_dict['cifar10'].copy()
-set_dict['lsun'].pop('means')
-set_dict['lsun'].pop('stds')
-set_dict['lsun']['getter'] = datasets.LSUN
-"""
+    root = os.path.join(root, 'lsun')
+    set_ = datasets.LSUN(classes='test', root=root, **kw)
+    return set_
+    
+set_dict['lsunc'] = set_dict['cifar10'].copy()
+set_dict['lsunc'].pop('means')
+set_dict['lsunc'].pop('stds')
+set_dict['lsunc'].pop('classes')
+set_dict['lsunc']['getter'] = modify_getter(_lsun_getter, pretransform=crop_transform)
+
+set_dict['lsunr'] = set_dict['lsunc'].copy()
+set_dict['lsunr']['getter'] = modify_getter(_lsun_getter, pretransform=resize_transform)
+
 
 def _svhn_getter(train=True, **kw):
     set_ = datasets.SVHN(split='train' if train else 'test', **kw)    
@@ -174,11 +184,12 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
                          transform=transform)
 
     for s in (trainset, testset):
-        s.name = dataset
-        s.same_size = same_size
-        s.transformer = transformer
-        C = set_dict[dataset]['labels']
-        s.classes = set_dict[dataset].get('classes', [str(i) for i in range(C)])
+        if s is not None:
+            s.name = dataset
+            s.same_size = same_size
+            s.transformer = transformer
+            C = set_dict[dataset]['labels']
+            s.classes = set_dict[dataset].get('classes', [str(i) for i in range(C)])
     
     return trainset, testset
 
@@ -194,10 +205,12 @@ def get_fashion_mnist(**kw):
         print('get it')
         return get_dataset(dataset='fashion', **kw)
     
+
 def get_svhn(**kw):
 
     return get_dataset(dataset='svhn', **kw)
     
+
 def get_cifar10(**kw):
 
     return get_dataset(dataset='cifar10', **kw)
@@ -215,6 +228,7 @@ def get_batch(dataset, shuffle=True, batch_size=100, device=None):
     
     return data[0].to(device), data[1].to(device)
 
+
 def get_shape(dataset):
     loader = torch.utils.data.DataLoader(dataset,
                                          batch_size=1)
@@ -224,6 +238,7 @@ def get_shape(dataset):
     num_labels = len(dataset.classes)
     
     return tuple(data[0][0].shape), num_labels
+
 
 def get_shape_by_name(set_name, transform='default'):
 

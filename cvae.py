@@ -161,6 +161,8 @@ class ClassificationVariationalNetwork(nn.Module):
         
         logging.debug('y is%s coded', '' if self.y_is_coded else ' not')
 
+        self._measures = {}
+        
         self.force_cross_y = force_cross_y
         if not self.y_is_decoded and not force_cross_y:
             classifier_layer_sizes = []
@@ -1102,9 +1104,8 @@ class ClassificationVariationalNetwork(nn.Module):
             test_iterator = iter(loader)
             for i in range(num_batch[s]):
 
-                data = next(test_iterator)
-
                 if not recorded[s]:
+                    data = next(test_iterator)
                     x = data[0].to(device)
                     y = data[1].to(device)
                     with torch.no_grad():
@@ -1175,9 +1176,8 @@ class ClassificationVariationalNetwork(nn.Module):
             
             for i in range(ood_n_batch):
 
-                data = next(test_iterator)
-
                 if not recorded[s]:
+                    data = next(test_iterator)
                     x = data[0].to(device)
                     y = data[1].to(device)
                     with torch.no_grad():

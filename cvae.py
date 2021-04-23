@@ -841,7 +841,6 @@ class ClassificationVariationalNetwork(nn.Module):
             
         recorded = recorder is not None and len(recorder) >= num_batch
         recording = recorder is not None and len(recorder) < num_batch
-
         
         if recorded:
             logging.debug('Losses already recorded')
@@ -958,6 +957,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 preambule=print_result)
         self.test_loss = mean_loss
 
+
         if recording:
             logging.debug('Saving examples in' + ', '.join(sample_dirs))
 
@@ -1069,6 +1069,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if recorded[s]:
                     logging.debug('Losses already computed for %s %s', s, recorders[s])
                 if recording[s]:
+                    recorders[s].reset()
                     recorders[s].num_batch = num_batch[s]
                     logging.debug('Recording session for %s %s', s, recorders[s])
                 
@@ -1128,6 +1129,14 @@ class ClassificationVariationalNetwork(nn.Module):
                                 time_per_i = t_per_i,
                                 batch_size=batch_size,
                                 preambule = testset.name)
+
+            if recording[s]:
+                for d in sample_dirs:
+                    f = os.path.join(d, f'record-{s}.pth')
+        
+                    recorders[s].save(f.format(s=s))
+        
+
                 
         keeped_tpr = [pc / 100 for pc in range(90, 100)]
         no_result = {'epochs': 0,
@@ -1225,10 +1234,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 a = self.ood_results
                 self.ood_results[oodset.name] = ood_results
 
-        for s in recording:
             if recording[s]:
                 for d in sample_dirs:
                     f = os.path.join(d, f'record-{s}.pth')
+        
                     recorders[s].save(f.format(s=s))
         
     def train(self,

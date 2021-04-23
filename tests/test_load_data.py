@@ -4,8 +4,8 @@ import torch
 import data.torch_load as torchdl
 import time
 
-device = torch.device('cuda')
 device = torch.device('cpu')
+device = torch.device('cuda')
 shuffle = False
 shuffle = True
 batch_size = 512
@@ -15,10 +15,11 @@ transformer = 'pad'
 transformer = 'default'
 
 trainset, testset = torchdl.get_dataset('letters', transformer=transformer)
+trainset, testset = torchdl.get_dataset('lsunc', transformer=transformer)
 
 testloader = torch.utils.data.DataLoader(testset,
                                          pin_memory=pin_memory,
-                                         num_workers=0,
+                                         num_workers=10,
                                          batch_size=batch_size,
                                          shuffle=shuffle)
 

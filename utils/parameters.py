@@ -359,6 +359,8 @@ def get_args_for_test():
     
     is_true = ParamFilter()
 
+    parser.add_argument('--job-id', type=int, default=0)
+
     parser.add_argument('--epochs',
                         dest='done',
                         action=FilterAction,

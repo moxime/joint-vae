@@ -209,7 +209,7 @@ if __name__ == '__main__':
     debug = args.debug
     verbose = args.verbose
 
-    log = set_log(verbose, debug, name='test')
+    log = set_log(verbose, debug, name='test', job_number=args.job_id)
     logging.debug('$ ' + ' '.join(sys.argv))
     if not args.force_cpu:
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

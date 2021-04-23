@@ -61,22 +61,27 @@ def latent_distribution(mu_z, var_z, result_type='hist_of_var',
     N = mu_z.shape[0]
     K = mu_z.shape[1]
     
+    per_dim = options.pop('per_dim', False)
     if result_type == 'hist_of_var':
         log_scale = options.pop('log_scale', False)
         data = var_z.log().cpu() if log_scale else var_z.cpu()
+        if per_dim:
+            data = data.mean(0)
         hist, bins = np.histogram(data, **options)
         if log_scale:
             bins = np.exp(bins)
 
         plot, write, close = _create_output(output, pltf='bar')
         plot(bins[:-1], hist, align='edge')
+        
         write('edge          num\n')
         for b, v in zip(bins[:-1], hist):
             write(f'{b:-13.6e} {v:-12g}\n')
+        write(f'{bins[-1]:-13.6e} {0:-12g}\n')
+
         close()
 
     if result_type == 'scatter':
-        per_dim = options.pop('per_dim', False)
         if per_dim:
             x_title = 'var_mu_z'
             y_title = 'mu_var_z'

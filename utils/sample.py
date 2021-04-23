@@ -228,7 +228,7 @@ if __name__ == '__main__':
             dir_path = os.path.join(job_to_str(net.job_number, root), s)
 
             f = os.path.join(dir_path, 'hist_var_z.dat')
-            latent_distribution(mu_z[s], var_z[s], result_type='hist_of_var', output=f)
+            latent_distribution(mu_z[s], var_z[s], result_type='hist_of_var', bins=bins, per_dim=True, output=f)
 
             f = os.path.join(dir_path, 'mu_z_var_z.dat')
             latent_distribution(mu_z[s], var_z[s], result_type='scatter', per_dim=True, output=f)

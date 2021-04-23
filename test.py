@@ -419,19 +419,20 @@ if __name__ == '__main__':
             # TO BE CONTINUED
 
             recorders = {}
+            all_sets = [testset.name] + testset.same_size
+            
             if last_sample >= jvae.trained - train_tolerance:
+                for s in all_set
                 try:
                     f = os.path.join(sample_dir,
                                      samples[last_sample],
-                                     f'record-{testset.name}.pth)')
+                                     f'record-{s}.pth)')
 
-                    recorders[testset.name] = LossRecorder.load(f)
+                    recorders[s] = LossRecorder.load(f)
                 except Exception as e:
+                    recorders[s] = LossRecorder()
                     log.warning(str(e))
 
-            if testset.name not in recorders:
-                recorders[testset.name] = LossRecorder()
-                    
             test_accuracy_if(jvae=n['net'],
                              testset=testset,
                              unfinished=unfinished_training,
@@ -455,6 +456,7 @@ if __name__ == '__main__':
                             min_test_sample_size=min_test_sample_size,
                             batch_size=batch_size,
                             dict_of_sets=dict_of_sets,
+                            recorders=recorders,
                             method='all')
             
             n['net'].save(n['dir'])

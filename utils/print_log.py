@@ -6,6 +6,7 @@ import pandas as pd
 import sys
 import re
 
+
 class EpochOutput:
 
     EVERY_BATCH = 20

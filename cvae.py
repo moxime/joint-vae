@@ -1253,8 +1253,8 @@ class ClassificationVariationalNetwork(nn.Module):
               fine_tuning=False,
               latent_sampling=None,
               sample_size=1000,
-              full_test_every=2,
-              ood_detection_every=2,
+              full_test_every=10,
+              ood_detection_every=10,
               train_accuracy=False,
               save_dir=None,
               outputs=EpochOutput(),
@@ -1413,7 +1413,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              epoch % full_test_every == 0)
 
                 ood_detection = ((epoch - done_epochs) and
-                             epoch % ood_detection_every == 0)
+                                 epoch % ood_detection_every == 0)
 
                 if (full_test or not epoch or ood_detection) and save_dir:
                     sample_dirs = [os.path.join(save_dir, 'samples', d)

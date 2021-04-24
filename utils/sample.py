@@ -11,7 +11,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import logging
 import os
-from utils.save_load import job_to_str
+from utils.save_load import job_to_str, LossRecorder
 from utils.inspection import latent_distribution
 
 from torchvision.utils import save_image
@@ -160,6 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--z-sample', type=int, default=z_sample)
     parser.add_argument('--bins', type=int, default=20)
+    parser.add_argument('--sync', action='store_true')
     
     a = parser.parse_args()
 
@@ -172,6 +173,10 @@ if __name__ == '__main__':
     root = a.directory
     z_sample = a.z_sample
     bins = a.bins
+
+    if a.sync:
+        r = LossRecorder(1)
+        computed_max_batch_size = False
     
     shells = find_by_job_number('jobs', *jobs, load_net=False)
 
@@ -189,10 +194,18 @@ if __name__ == '__main__':
         batch_size = min(m, net.compute_max_batch_size(batch_size=m, which='test'))
         print(f'done ({batch_size})')
 
+        if a.sync and computed_max_batch_size and  batch_size != computed_max_batch_size:
+            print("Let's assume you know what you're doing")
+            
+        computed_max_batch_size = batch_size
+
         z_sample = z_sample // batch_size * batch_size
 
         testset, transformer = (shells[j]['net'].training[k] for k in ('set', 'transformer'))
         _, test_dataset = tl.get_dataset(testset, transformer=transformer)
+
+        r.init_seed_for_dataloader()
+        
         x[testset], y[testset] = tl.get_batch(test_dataset, device=device, batch_size=z_sample)
 
         oodsets = test_dataset.same_size
@@ -205,7 +218,8 @@ if __name__ == '__main__':
             mu_z = {s: torch.zeros(z_sample, net.latent_dim) for s in x}
             var_z = {s: torch.zeros(z_sample, net.latent_dim) for s in x}
             log_var_z = torch.zeros(z_sample, net.latent_dim)
-
+            mse = torch.zeros(z_sample)
+            
         for s in x:
             print('sampling', s)
 
@@ -213,6 +227,9 @@ if __name__ == '__main__':
                                     directory=s,
                                     N=N, L=L - 2)
 
+            _q = [0.05, 0.1, 0.5, 0.9, 0.95]
+
+            print('qtl: ' + ' -- '.join(['{:8.2e}'] * len(_q)).format(*_q))
             for b in range(z_sample // batch_size):
 
                 start = b * batch_size
@@ -221,14 +238,21 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     out = net.evaluate(x[s][start:end], z_output=True)
 
-                _,  _, _, _, mu_z[s][start:end], log_var_z[start:end], _ = out
+                x_,  _, _, _, mu_z[s][start:end], log_var_z[start:end], _ = out
 
+                d_ = [_ for _ in range(1, x[s].dim())]
+                
+                mse[start:end] = (x_[0] - x[s][start:end]).pow(2).mean(d_)
+
+            q = np.quantile(mse.cpu(), _q)
+            print('mse: ' + ' -- '.join(['{:8.2e}'] * len(q)).format(*q))
             var_z[s] = log_var_z.exp()
 
             dir_path = os.path.join(job_to_str(net.job_number, root), s)
 
             f = os.path.join(dir_path, 'hist_var_z.dat')
-            latent_distribution(mu_z[s], var_z[s], result_type='hist_of_var', bins=bins, per_dim=True, output=f)
+            latent_distribution(mu_z[s], var_z[s], result_type='hist_of_var',
+                                bins=bins, per_dim=True, output=f)
 
             f = os.path.join(dir_path, 'mu_z_var_z.dat')
             latent_distribution(mu_z[s], var_z[s], result_type='scatter', per_dim=True, output=f)

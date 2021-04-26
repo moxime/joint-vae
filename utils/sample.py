@@ -20,7 +20,7 @@ import argparse
 
 
 def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory='test',
-           N=20, L=10):
+           N=20, L=10, iteration=False):
 
     if x is not None:
         N = min(N, len(x))
@@ -49,7 +49,7 @@ def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory=
         (D, H, W) = net.input_shape[-3:]
 
         x_grid = {'name': 'grid.png',
-                  'tensor': torch.zeros((D, 0, (L + 2) * W), device=x.device)}
+                  'tensor': torch.zeros((D, 0, L * W), device=x.device)}
                              
         with torch.no_grad(): 
             x_, y_, mu, log_var, z = net(x, y)
@@ -62,21 +62,33 @@ def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory=
                                    'tensor': x[row]})
             x_row = torch.cat([x_row, x[row]], 2)
                               
-            list_of_images.append({'name': f'x{row:0{wN}}_out_average.png',
-                                   'tensor': x_[1:].mean(0)[row]})
-            
-            x_row = torch.cat([x_row, x_[1:].mean(0)[row]], 2)
-
             list_of_images.append({'name': f'x{row:0{wN}}_out_mean.png',
                                    'tensor': x_[0][row]})
             x_row = torch.cat([x_row, x_[0][row]], 2)            
                 
-            for l_ in range(1, L):
-                list_of_images.append({'name':
-                                       f'x{row:0{wN}}_out_{l_:0{wL}}.png',
-                                       'tensor': x_[l_, row]})
-                x_row = torch.cat([x_row, x_[l_, row]], 2)
+
+            if not iteration:
+                list_of_images.append({'name': f'x{row:0{wN}}_out_average.png',
+                                       'tensor': x_[1:].mean(0)[row]})
+            
+                x_row = torch.cat([x_row, x_[1:].mean(0)[row]], 2)
                 
+                for l_ in range(1, L-2):
+                    list_of_images.append({'name':
+                                           f'x{row:0{wN}}_out_{l_:0{wL}}.png',
+                                           'tensor': x_[l_, row]})
+                    x_row = torch.cat([x_row, x_[l_, row]], 2)
+                    
+            else:
+
+                for l_ in range(1, L-1):
+                    x_, y_, mu, log_var, z = net(x_, y)
+                    list_of_images.append({'name':
+                                           f'x{row:0{wN}}_out_{l_:0{wL}}.png',
+                                           'tensor': x_[0, row]})
+                    x_row = torch.cat([x_row, x_[0, row]], 2)
+                    
+                    
             if row < N:
                 x_grid['tensor'] = torch.cat([x_grid['tensor'], x_row], 1)    
                                   
@@ -225,7 +237,7 @@ if __name__ == '__main__':
 
             list_of_images = sample(net, x[s][:N], root=root,
                                     directory=s,
-                                    N=N, L=L - 2)
+                                    N=N, L=L)
 
             _q = [0.05, 0.1, 0.5, 0.9, 0.95]
 

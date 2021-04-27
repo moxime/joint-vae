@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 
-from torchvision.transforms import ToPILImage
+from torchvision.transforms import ToPILImag
 
 
 def _create_output(o, pltf='plot'):
@@ -101,6 +101,11 @@ def latent_distribution(mu_z, var_z, result_type='hist_of_var',
         close()
 
 
+def losses_history():
+
+    
+
+        
 if __name__ == '__main__':
 
     plt.clf()

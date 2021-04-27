@@ -66,7 +66,6 @@ def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory=
                                    'tensor': x_[0][row]})
             x_row = torch.cat([x_row, x_[0][row]], 2)            
                 
-
             if not iteration:
                 list_of_images.append({'name': f'x{row:0{wN}}_out_average.png',
                                        'tensor': x_[1:].mean(0)[row]})
@@ -87,7 +86,6 @@ def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory=
                                            f'x{row:0{wN}}_out_{l_:0{wL}}.png',
                                            'tensor': x_[0, row]})
                     x_row = torch.cat([x_row, x_[0, row]], 2)
-                    
                     
             if row < N:
                 x_grid['tensor'] = torch.cat([x_grid['tensor'], x_row], 1)    

@@ -1865,7 +1865,8 @@ class ClassificationVariationalNetwork(nn.Module):
             if resave_arch:
                 save_load.save_json(vae.architecture, dir_name, 'architecture.json')
                 logging.debug('Architecture file saved')
-                
+        
+        vae.saved_dir = dir_name
         vae.trained = train_history['epochs']
         vae.train_history = train_history
 

@@ -52,7 +52,9 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
         K = arch['latent_dim'],
         L = net.training['latent_sampling'],
         encoder = '-'.join(str(w) for w in arch['encoder']),
+        encoderdepth = len(arch['encoder']),
         decoder = '-'.join(str(w) for w in arch['decoder']),
+        decoderdepth = len(arch['decoder']),
         features = arch.get('features', {}).get('name', 'none'),
         sigma = '{:x}'.format(net.sigma),
         beta = beta,
@@ -81,6 +83,7 @@ def export_losses(net_dict, which='loss',
     """
     net = net_dict['net']
     f = create_file(net.job_number, directory, filename)
+
     printout = create_printout(file_id=f, std=stdout)
 
     net = net_dict['net']
@@ -99,7 +102,8 @@ def export_losses(net_dict, which='loss',
     for entry in entries:
         if history.get(entry, []):
             for k in history[entry][0].keys():
-                columns[f'{entry}_{k}'.replace('_', '-')] = [v[k] for v in history[entry]]
+                columns[f'{entry}_{k}'.replace('_', '-')] = [v.get(k, np.nan)
+                                                             for v in history[entry]]
             
     col_width = max(col_width, 7)
     col_width = {c: max(len(c), col_width) for c in columns}

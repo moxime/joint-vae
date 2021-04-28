@@ -1,6 +1,6 @@
 from cvae import ClassificationVariationalNetwork
 import data.torch_load as dl
-from utils.save_load import find_by_job_number
+from utils.save_load import find_by_job_number, LossRecorder
 import torch
 from sklearn.metrics import auc, roc_curve
 import numpy as np
@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 
-from torchvision.transforms import ToPILImag
+# from torchvision.transforms import ToPILImag
 
 
 def _create_output(o, pltf='plot'):
@@ -44,6 +44,7 @@ def _create_output(o, pltf='plot'):
 
         def _plot(*a, **kw):
             getattr(o, pltf)(*a, **kw)
+
             return
         
     return _plot, _write, _close
@@ -72,7 +73,7 @@ def latent_distribution(mu_z, var_z, result_type='hist_of_var',
             bins = np.exp(bins)
 
         plot, write, close = _create_output(output, pltf='bar')
-        plot(bins[:-1], hist, align='edge')
+        plot(bins[:-1], hist, align='edge')  # 
         
         write('edge          num\n')
         for b, v in zip(bins[:-1], hist):
@@ -101,10 +102,43 @@ def latent_distribution(mu_z, var_z, result_type='hist_of_var',
         close()
 
 
-def losses_history():
-
+def losses_history(dict_of_losses,
+                   graph='histogram',  # or boxplot
+                   output=sys.stdout,
+                   **opt,):
     
+    bins = opt.pop('bins', 10)
+    quantiles = opt.pop('quantiles', [0.05, 0.25, 0.5, 0.75, 0.95])
 
+    if graph == 'histogram':
+        plot, write, close = _create_output(output,
+                                            pltf='bar',
+                                            # pltf='plot',
+        )
+
+        hist = {k: np.histogram(dict_of_losses[k], bins=bins) for k in dict_of_losses}        
+
+        write(' '.join(['edge-{k:<8} num-{k:<7}'.format(k=k) for k in dict_of_losses]))
+        write('\n')
+
+        for b in range(bins - 1):
+            write(' '.join(['{e:-13.6e} {v:-12g}'.format(e = hist[k][1][b],
+                                                           v = hist[k][0][b])
+                            for k in dict_of_losses]))
+            write('\n')
+            
+        write(' '.join(['{e:-13.6e} {v:-12g}'.format(e = hist[k][1][-1],
+                                                       v = 0)
+                        for k in dict_of_losses]))
+        write('\n')
+
+        for k in dict_of_losses:
+            plot(hist[k][1][:-1], hist[k][0], label=k) # , align='edge')
+        
+    if graph == 'boxplot':
+        plot, write, close = _create_output(output, pltf='boxplot')
+
+        
         
 if __name__ == '__main__':
 
@@ -115,15 +149,31 @@ if __name__ == '__main__':
     mu_z = torch.randn(N, K)
     var_z = (1 - mu_z)**2 + torch.randn(N, K)**2
 
+    dict_of_losses = {'svhn': svhn_r._tensors['total'].cpu(),
+                      'lsun': lsun_r._tensors['total'].cpu()}
+
+    # dict_of_losses.pop('svhn')
+
     output=None
     plot = True
     if plot:
         f, a = plt.subplots()
         output = a
-    
+    losses_history(dict_of_losses, bins=20)
+    losses_history(dict_of_losses, bins=200, output=output)
+
+    a.legend()
+
+    if plot:
+        f, a = plt.subplots()
+        output = a
+
     latent_distribution(mu_z, var_z,
                         # result_type='scatter',
-                        # per_dim=True,
+                        result_type='hist_of_var',
+                        per_dim=True,
                         output=output)
 
     plt.show()
+
+    

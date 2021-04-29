@@ -275,6 +275,10 @@ class LossRecorder:
                                            dtype=t.dtype,
                                            device=self.device)
 
+    def to(self, device):
+
+        for t in self._tensors:
+            self._tensors[t] = self._tensors[t].to(device)
 
     def reset(self):
 

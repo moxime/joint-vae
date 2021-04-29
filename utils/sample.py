@@ -135,36 +135,8 @@ def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory=
         save_image(image['tensor'], path)
         
     return list_of_images
-    
-
-def loss_comparisons(net, root='results/%j/losses', directory='classes'):
-
-    sample_directory = os.path.join(net.saved_dir, 'samples', 'last')
-
-    if not os.path.exists(sample_directory):
-        logging.warning(f'Net #{net.job_number} has no recorded loss')
-        return
-
-    testset = net.training['set']
-    datasets = [testset] + list(net.ood_results.keys())
-
-    recorders = {}
-    y_pred = {}
-    
-    for s in datasets:
-        try:
-            recorders[s] = LossRecorder.load(os.path.join(sample_directory, f'recorder-{s}.pth'))
-        except FileNotFoundError:
-            logging.warning(f'Recorder for set {s} does not exist')
-            return
-        losses = recorders[s]._tensors
-        logits = losses.pop('logits').T
-        y_pred[s] = net.predict_after_evaluate(losses, logits)
 
     
-
-
-
 if __name__ == '__main__':
 
     j = 111028
@@ -196,7 +168,8 @@ if __name__ == '__main__':
     parser.add_argument('-N', '--grid-height', type=int, default=N)
     parser.add_argument('-D', '--directory', default=root)
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--z-sample', type=int, default=z_sample)
+    parser.add_argument('--z-sample', type=int, default=0)
+    parser.add_argumet('--mse', type=int, default=0)
     parser.add_argument('--bins', type=int, default=20)
     parser.add_argument('--sync', action='store_true')
     

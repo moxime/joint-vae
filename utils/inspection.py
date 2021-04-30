@@ -217,7 +217,8 @@ def losses_distribution_graphs(dict_of_losses,
         write('{:20} '.format('which') + ' '.join([f'{a:14}' for a in alpha]) + '\n')
         for k in quantiles:
             write(f'{k:20} ' + ' '.join([f'{q:-14.7e}' for q in quantiles[k]]) + '\n')
-        
+
+        plt.boxplot(dict_of_losses.values(), labels=dict_of_losses.keys())
                 
 if __name__ == '__main__':
 

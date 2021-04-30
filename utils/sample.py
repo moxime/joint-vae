@@ -169,7 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('-D', '--directory', default=root)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--z-sample', type=int, default=0)
-    parser.add_argumet('--mse', type=int, default=0)
+    parser.add_argument('--mse', type=int, default=0)
     parser.add_argument('--bins', type=int, default=20)
     parser.add_argument('--sync', action='store_true')
     
@@ -191,8 +191,14 @@ if __name__ == '__main__':
     
     shells = find_by_job_number('jobs', *jobs, load_net=False)
 
+    adapt_L = not L
+    LL = 30
+    
     for j in shells:
 
+        if adapt_L:
+            L = LL // (2 + len(shells[j]['net'].ood_results))
+            
         x = dict()
         y = dict()
         print('loading state of', j, flush=True, end='...')
@@ -215,15 +221,16 @@ if __name__ == '__main__':
         testset, transformer = (shells[j]['net'].training[k] for k in ('set', 'transformer'))
         _, test_dataset = tl.get_dataset(testset, transformer=transformer)
 
-        r.init_seed_for_dataloader()
+        if a.sync:
+            r.init_seed_for_dataloader()
         
-        x[testset], y[testset] = tl.get_batch(test_dataset, device=device, batch_size=z_sample)
+        x[testset], y[testset] = tl.get_batch(test_dataset, device=device, batch_size=max(z_sample, N))
 
         oodsets = test_dataset.same_size
 
         for o in oodsets:
             _, ood_dataset = tl.get_dataset(o, transformer=transformer)
-            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=z_sample)
+            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=max(z_sample, N))
 
         if z_sample:
             mu_z = {s: torch.zeros(z_sample, net.latent_dim) for s in x}
@@ -238,35 +245,36 @@ if __name__ == '__main__':
                                     directory=s,
                                     N=N, L=L)
 
-            _q = [0.05, 0.1, 0.5, 0.9, 0.95]
+            if z_sample:
+                _q = [0.05, 0.1, 0.5, 0.9, 0.95]
 
-            print('qtl: ' + ' -- '.join(['{:8.2e}'] * len(_q)).format(*_q))
-            for b in range(z_sample // batch_size):
+                print('qtl: ' + ' -- '.join(['{:8.2e}'] * len(_q)).format(*_q))
+                for b in range(z_sample // batch_size):
 
-                start = b * batch_size
-                end = start + batch_size
+                    start = b * batch_size
+                    end = start + batch_size
 
-                with torch.no_grad():
-                    out = net.evaluate(x[s][start:end], z_output=True)
+                    with torch.no_grad():
+                        out = net.evaluate(x[s][start:end], z_output=True)
 
-                x_,  _, _, _, mu_z[s][start:end], log_var_z[start:end], _ = out
+                    x_,  _, _, _, mu_z[s][start:end], log_var_z[start:end], _ = out
 
-                d_ = [_ for _ in range(1, x[s].dim())]
-                
-                mse[start:end] = (x_[0] - x[s][start:end]).pow(2).mean(d_)
+                    d_ = [_ for _ in range(1, x[s].dim())]
 
-            q = np.quantile(mse.cpu(), _q)
-            print('mse: ' + ' -- '.join(['{:8.2e}'] * len(q)).format(*q))
-            var_z[s] = log_var_z.exp()
+                    mse[start:end] = (x_[0] - x[s][start:end]).pow(2).mean(d_)
 
-            dir_path = os.path.join(job_to_str(net.job_number, root), s)
+                q = np.quantile(mse.cpu(), _q)
+                print('mse: ' + ' -- '.join(['{:8.2e}'] * len(q)).format(*q))
+                var_z[s] = log_var_z.exp()
 
-            f = os.path.join(dir_path, 'hist_var_z.dat')
-            latent_distribution(mu_z[s], var_z[s], result_type='hist_of_var',
-                                bins=bins, per_dim=True, output=f)
+                dir_path = os.path.join(job_to_str(net.job_number, root), s)
 
-            f = os.path.join(dir_path, 'mu_z_var_z.dat')
-            latent_distribution(mu_z[s], var_z[s], result_type='scatter', per_dim=True, output=f)
+                f = os.path.join(dir_path, 'hist_var_z.dat')
+                latent_distribution(mu_z[s], var_z[s], result_type='hist_of_var',
+                                    bins=bins, per_dim=True, output=f)
+
+                f = os.path.join(dir_path, 'mu_z_var_z.dat')
+                latent_distribution(mu_z[s], var_z[s], result_type='scatter', per_dim=True, output=f)
 
         list_of_images = sample(net, root=root,
                                 directory='generate', N=N, L=L)

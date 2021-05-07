@@ -12,14 +12,14 @@ from matplotlib import pyplot as plt
 import logging
 import os
 from utils.save_load import job_to_str, LossRecorder
-from utils.inspection import latent_distribution
+from utils.inspection import output_latent_distribution
 
 from torchvision.utils import save_image
 
 import argparse
 
 
-def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory='test',
+def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
            N=20, L=10, iteration=False):
 
     if x is not None:
@@ -136,56 +136,132 @@ def sample(net, x=None, y=None, axis=None, root='results/%j/samples', directory=
         
     return list_of_images
 
+
+def zsample(x, net, batch_size=128, root='results/%j/samples', directory='test'):
+    """ TO BE DONE """
+
+    N = len(x)
+
+    mu_z = torch.zeros(z_sample, net.latent_dim)
+    var_z = torch.zeros(z_sample, net.latent_dim)
+    log_var_z = torch.zeros(z_sample, net.latent_dim)
+                       
+    for b in range(z_sample // batch_size):
+
+        start = b * batch_size
+        end = start + batch_size
+
+        with torch.no_grad():
+            out = net.evaluate(x[start:end], z_output=True)
+
+        x_,  _, _, _, mu_z[start:end], log_var_z[start:end], _ = out
+
+    var_z = log_var_z.exp()
+                       
+    dir_path = os.path.join(job_to_str(net.job_number, root), directory)
+
+    f = os.path.join(dir_path, 'hist_var_z.dat')
+    output_latent_distribution(mu_z, var_z, result_type='hist_of_var',
+                        bins=bins, per_dim=True, output=f)
+
+    f = os.path.join(dir_path, 'mu_z_var_z.dat')
+    output_latent_distribution(mu_z, var_z, result_type='scatter', per_dim=True, output=f)
+
     
+def comparison(x, *nets, batch_size=128, root='results/%j/samples', directory='ood'):
+
+    root = root.replace('%j', '-'.join(str(n.job_number) for n in nets))
+
+    for n in nets:
+        
+        n.to(x.device)
+        m = n.compute_max_batch_size(batch_size, 'test')
+        batch_size = min(m, batch_size)
+    logging.info('Batch size for comarpison: %s', batch_size)
+
+    N = x.shape[0] // batch_size * batch_size
+    jobs = [n.job_number for n in nets]
+    
+    x_ = {n.job_number: torch.zeros(N, *x.shape[1:]) for n in nets}
+    y_pred = {n.job_number: torch.zeros(N, dtype=int) for n in nets}
+                       
+    for n in nets:
+        j = n.job_number
+        for b in range(N // batch_size):
+
+            start = b * batch_size
+            end = start + batch_size
+            with torch.no_grad():
+                x__, logits, losses, _ = n.evaluate(x[start:end])
+                y_pred[j][start:end] = n.predict_after_evaluate(logits, losses)
+                x_[j][start:end] = x__[0]
+                       
+    div = {j: {jj: np.zeros(len(x)) for jj in jobs if jj > j} for j in jobs}
+    # div = np.zeros((len(nets), len(nets), len(x)))
+                       
+    for j in jobs:
+        for jj in [_ for _ in jobs if _ > j]:
+                       
+            div[j][jj] = (x_[j] - x_[jj]).pow(2).mean([_ for _ in range(1, x.dim())])
+                       
+            div[jj][j] = div[j][jj]
+
+    return div, y_pred
+
+
 if __name__ == '__main__':
 
     j = 111028
     j = 109103
     j = 37
     j = 111620
+
+    j_ = [114733, 112267]
     
     device = 'cuda'
 
     reload = True
     reload = False
 
-    N = 10
-    L = 10
+    N = 0
+    L = 0
     batch_size = 256
-    z_sample = 512
+    z_sample = 0
+    cross_sample = 1024
     
-    root = '/tmp/%j'
     root = 'results/%j/samples'
+    root = '/tmp/%j'
     
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-j', '--jobs', type=int,
                         nargs='+',
-                        default=[j],)
+                        default=j_,)
+                       
     parser.add_argument('-m', '--batch-size', type=int, default=batch_size)
     parser.add_argument('-L', '--grid-width', type=int, default=L)
     parser.add_argument('-N', '--grid-height', type=int, default=N)
     parser.add_argument('-D', '--directory', default=root)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--z-sample', type=int, default=0)
-    parser.add_argument('--mse', type=int, default=0)
     parser.add_argument('--bins', type=int, default=20)
     parser.add_argument('--sync', action='store_true')
-    
-    a = parser.parse_args()
+    parser.add_argument('--compare', type=int, default=cross_sample)
+                       
+    args = parser.parse_args()
 
-    if a.debug:
+    if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
-    jobs = a.jobs
-    L = a.grid_width
-    N = a.grid_height
-    m = a.batch_size
-    root = a.directory
-    z_sample = a.z_sample
-    bins = a.bins
-
-    if a.sync:
+    jobs = args.jobs
+    L = args.grid_width
+    N = args.grid_height
+    m = args.batch_size
+    root = args.directory
+    z_sample = args.z_sample
+    bins = args.bins
+    croos_sample = args.compare
+    
+    if args.sync:
         r = LossRecorder(1)
         computed_max_batch_size = False
     
@@ -193,88 +269,82 @@ if __name__ == '__main__':
 
     adapt_L = not L
     LL = 30
-    
-    for j in shells:
 
-        if adapt_L:
-            L = LL // (2 + len(shells[j]['net'].ood_results))
-            
-        x = dict()
-        y = dict()
-        print('loading state of', j, flush=True, end='...')
+    if z_sample or N:
+        for j in shells:
 
-        net = Net.load(shells[j]['dir'])
-        net.to(device)
-        print('done')
-        print('Compute max batch size', flush=True, end='...')
+            if adapt_L:
+                L = LL // (2 + len(shells[j]['net'].ood_results))
 
-        batch_size = min(m, net.compute_max_batch_size(batch_size=m, which='test'))
-        print(f'done ({batch_size})')
+            x = dict()
+            y = dict()
+            print('loading state of', j, flush=True, end='...')
 
-        if a.sync and computed_max_batch_size and  batch_size != computed_max_batch_size:
-            print("Let's assume you know what you're doing")
-            
-        computed_max_batch_size = batch_size
+            net = Net.load(shells[j]['dir'])
+            net.to(device)
+            print('done')
+            print('Compute max batch size', flush=True, end='...')
 
-        z_sample = z_sample // batch_size * batch_size
+            batch_size = min(m, net.compute_max_batch_size(batch_size=m, which='test'))
+            print(f'done ({batch_size})')
 
-        testset, transformer = (shells[j]['net'].training[k] for k in ('set', 'transformer'))
+            if args.sync and computed_max_batch_size and  batch_size != computed_max_batch_size:
+                print("Let's assume you know what you're doing")
+
+            computed_max_batch_size = batch_size
+            z_sample = z_sample // batch_size * batch_size
+
+            testset, transformer = (shells[j]['net'].training[k] for k in ('set', 'transformer'))
+            _, test_dataset = tl.get_dataset(testset, transformer=transformer)
+
+            if args.sync:
+                r.init_seed_for_dataloader()
+
+            x[testset], y[testset] = tl.get_batch(test_dataset, device=device,
+                                                  batch_size=max(z_sample, N))
+
+            oodsets = test_dataset.same_size
+
+            for o in oodsets:
+                _, ood_dataset = tl.get_dataset(o, transformer=transformer)
+                x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=max(z_sample, N))
+
+            for s in x:
+                print('sampling', s)
+
+                if N:
+                    list_of_images = sample(net, x[s][:N], root=root,
+                                            directory=s,
+                                            N=N, L=L)
+
+                if z_sample:
+
+                    zsample(x[s][:z_sample], net, batch_size, root=root, directory=s)
+
+            if N:
+                list_of_images = sample(net, root=root,
+                                        directory='generate', N=N, L=L)
+
+    if cross_sample:
+
+        first_net = next(iter(shells.values()))
+        testset, transformer = (first_net['net'].training[k] for k in ('set', 'transformer'))
         _, test_dataset = tl.get_dataset(testset, transformer=transformer)
 
-        if a.sync:
-            r.init_seed_for_dataloader()
+        x, y = {}, {}
         
-        x[testset], y[testset] = tl.get_batch(test_dataset, device=device, batch_size=max(z_sample, N))
+        x[testset], y[testset] = tl.get_batch(test_dataset, device=device, batch_size=cross_sample)
 
         oodsets = test_dataset.same_size
 
         for o in oodsets:
             _, ood_dataset = tl.get_dataset(o, transformer=transformer)
-            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=max(z_sample, N))
+            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=cross_sample)
 
-        if z_sample:
-            mu_z = {s: torch.zeros(z_sample, net.latent_dim) for s in x}
-            var_z = {s: torch.zeros(z_sample, net.latent_dim) for s in x}
-            log_var_z = torch.zeros(z_sample, net.latent_dim)
-            mse = torch.zeros(z_sample)
-            
+        nets = [Net.load(shells[j]['dir']) for j in shells]
+
+        div, y_pred = {}, {}
+        
         for s in x:
-            print('sampling', s)
 
-            list_of_images = sample(net, x[s][:N], root=root,
-                                    directory=s,
-                                    N=N, L=L)
-
-            if z_sample:
-                _q = [0.05, 0.1, 0.5, 0.9, 0.95]
-
-                print('qtl: ' + ' -- '.join(['{:8.2e}'] * len(_q)).format(*_q))
-                for b in range(z_sample // batch_size):
-
-                    start = b * batch_size
-                    end = start + batch_size
-
-                    with torch.no_grad():
-                        out = net.evaluate(x[s][start:end], z_output=True)
-
-                    x_,  _, _, _, mu_z[s][start:end], log_var_z[start:end], _ = out
-
-                    d_ = [_ for _ in range(1, x[s].dim())]
-
-                    mse[start:end] = (x_[0] - x[s][start:end]).pow(2).mean(d_)
-
-                q = np.quantile(mse.cpu(), _q)
-                print('mse: ' + ' -- '.join(['{:8.2e}'] * len(q)).format(*q))
-                var_z[s] = log_var_z.exp()
-
-                dir_path = os.path.join(job_to_str(net.job_number, root), s)
-
-                f = os.path.join(dir_path, 'hist_var_z.dat')
-                latent_distribution(mu_z[s], var_z[s], result_type='hist_of_var',
-                                    bins=bins, per_dim=True, output=f)
-
-                f = os.path.join(dir_path, 'mu_z_var_z.dat')
-                latent_distribution(mu_z[s], var_z[s], result_type='scatter', per_dim=True, output=f)
-
-        list_of_images = sample(net, root=root,
-                                directory='generate', N=N, L=L)
+            div[s], y_pred[s] = comparison(x[s], *nets, batch_size=batch_size, root=root, directory=s)

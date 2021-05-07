@@ -51,7 +51,7 @@ def _create_output(o, pltf='plot'):
     return _plot, _write, _close
     
 
-def latent_distribution(mu_z, var_z, result_type='hist_of_var',
+def output_latent_distribution(mu_z, var_z, result_type='hist_of_var',
                         output=sys.stdout, **options):
     r"""result_type can be:
 
@@ -120,17 +120,15 @@ def loss_comparisons(net, root='results/%j/losses'):
     losses = {}
     logits = {}
     y_pred = {}
+
+    recorders = LossRecorder.loadall(sample_directory, *datasets)
     
-    for s in datasets:
-        try:
-            r = LossRecorder.load(os.path.join(sample_directory, f'record-{s}.pth'))
+    for s in recorders:
+            r = recorders[s]
             r.to('cpu')
             losses[s] = r._tensors
             logits[s] = losses[s].pop('logits').T
-        except FileNotFoundError:
-            logging.warning(f'Recorder for set {s} does not exist')
-            return
-        y_pred[s] = net.predict_after_evaluate(logits[s], losses[s])
+            y_pred[s] = net.predict_after_evaluate(logits[s], losses[s])
         
     y_true = losses[testset].pop('y_true')
     i_miss = np.where(y_true != y_pred[testset])[0]
@@ -219,7 +217,24 @@ def losses_distribution_graphs(dict_of_losses,
             write(f'{k:20} ' + ' '.join([f'{q:-14.7e}' for q in quantiles[k]]) + '\n')
 
         plt.boxplot(dict_of_losses.values(), labels=dict_of_losses.keys())
-                
+
+# def net_comparisons(*nets):
+
+#     recorders = {}
+#     y_pred = {}
+    
+#     for n in nets:
+
+#         net_dir = n.saved_dir
+#         testset = n.training['set']
+#         datasets = [testset] + [s for s in n.ood_results]
+        
+#         recorders[n.job_number] = LossRecorder.loadall(net_dir, datasets)
+
+        
+#     common_sets = set.intersection(*[set(recorders[_].keys() for _ in recorders])
+                                   
+        
 if __name__ == '__main__':
 
     root = 'results/%j/losses'

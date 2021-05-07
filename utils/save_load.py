@@ -336,7 +336,21 @@ class LossRecorder:
                 setattr(r, k, dict_of_params[k])
             
         return r
-        
+
+    @classmethod
+    def loadall(cls, dir_path, *w, file_name='record-{w}.pth'):
+
+        r = {}
+
+        for word in w:
+            try:
+                f = file_name.format(w=word)
+                r[word] = LossRecorder.load(os.path.join(dir_path, f))
+            except FileNotFoundError:
+                logging.warning(f'{f} not found')
+                
+        return r
+    
     @property
     def num_batch(self):
         return self._num_batch
@@ -518,10 +532,13 @@ def collect_networks(directory,
         else:
             rmse = np.nan
 
-        nans = {'total': np.nan, 'zdist':np.nan}
-        loss_ = {s: ([nans] + history.get(s + '_loss', [nans]))[-1]
-                 for s in ('train', 'test')}        
-
+        nans = {'total': np.nan, 'zdist': np.nan}
+        loss_ = {}
+        for s in ('train', 'test'):
+            last_loss = ([nans] + history.get(s + '_loss', [nans]))[-1]
+            loss_[s] = nans.copy()
+            loss_[s].update(last_loss)
+        
         sigma = vae.sigma
         beta = vae.training['beta']
         if sigma.learned:
@@ -562,6 +579,7 @@ def collect_networks(directory,
                  sum(architecture.decoder) +
                  sum(architecture.classifier)) 
 
+        # print('TBR', architecture.type, vae.job_number, *loss_['test'].keys())
         vae_dict = {'net': vae,
                     'job': vae.job_number,
                     'type': architecture.type,

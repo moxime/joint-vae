@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import argparse
+import logging
 
 # from torchvision.transforms import ToPILImag
 
@@ -124,11 +125,11 @@ def loss_comparisons(net, root='results/%j/losses'):
     recorders = LossRecorder.loadall(sample_directory, *datasets)
     
     for s in recorders:
-            r = recorders[s]
-            r.to('cpu')
-            losses[s] = r._tensors
-            logits[s] = losses[s].pop('logits').T
-            y_pred[s] = net.predict_after_evaluate(logits[s], losses[s])
+        r = recorders[s]
+        r.to('cpu')
+        losses[s] = r._tensors
+        logits[s] = losses[s].pop('logits').T
+        y_pred[s] = net.predict_after_evaluate(logits[s], losses[s])
         
     y_true = losses[testset].pop('y_true')
     i_miss = np.where(y_true != y_pred[testset])[0]
@@ -166,7 +167,7 @@ def loss_comparisons(net, root='results/%j/losses'):
     for s in y_pred:
         n_pred[s] = [sum(y_pred[s] == c) for c in range(net.num_labels)]
 
-    f = os.path.join(root, f'predicted-classes-per-set.tab')
+    f = os.path.join(root, 'predicted-classes-per-set.tab')
     with open(f, 'w') as f:
 
         f.write(' '.join([f'{s:6}' for s in n_pred]) + '\n')
@@ -218,56 +219,48 @@ def losses_distribution_graphs(dict_of_losses,
 
         plt.boxplot(dict_of_losses.values(), labels=dict_of_losses.keys())
 
-# def net_comparisons(*nets):
 
-#     recorders = {}
-#     y_pred = {}
-    
-#     for n in nets:
-
-#         net_dir = n.saved_dir
-#         testset = n.training['set']
-#         datasets = [testset] + [s for s in n.ood_results]
-        
-#         recorders[n.job_number] = LossRecorder.loadall(net_dir, datasets)
-
-        
-#     common_sets = set.intersection(*[set(recorders[_].keys() for _ in recorders])
-                                   
-        
 if __name__ == '__main__':
 
     root = 'results/%j/losses'
-    root = '/tmp/%j/losses'    
 
     j = 112267
     
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-j', '--jobs', type=int,
-                        nargs='+',
-                        default=[j],)
+    parser.add_argument('jobs', type=int,
+                        nargs='+')
 
     parser.add_argument('--bins', type=int, default=20)
+    parser.add_argument('-D', '--dir', default=root)
 
-    a = parser.parse_args()
+    parser.add_argument('-p', '--plot', action='store_true')
+    
+    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('-v', action='count')
 
+    args_from_file = ['112267', '-D', '/tmp/%j/losses']
+    
+    args = parser.parse_args(None if sys.argv[0] else args_from_file)
     plt.clf()
     plt.close()
 
-    output=None
-    plot = False
-    if plot:
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    elif args.v:
+        logging.getLogger().setLevel(logging.WARNING if args.v==1 else logging.INFO)
+            
+    if args.plot:
         f, ax = plt.subplots()
         output = ax
 
-    print('loadind net', end='... ', flush=True)
-    nets = find_by_job_number('jobs', *a.jobs)
-    print('done, found', len(nets))
+    logging.info('loadind net', end='... ', flush=True)
+    nets = find_by_job_number(*args.jobs)
+    logging.info('done, found', len(nets))
     
     for net in nets:
 
-        loss_comparisons(nets[net]['net'], root=root)
+        loss_comparisons(nets[net]['net'], root=args.dir)
         
     # losses_distribution_graphs(dict_of_losses, bins=200, output=output)
 

@@ -647,7 +647,7 @@ def collect_networks(directory,
                   f'found in {shorten_path(directory)}')
 
 
-def find_by_job_number(*job_numbers, dir='jobs', load_net=True, **kw):
+def find_by_job_number(*job_numbers, dir='jobs', load_net=True, force_dict=False, **kw):
 
     from cvae import ClassificationVariationalNetwork
     d = {}
@@ -660,7 +660,7 @@ def find_by_job_number(*job_numbers, dir='jobs', load_net=True, **kw):
                 if load_net:
                     d[number]['net'] = ClassificationVariationalNetwork.load(v['dir'], **kw)
 
-    return d[job_numbers[0]] if len(job_numbers) == 1 else d
+    return d if len(job_numbers) > 1 or force_dict else d[job_numbers[0]]
 
 
 def save_features_upsampler(net, dir='.', name=''):

@@ -14,46 +14,74 @@ import logging
 # from torchvision.transforms import ToPILImag
 
 
-def _create_output(o, pltf='plot'):
+def _create_output(*outputs, pltf='plot'):
 
-    def _close(*a):
-        return
+    close_functions = []
+    write_functions = []
+    plot_functions = []
     
-    def _write(a):
-        return
+    # def _close(*a):
+    #     return
+    
+    # def _write(a):
+    #     return
+
+    # def _plot(*a, **kw):
+    #     return
+
+    for o in outputs:
+        if isinstance(o, type(sys.stdout)):
+
+            def _w(*a, **kw):
+                sys.stdout.write(*a)
+                return
+
+            write_functions.append(_w)
+
+        elif isinstance(o, str):
+            f = open(o, 'w')
+
+            def _c():
+                f.close()
+                return
+
+            close_functions.append(_c)
+            
+            def _w(*a, **kw):
+                # print('writing on', f)
+                f.write(*a, **kw)
+                return
+
+            write_functions.append(_w)
+            
+        elif isinstance(o, plt.Axes):
+
+            def _p(*a, **kw):
+                legend = kw.pop('legend', False)
+                getattr(o, pltf)(*a, **kw)
+                if legend:
+                    o.legend()
+                return
+
+            plot_functions.append(_p)
 
     def _plot(*a, **kw):
-        return
-    
-    if isinstance(o, type(sys.stdout)):
+        for f in plot_functions:
+            f(*a, **kw)
 
-        def _write(*a):
-            sys.stdout.write(*a)
-            return
-        
-    elif isinstance(o, str):
-        f = open(o, 'w')
+    def _write(*a, **kw):
+        for f in write_functions:
+            f(*a, **kw)
 
-        def _close():
-            f.close()
-            return
-        
-        def _write(a):
-            f.write(a)
-            return
-        
-    elif isinstance(o, plt.Axes):
-
-        def _plot(*a, **kw):
-            getattr(o, pltf)(*a, **kw)
-
-            return
-        
+    def _close(*a, **kw):
+        for f in close_functions:
+            f(*a, **kw)
+                
     return _plot, _write, _close
     
 
-def output_latent_distribution(mu_z, var_z, result_type='hist_of_var',
-                        output=sys.stdout, **options):
+def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
+                               **options):
     r"""result_type can be:
 
         -- hist_of_var: hisotgram of variance, options can be options
@@ -74,7 +102,7 @@ def output_latent_distribution(mu_z, var_z, result_type='hist_of_var',
         if log_scale:
             bins = np.exp(bins)
 
-        plot, write, close = _create_output(output, pltf='bar')
+        plot, write, close = _create_output(*outputs, pltf='bar')
         plot(bins[:-1], hist, align='edge')  # 
         
         write('edge          num\n')
@@ -96,7 +124,7 @@ def output_latent_distribution(mu_z, var_z, result_type='hist_of_var',
             x = mu_z.view(-1).cpu()
             y = var_z.view(-1).cpu()
 
-        plot, write, close = _create_output(output, pltf='scatter')
+        plot, write, close = _create_output(*outputs, pltf='scatter')
         plot(x, y)
         write(f'{x_title}   {y_title}\n')
         for a, b in zip(x, y):
@@ -104,8 +132,11 @@ def output_latent_distribution(mu_z, var_z, result_type='hist_of_var',
         close()
 
     
-def loss_comparisons(net, root='results/%j/losses'):
+def loss_comparisons(net, root='results/%j/losses', plot=False, **kw):
 
+    if plot == True:
+        plot = 'all'
+        
     sample_directory = os.path.join(net.saved_dir, 'samples', 'last')
     root = job_to_str(net.job_number, root)
     
@@ -145,23 +176,35 @@ def loss_comparisons(net, root='results/%j/losses'):
         losses[w] = {k: losses[testset][k][i] for k in losses[testset]}
 
     for k in ('total', 'cross_x', 'kl'):
-
+        logging.info('Distribution of %s', k)
         for graph in ('hist', 'boxp'):
-            f = os.path.join(root, f'losses-{k}-per-set-{graph}.tab')
-        
-            losses_distribution_graphs({s: losses[s][k] for s in losses},
-                                       graph=graph, output=f, bins=100)
+            f_ = f'losses-{k}-per-set'
+            f = os.path.join(root, f_ + f'-{graph}.tab')
+            a = None
+            if plot and plot == 'all' or plot.startswith(graph):
+                a = plt.figure(f_ + str(net.job_number)).subplots(1)
 
-    for k in losses[testset]:
+            losses_distribution_graphs({s: losses[s][k] for s in losses},
+                                       f, sys.stdout, a,
+                                       graph=graph,
+                                       **kw)
+
+    for k in ('total', 'cross_x', 'kl'): # losses[testset]:
+        logging.info('Distribution of %s per class', k)
         losses_per_class = {}
         for c in range(net.num_labels):
             pred_is_c = torch.where(y_pred[testset] == c)[0]
             losses_per_class[f'{c}'] = losses[testset][k][pred_is_c]
         for graph in ('hist', 'boxp'):
-            f = os.path.join(root, f'losses-{k}-per-class-{graph}.tab')
+            f_ = f'losses-{k}-per-class.tab'
+            f = os.path.join(root, f_ + f'-{graph}.tab')
+            a = None
+            if plot and plot == 'all' or plot.startswith(graph):
+                a = plt.figure(f_ + str(net.job_number)).subplots(1)
 
             losses_distribution_graphs(losses_per_class,
-                                       graph=graph, output=f, bins=100)
+                                       f, sys.stdout, a,
+                                       graph=graph, **kw)
             
     n_pred = {}
     for s in y_pred:
@@ -176,20 +219,22 @@ def loss_comparisons(net, root='results/%j/losses'):
 
             
 def losses_distribution_graphs(dict_of_losses,
+                               *outputs,
                                graph='histogram',  # or boxplot
-                               output=sys.stdout,
                                **opt,):
-    
+
     bins = opt.pop('bins', 10)
+    whis = opt.pop('whis', 1.5)
     
     alpha = opt.pop('quantiles', [0.05, 0.25, 0.5, 0.75, 0.95])
 
     if graph.startswith('hist'):
-        plot, write, close = _create_output(output,
-                                            pltf='bar',)
+        plot, write, close = _create_output(*outputs,
+                                            pltf='plot',)
                                             # pltf='plot',)
 
-        hist = {k: np.histogram(dict_of_losses[k], bins=bins) for k in dict_of_losses}        
+        hist = {k: np.histogram(dict_of_losses[k], bins=bins, density=True)
+                for k in dict_of_losses}        
 
         write(' '.join(['edge-{k:<8} num-{k:<7}'.format(k=k) for k in dict_of_losses]))
         write('\n')
@@ -206,10 +251,10 @@ def losses_distribution_graphs(dict_of_losses,
         write('\n')
 
         for k in dict_of_losses:
-            plot(hist[k][1][:-1], hist[k][0], label=k)  # , align='edge')
+            plot(hist[k][1][:-1], hist[k][0], label=k, legend=True)  # , align='edge')
         
     if graph.startswith('box'):
-        plot, write, close = _create_output(output, pltf='boxplot')
+        plot, write, close = _create_output(*outputs, pltf='boxplot')
 
         quantiles = {k: np.quantile(dict_of_losses[k], alpha) for k in dict_of_losses}
 
@@ -217,7 +262,7 @@ def losses_distribution_graphs(dict_of_losses,
         for k in quantiles:
             write(f'{k:20} ' + ' '.join([f'{q:-14.7e}' for q in quantiles[k]]) + '\n')
 
-        plt.boxplot(dict_of_losses.values(), labels=dict_of_losses.keys())
+        plot([l.numpy() for l in dict_of_losses.values()], labels=dict_of_losses.keys())
 
 
 if __name__ == '__main__':
@@ -234,7 +279,7 @@ if __name__ == '__main__':
     parser.add_argument('--bins', type=int, default=20)
     parser.add_argument('-D', '--dir', default=root)
 
-    parser.add_argument('-p', '--plot', action='store_true')
+    parser.add_argument('-p', '--plot', nargs='?', const='all')
     
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('-v', action='count')
@@ -250,18 +295,15 @@ if __name__ == '__main__':
     elif args.v:
         logging.getLogger().setLevel(logging.WARNING if args.v==1 else logging.INFO)
             
-    if args.plot:
-        f, ax = plt.subplots()
-        output = ax
-
-    logging.info('loadind net', end='... ', flush=True)
-    nets = find_by_job_number(*args.jobs)
-    logging.info('done, found', len(nets))
+    logging.info('loadind net...')
+    nets = find_by_job_number(*args.jobs, force_dict=True)
+    
+    logging.info('done, found %d nets', len(nets))
     
     for net in nets:
+        loss_comparisons(nets[net]['net'], root=args.dir, plot=args.plot, bins=args.bins)    
 
-        loss_comparisons(nets[net]['net'], root=args.dir)
-        
-    # losses_distribution_graphs(dict_of_losses, bins=200, output=output)
+    if args.plot:
+        plt.show(block=False)
 
-    
+    input()

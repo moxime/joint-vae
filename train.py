@@ -133,13 +133,13 @@ if __name__ == '__main__':
         sys.exit(0)
         
     if resume:
-        dataset, transformer = jvae.training['set'], jvae.training['transformer'] 
+        dataset, transformer = jvae.training_parameters['set'], jvae.training_parameters['transformer'] 
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
         oodsets = [torchdl.get_dataset(n, transformer=transformer)[1]
                    for n in testset.same_size]
-
-        data_augmentation = jvae.training['data_augmentation']
-        latent_sampling = jvae.training['latent_sampling']
+        
+        data_augmentation = jvae.training_parameters['data_augmentation']
+        latent_sampling = jvae.training_parameters['latent_sampling']
         
     else:
 
@@ -219,19 +219,19 @@ if __name__ == '__main__':
 
             #print('t.py l 302 testset:', testset.data[0].shape)
 
-            jvae.train(trainset,
-                       transformer=transformer,
-                       epochs=args.epochs,
-                       batch_size=batch_size,
-                       device=device,
-                       testset=testset,
-                       oodsets=oodsets,
-                       data_augmentation=data_augmentation,
-                       fine_tuning=args.fine_tuning,
-                       sample_size=test_sample_size,  # 10000,
-                       save_dir=save_dir,
-                       outputs=outputs,
-                       signal_handler = SIGHandler(1, 15))
+            jvae.train_model(trainset,
+                             transformer=transformer,
+                             epochs=args.epochs,
+                             batch_size=batch_size,
+                             device=device,
+                             testset=testset,
+                             oodsets=oodsets,
+                             data_augmentation=data_augmentation,
+                             fine_tuning=args.fine_tuning,
+                             sample_size=test_sample_size,  # 10000,
+                             save_dir=save_dir,
+                             outputs=outputs,
+                             signal_handler = SIGHandler(1, 15))
 
             log.info('Done training')
         else:

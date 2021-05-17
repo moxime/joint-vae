@@ -32,10 +32,10 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
     f = create_file(net.job_number, directory, filename) if filename else None
     printout = create_printout(file_id=f, std=stdout)
     arch = net.architecture
-    empty_optimizer = Optimizer([torch.nn.Parameter(torch.Tensor())], **net.training['optim'])
+    empty_optimizer = Optimizer([torch.nn.Parameter(torch.Tensor())], **net.training_parameters['optim'])
     oftype = net.architecture['type']
-    dict_var = net.training['dictionary_variance'] if oftype == 'cvae' else 0
-    beta = net.training['beta']
+    dict_var = net.training_parameters['dictionary_variance'] if oftype == 'cvae' else 0
+    beta = net.training_parameters['beta']
     
     sigmabeta = r'\ensuremath\sigma=' +f'{net.sigma}'.upper()
     if net.sigma.is_rmse:
@@ -43,23 +43,23 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
     
     net = net_dict['net']
     exported_values = dict(
-        oftype = oftype,
-        dataset = net.training['set'],
-        epochs = net.train_history['epochs'],
-        arch = net.print_architecture(excludes='type', sigma=True, sampling=True),
-        archcode = net_dict['arch_code'],
-        option = net.option_vector('-', '--'),
-        K = arch['latent_dim'],
-        L = net.training['latent_sampling'],
-        encoder = '-'.join(str(w) for w in arch['encoder']),
-        encoderdepth = len(arch['encoder']),
-        decoder = '-'.join(str(w) for w in arch['decoder']),
-        decoderdepth = len(arch['decoder']),
-        features = arch.get('features', {}).get('name', 'none'),
-        sigma = '{:x}'.format(net.sigma),
-        beta = beta,
-        dictvar = dict_var,
-        optimizer = '{:3x}'.format(empty_optimizer),
+        oftype=oftype,
+        dataset=net.training_parameters['set'],
+        epochs=net.train_history['epochs'],
+        arch=net.print_architecture(excludes='type', sigma=True, sampling=True),
+        archcode=net_dict['arch_code'],
+        option=net.option_vector('-', '--'),
+        K=arch['latent_dim'],
+        L=net.training_parameters['latent_sampling'],
+        encoder='-'.join(str(w) for w in arch['encoder']),
+        encoderdepth=len(arch['encoder']),
+        decoder='-'.join(str(w) for w in arch['decoder']),
+        decoderdepth=len(arch['decoder']),
+        features=arch.get('features', {}).get('name', 'none'),
+        sigma='{:x}'.format(net.sigma),
+        beta=beta,
+        dictvar=dict_var,
+        optimizer='{:3x}'.format(empty_optimizer),
         betasigma=sigmabeta,
         )
         
@@ -110,7 +110,7 @@ def export_losses(net_dict, which='loss',
                     
     type_of_net = net.architecture['type']
     arch = net.print_architecture(excludes=['type'])
-    training_set = net.training['set']
+    training_set = net.training_parameters['set']
     printout(f'# {type_of_net} {arch} for {training_set}')
 
     for c in columns:

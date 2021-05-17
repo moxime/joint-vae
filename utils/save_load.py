@@ -123,7 +123,7 @@ def print_architecture(o, sigma=False, sampling=False,
                        excludes=[], short=False):
 
     arch = ObjFromDict(o.architecture, features=None)
-    training = ObjFromDict(o.training)
+    training = ObjFromDict(o.training_parameters)
     
     def _l2s(l, c='-', empty='.'):
         if l:
@@ -176,7 +176,7 @@ def print_architecture(o, sigma=False, sampling=False,
 def option_vector(o, empty=' ', space=' '): 
 
     arch = ObjFromDict(o.architecture, features=None)
-    training = ObjFromDict(o.training, transformer='default')
+    training = ObjFromDict(o.training_parameters, transformer='default')
     v_ = []
     if arch.features:
         w = ''
@@ -464,7 +464,7 @@ def collect_networks(directory,
                                                     load_state=load_state,
                                                     **default_load_paramaters)
         architecture = ObjFromDict(vae.architecture, features=None)
-        training = ObjFromDict(vae.training,
+        training = ObjFromDict(vae.training_parameters,
                                transformer='default',
                                pretrained_upsampler=None)
         
@@ -480,7 +480,7 @@ def collect_networks(directory,
 
         batch_size = training.batch_size
         if not batch_size:
-            train_batch_size = vae.training.max_batch_sizes
+            train_batch_size = training.max_batch_sizes['train']
         else:
             train_batch_size = batch_size
 
@@ -493,7 +493,7 @@ def collect_networks(directory,
         else:
             best_accuracy = epochs_tested = n_tested = None
 
-        ood_sets = torchdl.get_same_size_by_name(vae.training['set'])
+        ood_sets = torchdl.get_same_size_by_name(vae.training_parameters['set'])
         if ood_methods:
             ood_fprs = {s: {} for s in ood_sets}
             ood_fpr = {s: None for s in ood_sets}
@@ -540,7 +540,7 @@ def collect_networks(directory,
             loss_[s].update(last_loss)
         
         sigma = vae.sigma
-        beta = vae.training['beta']
+        beta = vae.training_parameters['beta']
         if sigma.learned:
             sigma_train = 'learned'
             beta_sigma = rmse * np.sqrt(beta)
@@ -555,16 +555,16 @@ def collect_networks(directory,
             beta_sigma = sigma.value
 
         if architecture.type == 'cvae':
-            if vae.training['learned_coder']:
+            if vae.training_parameters['learned_coder']:
                 coder_dict = 'learned'
                 if history['train_measures']:
                     # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
                     dict_var = history['train_measures'][-1]['ld-norm']
                 else:
-                    dict_var = vae.training['dictionary_variance']
+                    dict_var = vae.training_parameters['dictionary_variance']
             else:
                 coder_dict = 'constant'
-                dict_var = vae.training['dictionary_variance']
+                dict_var = vae.training_parameters['dictionary_variance']
         else:
             coder_dict = None
             dict_var = 0.
@@ -586,7 +586,7 @@ def collect_networks(directory,
                     'arch': arch,
                     'dict_var': dict_var,
                     'coder_dict': coder_dict,
-                    'gamma': vae.training['gamma'],
+                    'gamma': vae.training_parameters['gamma'],
                     'arch_code': arch_code,
                     'features': architecture.features['name'] if architecture.features else 'none',
                     'dir': directory,
@@ -598,8 +598,8 @@ def collect_networks(directory,
                     'sigma_train': sigma_train,
                     'beta': beta,
                     'done': vae.train_history['epochs'],
-                    'epochs': vae.training['epochs'],
-                    'finished': vae.train_history['epochs'] >= vae.training['epochs'],
+                    'epochs': vae.training_parameters['epochs'],
+                    'finished': vae.train_history['epochs'] >= vae.training_parameters['epochs'],
                     'n_tested': n_tested,
                     'epochs_tested': epochs_tested,
                     'accuracies': accuracies,

@@ -146,7 +146,7 @@ def loss_comparisons(net, root='results/%j/losses', plot=False, **kw):
     if not os.path.exists(root):
         os.makedirs(root)
 
-    testset = net.training['set']
+    testset = net.training_parameters['set']
     datasets = [testset] + list(net.ood_results.keys())
 
     losses = {}

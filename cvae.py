@@ -288,7 +288,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.num_labels = num_labels
         self.input_dim = len(input_shape)
 
-        self.training = {} # 
+        self.training_parameters = {}  # 
         
         self.batch_norm = batch_norm
         
@@ -324,7 +324,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if features:
             self.architecture['features'] = features_arch
 
-        self.training = {
+        self.training_parameters = {
             'sigma': self.sigma.params,
             'beta': self.beta,
             'gamma': self.gamma,
@@ -350,7 +350,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.ood_results = {}
 
         self.optimizer = Optimizer(self.parameters(), **optimizer)
-        self.training['optim'] = self.optimizer.params
+        self.training_parameters['optim'] = self.optimizer.params
             
         self.train_history = {'epochs': 0}
 
@@ -746,8 +746,8 @@ class ClassificationVariationalNetwork(nn.Module):
             return
 
         logging.debug('Computing max batch size for %s', which)
-        if 'max_batch_sizes' not in self.training:
-            self.training['max_batch_sizes'] = {}
+        if 'max_batch_sizes' not in self.training_parameters:
+            self.training_parameters['max_batch_sizes'] = {}
             
         training = which == 'train'
 
@@ -773,7 +773,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     with torch.no_grad():
                         self.evaluate(x, y=y)
-                self.training['max_batch_sizes'][which] = batch_size // 2
+                self.training_parameters['max_batch_sizes'][which] = batch_size // 2
                 logging.debug('Found max batch size for %s : %s',
                               which, batch_size)
                 return batch_size // 2
@@ -788,7 +788,7 @@ class ClassificationVariationalNetwork(nn.Module):
     @property
     def max_batch_sizes(self):
         logging.debug('Calling max batch size')
-        max_batch_sizes = self.training.get('max_batch_sizes', {})
+        max_batch_sizes = self.training_parameters.get('max_batch_sizes', {})
         if max_batch_sizes:
             return max_batch_sizes
         self.compute_max_batch_size()
@@ -798,7 +798,7 @@ class ClassificationVariationalNetwork(nn.Module):
     def max_batch_sizes(self, v):
         assert 'train' in v
         assert 'test' in v
-        self.training['max_batch_sizes'] = v
+        self.training_parameters['max_batch_sizes'] = v
     
     def accuracy(self, testset=None,
                  batch_size=100,
@@ -821,7 +821,7 @@ class ClassificationVariationalNetwork(nn.Module):
         device = next(self.parameters()).device
         
         if not testset:
-            testset_name = self.training['set']
+            testset_name = self.training_parameters['set']
             _, testset = torchdl.get_dataset(testset_name)
         
         if method == 'all':
@@ -1021,8 +1021,8 @@ class ClassificationVariationalNetwork(nn.Module):
                             log=True):
 
         if not testset:
-            testset_name = self.training['set']
-            transformer = self.training['transformer']
+            testset_name = self.training_parameters['set']
+            transformer = self.training_parameters['transformer']
             _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
         
         if method=='all':
@@ -1240,30 +1240,30 @@ class ClassificationVariationalNetwork(nn.Module):
         
                     recorders[s].save(f.format(s=s))
         
-    def train(self,
-              trainset=None,
-              transformer=None,
-              data_augmentation=None,
-              optimizer=None,
-              epochs=50,
-              batch_size=100, device=None,
-              testset=None,
-              oodsets=None,
-              acc_methods=None,
-              fine_tuning=False,
-              latent_sampling=None,
-              sample_size=1000,
-              full_test_every=10,
-              ood_detection_every=10,
-              train_accuracy=False,
-              save_dir=None,
-              outputs=EpochOutput(),
-              signal_handler=SIGHandler()):
+    def train_model(self,
+                    trainset=None,
+                    transformer=None,
+                    data_augmentation=None,
+                    optimizer=None,
+                    epochs=50,
+                    batch_size=100, device=None,
+                    testset=None,
+                    oodsets=None,
+                    acc_methods=None,
+                    fine_tuning=False,
+                    latent_sampling=None,
+                    sample_size=1000,
+                    full_test_every=10,
+                    ood_detection_every=10,
+                    train_accuracy=False,
+                    save_dir=None,
+                    outputs=EpochOutput(),
+                    signal_handler=SIGHandler()):
         """
 
         """
         if epochs:
-            self.training['epochs'] = epochs
+            self.training_parameters['epochs'] = epochs
             
         if trainset:
         
@@ -1279,27 +1279,27 @@ class ClassificationVariationalNetwork(nn.Module):
 
         else:
             if trainset:
-                self.training['set'] = set_name
-                self.training['transformer'] = transformer
+                self.training_parameters['set'] = set_name
+                self.training_parameters['transformer'] = transformer
                 ss = trainset.data[0].shape
                 ns = self.input_shape
                 logging.debug(f'Shapes : {ss} / {ns}')
                 # assert ns == ss or ss == ns[1:]
         
             if batch_size:
-                self.training['batch_size'] = batch_size
+                self.training_parameters['batch_size'] = batch_size
 
             if latent_sampling:
                 self.latent_sampling = latent_sampling
-            self.training['latent_sampling'] = self.latent_sampling
+            self.training_parameters['latent_sampling'] = self.latent_sampling
 
             if data_augmentation:
-                self.training['data_augmentation'] = data_augmentation
+                self.training_parameters['data_augmentation'] = data_augmentation
         
-        assert self.training['set']
+        assert self.training_parameters['set']
 
-        set_name = self.training['set']
-        data_augmentation = self.training['data_augmentation']
+        set_name = self.training_parameters['set']
+        data_augmentation = self.training_parameters['data_augmentation']
         
         logging.debug(f'Getting {set_name}')
         trainset, testset = torchdl.get_dataset(set_name,
@@ -1571,7 +1571,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.train_history['lr'].append(self.optimizer.lr)
             self.trained += 1
             if fine_tuning:
-                self.training['fine_tuning'].append(epoch)
+                self.training_parameters['fine_tuning'].append(epoch)
 
             optimizer.update_lr()
 
@@ -1678,8 +1678,8 @@ class ClassificationVariationalNetwork(nn.Module):
     def has_same_training(self, other,
                           excludes=('epochs', 'batch_size', 'sampling')):
 
-        t1 = self.training
-        to = other.training
+        t1 = self.training_parameters
+        to = other.training_parameters
 
         for (t, t_) in ((t1, to), (to, t1)):
             for k in [i for i in t if i not in excludes]:
@@ -1695,11 +1695,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         done_epochs = self.trained
         if not epochs:
-            epochs = self.training['epochs']
+            epochs = self.training_parameters['epochs']
 
-        sampling = self.training['latent_sampling']
+        sampling = self.training_parameters['latent_sampling']
         if not set:
-            set = self.training['set']
+            set = self.training_parameters['set']
         s = f'{set}: {self.sigma} -- L={sampling} {done_epochs}/{epochs}'
         return s
 
@@ -1720,7 +1720,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         save_load.save_json(self.architecture, dir_name, 'params.json')
         save_load.save_json(self.architecture, dir_name, 'architecture.json')
-        save_load.save_json(self.training, dir_name, 'train.json')
+        save_load.save_json(self.training_parameters, dir_name, 'train.json')
         save_load.save_json(self.testing, dir_name, 'test.json')
         save_load.save_json(self.ood_results, dir_name, 'ood.json')
         save_load.save_json(self.train_history, dir_name, 'history.json')
@@ -1870,7 +1870,7 @@ class ClassificationVariationalNetwork(nn.Module):
         vae.trained = train_history['epochs']
         vae.train_history = train_history
 
-        vae.training = train_params
+        vae.training_parameters = train_params
         if loaded_test:
             vae.testing.update(testing)
 
@@ -2171,7 +2171,7 @@ if __name__ == '__main__':
     for net in (jvae, jvae2, jvae3):
         print(net.print_architecture(True, True))
 
-    print(jvae.training)
+    print(jvae.training_parameters)
     train_the_net(2, latent_sampling=3, sigma=2e-5)
     if save_dir is not None:
         jvae.save(save_dir)

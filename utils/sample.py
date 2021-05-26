@@ -233,7 +233,8 @@ if __name__ == '__main__':
     parser.add_argument('--bins', type=int, default=20)
     parser.add_argument('--sync', action='store_true')
     parser.add_argument('--compare', type=int, default=0)
-
+    parser.add_argument('--look-for-missed', type=int, default=0)
+    
     args_from_file = ['-D', '/tmp/%j/samples',
                       '--compare', '1024',
                       # '--debug',

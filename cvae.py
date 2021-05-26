@@ -364,6 +364,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self.output_activation = output_activation
             
         self.z_output = False
+
+        self.eval()
         
     def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
@@ -1497,7 +1499,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.save(save_dir)
 
             current_measures = {}
-            
+
             for i, data in enumerate(trainloader, 0):
 
                 # get the inputs; data is a list of [inputs, labels]
@@ -1557,7 +1559,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 time_per_i=t_per_i,
                                 batch_size=train_batch_size,
                                 end_of_epoch='\n')
-            
+
             train_measures = measures.copy()
             if testset:
                 self.train_history['test_accuracy'].append(test_accuracy)

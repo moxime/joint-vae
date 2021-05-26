@@ -45,6 +45,9 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
     exported_values = dict(
         oftype = oftype,
         dataset = net.training['set'],
+        oodsets = ','.join(net.ood_results.keys()),
+        noodsets = len(net.ood_results),
+        texoodsets = ', '.join(['\\' + o.rstrip(string.digits) for o in net.ood_results.keys()]),
         epochs = net.train_history['epochs'],
         arch = net.print_architecture(excludes='type', sigma=True, sampling=True),
         archcode = net_dict['arch_code'],

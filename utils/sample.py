@@ -138,7 +138,6 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
 
 
 def zsample(x, net, batch_size=128, root='results/%j/samples', directory='test'):
-    """ TO BE DONE """
 
     N = len(x)
 
@@ -161,11 +160,11 @@ def zsample(x, net, batch_size=128, root='results/%j/samples', directory='test')
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
 
     f = os.path.join(dir_path, 'hist_var_z.dat')
-    output_latent_distribution(mu_z, var_z, result_type='hist_of_var',
-                        bins=bins, per_dim=True, output=f)
+    output_latent_distribution(mu_z, var_z, f, result_type='hist_of_var',
+                        bins=bins, per_dim=True)
 
     f = os.path.join(dir_path, 'mu_z_var_z.dat')
-    output_latent_distribution(mu_z, var_z, result_type='scatter', per_dim=True, output=f)
+    output_latent_distribution(mu_z, var_z, f, result_type='scatter', per_dim=True)
 
     
 def comparison(x, *nets, batch_size=128, root='results/%j/samples', directory='ood'):
@@ -266,7 +265,7 @@ if __name__ == '__main__':
 
     logging.info('Will work in %s', root)
     
-    shells = find_by_job_number(*jobs, load_net=False)
+    shells = find_by_job_number(*jobs, load_net=False, force_dict=True)
 
     adapt_L = not L
     LL = 30

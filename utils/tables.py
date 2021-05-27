@@ -314,12 +314,13 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             # f.write(','.join([f'{{color={c}}}' for c in colors[:len(oodsets)]]))
             # f.write(r'}')
             # f.write('\n')
-                    
-            total_epochs = tab_df['done'].sum()
-            f.write(r'\def\totalepochs{')
-            f.write(f'{total_epochs}')
-            f.write(r'}')
-            f.write('\n')
+
+            if 'done' in tab_df:
+                total_epochs = tab_df['done'].sum()
+                f.write(r'\def\totalepochs{')
+                f.write(f'{total_epochs}')
+                f.write(r'}')
+                f.write('\n')
 
             file_code = hashlib.sha1(bytes(tab_file, 'utf-8')).hexdigest()[:6]
             f.write(r'\def\tabcode{')
@@ -344,8 +345,17 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
             f.write('\n')
 
-            f.write(r'\def\typeset#1{\pgfplotstabletypeset[columns={')
+            f.write(r'\def\typesetwithmeasures#1{\pgfplotstabletypeset[columns={')
             f.write(','.join(tab_cols))
+            # f.write('job,type')
+            f.write(r'},')
+            f.write(r'#1')
+            f.write(r']{\testtab}}')
+            f.write('\n')
+
+            tab_cols_wo_measures = [c for c in tab_cols if not c.startswith('measures')]
+            f.write(r'\def\typeset#1{\pgfplotstabletypeset[columns={')
+            f.write(','.join(tab_cols_wo_measures))
             # f.write('job,type')
             f.write(r'},')
             f.write(r'#1')

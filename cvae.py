@@ -151,7 +151,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self.is_xvae = type_of_net == 'xvae'
         
         self.y_is_coded = self.is_jvae or self.is_xvae
-        self.y_is_decoded = self.is_vib or self.is_jvae
+        # self.y_is_decoded = self.is_vib or self.is_jvae
+        self.y_is_decoded = not self.is_vae
 
         self.coder_has_dict = self.is_cvae or self.is_xvae
         
@@ -430,8 +431,12 @@ class ClassificationVariationalNetwork(nn.Module):
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
             x_output = self.imager(u)
-        
-        y_output = self.classifier(z)
+
+        if self.is_cvae:
+            y_output = self.classifier(z_mean.unsqueeze(0))
+        else:
+            y_output = self.classifier(z)
+            
         # y_output of size LxN1x...xKgxC
         # print('**** y_out', y_output.shape)
 
@@ -645,7 +650,11 @@ class ClassificationVariationalNetwork(nn.Module):
             # x_reco = x_reco.mean(0)
 
         # logging.debug('Losses computed')
-        out = (x_reco, y_est.mean(0), batch_losses, total_measures)
+        if self.is_cvae:
+            y_est_out = y_est
+        else:
+            y_est_out = y_est.mean(0) 
+        out = (x_reco, y_est_out, batch_losses, total_measures)
         if z_output:
             out += (mu, log_var, z)
         return out

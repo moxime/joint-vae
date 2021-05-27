@@ -78,7 +78,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vib': ('cross_y', 'kl', 'total')}
     
     predict_methods_per_type = {'jvae': ('loss', 'mean'),
-                                'cvae': ('loss', 'closest'),
+                                'cvae': ('closest',),
                                 'xvae': ('loss', 'closest'),
                                 'vae': (),
                                 'vib': ('esty',)}
@@ -152,7 +152,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         self.y_is_coded = self.is_jvae or self.is_xvae
         # self.y_is_decoded = self.is_vib or self.is_jvae
-        self.y_is_decoded = not self.is_vae
+        self.y_is_decoded = not self.is_vae and classifier_layer_sizes
 
         self.coder_has_dict = self.is_cvae or self.is_xvae
         
@@ -170,6 +170,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.x_is_generated:
             decoder_layer_sizes = []
             upsampler_channels = None
+
+        if self.y_is_decoded and 'esty' not in self.predict_methods:
+            self.predict_methods = ('esty',) + self.predict_methods
             
         # no upsampler if no features
         assert (not upsampler_channels or features)
@@ -480,12 +483,12 @@ class ClassificationVariationalNetwork(nn.Module):
         losses_computed_for_each_class = (self.losses_might_be_computed_for_each_class
                                           and not y_in_input)
 
+        y_is_built = losses_computed_for_each_class
+        
         C = self.num_labels
         
         if self.features:
             t = self.features(x)
-            # print('*** cvae:444 x:', *x.shape,
-            #      't:', *t.shape)
         else:
             t = x
 
@@ -500,22 +503,16 @@ class ClassificationVariationalNetwork(nn.Module):
         if x_repeated_along_classes:
             # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
             t = t.expand(C,  *t_shape)
+
+        if y_is_built:
             # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
-
-
-        if losses_computed_for_each_class:
             y_shape_per_class = (1,) + y_shape
             y = torch.cat([c * torch.ones(y_shape_per_class,
                                           dtype=int,
                                           device=x.device)
                            for c in range(C)], dim=0)
             y_shape = y.shape
-        
-        # _ = ('*',) if y is None else y.shape
-        # print('***', 'cvae:470',
-        #       'y:', *_,
-        #       't:', *t.shape)
-                
+
         y_in = y.view(y_shape) if self.y_is_coded else None
         
         if self.features:
@@ -577,14 +574,19 @@ class ClassificationVariationalNetwork(nn.Module):
 
         batch_losses['zdist'] = zdist
 
-        if not self.is_vae: # self.y_is_decoded or self.force_cross_y:
-            if y_in_input or (self.y_is_decoded and losses_computed_for_each_class):
-                y_target = y
-            else:
-                y_target = None
+        if not y_in_input and self.is_cvae and not self.y_is_decoded:
+            y_est = zdist.T
+                
+        # if not self.is_vae: # self.y_is_decoded or self.force_cross_y:
+        if self.y_is_decoded:   
 
-            batch_quants['cross_y'] = x_loss(y_target,
-                                             y_est if self.classifier else zdist.T,
+            if y_is_built and not self.y_is_coded:
+                y_in = None
+            else:
+                y_in = y
+                
+            batch_quants['cross_y'] = x_loss(y_in,
+                                             y_est,
                                              batch_mean=False)
 
             # print('*** cvae:545 cross_y', *batch_quants['cross_y'].shape)
@@ -622,7 +624,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_losses['total'] += batch_losses['cross_x'] 
             
-        if not self.is_vae:  # self.y_is_decoded or self.force_cross_y:
+        if self.y_is_decoded or self.force_cross_y:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',
                   'y', *batch_losses['cross_y'].shape,
@@ -633,7 +635,8 @@ class ClassificationVariationalNetwork(nn.Module):
             #      'Xy:', *batch_losses['cross_y'].shape)
             
             if self.y_is_decoded:
-                batch_losses['total'] = batch_losses['total'] + batch_losses['cross_y']
+                g = self.gamma if self.is_cvae else 1
+                batch_losses['total'] = batch_losses['total'] + g * batch_losses['cross_y']
                 
         batch_losses['kl'] = batch_quants['latent_kl']
         
@@ -651,7 +654,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         # logging.debug('Losses computed')
         if self.is_cvae:
-            y_est_out = y_est
+            y_est_out = y_est.mean(0)
         else:
             y_est_out = y_est.mean(0) 
         out = (x_reco, y_est_out, batch_losses, total_measures)
@@ -1534,7 +1537,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if self.force_cross_y and not self.y_is_decoded:
                     L += self.force_cross_y * batch_losses['cross_y'].mean()
 
-                if self.gamma:
+                if self.gamma and not self.y_is_decoded:
                     dict_var = self.encoder.latent_dictionary.pow(2).mean()
                     log2 = np.log(2)
                     

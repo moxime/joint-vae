@@ -131,10 +131,10 @@ def x_loss(y_target, logits, batch_mean=True):
     C = logits.shape[-1]
     L = logits.shape[0]
 
-    y_ = y_target.reshape(1, -1).repeat(L ,1).reshape(-1)
+    y_ = y_target.reshape(1, -1).repeat(L, 1).reshape(-1)
     logits_ = logits.reshape(-1, C)
 
-    print('losses:134 L=', L, 'C=', C, 'shapes', 'L', *logits.shape ,'T', *y_target.shape) 
+    # print('losses:134 L=', L, 'C=', C, 'shapes', 'L', *logits_.shape, 'T', *y_.shape) 
     
     if batch_mean:
         return F.cross_entropy(logits_, y_)

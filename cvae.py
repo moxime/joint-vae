@@ -365,7 +365,7 @@ class ClassificationVariationalNetwork(nn.Module):
             
         self.z_output = False
 
-        self.eval()
+        # self.eval()
         
     def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.

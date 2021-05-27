@@ -181,7 +181,7 @@ def loss_comparisons(net, root='results/%j/losses', plot=False, **kw):
             f_ = f'losses-{k}-per-set'
             f = os.path.join(root, f_ + f'-{graph}.tab')
             a = None
-            if plot and plot == 'all' or plot.startswith(graph):
+            if plot and (plot == 'all' or plot.startswith(graph)):
                 a = plt.figure(f_ + str(net.job_number)).subplots(1)
 
             losses_distribution_graphs({s: losses[s][k] for s in losses},
@@ -199,7 +199,7 @@ def loss_comparisons(net, root='results/%j/losses', plot=False, **kw):
             f_ = f'losses-{k}-per-class.tab'
             f = os.path.join(root, f_ + f'-{graph}.tab')
             a = None
-            if plot and plot == 'all' or plot.startswith(graph):
+            if plot and (plot == 'all' or plot.startswith(graph)):
                 a = plt.figure(f_ + str(net.job_number)).subplots(1)
 
             losses_distribution_graphs(losses_per_class,
@@ -293,7 +293,7 @@ if __name__ == '__main__':
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
     elif args.v:
-        logging.getLogger().setLevel(logging.WARNING if args.v==1 else logging.INFO)
+        logging.getLogger().setLevel(logging.WARNING if args.v == 1 else logging.INFO)
             
     logging.info('loadind net...')
     nets = find_by_job_number(*args.jobs, force_dict=True)

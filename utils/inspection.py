@@ -287,8 +287,10 @@ if __name__ == '__main__':
     args_from_file = ['112267', '-D', '/tmp/%j/losses']
     
     args = parser.parse_args(None if sys.argv[0] else args_from_file)
-    plt.clf()
-    plt.close()
+
+    if args.plot:
+        plt.clf()
+        plt.close()
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)

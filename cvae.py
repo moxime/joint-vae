@@ -641,7 +641,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_losses['kl'] = batch_quants['latent_kl']
         
         if self.is_vib:
-            # print('*** cvae 612: T:', *batch_losses['total'].shape, 'kl', *batch_losses['kl'].shape)
+            # print('*** 612: T:', *batch_losses['total'].shape, 'kl', *batch_losses['kl'].shape)
             batch_losses['total'] += self.sigma * batch_losses['kl']
         else:
             beta = self.beta if with_beta else 1.

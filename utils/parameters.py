@@ -346,6 +346,7 @@ def get_args_for_test():
     parser.add_argument('--compute', action='store_false',
                         dest='dry_run',
                         help='will compute missing rates')
+
     parser.add_argument('--flash', action='store_true')
 
     parser.add_argument('--show', action='store_true')
@@ -357,9 +358,20 @@ def get_args_for_test():
     parser.add_argument('--tpr', nargs='*', default=[95], type=int)
     parser.add_argument('--tnr', action='store_true', help='Show TNR instead of FPR')
     
-    is_true = ParamFilter()
-
     parser.add_argument('--job-id', type=int, default=0)
+
+    filter_args, remaining_args = get_args_from_filters()
+    
+    args = parser.parse_args(args=remaining_args, namespace=filter_args)
+    
+    return args
+
+
+def get_args_from_filters():
+
+    parser = argparse.ArgumentParser() #(add_help=False)
+
+    is_true = ParamFilter()
 
     parser.add_argument('--epochs',
                         dest='done',
@@ -447,15 +459,15 @@ def get_args_for_test():
                         of_type=int,
                         nargs='+',
                         action=FilterAction)
-    
-    args = parser.parse_args()
+
+    args, remaining_args = parser.parse_known_args()
 
     if not hasattr(args, 'filters'):
         args.filters = {}
     
-    return args
+    return args, remaining_args
 
-
+    
 class FilterAction(argparse.Action):
 
     def __init__(self, option_strings, dest, of_type=str, neg=False, **kwargs):
@@ -489,20 +501,6 @@ class FilterAction(argparse.Action):
             namespace.filters[self.dest] = []
         namespace.filters[self.dest].append(filter)
 
-        
-def same_dict(d1, d2):
-
-    result = True
-    for k in tuple(d1.keys()) + tuple(d2.keys()):
-        if not d1.get(k, 0):
-            if d2.get(k, 0):
-                return False
-        elif not d2.get(k, 0):
-            return False
-        elif d1[k] != d2[k]:
-            return False
-
-    return True
         
 if __name__ == '__main__':
 

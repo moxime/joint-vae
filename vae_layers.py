@@ -41,7 +41,8 @@ class Sigma(Parameter):
             value=0
         return super().__new__(cls, Tensor([value]), requires_grad=learned)
     
-    def __init__(self, value=None, learned=False,  is_rmse=False, reach=1, decay=0, max_step=None, sigma0=None):
+    def __init__(self, value=None, learned=False,  is_rmse=False,
+                 reach=1, decay=0, max_step=None, sigma0=None):
 
         assert not learned or not is_rmse
         assert not decay or not is_rmse

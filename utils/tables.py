@@ -36,15 +36,18 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
     oftype = net.architecture['type']
     dict_var = net.training['dictionary_variance'] if oftype == 'cvae' else 0
     beta = net.training['beta']
+
+    trainset = net.training['set']
     
     sigmabeta = r'\ensuremath\sigma=' +f'{net.sigma}'.upper()
     if net.sigma.is_rmse:
         sigmabeta += f' (\\ensuremath\\beta=\\num{{{beta}}})'
-    
-    net = net_dict['net']
+
     exported_values = dict(
         oftype = oftype,
-        dataset = net.training['set'],
+        dataset = trainset,
+        numclasses = arch['labels'],
+        classes = ','.join(torchdl.set_dict[trainset]['classes']),
         oodsets = ','.join(net.ood_results.keys()),
         noodsets = len(net.ood_results),
         texoodsets = ', '.join(['\\' + o.rstrip(string.digits) for o in net.ood_results.keys()]),
@@ -220,20 +223,6 @@ def texify_test_results(net,
 
     printout('\\\\ \\bottomrule')
     printout('\\end{tabular}')
-
-
-def infer_type(column, dataset, rate='my fixed', measures='my sci', string='my string'):
-
-    datasets = torchdl.get_same_size_by_name(dataset)
-    datasets.append(dataset)
-
-    if column[0] in datasets:
-        return rate
-
-    if column[0] == 'measures':
-        return measures
-
-    return string
 
 
 def texify_test_results_df(df, dataset, tex_file, tab_file):

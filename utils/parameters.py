@@ -453,6 +453,10 @@ def get_args_from_filters():
     parser.add_argument('--data-augmentation',
                         nargs='+',
                         action=FilterAction)
+
+    parser.add_argument('--batch-norm',
+                        nargs='+',
+                        action=FilterAction)
     
     parser.add_argument('--job-number',
                         dest='job',

@@ -364,6 +364,8 @@ class ClassificationVariationalNetwork(nn.Module):
         self.output_activation = output_activation
             
         self.z_output = False
+
+        self.eval()
         
     def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
@@ -468,6 +470,9 @@ class ClassificationVariationalNetwork(nn.Module):
         mesures: dict of  tensor
 
         """
+        if not batch:
+            # print('*** training:', self.training)
+            pass
         y_in_input = y is not None
         x_repeated_along_classes = self.y_is_coded and not y_in_input
         losses_computed_for_each_class = (self.losses_might_be_computed_for_each_class
@@ -603,13 +608,10 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_mse = batch_quants['mse']
             D = np.prod(self.input_shape)
 
-            if self.sigma.is_rmse:
-                batch_logpx = (- D / 2 * torch.log(batch_mse * np.pi)
-                               - D / 2)
-
-            else:
-                batch_logpx = (- D / 2 * torch.log(self.sigma**2 * np.pi)
-                               - D / (2 * self.sigma**2) * batch_mse)
+            if self.training:
+                self.sigma.decay_to(batch_mse.mean().sqrt())
+            batch_logpx = (- D / 2 * torch.log(self.sigma**2 * np.pi)
+                           - D / (2 * self.sigma**2) * batch_mse)
 
             batch_losses['cross_x'] = - batch_logpx
 
@@ -1485,9 +1487,6 @@ class ClassificationVariationalNetwork(nn.Module):
             t_start_train = t_i
             train_mean_loss = {k: 0. for k in self.loss_components}
             train_total_loss = train_mean_loss.copy()
-
-            if 'std' in train_measures:
-                self.sigma.decay_to(train_measures['std'])
                                
             if signal_handler.sig > 1:
                 logging.warning(f'Breaking training loop bc of {signal_handler}')
@@ -1498,6 +1497,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             current_measures = {}
             
+            self.train()
             for i, data in enumerate(trainloader, 0):
 
                 # get the inputs; data is a list of [inputs, labels]
@@ -1558,6 +1558,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 batch_size=train_batch_size,
                                 end_of_epoch='\n')
             
+            self.eval()
             train_measures = measures.copy()
             if testset:
                 self.train_history['test_accuracy'].append(test_accuracy)

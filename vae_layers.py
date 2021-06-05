@@ -37,29 +37,27 @@ class Sigma(Parameter):
     def __new__(cls, value=None, learned=False, is_rmse=False, **kw):
 
         assert value is not None or is_rmse
-        if is_rmse:
-            value=0
+        if is_rmse and value is None:
+            value = 0
         return super().__new__(cls, Tensor([value]), requires_grad=learned)
     
-    def __init__(self, value=None, learned=False,  is_rmse=False, reach=1, decay=0, max_step=None, sigma0=None):
+    def __init__(self, value=None, learned=False,  is_rmse=False, reach=1, decay=0,
+                 max_step=None, sigma0=None):
 
         assert not learned or not is_rmse
-        assert not decay or not is_rmse
         assert not decay or not learned
 
         self._rmse = np.nan
         self.is_rmse = is_rmse
-        self.sigma0 = value if sigma0 is None else sigma0
+        self.sigma0 = value if (sigma0 is None and not is_rmse) else sigma0
         self.learned = learned
-        self.decay = decay
+        self.decay = decay if not is_rmse else 1
         self.reach = reach if decay or is_rmse else None
         self.max_step = max_step
         
     @property
     def value(self):
 
-        if self.is_rmse:
-            return self._rmse * self.reach
         with torch.no_grad():
             return self.data.item()
         
@@ -74,7 +72,7 @@ class Sigma(Parameter):
     def decay_to(self, rmse):
 
         self._rmse = rmse
-        if self.learned or self.is_rmse or not self.decay:
+        if self.learned or not self.decay:
             return
         delta = self.decay * (self.reach * rmse - self.data)
         if self.max_step and abs(delta) > self.max_step:
@@ -92,9 +90,11 @@ class Sigma(Parameter):
     def __str__(self):
 
         if self.is_rmse:
-            return 'rmse'
+            if self._rmse is np.nan:
+                return 'rmse'
+            return f'rmse ({self._rmse:g})'
         if self.learned:
-            return f'{self.sigma0:g}->rmse[l]'
+            return f'{self.sigma0:g}->rmse[l] ({self.value:g})'
             return f'learned from {self.sigma0:g}'
         if not self.decay:
             with torch.no_grad():

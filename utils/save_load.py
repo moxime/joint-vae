@@ -423,8 +423,8 @@ class LossRecorder:
         for k in tensors:
             if k not in self.keys():
                 raise KeyError(k)
+            # print('sl:426', 'rec', k, *tensors[k].shape)  # 
             self._tensors[k][..., start:end] = tensors[k]
-            # print('sl:396', 'rec', self.device, k, tensors[k].device)  # 
                                                     
         self._recorded_batches += 1
     

@@ -72,7 +72,7 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
-                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'dzdist', 'cross_y'),
+                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'dzdist'), # , 'cross_y'),
                                 'xvae': ('cross_x', 'kl', 'total'),
                                 'vae': ('cross_x', 'kl', 'total'),
                                 'vib': ('cross_y', 'kl', 'total')}
@@ -175,6 +175,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if self.y_is_decoded and 'esty' not in self.predict_methods:
             self.predict_methods = ('esty',) + self.predict_methods
+
+        if self.y_is_decoded and 'cross_y' not in self.loss_components:
+            self.loss_components += ('cross_y',)
             
         # no upsampler if no features
         assert (not upsampler_channels or features)
@@ -430,7 +433,7 @@ class ClassificationVariationalNetwork(nn.Module):
             torch.save(x, x_p)
             torch.save(y, y_p)
             logging.error('Error %s, net dumped in %s',
-                      str(e), dir_)
+                          str(e), dir_)
             raise e
             
         if not self.is_vib:
@@ -581,10 +584,11 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_losses['zdist'] = zdist
 
         if not y_in_input and self.is_cvae and not self.y_is_decoded:
-            y_est = zdist.T
+            y_est = zdist.T.unsqueeze(0)
+        # if not batch: print('*** y_est:', y_est.shape)
                 
         # if not self.is_vae: # self.y_is_decoded or self.force_cross_y:
-        if self.y_is_decoded:   
+        if self.y_is_decoded: # or self.is_cvae:   
 
             if y_is_built and not self.y_is_coded:
                 y_in = None

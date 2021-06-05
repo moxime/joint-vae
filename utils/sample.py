@@ -294,7 +294,7 @@ if __name__ == '__main__':
             computed_max_batch_size = batch_size
             z_sample = z_sample // batch_size * batch_size
 
-            testset, transformer = (shells[j]['net'].training[k] for k in ('set', 'transformer'))
+            testset, transformer = (shells[j]['net'].training_parameters[k] for k in ('set', 'transformer'))
             _, test_dataset = tl.get_dataset(testset, transformer=transformer)
 
             if args.sync:
@@ -328,7 +328,7 @@ if __name__ == '__main__':
     if cross_sample:
 
         first_net = next(iter(shells.values()))
-        testset, transformer = (first_net['net'].training[k] for k in ('set', 'transformer'))
+        testset, transformer = (first_net['net'].training_parameters[k] for k in ('set', 'transformer'))
         _, test_dataset = tl.get_dataset(testset, transformer=transformer)
 
         x, y = {}, {}

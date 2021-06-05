@@ -49,7 +49,7 @@ def test_accuracy_if(jvae=None,
     # deleting old testing methods
     jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods}
         
-    is_trained = jvae.trained >= jvae.training['epochs']
+    is_trained = jvae.trained >= jvae.training_parameters['epochs']
 
     if not is_trained and not unfinished:
         return None
@@ -69,11 +69,14 @@ def test_accuracy_if(jvae=None,
 
     if not has_been_tested:
 
-        # print('*** test.py:74', jvae.training['set'], jvae.training['transformer'])
+        # print('*** test.py:74', jvae.training_parameters['set'],
+        # jvae.training_parameters['transformer'])
+
         if not testset:
+            t_p = jvae.training_parameters 
             _, testset = torchdl.get_dataset_from_dict(dict_of_sets,
-                                                       jvae.training['set'],
-                                                       transformer=jvae.training['transformer'])
+                                                       t_p['set'],
+                                                       transformer=t_p['transformer'])
 
         with torch.no_grad():
             jvae.accuracy(testset,
@@ -124,21 +127,21 @@ def test_ood_if(jvae=None,
         logging.debug(f'Net {desc} has no ood methods')
         return {}
     
-    assert jvae.training['set']
+    assert jvae.training_parameters['set']
 
-    is_trained = jvae.trained >= jvae.training['epochs']
+    is_trained = jvae.trained >= jvae.training_parameters['epochs']
 
     if not is_trained and not unfinished:
         logging.debug(f'Net {desc} training not ended, will not be tested')
         return None
 
-    transformer = jvae.training['transformer']
+    transformer = jvae.training_parameters['transformer']
 
     if testset:
         testset_name = testset.name
         dict_of_sets[testset_name] = {transformer: (None, testset)}
     else:
-        testset_name = jvae.training['set']
+        testset_name = jvae.training_parameters['set']
 
     if oodsets:
         oodset_names = [o.name for o in oodsets]
@@ -392,8 +395,8 @@ if __name__ == '__main__':
                 logging.debug(f'Load error: {e}')
                 continue
     
-            trained_set = n['net'].training['set']
-            transformer = n['net'].training['transformer']
+            trained_set = n['net'].training_parameters['set']
+            transformer = n['net'].training_parameters['transformer']
             n['net'].to(device)
 
             # set_of_trained_sets.add(trained_set)

@@ -43,7 +43,6 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
 
     exported_values = dict(
         oftype=oftype,
-        dataset=net.training_parameters['set'],
         dataset=trainset,
         numclasses=arch['labels'],
         classes=','.join(torchdl.set_dict[trainset]['classes']),

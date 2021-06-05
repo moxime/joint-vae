@@ -466,6 +466,7 @@ def collect_networks(directory,
         architecture = ObjFromDict(vae.architecture, features=None)
         training = ObjFromDict(vae.training_parameters,
                                transformer='default',
+                               max_batch_sizes={'train': 8, 'test': 8},
                                pretrained_upsampler=None)
         
         logging.debug(f'net found in {shorten_path(directory)}')

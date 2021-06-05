@@ -152,7 +152,9 @@ class ClassificationVariationalNetwork(nn.Module):
         
         self.y_is_coded = self.is_jvae or self.is_xvae
         # self.y_is_decoded = self.is_vib or self.is_jvae
-        self.y_is_decoded = not self.is_vae and classifier_layer_sizes
+        self.y_is_decoded = not self.is_vae
+        if self.is_cvae:
+            self.y_is_decoded = classifier_layer_sizes and gamma
 
         self.coder_has_dict = self.is_cvae or self.is_xvae
         
@@ -216,9 +218,10 @@ class ClassificationVariationalNetwork(nn.Module):
             self.features = None
 
         self.trained = 0
-        if type(sigma) == Sigma:
+        # print('*** sigma of type', type(sigma))
+        if isinstance(sigma, Sigma):
             self.sigma = sigma
-        elif type(sigma) == dict:
+        elif isinstance(sigma, dict):
             self.sigma = Sigma(**sigma)
         else:
             self.sigma = Sigma(value=sigma)
@@ -369,9 +372,7 @@ class ClassificationVariationalNetwork(nn.Module):
             
         self.z_output = False
 
-=======
         self.eval()
->>>>>>> training->training_paramters
         
     def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
@@ -619,6 +620,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if self.training:
                 self.sigma.decay_to(batch_mse.mean().sqrt())
+                self.training_parameters['sigma'] = self.sigma.params
             batch_logpx = (- D / 2 * torch.log(self.sigma**2 * np.pi)
                            - D / (2 * self.sigma**2) * batch_mse)
 
@@ -1842,8 +1844,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 vae.ood_methods = cls.ood_methods_per_type[vae.architecture['type']]
                 vae.predict_methods = cls.predict_methods_per_type[vae.architecture['type']]
                 vae.testing = {}
-                vae.sigma = Sigma(**train_params['sigma'])
-
+                # print('*** sigma loaded from', train_params['sigma'], vae.job_number)
+                if isinstance(train_params['sigma'], dict):
+                    vae.sigma = Sigma(**train_params['sigma'])
+                else:
+                    vae.sigma = Sigma(train_params['sigma'])
             except FileNotFoundError as e:
                 logging.debug(f'File {e.filename} not found, it will be created')
                 resave_arch = True

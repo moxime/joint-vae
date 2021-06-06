@@ -771,7 +771,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return dist_measures
 
-    def compute_max_batch_size(self, batch_size=1024, which='all'):
+    def compute_max_batch_size(self, batch_size=1024, which='all', trials=2):
         if which == 'all':
             self.compute_max_batch_size(batch_size, which='train')
             self.compute_max_batch_size(batch_size, which='test')
@@ -801,14 +801,16 @@ class ClassificationVariationalNetwork(nn.Module):
                               self.job_number)
                 if training:
                     logging.debug('Evaling net')
-                    _, _, batch_losses, _ = self.evaluate(x, y=y)
-                    logging.debug('Net evaled')
-                    L = batch_losses['total'].mean()
-                    logging.debug('Backwarding net')
-                    L.backward()
+                    for _ in range(trials):
+                        _, _, batch_losses, _ = self.evaluate(x, y=y)
+                        logging.debug('Net evaled')
+                        L = batch_losses['total'].mean()
+                        logging.debug('Backwarding net')
+                        L.backward()
                 else:
                     with torch.no_grad():
-                        self.evaluate(x, y=y)
+                        for _ in range(trials):
+                            self.evaluate(x, y=y)
                 self.training_parameters['max_batch_sizes'][which] = batch_size // 2
                 logging.debug('Found max batch size for %s : %s',
                               which, batch_size)
@@ -934,7 +936,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 y_test = recorder.get_batch(i, 'y_true')
 
             y_pred = {}
-            logging.debug('TBD cvae:878: %s', ' '.join(batch_losses.keys()))
+            # logging.debug('TBD cvae:878: %s', ' '.join(batch_losses.keys()))
             for m in predict_methods:
                 y_pred[m] = self.predict_after_evaluate(logits,
                                                         batch_losses,

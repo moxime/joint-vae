@@ -163,10 +163,10 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
         if t == 'flip':
             t_ = transforms.RandomHorizontalFlip()
 
-        if t== 'crop':
+        if t == 'crop':
             size = set_dict[dataset]['shape'][1:]
             padding = size[0] // 8
-            t_ = transforms.RandomCrop(size, padding=padding)
+            t_ = transforms.RandomCrop(size, padding=padding, padding_mode='edge')
 
         train_transforms.append(t_)
 

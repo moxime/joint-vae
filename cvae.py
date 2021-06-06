@@ -490,9 +490,6 @@ class ClassificationVariationalNetwork(nn.Module):
         mesures: dict of  tensor
 
         """
-        if not batch:
-            # print('*** training:', self.training)
-            pass
         y_in_input = y is not None
         x_repeated_along_classes = self.y_is_coded and not y_in_input
         losses_computed_for_each_class = (self.losses_might_be_computed_for_each_class
@@ -500,6 +497,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         y_is_built = losses_computed_for_each_class
         
+        if not batch:
+            # print('*** training:', self.training)
+            mode = 'training' if self.training else 'eval'
+            logging.debug(f'Evaluating model in {mode} mode with batch size {x.shape[0]} '
+                          f'y in input: {y_in_input}')
+            pass
+
         C = self.num_labels
         
         if self.features:
@@ -925,7 +929,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self._measures = measures
             else:
                 batch_losses = recorder.get_batch(i, *self.loss_components)
-                logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
+                # logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
                 logits = recorder.get_batch(i, 'logits').T
                 y_test = recorder.get_batch(i, 'y_true')
 

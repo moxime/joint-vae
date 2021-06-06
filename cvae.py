@@ -771,7 +771,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return dist_measures
 
-    def compute_max_batch_size(self, batch_size=1024, which='all', trials=2):
+    def compute_max_batch_size(self, batch_size=4096, which='all', trials=2):
         if which == 'all':
             self.compute_max_batch_size(batch_size, which='train')
             self.compute_max_batch_size(batch_size, which='test')

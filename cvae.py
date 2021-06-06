@@ -772,6 +772,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.training_parameters['max_batch_sizes'] = {}
             
         training = which == 'train'
+        self.train(training)
 
         x = torch.randn(batch_size, *self.input_shape, device=self.device)
         y = torch.ones(batch_size, dtype=int, device=self.device) if training else None
@@ -798,6 +799,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['max_batch_sizes'][which] = batch_size // 2
                 logging.debug('Found max batch size for %s : %s',
                               which, batch_size)
+                self.eval()
                 return batch_size // 2
             except RuntimeError as e:
                 logging.debug('Batch size of %s too much for %s.',

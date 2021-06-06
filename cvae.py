@@ -771,6 +771,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if which == 'all':
             self.compute_max_batch_size(batch_size, which='train')
             self.compute_max_batch_size(batch_size, which='test')
+            logging.debug('Max batch sizes: %d for train, %d for test.',
+                          self.max_batch_sizes['train'],
+                          self.max_batch_sizes['test'])
             return
 
         logging.debug('Computing max batch size for %s', which)

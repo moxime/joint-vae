@@ -224,6 +224,7 @@ if __name__ == '__main__':
                              transformer=transformer,
                              epochs=args.epochs,
                              batch_size=batch_size,
+                             test_batch_size=test_batch_size,
                              device=device,
                              testset=testset,
                              oodsets=oodsets,

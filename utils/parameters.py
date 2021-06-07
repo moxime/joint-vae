@@ -155,8 +155,8 @@ def get_args_for_train(argv=None):
     help = f'epochs for training (default is {defaults["epochs"]})'
     parser.add_argument('--epochs', type=int, help=help)
 
-    parser.add_argument('-m', '--batch-size', type=int, metavar='M')
-    parser.add_argument('--test-batch-size', type=int, metavar='M')
+    parser.add_argument('-m', '--batch-size', type=int, metavar='m')
+    parser.add_argument('-M', '--test-batch-size', type=int, metavar='M')
 
     help = 'Num of samples to compute test accuracy'
     parser.add_argument('-t', '--test-sample-size', type=int,

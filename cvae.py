@@ -1285,7 +1285,9 @@ class ClassificationVariationalNetwork(nn.Module):
                     data_augmentation=None,
                     optimizer=None,
                     epochs=50,
-                    batch_size=100, device=None,
+                    batch_size=100,
+                    test_batch_size=100,
+                    device=None,
                     testset=None,
                     oodsets=None,
                     acc_methods=None,
@@ -1354,7 +1356,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         max_batch_sizes = self.max_batch_sizes
 
-        test_batch_size = max_batch_sizes['test']
+        test_batch_size = min(max_batch_sizes['test'], test_batch_size)
         
         if batch_size:
             train_batch_size = min(batch_size, max_batch_sizes['train'])

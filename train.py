@@ -59,6 +59,7 @@ if __name__ == '__main__':
 
     batch_size = args.batch_size
     test_sample_size = args.test_sample_size
+    test_batch_size = args.test_batch_size
     dry_run = args.dry_run    
     resume = args.resume
 

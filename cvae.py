@@ -376,6 +376,12 @@ class ClassificationVariationalNetwork(nn.Module):
         self.z_output = False
 
         self.eval()
+
+    def train(self, *a, **k):
+        state = 'train' if self.training else 'eval'
+        super().train(*a, **k)
+        new_state = 'train' if self.training else 'eval'
+        logging.debug(f'Going from {state} to {new_state}')
         
     def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
@@ -484,9 +490,6 @@ class ClassificationVariationalNetwork(nn.Module):
         mesures: dict of  tensor
 
         """
-        if not batch:
-            # print('*** training:', self.training)
-            pass
         y_in_input = y is not None
         x_repeated_along_classes = self.y_is_coded and not y_in_input
         losses_computed_for_each_class = (self.losses_might_be_computed_for_each_class
@@ -494,6 +497,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         y_is_built = losses_computed_for_each_class
         
+        if not batch:
+            # print('*** training:', self.training)
+            mode = 'training' if self.training else 'eval'
+            logging.debug(f'Evaluating model in {mode} mode with batch size {x.shape[0]} '
+                          f'y in input: {y_in_input}')
+            pass
+
         C = self.num_labels
         
         if self.features:
@@ -761,10 +771,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return dist_measures
 
-    def compute_max_batch_size(self, batch_size=1024, which='all'):
+    def compute_max_batch_size(self, batch_size=4096, which='all', trials=2):
         if which == 'all':
             self.compute_max_batch_size(batch_size, which='train')
             self.compute_max_batch_size(batch_size, which='test')
+            logging.debug('Max batch sizes: %d for train, %d for test.',
+                          self.max_batch_sizes['train'],
+                          self.max_batch_sizes['test'])
             return
 
         logging.debug('Computing max batch size for %s', which)
@@ -772,6 +785,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.training_parameters['max_batch_sizes'] = {}
             
         training = which == 'train'
+        self.train(training)
 
         x = torch.randn(batch_size, *self.input_shape, device=self.device)
         y = torch.ones(batch_size, dtype=int, device=self.device) if training else None
@@ -787,17 +801,20 @@ class ClassificationVariationalNetwork(nn.Module):
                               self.job_number)
                 if training:
                     logging.debug('Evaling net')
-                    _, _, batch_losses, _ = self.evaluate(x, y=y)
-                    logging.debug('Net evaled')
-                    L = batch_losses['total'].mean()
-                    logging.debug('Backwarding net')
-                    L.backward()
+                    for _ in range(trials):
+                        _, _, batch_losses, _ = self.evaluate(x, y=y)
+                        logging.debug('Net evaled')
+                        L = batch_losses['total'].mean()
+                        logging.debug('Backwarding net')
+                        L.backward()
                 else:
                     with torch.no_grad():
-                        self.evaluate(x, y=y)
+                        for _ in range(trials):
+                            self.evaluate(x, y=y)
                 self.training_parameters['max_batch_sizes'][which] = batch_size // 2
                 logging.debug('Found max batch size for %s : %s',
                               which, batch_size)
+                self.eval()
                 return batch_size // 2
             except RuntimeError as e:
                 logging.debug('Batch size of %s too much for %s.',
@@ -914,12 +931,12 @@ class ClassificationVariationalNetwork(nn.Module):
                 self._measures = measures
             else:
                 batch_losses = recorder.get_batch(i, *self.loss_components)
-                logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
+                # logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
                 logits = recorder.get_batch(i, 'logits').T
                 y_test = recorder.get_batch(i, 'y_true')
 
             y_pred = {}
-            logging.debug('TBD cvae:878: %s', ' '.join(batch_losses.keys()))
+            # logging.debug('TBD cvae:878: %s', ' '.join(batch_losses.keys()))
             for m in predict_methods:
                 y_pred[m] = self.predict_after_evaluate(logits,
                                                         batch_losses,

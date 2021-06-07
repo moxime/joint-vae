@@ -572,8 +572,8 @@ def collect_networks(directory,
             
         empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
         depth = (1 + len(architecture.encoder)
-                 + len(architecture.decoder) 
-                 + len(architecture.classifier))
+                 + len(architecture.decoder))
+                 # + len(architecture.classifier))
         
         width = (architecture.latent_dim +
                  sum(architecture.encoder) +

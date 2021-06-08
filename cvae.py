@@ -472,6 +472,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch=0,
                  current_measures=None,
                  with_beta=False,
+                 kl_var_weighting=1.,
                  z_output=False,
                  **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
@@ -581,6 +582,7 @@ class ClassificationVariationalNetwork(nn.Module):
                               y=y if self.coder_has_dict else None,
                               prior_variance = self.latent_prior_variance,
                               latent_dictionary=dictionary,
+                              var_weighting=kl_var_weighting,
                               out_zdist=True,
                               batch_mean=False)
 
@@ -1292,6 +1294,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     oodsets=None,
                     acc_methods=None,
                     fine_tuning=False,
+                    warmup=0,
                     latent_sampling=None,
                     sample_size=1000,
                     full_test_every=10,
@@ -1545,12 +1548,14 @@ class ClassificationVariationalNetwork(nn.Module):
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
+                warmup_kl_weighting = min(1., (epoch + 1) / (warmup + 1))
                 # with autograd.detect_anomaly():
                 # forward + backward + optimize
                 (_, y_est,
                  batch_losses, measures) = self.evaluate(x, y,
                                                          batch=i,
                                                          with_beta=True,
+                                                         kl_var_weighting=warmup_kl_weighting,
                                                          current_measures=current_measures)
 
                 current_measures = measures

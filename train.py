@@ -230,6 +230,7 @@ if __name__ == '__main__':
                              oodsets=oodsets,
                              data_augmentation=data_augmentation,
                              fine_tuning=args.fine_tuning,
+                             warmup=args.warmup,
                              sample_size=test_sample_size,  # 10000,
                              save_dir=save_dir,
                              outputs=outputs,

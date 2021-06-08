@@ -59,13 +59,15 @@ def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
 def kl_loss(mu_z, log_var_z, y=None,
             latent_dictionary=None,
             prior_variance=1.,
+            var_weighting=1.,
             batch_mean=True, out_zdist=False):
 
     # logging.debug('TBR l:64 Computing KL')
     assert y is None or latent_dictionary is not None
 
     loss = -0.5 * (1 + log_var_z - np.log(prior_variance) - log_var_z.exp() / prior_variance).sum(-1)
-
+    loss *= var_weighting
+    
     _ = y.shape if y is not None else ('*',) 
     # print('*** losses:59', 'mu', *mu_z.shape, 'lv', *log_var_z.shape, 'y', *_)
 

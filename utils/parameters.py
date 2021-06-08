@@ -234,7 +234,8 @@ def get_args_for_train(argv=None):
     parser.add_argument('--pretrained-upsampler', metavar='upsampler.pth')
 
     parser.add_argument('--fine-tuning', action='store_true')
-
+    parser.add_argument('--warmup', type=int, default=0)
+    
     parser.add_argument('--encoder', type=alphanum, metavar='W', nargs='*')
     parser.add_argument('--features-channels', type=alphanum, metavar='C', nargs='*')
     parser.add_argument('--conv-padding', type=alphanum, metavar='P')

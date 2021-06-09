@@ -225,6 +225,8 @@ if __name__ == '__main__':
                              epochs=args.epochs,
                              batch_size=batch_size,
                              test_batch_size=test_batch_size,
+                             full_test_every=2 if debug else 10,
+                             ood_detection_every=2 if debug else 10,
                              device=device,
                              testset=testset,
                              oodsets=oodsets,
@@ -234,7 +236,7 @@ if __name__ == '__main__':
                              sample_size=test_sample_size,  # 10000,
                              save_dir=save_dir,
                              outputs=outputs,
-                             signal_handler = SIGHandler(1, 15))
+                             signal_handler=SIGHandler(1, 15))
 
             log.info('Done training')
         else:

@@ -960,7 +960,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     shape = 'CxNxC'
                 elif k == 'cross_y' or self.is_jvae:
                     shape = 'CxN'
-                elif self.is_cvae and k != 'cross_x' and k != 'dzdist':
+                elif self.is_cvae and k not in ('cross_x', 'dzdist', 'var_kl'):
                     shape = 'CxN'
                 elif self.is_vib and k == 'total':
                     shape = 'CxN'

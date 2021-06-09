@@ -237,6 +237,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if np.isfinite(gamma_temp) and not gamma:
             gamma = 1
         self.gamma = gamma if self.coder_has_dict else None
+        self.gamma = gamma if self.coder_has_dict or self.y_is_decoded else None
         self.gamma_temp = gamma_temp if self.coder_has_dict else None
         
         logging.debug(f'Gamma: {self.gamma}')
@@ -497,6 +498,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                           and not y_in_input)
 
         y_is_built = losses_computed_for_each_class
+
+        cross_y_weight = False
+        if self.y_is_decoded:
+            if self.is_cvae or self.is_vae:
+                cross_y_weight = self.gamma if self.training else False
+            else: cross_y_weight = 1.
         
         if not batch:
             # print('*** training:', self.training)
@@ -653,10 +660,10 @@ class ClassificationVariationalNetwork(nn.Module):
         
             # print('*** cvae:602', 'T:', *batch_losses['total'].shape,
             #      'Xy:', *batch_losses['cross_y'].shape)
-            
-            if self.y_is_decoded:
-                g = self.gamma if self.is_cvae else 1
-                batch_losses['total'] = batch_losses['total'] + g * batch_losses['cross_y']
+
+            # if not batch: print('**** cyw:', cross_y_weight)
+            if cross_y_weight:
+                batch_losses['total'] = batch_losses['total'] + cross_y_weight * batch_losses['cross_y']
                 
         batch_losses['kl'] = batch_quants['latent_kl']
         
@@ -1160,7 +1167,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     
                 measures = self.batch_dist_measures(logits, losses, ood_methods)
                 for m in ood_methods:
-                    print('*** ood', m, *measures[m].shape)
+                    # print('*** ood', m, *measures[m].shape)
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])
                 t_i = time.time() - t_0

@@ -225,6 +225,8 @@ if __name__ == '__main__':
                              epochs=args.epochs,
                              batch_size=batch_size,
                              test_batch_size=test_batch_size,
+                             full_test_every=2 if debug else 10,
+                             ood_detection_every=2 if debug else 10,
                              device=device,
                              testset=testset,
                              oodsets=oodsets,

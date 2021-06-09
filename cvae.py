@@ -152,8 +152,8 @@ class ClassificationVariationalNetwork(nn.Module):
         
         self.y_is_coded = self.is_jvae or self.is_xvae
         # self.y_is_decoded = self.is_vib or self.is_jvae
-        self.y_is_decoded = not self.is_vae
-        if self.is_cvae:
+        self.y_is_decoded = True
+        if self.is_cvae or self.is_vae:
             self.y_is_decoded = classifier_layer_sizes and gamma
 
         self.coder_has_dict = self.is_cvae or self.is_xvae
@@ -237,6 +237,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if np.isfinite(gamma_temp) and not gamma:
             gamma = 1
         self.gamma = gamma if self.coder_has_dict else None
+        self.gamma = gamma if self.coder_has_dict or self.y_is_decoded else None
         self.gamma_temp = gamma_temp if self.coder_has_dict else None
         
         logging.debug(f'Gamma: {self.gamma}')
@@ -447,7 +448,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # x_output of size LxN1x...xKgxD
             x_output = self.imager(u)
 
-        if self.is_cvae:
+        if self.is_cvae or self.is_vae:
             y_output = self.classifier(z_mean.unsqueeze(0))
         else:
             y_output = self.classifier(z)
@@ -497,6 +498,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                           and not y_in_input)
 
         y_is_built = losses_computed_for_each_class
+
+        cross_y_weight = False
+        if self.y_is_decoded:
+            if self.is_cvae or self.is_vae:
+                cross_y_weight = self.gamma if self.training else False
+            else: cross_y_weight = 1.
         
         if not batch:
             # print('*** training:', self.training)
@@ -600,12 +607,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_losses['zdist'] = zdist
         batch_losses['var_kl'] = var_kl
 
-        if not y_in_input and self.is_cvae and not self.y_is_decoded:
-            y_est = zdist.T.unsqueeze(0)
-        # if not batch: print('*** y_est:', y_est.shape)
-                
-        # if not self.is_vae: # self.y_is_decoded or self.force_cross_y:
-        if self.y_is_decoded: # or self.is_cvae:   
+        if self.y_is_decoded:
 
             if y_is_built and not self.y_is_coded:
                 y_in = None
@@ -658,10 +660,10 @@ class ClassificationVariationalNetwork(nn.Module):
         
             # print('*** cvae:602', 'T:', *batch_losses['total'].shape,
             #      'Xy:', *batch_losses['cross_y'].shape)
-            
-            if self.y_is_decoded:
-                g = self.gamma if self.is_cvae else 1
-                batch_losses['total'] = batch_losses['total'] + g * batch_losses['cross_y']
+
+            # if not batch: print('**** cyw:', cross_y_weight)
+            if cross_y_weight:
+                batch_losses['total'] = batch_losses['total'] + cross_y_weight * batch_losses['cross_y']
                 
         batch_losses['kl'] = batch_quants['latent_kl']
         
@@ -1165,6 +1167,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     
                 measures = self.batch_dist_measures(logits, losses, ood_methods)
                 for m in ood_methods:
+                    # print('*** ood', m, *measures[m].shape)
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])
                 t_i = time.time() - t_0

@@ -72,9 +72,9 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
-                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'dzdist'), # , 'cross_y'),
+                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist'), # , 'cross_y'),
                                 'xvae': ('cross_x', 'kl', 'total'),
-                                'vae': ('cross_x', 'kl', 'total'),
+                                'vae': ('cross_x', 'kl', 'var_kl', 'total'),
                                 'vib': ('cross_y', 'kl', 'total')}
     
     predict_methods_per_type = {'jvae': ('loss', 'mean'),
@@ -554,6 +554,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           'imut-zy',
                                           'd-mind',
                                           'ld-norm',
+                                          'var_kl',
                                           'zdist')}
             
         total_measures['sigma'] = self.sigma.value
@@ -578,22 +579,26 @@ class ClassificationVariationalNetwork(nn.Module):
 
         dictionary = self.encoder.latent_dictionary if self.coder_has_dict else None
 
-        kl_l, zdist = kl_loss(mu, log_var,
+        kl_l, zdist, var_kl = kl_loss(mu, log_var,
                               y=y if self.coder_has_dict else None,
                               prior_variance = self.latent_prior_variance,
                               latent_dictionary=dictionary,
                               var_weighting=kl_var_weighting,
-                              out_zdist=True,
+                              out=['kl', 'dist', 'var'],
                               batch_mean=False)
 
         # print('*** wxjdjd ***', 'kl', *kl_l.shape, 'zd', *zdist.shape)
         
         total_measures['zdist'] = (current_measures['zdist'] * batch +
                                    zdist.mean().item()) / (batch + 1)
+
+        total_measures['var_kl'] = (current_measures['var_kl'] * batch +
+                                   zdist.mean().item()) / (batch + 1)
         
         batch_quants['latent_kl'] = kl_l
 
         batch_losses['zdist'] = zdist
+        batch_losses['var_kl'] = var_kl
 
         if not y_in_input and self.is_cvae and not self.y_is_decoded:
             y_est = zdist.T.unsqueeze(0)

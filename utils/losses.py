@@ -60,17 +60,18 @@ def kl_loss(mu_z, log_var_z, y=None,
             latent_dictionary=None,
             prior_variance=1.,
             var_weighting=1.,
-            batch_mean=True, out_zdist=False):
+            batch_mean=True,
+            out=['kl']):
 
     # logging.debug('TBR l:64 Computing KL')
     assert y is None or latent_dictionary is not None
 
-    loss = -0.5 * (1 + log_var_z - np.log(prior_variance) - log_var_z.exp() / prior_variance).sum(-1)
-    loss *= var_weighting
+    var_loss = -(1 + log_var_z - np.log(prior_variance) - log_var_z.exp() / prior_variance).sum(-1)
+    # print('*** losses:59', 'warm', var_weighting, 'var_loss', loss.mean().detach().cpu().item())
+    loss = 0.5 * var_weighting * var_loss
     
     _ = y.shape if y is not None else ('*',) 
     # print('*** losses:59', 'mu', *mu_z.shape, 'lv', *log_var_z.shape, 'y', *_)
-
     # logging.debug('TBR l:72 Computing KL')
     if y is None:
         distances = mu_z.pow(2).sum(-1) / prior_variance
@@ -78,7 +79,6 @@ def kl_loss(mu_z, log_var_z, y=None,
         
     else:
 
-        s_m = mu_z.shape
         K = mu_z.shape[-1]
         centroids_shape = y.shape + (K,)
 
@@ -97,15 +97,12 @@ def kl_loss(mu_z, log_var_z, y=None,
             logging.error('mu_z %s', l.sum().item())
         for l in loss:
             logging.error('loss %s', l.item())
-    
-    if batch_mean:
-        if out_zdist:
-            return loss.mean(), distances.mean()
-        return loss.mean()
-    # print('losses l.76 | kl_loss', loss.shape)
-    if out_zdist:
-        return loss, distances
-    return loss
+
+    output_dict = {'kl': loss.mean() if batch_mean else loss,
+                   'dist': distances.mean() if batch_mean else distances,
+                   'var': var_loss.mean() if batch_mean else var_loss}
+
+    return tuple(output_dict[_] for _ in out)
 
 
 def x_loss(y_target, logits, batch_mean=True):

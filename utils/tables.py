@@ -1,16 +1,13 @@
-from cvae import ClassificationVariationalNetwork as Net
-from utils.save_load import find_by_job_number
 import sys
 from datetime import datetime
 import string
-import os.path
 import functools
 from utils.save_load import create_file_for_job as create_file
 from utils.print_log import texify
-from utils.optimizers import Optimizer
+from module.optimizers import Optimizer
 import torch
 import numpy as np
-import data.torch_load as torchdl
+import utils.torch_load as torchdl
 import pandas as pd
 import hashlib
 

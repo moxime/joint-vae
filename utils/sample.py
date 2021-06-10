@@ -3,7 +3,7 @@ Use a network ti generate new images, use the sampling of Z
 
 """
 from cvae import ClassificationVariationalNetwork as Net
-import data.torch_load as tl
+import utils.torch_load as tl
 from utils.save_load import find_by_job_number
 import torch
 
@@ -21,7 +21,9 @@ import argparse, sys
 
 def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
            N=20, L=10, iteration=False):
-
+    r"""Creates a grid of output images. If x is None tuhe output images
+    are the ones created when the decoder is fed with prior z"""
+    
     if x is not None:
         N = min(N, len(x))
     elif net.is_cvae:
@@ -138,7 +140,10 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
 
 
 def zsample(x, net, batch_size=128, root='results/%j/samples', directory='test'):
+    r"""will sample varaible latent and ouput scatter and histogram of
+    variance and mean of z
 
+    """
     N = len(x)
 
     mu_z = torch.zeros(z_sample, net.latent_dim)
@@ -168,7 +173,8 @@ def zsample(x, net, batch_size=128, root='results/%j/samples', directory='test')
 
     
 def comparison(x, *nets, batch_size=128, root='results/%j/samples', directory='ood'):
-
+    r""" Comparison of different nets """
+    
     root = root.replace('%j', '-'.join(str(n.job_number) for n in nets))
 
     for n in nets:

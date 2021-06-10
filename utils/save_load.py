@@ -3,11 +3,11 @@ import json
 import logging
 import pandas as pd
 import hashlib
-import data.torch_load as torchdl
+import utils.torch_load as torchdl
 import numpy as np
 import random
 import torch
-from utils.optimizers import Optimizer
+from module.optimizers import Optimizer
 
 
 def get_path(dir_name, file_name, create_dir=True):

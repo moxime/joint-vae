@@ -1,6 +1,7 @@
 import json
 import os
-from vae_layers import Sigma
+from module.vae_layers import Sigma
+
 
 def load_and_save_json(directory,
                        json_file,

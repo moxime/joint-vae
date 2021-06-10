@@ -3,17 +3,17 @@ import copy
 import torch
 import torch.utils.data
 from torch import nn, autograd
-from utils.optimizers import Optimizer
+from module.optimizers import Optimizer
 from torch.nn import functional as F
-from utils.losses import x_loss, kl_loss, mse_loss
+from module.losses import x_loss, kl_loss, mse_loss
 
 from utils.save_load import LossRecorder
 
-from vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma
-from vae_layers import onehot_encoding
+from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma
+from module.vae_layers import onehot_encoding
 
-import data.torch_load as torchdl
-from data.torch_load import choose_device
+import utils.torch_load as torchdl
+from utils.torch_load import choose_device
 from utils import save_load
 import numpy as np
 

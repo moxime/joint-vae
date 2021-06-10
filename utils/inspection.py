@@ -1,8 +1,5 @@
-from cvae import ClassificationVariationalNetwork
-import data.torch_load as dl
 from utils.save_load import find_by_job_number, LossRecorder, job_to_str
 import torch
-from sklearn.metrics import auc, roc_curve
 import numpy as np
 from matplotlib import pyplot as plt
 import logging
@@ -11,23 +8,12 @@ import sys
 import argparse
 import logging
 
-# from torchvision.transforms import ToPILImag
 
-
-def _create_output(*outputs, pltf='plot'):
+def _create_output_plot(*outputs, pltf='plot'):
 
     close_functions = []
     write_functions = []
     plot_functions = []
-    
-    # def _close(*a):
-    #     return
-    
-    # def _write(a):
-    #     return
-
-    # def _plot(*a, **kw):
-    #     return
 
     for o in outputs:
         if isinstance(o, type(sys.stdout)):
@@ -65,19 +51,19 @@ def _create_output(*outputs, pltf='plot'):
 
             plot_functions.append(_p)
 
-    def _plot(*a, **kw):
+    def plot_func(*a, **kw):
         for f in plot_functions:
             f(*a, **kw)
 
-    def _write(*a, **kw):
+    def write_func(*a, **kw):
         for f in write_functions:
             f(*a, **kw)
 
-    def _close(*a, **kw):
+    def close_func(*a, **kw):
         for f in close_functions:
             f(*a, **kw)
                 
-    return _plot, _write, _close
+    return plot_func, write_func, close_func
     
 
 def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
@@ -102,7 +88,7 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
         if log_scale:
             bins = np.exp(bins)
 
-        plot, write, close = _create_output(*outputs, pltf='bar')
+        plot, write, close = _create_output_plot(*outputs, pltf='bar')
         plot(bins[:-1], hist, align='edge')  # 
         
         write('edge          num\n')
@@ -124,7 +110,7 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
             x = mu_z.view(-1).cpu()
             y = var_z.view(-1).cpu()
 
-        plot, write, close = _create_output(*outputs, pltf='scatter')
+        plot, write, close = _create_output_plot(*outputs, pltf='scatter')
         plot(x, y)
         write(f'{x_title}   {y_title}\n')
         for a, b in zip(x, y):
@@ -229,7 +215,7 @@ def losses_distribution_graphs(dict_of_losses,
     alpha = opt.pop('quantiles', [0.05, 0.25, 0.5, 0.75, 0.95])
 
     if graph.startswith('hist'):
-        plot, write, close = _create_output(*outputs,
+        plot, write, close = _create_output_plot(*outputs,
                                             pltf='plot',)
                                             # pltf='plot',)
 
@@ -254,7 +240,7 @@ def losses_distribution_graphs(dict_of_losses,
             plot(hist[k][1][:-1], hist[k][0], label=k, legend=True)  # , align='edge')
         
     if graph.startswith('box'):
-        plot, write, close = _create_output(*outputs, pltf='boxplot')
+        plot, write, close = _create_output_plot(*outputs, pltf='boxplot')
 
         quantiles = {k: np.quantile(dict_of_losses[k], alpha) for k in dict_of_losses}
 

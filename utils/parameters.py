@@ -6,6 +6,7 @@ from logging.handlers import RotatingFileHandler
 import re, numpy as np
 from socket import gethostname as getrawhostname
 from utils.param_filters import ParamFilter
+import os
 
 def gethostname():
 
@@ -21,7 +22,7 @@ def gethostname():
     return raw_host.split('.')[0]
     
 
-def set_log(verbose, debug, name='train', job_number=0):
+def set_log(verbose, debug, log_dir, name='train', job_number=0):
     
     log = logging.getLogger('')
     log.setLevel(0)
@@ -33,15 +34,18 @@ def set_log(verbose, debug, name='train', job_number=0):
     stream_handler = logging.StreamHandler()
 
     if job_number:
-        file_handler = FileHandler(f'./log/{name}.log.{job_number}')
+        fn = os.path.join(log_dir, f'{name}.log.{job_number}') 
+        file_handler = FileHandler(fn)
                                            
     else:
-        file_handler = RotatingFileHandler(f'./log/{name}.log',
+        fn = os.path.join(log_dir, f'{name}.log') 
+        file_handler = RotatingFileHandler(fn,
                                            maxBytes=500000,
                                            backupCount=10)
         file_handler.doRollover()
-        
-    dump_file_handler = RotatingFileHandler('./log/dump.log',
+
+    fn = os.path.join(log_dir, 'dump.log')
+    dump_file_handler = RotatingFileHandler(fn, 
                                             maxBytes=1, backupCount=20)
     log_level = logging.ERROR
     if verbose == 1:
@@ -370,9 +374,7 @@ def get_args_for_test():
 
 def get_args_from_filters():
 
-    parser = argparse.ArgumentParser() #(add_help=False)
-
-    is_true = ParamFilter()
+    parser = argparse.ArgumentParser()  # (add_help=False)
 
     parser.add_argument('--epochs',
                         dest='done',

@@ -3,8 +3,8 @@ from __future__ import print_function
 import numpy as np
 import torch
 from cvae import ClassificationVariationalNetwork as CVNet
-from vae_layers import Sigma
-import data.torch_load as torchdl
+from module.vae_layers import Sigma
+import utils.torch_load as torchdl
 import os
 import sys
 import argparse
@@ -25,8 +25,9 @@ if __name__ == '__main__':
 
     job_dir = args.job_dir
     job_number = args.job_number
-                
-    log = set_log(verbose, debug, job_number=job_number)
+
+    log_dir = os.path.join(job_dir, 'log')
+    log = set_log(verbose, debug, log_dir, job_number=job_number)
 
     log.debug('$ ' + ' '.join(sys.argv))
 

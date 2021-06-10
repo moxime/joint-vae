@@ -372,7 +372,7 @@ def get_args_for_test():
     return args
 
 
-def get_args_from_filters():
+def get_args_from_filters(argv=None):
 
     parser = argparse.ArgumentParser()  # (add_help=False)
 
@@ -467,7 +467,7 @@ def get_args_from_filters():
                         nargs='+',
                         action=FilterAction)
 
-    args, remaining_args = parser.parse_known_args()
+    args, remaining_args = parser.parse_known_args(argv)
 
     if not hasattr(args, 'filters'):
         args.filters = {}

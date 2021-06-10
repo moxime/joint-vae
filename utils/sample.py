@@ -50,7 +50,7 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
 
         (D, H, W) = net.input_shape[-3:]
 
-        x_grid = {'name': 'grid.png',
+        x_grid = {'name': f'grid-{N}x{L}.png',
                   'tensor': torch.zeros((D, 0, L * W), device=x.device)}
                              
         with torch.no_grad(): 
@@ -102,7 +102,7 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
         if net.is_cvae:
             z = z + net.encoder.latent_dictionary.unsqueeze(0)
 
-        x_grid = {'name': 'grid.png',
+        x_grid = {'name': f'grid-{N}x{L}.png',
                   'tensor': torch.zeros((D, 0, L * W), device=net.device)}
         list_of_images = [x_grid]
 

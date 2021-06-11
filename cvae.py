@@ -234,7 +234,8 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Building a vanilla classifier')
 
         self.beta = beta
-        if np.isfinite(gamma_temp) and not gamma:
+
+        if not gamma and (gamma_temp is not None) and np.isfinite(gamma_temp):
             gamma = 1
         self.gamma = gamma if self.coder_has_dict else None
         self.gamma = gamma if self.coder_has_dict or self.y_is_decoded else None

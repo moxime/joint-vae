@@ -92,7 +92,7 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
             if row < N:
                 x_grid['tensor'] = torch.cat([x_grid['tensor'], x_row], 1)    
                                   
-    elif net.is_cvae or net.is_jvae:
+    elif net.is_cvae or net.is_jvae or net.is_vae:
     
         (D, H, W) = net.input_shape[-3:]
         K = net.latent_dim

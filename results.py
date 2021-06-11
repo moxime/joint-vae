@@ -95,6 +95,7 @@ if __name__ == '__main__':
         args.plot = False
 
     logging.info('{} plot will be done'.format('One' if args.plot else 'No'))
+    logging.info('{} models will be worked'.format(len(networks_to_be_studied)))
 
     dict_of_sets = dict()
     for n in networks_to_be_studied:

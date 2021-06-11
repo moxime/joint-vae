@@ -645,9 +645,15 @@ class ClassificationVariationalNetwork(nn.Module):
             if self.training:
                 self.sigma.decay_to(batch_mse.mean().sqrt())
                 self.training_parameters['sigma'] = self.sigma.params
-            batch_logpx = (- D / 2 * torch.log(self.sigma**2 * np.pi)
-                           - D / (2 * self.sigma**2) * batch_mse)
 
+            if self.sigma.is_log:
+                batch_logpx = (- D / 2 * torch.log(self.sigma**2 * np.pi)
+                               - D / (2 * self.sigma**2) * batch_mse)
+            else:
+                # sigma is actually log(sigma)
+                batch_logp_x = (- D * self.sigma - D / 2 * torch.log(np.pi)
+                                - D / 2 * (-self.sigma * 2).exp() * batch_mse) 
+                
             batch_losses['cross_x'] = - batch_logpx
 
             batch_losses['total'] += batch_losses['cross_x'] 

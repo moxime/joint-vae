@@ -51,6 +51,7 @@ class Sigma(Parameter):
         self.is_rmse = is_rmse
         self.sigma0 = value if (sigma0 is None and not is_rmse) else sigma0
         self.learned = learned
+        self.is_log = learned
         self.decay = decay if not is_rmse else 1
         self.reach = reach if decay or is_rmse else None
         self.max_step = max_step
@@ -59,7 +60,10 @@ class Sigma(Parameter):
     def value(self):
 
         with torch.no_grad():
-            return self.data.item()
+            if self.is_log:
+                return self.data.exp().item()
+            else:
+                return self.data.item()
         
     @property
     def params(self):

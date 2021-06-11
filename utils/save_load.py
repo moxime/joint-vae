@@ -679,7 +679,7 @@ def save_features_upsampler(net, dir='.', name=''):
 
 def test_results_df(nets, best_net=True, first_method=True, ood=True,
                     dataset=None,
-                    tpr=[0.95], tnr=False):
+                    tpr=[0.95], tnr=False, sorting_keys=[]):
     """
     nets : list of dicts n
     n['net'] : the network
@@ -698,7 +698,11 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
 
     if not dataset:
         testsets = {n['set'] for n in nets}
-        return {s: test_results_df(nets, best_net, first_method, ood, s, tpr, tnr) for s in testsets}
+        return {s: test_results_df(nets,
+                                   best_net, first_method, ood,
+                                   s,
+                                   tpr, tnr,
+                                   sorting_keys) for s in testsets}
 
     arch_index = ['type',
                   'depth',
@@ -799,6 +803,12 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
     sorting_levels = list(df.index.names)
     sorting_levels.remove('sigma')
     sorting_levels.remove('sigma_train')
+
+    if sorting_keys:
+        sorting_keys_ = [k.replace('-', '_') for k in sorting_keys]
+        for k in sorting_keys_:
+            sorting_levels.remove(k)
+        sorting_levels = sorting_keys_ + sorting_levels
     
     return df.sort_index(level=sorting_levels).apply(col_format)
         

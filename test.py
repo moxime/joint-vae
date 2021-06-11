@@ -241,6 +241,8 @@ if __name__ == '__main__':
     logging.debug('Filters: %s', filter_str)
     
     latex_formatting = args.latex
+
+    sort = args.sort
     
     for k, v in vars(args).items():
         logging.debug('%s: %s', k, str(v))
@@ -499,7 +501,8 @@ if __name__ == '__main__':
                          first_method=first_method,
                          ood=True,
                          tnr=args.tnr,
-                         tpr=tpr)
+                         tpr=tpr,
+                         sorting_keys=sort)
 
     _sep = ('_', ':', ',', ' ')
     tex_filter_str = filter_str

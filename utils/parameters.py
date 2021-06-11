@@ -358,6 +358,8 @@ def get_args_for_test():
 
     parser.add_argument('--tpr', nargs='*', default=[95], type=int)
     parser.add_argument('--tnr', action='store_true', help='Show TNR instead of FPR')
+
+    parser.add_argument('--sort', nargs='+')
     
     parser.add_argument('--job-id', type=int, default=0)
 

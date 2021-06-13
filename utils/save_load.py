@@ -544,7 +544,7 @@ def collect_networks(directory,
         beta = vae.training_parameters['beta']
         if sigma.learned:
             sigma_train = 'learned'
-            beta_sigma = rmse * np.sqrt(beta)
+            beta_sigma = sigma.value * np.sqrt(beta)
         elif sigma.is_rmse:
             sigma_train = 'rmse'
             beta_sigma = rmse * np.sqrt(beta)

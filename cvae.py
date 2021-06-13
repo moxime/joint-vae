@@ -642,16 +642,17 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_mse = batch_quants['mse']
             D = np.prod(self.input_shape)
 
+            # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
             if self.training:
                 self.sigma.decay_to(batch_mse.mean().sqrt())
                 self.training_parameters['sigma'] = self.sigma.params
 
-            if self.sigma.is_log:
+            if not self.sigma.is_log:
                 batch_logpx = (- D / 2 * torch.log(self.sigma**2 * np.pi)
                                - D / (2 * self.sigma**2) * batch_mse)
             else:
                 # sigma is actually log(sigma)
-                batch_logp_x = (- D * self.sigma - D / 2 * torch.log(np.pi)
+                batch_logpx = (- D * self.sigma - D / 2 * np.log(np.pi)
                                 - D / 2 * (-self.sigma * 2).exp() * batch_mse) 
                 
             batch_losses['cross_x'] = - batch_logpx

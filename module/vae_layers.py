@@ -34,15 +34,19 @@ activation_layers = {'linear': nn.Identity,
 class Sigma(Parameter):
 
     @staticmethod
-    def __new__(cls, value=None, learned=False, is_rmse=False, **kw):
+    def __new__(cls, value=None, learned=False, is_rmse=False, is_log=False,**kw):
 
         assert value is not None or is_rmse
         if is_rmse and value is None:
             value = 0
+        if learned:
+            is_log = True
+        if is_log:    
+            value = np.log(value)
         return super().__new__(cls, Tensor([value]), requires_grad=learned)
     
     def __init__(self, value=None, learned=False,  is_rmse=False,
-                 reach=1, decay=0, max_step=None, sigma0=None):
+                 reach=1, decay=0, max_step=None, sigma0=None, is_log=False):
 
         assert not learned or not is_rmse
         assert not decay or not learned
@@ -51,7 +55,8 @@ class Sigma(Parameter):
         self.is_rmse = is_rmse
         self.sigma0 = value if (sigma0 is None and not is_rmse) else sigma0
         self.learned = learned
-        self.is_log = learned
+        self.is_log = learned or is_log
+
         self.decay = decay if not is_rmse else 1
         self.reach = reach if decay or is_rmse else None
         self.max_step = max_step

@@ -189,8 +189,12 @@ if __name__ == '__main__':
 
     jvae.job_number = job_number
 
+    if args.resume:
+        with open(os.path.join(args.resume, 'RESUMED'), 'w') as f:
+            f.write(str(job_number) + '\n')
+    
     with open(os.path.join(job_dir, f'number-{hostname}'), 'w') as f:
-            f.write(str(job_number + 1) + '\n')
+        f.write(str(job_number + 1) + '\n')
 
     log.info('Network built, will be saved in')
     log.info(save_dir)

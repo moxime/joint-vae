@@ -358,7 +358,7 @@ def get_args_for_test():
     
     parser.add_argument('--latex', action='store_true')
 
-    parser.add_argument('--expand', '-e' , action='count', default=0)
+    parser.add_argument('--expand', '-e', action='count', default=0)
 
     parser.add_argument('--tpr', nargs='*', default=[95], type=int)
     parser.add_argument('--tnr', action='store_true', help='Show TNR instead of FPR')

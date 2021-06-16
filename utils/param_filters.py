@@ -1,5 +1,6 @@
 import re
 import numpy as np
+import logging
 
 
 class ParamFilter():
@@ -7,8 +8,7 @@ class ParamFilter():
     def __init__(self, arg_str='',
                  arg_type=int,
                  neg=False,
-                 always_true=False,
-    ):
+                 always_true=False):
 
         self.arg_str = arg_str
         self.arg_type = arg_type
@@ -17,11 +17,11 @@ class ParamFilter():
         
         interval_regex = '\.{2,}'
         self.is_interval = re.search(re.compile(interval_regex),
-                                arg_str)
+                                     arg_str)
 
         list_regex = '[\s\,]+\s*'
         self.is_list = re.search(re.compile(list_regex),
-                            arg_str)
+                                 arg_str)
 
         if self.is_interval:
 
@@ -81,6 +81,7 @@ class ParamFilter():
                 in_ =  a <= value <= b
                 return not in_ if neg else in_
             except TypeError as e:
+                return False
                 logging.error('Wrong type filter:', a, type(a),
                               b, type(b),
                               value, type(value),

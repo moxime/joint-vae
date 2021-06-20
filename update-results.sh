@@ -2,12 +2,13 @@
 sync=
 remote=lab-ia
 compile=
+feat=
 while :; do
     case $1 in
         --sync ) 
-            shift
 	    sync=true
-	    if [ $1 ]; then
+	    if [ $2 ] && [[ $2 != -* ]]; then
+		shift
 		remote=$1
 		shift
 	    fi
@@ -18,6 +19,11 @@ while :; do
 	    compile=tex
 	    # break
 	    ;;
+	-f )
+	    shift
+	    feat=$1
+	    shift
+	    ;;
 	* )
 	    break
 	    ;;
@@ -27,8 +33,9 @@ done
 
 cd ~/python/dnn/joint-vae
 
+[ $compile ] && echo TeX file will be compiled || echo No compilation of TeX file 
 if [ $sync ]; then
-    echo sync $remote
+    echo Jobs will be synced from $remote
     if [ $remote = lab-ia ]; then
 	. jobs/rsync-jobs-lab-ia
     elif [ $remote = lss ]; then
@@ -63,18 +70,25 @@ s='--dataset svhn'
 t='--type cvae vae'
 o='--coder-dict not learned --batch-norm both'
 j=''
-f='--features conv-p1-64-128-256'
+# f='--features conv-p1-64-128-256'
+if [ $feat ]; then
+    f_=("--features $feat")
+else
+    f_=('--features conv-p1-64-128-256' '--features vgg16')
+fi
 d_=('--depth 1' '--depth 5')
 e='--epochs 80..'
 da='--data-augmentation not flip --data-augmentation crop'
 st_=('--sigma-train constant' '--sigma-train learned' '--sigma-train not rmse')
 
 
-for st in "${st_[@]}"; do
-    for d in "${d_[@]}"; do
-	echo '### ###'
-	echo $test $s $t $o $j $f $d $e $da $st
-	$test $s $t $o $j $f $d $e $da $st
+for f in "${f_[@]}"; do
+    for st in "${st_[@]}"; do
+	for d in "${d_[@]}"; do
+	    echo '######'
+	    echo $test $s $t $o $j $f $d $e $da $st
+	    $test $s $t $o $j $f $d $e $da $st
+	done
     done
 done
 
@@ -95,8 +109,6 @@ done
 # $test --dataset svhn --depth 1 --type vae --epochs 20.. --sigma-train rmse --job 109500..
 
 ## $test --dataset cifar10 --type cvae --epochs 20.. --best-acc 0.5..
-
-
 
 if [ $compile ]; then
     cd ~/doctorat/notes/jvae/

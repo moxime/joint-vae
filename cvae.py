@@ -1838,6 +1838,16 @@ class ClassificationVariationalNetwork(nn.Module):
             
         job_number = loaded_params.get('job_number', job_number_by_dir_name)
 
+        resumed_file = os.path.join(dir_name, 'RESUMED')
+        is_resumed = os.path.exists(resumed_file)
+
+        if is_resumed:
+            with open(resumed_file, 'r') as resumed_f:
+                is_resumed = resumed_f.read()
+                try: is_resumed = int(is_resumed)
+                except ValueError: pass
+
+                
         logging.debug('Parameters loaded')
         if loaded_params.get('batch_norm', False) == True:
             loaded_params['batch_norm'] = 'encoder'
@@ -1934,7 +1944,7 @@ class ClassificationVariationalNetwork(nn.Module):
         vae.saved_dir = dir_name
         vae.trained = train_history['epochs']
         vae.train_history = train_history
-
+        vae.is_resumed = is_resumed
         vae.training_parameters = train_params
         if loaded_test:
             vae.testing.update(testing)

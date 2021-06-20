@@ -333,17 +333,18 @@ if __name__ == '__main__':
 
             is_derailed = os.path.exists(derailed)
             if not is_derailed:
-                enough_trained.append(n)
-                testsets.add(n['set'])
+                if not n['is_resumed']:
+                    enough_trained.append(n)
+                    testsets.add(n['set'])
 
-                if n['set'] in archs:
-                    archs[n['set']].add(n['arch'])
+                    if n['set'] in archs:
+                        archs[n['set']].add(n['arch'])
+                    else:
+                        archs[n['set']] = {n['arch']} 
                 else:
-                    archs[n['set']] = {n['arch']} 
-            else:
-                is_enough_trained = False
-                will_be_tested = False
-                ood_will_be_computed = 0
+                    is_enough_trained = False
+                    will_be_tested = False
+                    ood_will_be_computed = 0
 
         if is_derailed:
             train_mark = '+'

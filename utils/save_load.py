@@ -583,6 +583,7 @@ def collect_networks(directory,
         # print('TBR', architecture.type, vae.job_number, *loss_['test'].keys())
         vae_dict = {'net': vae,
                     'job': vae.job_number,
+                    'is_resumed': vae.is_resumed,
                     'type': architecture.type,
                     'arch': arch,
                     'dict_var': dict_var,

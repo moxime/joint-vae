@@ -146,11 +146,11 @@ def zsample(x, net, batch_size=128, root='results/%j/samples', directory='test')
     """
     N = len(x)
 
-    mu_z = torch.zeros(z_sample, net.latent_dim)
-    var_z = torch.zeros(z_sample, net.latent_dim)
-    log_var_z = torch.zeros(z_sample, net.latent_dim)
+    mu_z = torch.zeros(N, net.latent_dim)
+    var_z = torch.zeros(N, net.latent_dim)
+    log_var_z = torch.zeros(N, net.latent_dim)
                        
-    for b in range(z_sample // batch_size):
+    for b in range(N // batch_size):
 
         start = b * batch_size
         end = start + batch_size

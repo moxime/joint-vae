@@ -148,15 +148,24 @@ transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTe
 def get_dataset(dataset='MNIST', root='./data', ood=None,
                 transformer='default', data_augmentation=[]):
 
+    dataset = dataset.lower()
+    rotated = dataset.endswith('90')
+    
+    if rotated:
+        dataset = dataset[:-2]
+        rotation = transforms.Lambda(lambda img: transforms.functional.rotate(img, 90))
+    
     if transformer == 'default':
         transformer = set_dict[dataset]['default']
     transform = transformers[transformer][dataset]
-    dataset = dataset.lower()
 
     shape = set_dict[dataset]['shape']
     same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
     same_size.remove(dataset)
-    
+
+    if not rotated:
+        same_size.append(dataset + '90')
+
     train_transforms = []
 
     for t in data_augmentation:
@@ -174,6 +183,9 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
     train_transform = transforms.Compose(train_transforms)
 
     getter = set_dict[dataset]['getter']
+    if rotated:
+        getter = modify_getter(getter, pretransform=rotation)
+        
     with suppress_stdout():
         trainset = getter(root=root, train=True,
                           download=True,

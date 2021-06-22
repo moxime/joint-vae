@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
                 if z_sample:
 
-                    zsample(x[s][:z_sample], model, m, root=root, directory=s)
+                    zsample(x[s][:z_sample], model, m, root=root, bins=args.bins, directory=s)
 
             if N:
                 list_of_images = sample(model, root=root,

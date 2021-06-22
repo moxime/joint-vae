@@ -380,6 +380,7 @@ def get_args_from_filters(argv=None):
 
     parser.add_argument('--epochs',
                         dest='done',
+                        nargs='+',
                         action=FilterAction,
                         of_type=int,)
     

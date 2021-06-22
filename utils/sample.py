@@ -139,7 +139,7 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
     return list_of_images
 
 
-def zsample(x, net, batch_size=128, root='results/%j/samples', directory='test'):
+def zsample(x, net, batch_size=128, root='results/%j/samples', bins=10, directory='test'):
     r"""will sample varaible latent and ouput scatter and histogram of
     variance and mean of z
 

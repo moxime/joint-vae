@@ -96,6 +96,7 @@ set_dict['letters'].update({'classes': list(string.ascii_lowercase),
                             'labels': 26,
                             'getter': modify_getter(datasets.EMNIST,
                                                     pretransform=pretransform,
+                                                    target_transform=lambda x: x - 1,
                                                     split='letters')})
 
 

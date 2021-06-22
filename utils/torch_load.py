@@ -185,6 +185,7 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
     getter = set_dict[dataset]['getter']
     if rotated:
         getter = modify_getter(getter, pretransform=rotation)
+        dataset = dataset + '90'
         
     with suppress_stdout():
         trainset = getter(root=root, train=True,

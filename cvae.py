@@ -78,7 +78,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vib': ('cross_y', 'kl', 'total')}
     
     predict_methods_per_type = {'jvae': ('loss', 'mean'),
-                                'cvae': ('closest',),
+                                'cvae': ('closest', 'iws'),
                                 'xvae': ('loss', 'closest'),
                                 'vae': (),
                                 'vib': ('esty',)}
@@ -89,10 +89,10 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type ={'cvae': ('max', 'kl', 'mse', 'std', 'mag'), # , 'mag', 'IYx'),
+    ood_methods_per_type ={'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'), # , 'mag', 'IYx'),
                            'xvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
-                           'vae': ('logpx',),
+                           'vae': ('logpx', 'iws'),
                            'vib': ()}
 
     def __init__(self,
@@ -587,6 +587,7 @@ class ClassificationVariationalNetwork(nn.Module):
             D = np.prod(self.input_shape)
             mse_remainder = D * mse_loss_sampling.max(0)[0] / (2 * sigma_ ** 2)
             iws = (-D * mse_loss_sampling / (2 * sigma_ ** 2) + mse_remainder).exp()
+            if iws.isinf().sum(): print('MSE INF')
             mse_remainder += D / 2 * torch.log(sigma_ * np.pi)
             
             batch_quants['xpow'] = x.pow(2).mean().item()
@@ -684,9 +685,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     iws = iws.unsqueeze(1)
 
-            sdist_remainder = sdist.max(0)[0] / 2
+            sdist_remainder = sdist.min(0)[0] / 2
             iws = iws * (- sdist / 2 + sdist_remainder).exp()
-
+            if iws.isinf().sum(): logging.error('SDIST INF')
+            
             log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
             log_inv_q_remainder = log_inv_q_z_x.max(0)[0]
             
@@ -694,9 +696,17 @@ class ClassificationVariationalNetwork(nn.Module):
                 log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
 
             iws = iws * (log_inv_q_z_x - log_inv_q_remainder).exp()
+            if iws.isinf().sum():
+                print('Q_Z_X INF')
 
-            
-            batch_losses['iws'] = iws.mean(0).log() + log_inv_q_remainder - sdist_remainder - mse_remainder
+            if log_inv_q_remainder.isinf().sum():
+                logging.error('*** q_r is inf')
+            if mse_remainder.isinf().sum():
+                logging.error('*** mse_r is inf')
+            if sdist_remainder.isinf().sum():
+                logging.error('*** sd_r is inf')
+
+            batch_losses['iws'] = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - mse_remainder
             # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
             
             
@@ -778,6 +788,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if method == 'closest':
             return losses['zdist'].argmin(0)
 
+        if method == 'iws':
+            return losses['iws'].argmax(0)
         raise ValueError(f'Unknown method {method}')
 
     def batch_dist_measures(self, logits, losses, methods):
@@ -786,18 +798,35 @@ class ClassificationVariationalNetwork(nn.Module):
         for m in methods:
             assert m in self.ood_methods
         
+        C = self.num_labels
+        
         loss = losses['total']
 
         logp = - loss
         # ref is max of logp
         logp_max = logp.max(axis=0)[0]
         d_logp = logp - logp_max
-        
+
+        if 'iws' in losses:
+            iws = losses['iws']
+            if self.losses_might_be_computed_for_each_class:
+                iws_max = iws.max(axis=0)[0]
+                d_iws = iws - iws_max
+            
         for m in methods:
 
             if m == 'logpx':
                 assert not self.losses_might_be_computed_for_each_class
                 measures = logp
+
+            elif m == 'iws':
+                if self.losses_might_be_computed_for_each_class:
+                    measures = d_iws.exp().sum(axis=0).log() + iws_max
+                    if not self.is_jvae:
+                        measures += np.log(C)
+
+                else:
+                    measures = iws
             elif m == 'sum':
                 measures = d_logp.exp().sum(axis=0).log() + logp_max 
             elif m == 'max':
@@ -813,7 +842,6 @@ class ClassificationVariationalNetwork(nn.Module):
                             - d_logp.exp().mean(axis=0).log()).exp().pow(2)
             elif m == 'IYx':
                 d_logp_x = d_logp.exp().mean(axis=0).log()
-                C = self.num_labels
                 
                 measures =  ( (d_logp * (d_logp.exp())).sum(axis=0) / (C * d_logp_x.exp())
                             - d_logp_x )

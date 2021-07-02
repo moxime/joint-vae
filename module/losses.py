@@ -31,20 +31,17 @@ def compare_dims(small_dim, large_dim):
     return f + 1, t, ok
 
 
-def mse_loss(x_target, x_output, ndim=3, sampling_dims=1, batch_mean=True):
+def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
     """
     x_target of size (N1, .. ,Ng, D1, D2,..., Dt) 
     x_output of size (L, (C,), N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
     """
 
     output_dims_ = tuple(_ for _ in range(x_output.dim()))
-    sampling_dims_ = output_dims_[:sampling_dims]
     batch_dims_ = output_dims_[-x_target.dim():-ndim]
     input_dims_ = output_dims_[-ndim:]
     
-    mean_dims = sampling_dims_ + input_dims_
-    if batch_mean:
-        mean_dims += batch_dims_
+    mean_dims = input_dims_
 
     # print('****', mean_dims)
 

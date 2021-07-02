@@ -144,7 +144,8 @@ class Sampling(nn.Module):
         #        f'z_mean: {z_mean.size()} ' +
         #        f'epsilon: {epsilon.size()}'))
         # print('vl:136', self.is_sampled)
-        return z_mean + torch.exp(0.5 * z_log_var) * epsilon * self.is_sampled
+        return (z_mean + torch.exp(0.5 * z_log_var) * epsilon * self.is_sampled,
+                epsilon[1:])
 
 
 vgg_cfg = {
@@ -451,9 +452,9 @@ class Encoder(nn.Module):
         else:
             z_log_var = self.dense_log_var(u)
 
-        z = self.sampling(z_mean, z_log_var)
+        z, e = self.sampling(z_mean, z_log_var)
         
-        return z_mean, z_log_var, z
+        return z_mean, z_log_var, z, e
 
 
 class ConvDecoder(nn.Module):

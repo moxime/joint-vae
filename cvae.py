@@ -413,7 +413,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           None if y is None else y.view(*batch_shape),
                                           x, **kw)
 
-    def forward_from_features(self, x_features, y, x, z_output=True):
+    def forward_from_features(self, x_features, y, x, z_output=True, sampling_epsilon_norm_out=False):
 
         batch_shape = x_features.shape
         batch_size = batch_shape[:-len(self.encoder.input_shape)]  # N1 x...xNg
@@ -431,7 +431,7 @@ class ClassificationVariationalNetwork(nn.Module):
               'y_01:', *y_onehot.shape if y is not None else ('*',))
         """
         try:
-            z_mean, z_log_var, z = self.encoder(x_, y_onehot)
+            z_mean, z_log_var, z, sample_eps = self.encoder(x_, y_onehot)
             # z of size LxN1x...xNgxK
         except ValueError as e:
             dir_ = f'log/dump-{self.job_number}'
@@ -467,6 +467,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if z_output:
             out += (z_mean, z_log_var, z)
 
+        if sampling_epsilon_norm_out:
+            out += ((sample_eps ** 2).sum(-1),)
         return out
 
     def evaluate(self, x,
@@ -544,10 +546,16 @@ class ClassificationVariationalNetwork(nn.Module):
         y_in = y.view(y_shape) if self.y_is_coded else None
         
         if self.features:
-            x_reco, y_est, mu, log_var, z = self.forward_from_features(t, y_in, x, **kw)
+            o = self.forward_from_features(t, y_in, x,
+                                           sampling_epsilon_norm_out=True,
+                                           **kw)
         else:
-            x_reco, y_est, mu, log_var, z = self.forward(t, y_in, x, **kw)
-
+            o = self.forward(t, y_in, x,
+                             sampling_epsilon_norm_out=True,
+                             **kw)
+            
+        x_reco, y_est, mu, log_var, z, eps_norm = o
+        # print('*** eps norm:', *eps_norm.shape)
         # print('*** cvae:472 logits:', 't:', *t.shape, 'x_:', *x_reco.shape)
             
         batch_quants = {}
@@ -568,10 +576,16 @@ class ClassificationVariationalNetwork(nn.Module):
         total_measures['sigma'] = self.sigma.value
 
         if self.x_is_generated:
-            batch_quants['mse'] = mse_loss(x, x_reco[1:],
+            mse_loss_sampling = mse_loss(x, x_reco[1:],
                                            ndim=len(self.input_shape),
                                            batch_mean=False)
 
+            batch_quants['mse'] = mse_loss_sampling.mean(0)
+
+            sigma_ = self.sigma.exp() if self.sigma.is_log else self.sigma
+            
+            batch_quants['iws'] = (mse_loss_sampling / (2 * sigma_ ** 2)).exp()
+            
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch 
                                      + batch_quants['xpow']) / (batch + 1)
@@ -618,6 +632,7 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_quants['cross_y'] = x_loss(y_in,
                                              y_est,
                                              batch_mean=False)
+
 
             # print('*** cvae:545 cross_y', *batch_quants['cross_y'].shape)
 

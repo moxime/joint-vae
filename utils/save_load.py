@@ -634,7 +634,7 @@ def collect_networks(directory,
     
     except FileNotFoundError:    
         pass
-    list_dir = [os.path.join(directory, d) for d in os.listdir(directory)]
+    list_dir = [os.path.join(directory, d) for d in os.listdir(directory) if not d.startswith('dump')]
     sub_dirs = [e for e in list_dir if os.path.isdir(e)]
     
     for d in sub_dirs:
@@ -808,7 +808,13 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
     if sorting_keys:
         sorting_keys_ = [k.replace('-', '_') for k in sorting_keys]
         for k in sorting_keys_:
-            sorting_levels.remove(k)
+            try:
+                sorting_levels.remove(k)
+            except ValueError as e:
+                print('Possible sorting keys:',
+                      ' -- '.join(sorting_levels))
+                raise e
+                
         sorting_levels = sorting_keys_ + sorting_levels
     
     return df.sort_index(level=sorting_levels).apply(col_format)

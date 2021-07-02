@@ -71,10 +71,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
     """
 
-    loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
-                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist'), # , 'cross_y'),
-                                'xvae': ('cross_x', 'kl', 'total'),
-                                'vae': ('cross_x', 'kl', 'var_kl', 'total'),
+    loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total', 'iws'),
+                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist', 'iws'),
+                                'xvae': ('cross_x', 'kl', 'total', 'iws'),
+                                'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
     
     predict_methods_per_type = {'jvae': ('loss', 'mean'),
@@ -583,8 +583,11 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_quants['mse'] = mse_loss_sampling.mean(0)
 
             sigma_ = self.sigma.exp() if self.sigma.is_log else self.sigma
-            
-            batch_quants['iws'] = (mse_loss_sampling / (2 * sigma_ ** 2)).exp()
+
+            D = np.prod(self.input_shape)
+            mse_remainder = D * mse_loss_sampling.max(0)[0] / (2 * sigma_ ** 2)
+            iws = (-D * mse_loss_sampling / (2 * sigma_ ** 2) + mse_remainder).exp()
+            mse_remainder += D / 2 * torch.log(sigma_ * np.pi)
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch 
@@ -601,13 +604,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
         dictionary = self.encoder.latent_dictionary if self.coder_has_dict else None
 
-        kl_l, zdist, var_kl = kl_loss(mu, log_var,
-                              y=y if self.coder_has_dict else None,
-                              prior_variance = self.latent_prior_variance,
-                              latent_dictionary=dictionary,
-                              var_weighting=kl_var_weighting,
-                              out=['kl', 'dist', 'var'],
-                              batch_mean=False)
+        kl_l, zdist, var_kl, sdist = kl_loss(mu, log_var,
+                                             z=z[1:],
+                                             y=y if self.coder_has_dict else None,
+                                             prior_variance = self.latent_prior_variance,
+                                             latent_dictionary=dictionary,
+                                             var_weighting=kl_var_weighting,
+                                             out=['kl', 'dist', 'var', 'sdist'],
+                                             batch_mean=False)
 
         # print('*** wxjdjd ***', 'kl', *kl_l.shape, 'zd', *zdist.shape)
         
@@ -673,6 +677,28 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_losses['cross_x'] = - batch_logpx
 
             batch_losses['total'] += batch_losses['cross_x'] 
+
+            if sdist.dim() > iws.dim():
+                if sdist.shape[1] == 1:
+                    sdist = sdist.squeeze(1)
+                else:
+                    iws = iws.unsqueeze(1)
+
+            sdist_remainder = sdist.max(0)[0] / 2
+            iws = iws * (- sdist / 2 + sdist_remainder).exp()
+
+            log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
+            log_inv_q_remainder = log_inv_q_z_x.max(0)[0]
+            
+            if log_inv_q_z_x.dim() < iws.dim():
+                log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
+
+            iws = iws * (log_inv_q_z_x - log_inv_q_remainder).exp()
+
+            
+            batch_losses['iws'] = iws.mean(0).log() + log_inv_q_remainder - sdist_remainder - mse_remainder
+            # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
+            
             
         if self.y_is_decoded or self.force_cross_y:
             batch_losses['cross_y'] = batch_quants['cross_y']

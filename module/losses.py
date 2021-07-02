@@ -53,7 +53,9 @@ def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
     # return (x_target - x_output).pow(2).mean(mean_dims)
 
 
-def kl_loss(mu_z, log_var_z, y=None,
+def kl_loss(mu_z, log_var_z,
+            z=None,
+            y=None,
             latent_dictionary=None,
             prior_variance=1.,
             var_weighting=1.,
@@ -63,6 +65,9 @@ def kl_loss(mu_z, log_var_z, y=None,
     # logging.debug('TBR l:64 Computing KL')
     assert y is None or latent_dictionary is not None
 
+    if z is None:
+        assert 'sdist' not in out
+    
     var_loss = -(1 + log_var_z - np.log(prior_variance) - log_var_z.exp() / prior_variance).sum(-1)
     # print('*** losses:59', 'warm', var_weighting, 'var_loss', loss.mean().detach().cpu().item())
     loss = 0.5 * var_weighting * var_loss
@@ -73,6 +78,7 @@ def kl_loss(mu_z, log_var_z, y=None,
     if y is None:
         distances = mu_z.pow(2).sum(-1) / prior_variance
         loss += 0.5 * distances
+        sdistances = z.pow(2).sum(-1) / prior_variance
         
     else:
 
@@ -82,7 +88,8 @@ def kl_loss(mu_z, log_var_z, y=None,
         centroids = latent_dictionary.index_select(0, y.view(-1)).view(centroids_shape)
         # print('*** losses:74', 'mu_', *mu_z.shape, 'centroids', *centroids.shape)
         distances = (mu_z - centroids).pow(2).sum(-1) / prior_variance
-
+        # print('*** z:', *z.shape, 'centroid:', *centroids.shape) 
+        sdistances = (z.unsqueeze(1) - centroids.unsqueeze(0)).pow(2).sum(-1) / prior_variance
         # print('*** losses:76', 'loss', *loss.shape, 'dist', *distances.shape)
         loss = loss + 0.5 * distances
         
@@ -97,7 +104,8 @@ def kl_loss(mu_z, log_var_z, y=None,
 
     output_dict = {'kl': loss.mean() if batch_mean else loss,
                    'dist': distances.mean() if batch_mean else distances,
-                   'var': var_loss.mean() if batch_mean else var_loss}
+                   'var': var_loss.mean() if batch_mean else var_loss,
+                   'sdist': sdistances.mean() if batch_mean else sdistances}
 
     return tuple(output_dict[_] for _ in out)
 

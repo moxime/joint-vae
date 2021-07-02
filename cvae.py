@@ -585,7 +585,7 @@ class ClassificationVariationalNetwork(nn.Module):
             sigma_ = self.sigma.exp() if self.sigma.is_log else self.sigma
 
             D = np.prod(self.input_shape)
-            mse_remainder = D * mse_loss_sampling.max(0)[0] / (2 * sigma_ ** 2)
+            mse_remainder = D * mse_loss_sampling.min(0)[0] / (2 * sigma_ ** 2)
             iws = (-D * mse_loss_sampling / (2 * sigma_ ** 2) + mse_remainder).exp()
             if iws.isinf().sum(): logging.error('MSE INF')
             mse_remainder += D / 2 * torch.log(sigma_ * np.pi)

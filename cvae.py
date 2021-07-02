@@ -587,7 +587,7 @@ class ClassificationVariationalNetwork(nn.Module):
             D = np.prod(self.input_shape)
             mse_remainder = D * mse_loss_sampling.max(0)[0] / (2 * sigma_ ** 2)
             iws = (-D * mse_loss_sampling / (2 * sigma_ ** 2) + mse_remainder).exp()
-            if iws.isinf().sum(): print('MSE INF')
+            if iws.isinf().sum(): logging.error('MSE INF')
             mse_remainder += D / 2 * torch.log(sigma_ * np.pi)
             
             batch_quants['xpow'] = x.pow(2).mean().item()
@@ -686,18 +686,20 @@ class ClassificationVariationalNetwork(nn.Module):
                     iws = iws.unsqueeze(1)
 
             sdist_remainder = sdist.min(0)[0] / 2
-            iws = iws * (- sdist / 2 + sdist_remainder).exp()
-            if iws.isinf().sum(): logging.error('SDIST INF')
+            p_z_y = (- sdist / 2 + sdist_remainder).exp()
+            iws = iws * p_z_y
+            if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
             
             log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
-            log_inv_q_remainder = log_inv_q_z_x.max(0)[0]
             
             if log_inv_q_z_x.dim() < iws.dim():
                 log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
 
-            iws = iws * (log_inv_q_z_x - log_inv_q_remainder).exp()
-            if iws.isinf().sum():
-                print('Q_Z_X INF')
+            log_inv_q_remainder = log_inv_q_z_x.max(0)[0]
+            inv_q = (log_inv_q_z_x - log_inv_q_remainder).exp()
+            iws = iws * inv_q
+            if inv_q.isinf().sum():
+                logging.error('Q_Z_X INF')
 
             if log_inv_q_remainder.isinf().sum():
                 logging.error('*** q_r is inf')

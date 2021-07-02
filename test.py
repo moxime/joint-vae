@@ -47,7 +47,7 @@ def test_accuracy_if(jvae=None,
                             'none found')
 
     # deleting old testing methods
-    jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods}
+    jvae.testing = {m: jvae.testing[m] for m in jvae.predict_methods if m in jvae.testing}
         
     is_trained = jvae.trained >= jvae.training_parameters['epochs']
 

@@ -476,7 +476,7 @@ def collect_networks(directory,
         pretrained_features =  (None if not architecture.features
                                 else training.pretrained_features)
         pretrained_upsampler = training.pretrained_upsampler
-        predict_methods =  vae.predict_methods
+        predict_methods =  [m for m in vae.predict_methods if m in vae.testing]
         ood_methods = vae.ood_methods
 
         batch_size = training.batch_size

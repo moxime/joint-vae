@@ -341,7 +341,7 @@ class ClassificationVariationalNetwork(nn.Module):
             'sigma': self.sigma.params,
             'beta': self.beta,
             'gamma': self.gamma,
-            'rho': self.rho
+            'rho': self.rho,
             'rho_temp': self.rho_temp,
             'dictionary_variance': dictionary_variance,
             'learned_coder': learned_coder,

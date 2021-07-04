@@ -1663,7 +1663,8 @@ class ClassificationVariationalNetwork(nn.Module):
                     
                     r_ = self.rho * torch.exp(-dict_var / self.rho_temp * log2)
                     L += r_ * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
-                    # logging.debug('adding gamma loss')
+                    if not i:
+                        logging.debug('rho_=%e', r_.item())
                     
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():

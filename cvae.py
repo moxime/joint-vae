@@ -710,7 +710,8 @@ class ClassificationVariationalNetwork(nn.Module):
             if sdist_remainder.isinf().sum():
                 logging.error('*** sd_r is inf')
 
-            batch_losses['iws'] = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - mse_remainder
+            iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - mse_remainder
+            batch_losses['iws'] = iws_
             # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
             
             

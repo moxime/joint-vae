@@ -479,6 +479,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  current_measures=None,
                  with_beta=False,
                  kl_var_weighting=1.,
+                 mse_weighting=1.,
                  z_output=False,
                  **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
@@ -677,7 +678,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_logpx = (- D * self.sigma - D / 2 * np.log(np.pi)
                                 - D / 2 * (-self.sigma * 2).exp() * batch_mse) 
                 
-            batch_losses['cross_x'] = - batch_logpx
+            batch_losses['cross_x'] = - batch_logpx * mse_weighting
 
             batch_losses['total'] += batch_losses['cross_x'] 
 
@@ -1638,14 +1639,18 @@ class ClassificationVariationalNetwork(nn.Module):
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
-                warmup_kl_weighting = min(1., (epoch + 1) / (warmup + 1))
+                if self.training:
+                    warmup_weighting = min(1., (epoch + 1) / (warmup + 1))
+                else:
+                    warmup_weighting = 1.
                 # with autograd.detect_anomaly():
                 # forward + backward + optimize
                 (_, y_est,
                  batch_losses, measures) = self.evaluate(x, y,
                                                          batch=i,
                                                          with_beta=True,
-                                                         kl_var_weighting=warmup_kl_weighting,
+                                                         kl_var_weighting=warmup_weighting,
+                                                         mse_weighting=warmup_weighting,
                                                          current_measures=current_measures)
 
                 current_measures = measures

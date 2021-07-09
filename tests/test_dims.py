@@ -28,6 +28,7 @@ types = ('vib', 'vae', 'jvae', 'cvae', 'xvae')
 cls_cvae = []
 gamma = 0
 y_coded = True
+y_coded = False
 
 for ntype in types:
 

@@ -99,6 +99,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  input_shape,
                  num_labels,
                  type_of_net = 'jvae', # or 'vib' or cvae or vae
+                 y_is_coded = False,
                  job_number=0,
                  features=None,
                  pretrained_features=None,
@@ -150,8 +151,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.is_vae = type_of_net == 'vae'
         self.is_cvae = type_of_net == 'cvae'
         self.is_xvae = type_of_net == 'xvae'
-        
-        self.y_is_coded = self.is_jvae or self.is_xvae
+
+        assert not (y_is_coded and self.is_vib or self.is_cvae)
+        self.y_is_coded = y_is_coded
         # self.y_is_decoded = self.is_vib or self.is_jvae
         self.y_is_decoded = True
         if self.is_cvae or self.is_vae:

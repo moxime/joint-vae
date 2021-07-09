@@ -608,6 +608,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         dictionary = self.encoder.latent_dictionary if self.coder_has_dict else None
 
+        if not batch:
+            logging.debug('warmup kl weight=%e', kl_var_weighting)
+
         kl_l, zdist, var_kl, sdist = kl_loss(mu, log_var,
                                              z=z[1:],
                                              y=y if self.coder_has_dict else None,
@@ -1643,6 +1646,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     warmup_weighting = min(1., (epoch + 1) / (warmup + 1))
                 else:
                     warmup_weighting = 1.
+
                 # with autograd.detect_anomaly():
                 # forward + backward + optimize
                 (_, y_est,

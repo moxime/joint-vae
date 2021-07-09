@@ -152,7 +152,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.is_cvae = type_of_net == 'cvae'
         self.is_xvae = type_of_net == 'xvae'
 
-        assert not (y_is_coded and self.is_vib or self.is_cvae)
+        assert not (y_is_coded and (self.is_vib or self.is_vae))
         self.y_is_coded = y_is_coded
         # self.y_is_decoded = self.is_vib or self.is_jvae
         self.y_is_decoded = True

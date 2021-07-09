@@ -12,9 +12,9 @@ nets = {}
 out = {}
 out_y = {}
 
-N = (128,)
-L = 64
-K = 16
+N = (20,)
+L = 12
+K = 8
 
 d = 'cuda'
 
@@ -27,6 +27,7 @@ types = ('vib', 'vae', 'jvae', 'cvae', 'xvae')
 
 cls_cvae = []
 gamma = 0
+y_coded = True
 
 for ntype in types:
 
@@ -34,6 +35,7 @@ for ntype in types:
     print('oooooo  TYPE:', ntype, ' oooo')
     n = Net(D, C,
             type_of_net=ntype,
+            y_is_coded=y_coded and ntype not in ('vib', 'vae'),
             batch_norm='encoder',
             features='vgg16',
             encoder_layer_sizes=[],

@@ -71,13 +71,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
     """
 
-    loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total', 'iws'),
+    loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
                                 'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist', 'iws'),
                                 'xvae': ('cross_x', 'kl', 'total', 'iws'),
                                 'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
     
-    predict_methods_per_type = {'jvae': ('loss', 'mean'),
+    predict_methods_per_type = {'jvae': ('loss', 'esty'),
                                 'cvae': ('closest', 'iws'),
                                 'xvae': ('loss', 'closest'),
                                 'vae': (),
@@ -99,6 +99,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  input_shape,
                  num_labels,
                  type_of_net = 'jvae', # or 'vib' or cvae or vae
+                 y_is_coded = False,
                  job_number=0,
                  features=None,
                  pretrained_features=None,
@@ -141,6 +142,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.type = type_of_net
 
         self.loss_components = self.loss_components_per_type[self.type]
+ 
         self.metrics = self.metrics_per_type[self.type]
         self.predict_methods = self.predict_methods_per_type[self.type]
         self.ood_methods = self.ood_methods_per_type[self.type]
@@ -150,8 +152,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.is_vae = type_of_net == 'vae'
         self.is_cvae = type_of_net == 'cvae'
         self.is_xvae = type_of_net == 'xvae'
-        
-        self.y_is_coded = self.is_jvae or self.is_xvae
+
+        assert not (y_is_coded and (self.is_vib or self.is_vae))
+        self.y_is_coded = y_is_coded
         # self.y_is_decoded = self.is_vib or self.is_jvae
         self.y_is_decoded = True
         if self.is_cvae or self.is_vae:
@@ -715,7 +718,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.error('*** sd_r is inf')
 
             iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - mse_remainder
-            batch_losses['iws'] = iws_
+
+            if 'iws' in self.loss_components:
+                batch_losses['iws'] = iws_
             # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
             
             
@@ -1021,7 +1026,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 (x_, logits,
                  batch_losses, measures) = self.evaluate(x_test, batch=i,
                                                         current_measures=current_measures)
-
+                
+                # print('*** batch_losses:', *batch_losses)
                 current_measures = measures
                 self._measures = measures
             else:
@@ -1044,18 +1050,17 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('*** 843', batch_losses['cross_y'].min(0)[0].mean())
             ind = y_test.unsqueeze(0)
             for k in batch_losses:
-                if k == 'cross_y' and self.is_xvae:
-                    shape = 'CxNxC'
-                elif k == 'cross_y' or self.is_jvae:
+                if k in ('total', 'iws'):
+                    shape = 'CxN' if self.y_is_decoded else 'N'
+                elif k in ('zdist', 'kl'):
+                    shape = 'CxN' if self.is_cvae else 'N'
+                elif k == 'cross_y':
                     shape = 'CxN'
-                elif self.is_cvae and k not in ('cross_x', 'dzdist', 'var_kl'):
-                    shape = 'CxN'
-                elif self.is_vib and k == 'total':
-                    shape = 'CxN'
-                elif self.is_xvae:
-                    shape = 'CxN'
-                else:
+                elif k in ('cross_x', 'var_kl'):
                     shape = 'N'
+                else:
+                    logging.error(f'{k} shape has not been anticipated')
+
                 # print('*** cvae 859', k, *batch_losses[k].shape, shape)
 
                 if shape == 'CxNxC':

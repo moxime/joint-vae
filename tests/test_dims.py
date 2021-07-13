@@ -27,6 +27,8 @@ types = ('vib', 'vae', 'jvae', 'cvae', 'xvae')
 
 cls_cvae = []
 gamma = 0
+y_coded = True
+y_coded = False
 
 for ntype in types:
 
@@ -34,6 +36,7 @@ for ntype in types:
     print('oooooo  TYPE:', ntype, ' oooo')
     n = Net(D, C,
             type_of_net=ntype,
+            y_is_coded=y_coded and ntype not in ('vib', 'vae'),
             batch_norm='encoder',
             features='vgg16',
             encoder_layer_sizes=[],

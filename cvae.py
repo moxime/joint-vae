@@ -1060,7 +1060,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     shape = 'N'
                 else:
                     _s = ', '.join([str(_) for _ in batch_losses[k].shape])
-                    logging.error(f'{k} shape has not been anticipated: {_s}')
+                    logging.warning(f'{k} shape has not been anticipated: {_s}')
 
                 # print('*** cvae 859', k, *batch_losses[k].shape, shape)
 

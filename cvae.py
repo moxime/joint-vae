@@ -1059,18 +1059,24 @@ class ClassificationVariationalNetwork(nn.Module):
                 elif k in ('cross_x', 'var_kl'):
                     shape = 'N'
                 else:
-                    logging.error(f'{k} shape has not been anticipated')
+                    _s = ', '.join([str(_) for _ in batch_losses[k].shape])
+                    logging.error(f'{k} shape has not been anticipated: {_s}')
 
                 # print('*** cvae 859', k, *batch_losses[k].shape, shape)
 
-                if shape == 'CxNxC':
-                    batch_loss_y = batch_losses[k].max(-1)[0].gather(0, ind)
-                elif shape == 'CxN':
-                    batch_loss_y = batch_losses[k].gather(0, ind)
-                else:
+                try:
+                    if shape == 'CxNxC':
+                        batch_loss_y = batch_losses[k].max(-1)[0].gather(0, ind)
+                    elif shape == 'CxN':
+                        batch_loss_y = batch_losses[k].gather(0, ind)
+                    else:
                     batch_loss_y = batch_losses[k]
-                # print('*** cvae:866 bl_y:', *batch_loss_y.shape)
-                
+                    # print('*** cvae:866 bl_y:', *batch_loss_y.shape)
+                except RuntimeError:
+                    _s = ', '.join([str(_) for _ in batch_losses[k].shape])
+                    logging.error(f'{k} shape has been wrongly anticipated: {shape} in lieu of {_s}')
+                    total_loss[k] = 0.0
+                    
                 if k not in total_loss:
                     total_loss[k] = 0.0
 

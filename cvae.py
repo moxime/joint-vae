@@ -1054,7 +1054,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     shape = 'CxN' if self.y_is_decoded else 'N'
                 elif k in ('zdist', 'kl'):
                     shape = 'CxN' if self.is_cvae else 'N'
-                elif k == 'cross_y':
+                elif k in ('cross_y', 'dzdist'):
                     shape = 'CxN'
                 elif k in ('cross_x', 'var_kl'):
                     shape = 'N'

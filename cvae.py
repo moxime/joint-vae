@@ -1672,7 +1672,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_losses, measures) = self.evaluate(x, y,
                                                          batch=i,
                                                          with_beta=True,
-                                                         kl_var_weighting=warmup_weighting,
+                                                         kl_var_weighting=warmup_weighting ** 2,
                                                          mse_weighting=warmup_weighting,
                                                          current_measures=current_measures)
 

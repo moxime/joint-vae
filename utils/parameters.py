@@ -330,7 +330,7 @@ def get_args_for_test():
     parser.add_argument('load_dir',
                         nargs='?', default=None)
 
-    parser.add_argument('-m', '--batch-size', type=int, metavar='M')
+    parser.add_argument('-M', '--batch-size', type=int, metavar='M')
 
     help = 'Num of samples to compute test accuracy'
     parser.add_argument('-t', '--test-sample-size', type=int,

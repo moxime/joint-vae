@@ -1152,7 +1152,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 self.testing[m] = {'n': n,
                                    'epochs': self.trained,
-                                   'sampling': self.test_latent_sampling,
+                                   'sampling': self.latent_samplings['eval'],
                                    'accuracy': acc[m]}
 
             elif log:

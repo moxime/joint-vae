@@ -1866,9 +1866,7 @@ class ClassificationVariationalNetwork(nn.Module):
         s = f'{set}: {self.sigma} -- L={sampling} {done_epochs}/{epochs}'
         return s
 
-
     print_architecture = save_load.print_architecture
-
     option_vector = save_load.option_vector
         
     def save(self, dir_name=None):
@@ -1912,7 +1910,7 @@ class ClassificationVariationalNetwork(nn.Module):
         default_params = {'type': 'jvae',
                           'batch_norm': False,
                           'encoder_forced_variance': False,
-                          'latent_prior_variance': 1.,
+                          'latent_prior_variance': 1.
         }
         
         train_params = {'pretrained_features': None,

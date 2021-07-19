@@ -327,6 +327,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'activation': activation,
                              'encoder_forced_variance': self.encoder.forced_variance,
                              'latent_dim': latent_dim,
+                             'test_latent_sampling': test_latent_sampling,
                              'latent_prior_variance': latent_prior_variance,
                              'decoder': decoder_layer_sizes,
                              'upsampler': upsampler_channels,
@@ -1151,6 +1152,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 self.testing[m] = {'n': n,
                                    'epochs': self.trained,
+                                   'sampling': self.test_latent_sampling,
                                    'accuracy': acc[m]}
 
             elif log:
@@ -1910,7 +1912,8 @@ class ClassificationVariationalNetwork(nn.Module):
         default_params = {'type': 'jvae',
                           'batch_norm': False,
                           'encoder_forced_variance': False,
-                          'latent_prior_variance': 1.
+                          'test_latent_sampling': 0,
+                          'latent_prior_variance': 1.,
         }
         
         train_params = {'pretrained_features': None,
@@ -1944,9 +1947,10 @@ class ClassificationVariationalNetwork(nn.Module):
         if is_resumed:
             with open(resumed_file, 'r') as resumed_f:
                 is_resumed = resumed_f.read()
-                try: is_resumed = int(is_resumed)
-                except ValueError: pass
-
+                try:
+                    is_resumed = int(is_resumed)
+                except ValueError:
+                    pass
                 
         logging.debug('Parameters loaded')
         if loaded_params.get('batch_norm', False) == True:
@@ -1954,6 +1958,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
         params = default_params.copy()
         params.update(loaded_params)
+        
+        loaded_train = False
+        try:
+            train_params.update(save_load.load_json(dir_name, 'train.json'))
+            logging.debug('Training parameters loaded')
+            loaded_train = True
+        except(FileNotFoundError):
+            pass
         
         loaded_test = False
         try:
@@ -1969,14 +1981,6 @@ class ClassificationVariationalNetwork(nn.Module):
             loaded_ood = True
         except(FileNotFoundError):
             ood_results = {}
-            pass
-        
-        loaded_train = False
-        try:
-            train_params.update(save_load.load_json(dir_name, 'train.json'))
-            logging.debug('Training parameters loaded')
-            loaded_train = True
-        except(FileNotFoundError):
             pass
         
         try:
@@ -2018,6 +2022,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       decoder_layer_sizes=params['decoder'],
                       classifier_layer_sizes=params['classifier'],
                       latent_sampling=train_params['latent_sampling'],
+                      test_latent_sampling=params['test_latent_sampling'],
                       batch_norm=params['batch_norm'],
                       activation=params['activation'],
                       sigma=train_params['sigma'],

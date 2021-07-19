@@ -159,8 +159,8 @@ def get_args_for_train(argv=None):
     help = f'epochs for training (default is {defaults["epochs"]})'
     parser.add_argument('--epochs', type=int, help=help)
 
-    parser.add_argument('-m', '--batch-size', type=int, metavar='m')
-    parser.add_argument('-M', '--test-batch-size', type=int, metavar='M', default=1024)
+    parser.add_argument('-M', '--batch-size', type=int, metavar='m')
+    parser.add_argument('-m', '--test-batch-size', type=int, metavar='M', default=1024)
 
     help = 'Num of samples to compute test accuracy'
     parser.add_argument('-t', '--test-sample-size', type=int,
@@ -229,7 +229,8 @@ def get_args_for_train(argv=None):
                         type=int)
 
     parser.add_argument('-L', '--latent-sampling', metavar='L', type=int)
-
+    parser.add_argument('-l', '--test-latent-sampling', metavar='l', type=int)
+    
     parser.add_argument('--latent-prior-variance', type=float, default=1.)
 
     parser.add_argument('--features', metavar='NAME',

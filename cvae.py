@@ -126,6 +126,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  name='joint-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
+                 test_latent_sampling=None,  # if none will be the same as (train) latent_sampling
                  encoder_forced_variance=False,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
                  sigma={'value': 0.5},
@@ -232,6 +233,9 @@ class ClassificationVariationalNetwork(nn.Module):
             self.sigma = Sigma(**sigma)
         else:
             self.sigma = Sigma(value=sigma)
+
+        if not test_latent_sampling:
+            test_latent_sampling = latent_sampling
             
         sampling = latent_sampling > 1 or bool(self.sigma > 0)
         if not sampling:
@@ -373,6 +377,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
+        self.latent_samplings = {'train': latent_sampling, 'eval': test_latent_sampling}
         self.encoder_layer_sizes = encoder_layer_sizes
         self.decoder_layer_sizes = decoder_layer_sizes
         self.classifier_layer_sizes = classifier_layer_sizes
@@ -389,6 +394,7 @@ class ClassificationVariationalNetwork(nn.Module):
         super().train(*a, **k)
         new_state = 'train' if self.training else 'eval'
         logging.debug(f'Going from {state} to {new_state}')
+        self.latent_sampling = self.latent_samplings[new_state]
         
     def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.

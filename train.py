@@ -117,6 +117,7 @@ if __name__ == '__main__':
                      force_cross_y=args.force_cross_y,
                      latent_prior_variance=args.latent_prior_variance,
                      latent_sampling=args.latent_sampling,
+                     test_latent_sampling=args.test_latent_sampling,
                      decoder_layer_sizes=args.decoder,
                      upsampler_channels=args.upsampler,
                      classifier_layer_sizes=args.classifier,
@@ -224,7 +225,7 @@ if __name__ == '__main__':
         if jvae.trained < args.epochs:
             log.info('Training of %s', jvae.print_architecture())
 
-            #print('t.py l 302 testset:', testset.data[0].shape)
+            # print('t.py l 302 testset:', testset.data[0].shape)
 
             jvae.train_model(trainset,
                              transformer=transformer,

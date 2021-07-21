@@ -1617,6 +1617,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   # log=False,
                                                   outputs=outputs,
                                                   sample_dirs=sample_dirs,
+                                                  update_self_testing=full_test,
                                                   recorder=recorder,
                                                   print_result='TEST' if full_test else 'test')
                     test_loss = self.test_loss

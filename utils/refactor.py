@@ -1,8 +1,58 @@
 import json
 import os
 from module.vae_layers import Sigma
+from utils.save_load import find_by_job_number
+from shutil import copyfile
 
+def refactor_from_log_file(json_file,
+                           key,
+                           ktype=int,
+                           log_directory='./jobs/log',
+                           log_file_pre='train.log',
+                           follow_resumed=True,
+                           write_json=False):
 
+    to_follow = {}
+    
+    log_files = [f for f in os.listdir(log_directory) if f.startswith(log_file_pre)] 
+
+    for f in log_files:
+
+        with open(os.path.join(log_directory, f), 'r') as f_:
+            # print(f_.name)
+            lines = f_.readlines()
+            vals = {key: None, 'job_dir': 'none'}
+            types = {key: ktype, 'job_dir': str}
+            directory = None
+            for k in vals:
+                for line in lines:
+                    if k + ':' in line:
+                        vals[k] = types[k](line.strip().split(k + ':')[-1].strip())
+            for line in lines:
+                if '[I] ' + vals['job_dir'] in line:
+                    directory = line.strip('\n').split('[I] ')[-1]
+                    # print(directory)
+                            
+            if vals[key] is not None and directory:
+                # print(f_.name, directory, ':', key, '=', vals[key])
+                load_and_save_json(directory, json_file, key, new_value=vals[key], recursive=False, write_json=write_json)
+                f_r = os.path.join(directory, 'RESUMED')
+                if os.path.exists(f_r):
+                    with open(f_r, 'r') as f_r_:
+                        is_resumed = int(f_r_.read())
+                        to_follow[is_resumed] = vals[key]
+
+    nets = find_by_job_number(*to_follow.keys(), load_net=False)
+
+    print('==== RESUMED ====')
+
+    for j in nets:
+
+        directory = nets[j]['dir']
+        val = to_follow[j]
+        print('\n***',j, ':', val, '***')
+        load_and_save_json(directory, json_file, key, new_value=val, recursive=False, write_json=write_json)
+            
 def load_and_save_json(directory,
                        json_file,
                        key,
@@ -26,11 +76,11 @@ def load_and_save_json(directory,
                 print('error with', name)
                 t = dict()
 
-        if key in t.keys():
-            print(name, '\n---', key, ':', t[key], end='')
+        if key in t.keys() or old_value is None:
+            print(name[-80:], '\n---', key, ':', t.get(key, None), end='')
 
-            if new_value:
-                if t[key] == old_value:
+            if new_value is not None:
+                if t.get(key, None) == old_value:
                     print(' ->', new_value, '*' if write_json else '')
                     t[key] = new_value
                 else: print()
@@ -40,6 +90,7 @@ def load_and_save_json(directory,
                 t[new_key] = v
                 print(' ->', new_key,':', t[new_key], '*' if write_json else '')
             if write_json:
+                copyfile(name, name + '.bak')
                 print('w', name, '\n', t)
                 with open(name, 'w') as f:
                     json.dump(t, f)

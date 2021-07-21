@@ -450,6 +450,11 @@ def get_args_from_filters(argv=None):
                         action=FilterAction,
                         of_type=int)
 
+    parser.add_argument('--warmup',
+                        nargs='+',
+                        action=FilterAction,
+                        of_type=int)
+
     parser.add_argument('--depth',
                         nargs='+',
                         action=FilterAction,

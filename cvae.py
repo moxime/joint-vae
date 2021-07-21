@@ -73,7 +73,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
                                 'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist', 'iws'),
-                                'xvae': ('cross_x', 'kl', 'total', 'iws'),
+                                'xvae': ('cross_x', 'kl', 'total', 'zdist', 'iws'),
                                 'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
     
@@ -1057,20 +1057,20 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('*** 843', batch_losses['cross_y'].min(0)[0].mean())
             ind = y_test.unsqueeze(0)
             for k in batch_losses:
+                _s = 'x'.join([str(_) for _ in batch_losses[k].shape])
                 if k in ('total', 'iws'):
                     shape = 'CxN' if self.y_is_decoded else 'N'
                 elif k in ('zdist', 'kl'):
-                    shape = 'CxN' if self.is_cvae else 'N'
+                    shape = 'CxN' if self.is_cvae or self.is_xvae else 'N'
                 elif k in ('cross_y',):
                     shape = 'CxN'
                 elif k in ('cross_x', 'var_kl', 'dzdist'):
                     shape = 'N'
                 else:
-                    _s = ', '.join([str(_) for _ in batch_losses[k].shape])
                     logging.warning(f'{k} shape has not been anticipated: {_s}')
 
-                # print('*** cvae 859', k, *batch_losses[k].shape, shape)
-
+                if not i:
+                    logging.debug(f'Predicted shape for {k}: {shape}. Actual: {_s}') 
                 try:
                     if shape == 'CxNxC':
                         batch_loss_y = batch_losses[k].max(-1)[0].gather(0, ind)
@@ -1078,9 +1078,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         batch_loss_y = batch_losses[k].gather(0, ind)
                     else:
                         batch_loss_y = batch_losses[k]
-                        # print('*** cvae:866 bl_y:', *batch_loss_y.shape)
                 except RuntimeError:
-                    _s = ', '.join([str(_) for _ in batch_losses[k].shape])
                     logging.error(f'{k} shape has been wrongly anticipated: {shape} in lieu of {_s}')
                     total_loss[k] = 0.0
                     
@@ -1262,7 +1260,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     x = data[0].to(device)
                     y = data[1].to(device)
                     with torch.no_grad():
-                        _, logits, losses, _  = self.evaluate(x)
+                        _, logits, losses, _  = self.evaluate(x, batch=i)
                 else:
                     losses = recorders[s].get_batch(i, *self.loss_components)
                     logits = recorders[s].get_batch(i, 'logits').T
@@ -1335,7 +1333,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     x = data[0].to(device)
                     y = data[1].to(device)
                     with torch.no_grad():
-                        _, logits, losses, _ = self.evaluate(x)
+                        _, logits, losses, _ = self.evaluate(x, batch=i)
                 else:
                     losses = recorders[s].get_batch(i, *self.loss_components)
                     logits = recorders[s].get_batch(i, 'logits').T

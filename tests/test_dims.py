@@ -30,10 +30,12 @@ gamma = 0
 y_coded = True
 y_coded = False
 
+if y_coded:
+    types = ('jvae', 'xvae')
+
 for ntype in types:
 
-    print('\n\nooooooooooooooooooooooooo')
-    print('oooooo  TYPE:', ntype, ' oooo')
+    print('TYPE:', ntype)
     n = Net(D, C,
             type_of_net=ntype,
             y_is_coded=y_coded and ntype not in ('vib', 'vae'),
@@ -56,9 +58,9 @@ for ntype in types:
         pass
 
     if ntype != 'vae':
-        print('\nooooo   y in input')
+        print('y in input')
         out_y[ntype] = n.evaluate(x, y)
-    print('\nooooo   y is none')
+    print('y is none')
     out[ntype] = n.evaluate(x)
 
 

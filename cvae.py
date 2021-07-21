@@ -1445,8 +1445,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['batch_size'] = batch_size
 
             if latent_sampling:
-                self.latent_sampling = latent_sampling
-            self.training_parameters['latent_sampling'] = self.latent_sampling
+                self.latent_samplings['train'] = latent_sampling
+                self.training_parameters['latent_sampling'] = latent_sampling
 
             if data_augmentation:
                 self.training_parameters['data_augmentation'] = data_augmentation

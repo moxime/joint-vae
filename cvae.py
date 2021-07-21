@@ -1477,6 +1477,9 @@ class ClassificationVariationalNetwork(nn.Module):
         else:
             train_batch_size = max_batch_sizes['train']
 
+        warmup = max(warmup, self.training_parameters.get('warmup', 0))
+        self.training_parameters['warmup'] = warmup
+            
         x_fake = torch.randn(test_batch_size, *self.input_shape, device=self.device)
         y_fake = torch.randint(0, 1, size=(test_batch_size,), device=self.device)
         
@@ -1919,6 +1922,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'pretrained_upsampler': None,
                         'learned_coder': False,
                         'beta': 1.,
+                        'warmup': 0,
                         'gamma': 0.,
                         'rho': 0.,
                         'rho_temp':np.inf,

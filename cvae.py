@@ -741,7 +741,8 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('*** cvae:602', 'T:', *batch_losses['total'].shape,
             #      'Xy:', *batch_losses['cross_y'].shape)
 
-            # if not batch: print('**** cyw:', cross_y_weight)
+            if not batch:
+                logging.debug('CE(y) weight: %.1e', cross_y_weight)
             if cross_y_weight:
                 batch_losses['total'] = batch_losses['total'] + cross_y_weight * batch_losses['cross_y']
                 

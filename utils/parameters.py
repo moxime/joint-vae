@@ -5,8 +5,9 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 import re, numpy as np
 from socket import gethostname as getrawhostname
-from utils.param_filters import ParamFilter
+from utils.filters import ParamFilter, match_filters
 import os
+
 
 def gethostname():
 
@@ -371,14 +372,14 @@ def get_args_for_test():
     
     parser.add_argument('--job-id', type=int, default=0)
 
-    filter_args, remaining_args = get_args_from_filters()
+    filter_args, remaining_args = get_filters_args()
     
     args = parser.parse_args(args=remaining_args, namespace=filter_args)
     
     return args
 
 
-def get_args_from_filters(argv=None):
+def get_filters_args(argv=None):
 
     parser = argparse.ArgumentParser()  # (add_help=False)
 
@@ -525,5 +526,10 @@ if __name__ == '__main__':
 
     arg = get_args_for_test()
 
-    for k in arg.filters.items():
-        print(*k)
+    m = {'done': 4, 'job': 45, 'batch_norm': ['decoder', 'encoder'], 'type': 'cvae'}
+    
+    for k, v in arg.filters.items():
+
+        print(k, *v, *[f.filter(m[k]) for f in v])
+        
+    print(match_filters(m, arg.filters))

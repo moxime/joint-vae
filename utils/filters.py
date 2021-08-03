@@ -97,3 +97,13 @@ class ParamFilter():
         in_ = value == the_value
         return not in_ if neg else in_
     
+
+def match_filters(filters, model):
+
+    for k in filters:
+        for f in filters[k]:
+            if not f.filter(model):
+                return False
+
+    return True
+            

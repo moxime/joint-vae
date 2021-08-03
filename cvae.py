@@ -9,6 +9,8 @@ from module.losses import x_loss, kl_loss, mse_loss
 
 from utils.save_load import LossRecorder
 
+from utils.misc import make_list
+
 from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import onehot_encoding
 
@@ -89,11 +91,11 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type ={'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'), # , 'mag', 'IYx'),
-                           'xvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
-                           'jvae': ('max', 'sum',  'std'), # 'mag'), 
-                           'vae': ('logpx', 'iws'),
-                           'vib': ()}
+    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'), # , 'mag', 'IYx'),
+                            'xvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
+                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
+                            'vae': ('logpx', 'iws'),
+                            'vib': ('baseline',)}
 
     def __init__(self,
                  input_shape,
@@ -730,7 +732,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_losses['iws'] = iws_
             # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
             
-            
         if self.y_is_decoded or self.force_cross_y:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',
@@ -790,9 +791,20 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def predict_after_evaluate(self, logits, losses, method='default'):
 
+        outputs_needed_components = logits is None and losses is None
+        
         if method == 'default':
             method = self.predict_methods[0]
             # method = 'mean' if self.is_jvae else 'esty'
+
+        if outputs_needed_components:
+            if method == 'iws':
+                return ('iws',)
+            if method == ('closest',):
+                return 'zdist'
+            if method == ('loss',):
+                return ('total',)
+            return ()
 
         if method is None:
             return F.softmax(logits, -1)
@@ -815,6 +827,17 @@ class ClassificationVariationalNetwork(nn.Module):
         raise ValueError(f'Unknown method {method}')
 
     def batch_dist_measures(self, logits, losses, methods):
+
+        needed_components = {m: ('total',) for m in methods}
+        if 'kl' in methods:
+            nedded_components['kl'] = ('kl',)
+        if 'iws' in methods:
+            needed_compnents['iws'] = ('iws',)
+        if 'mse' in methods:
+            need_components['mse'] = ('cross_x')
+            
+        outputs_needed_components = logits is None and losses is None
+        
 
         dist_measures = {m: None for m in methods}
         for m in methods:
@@ -1167,33 +1190,24 @@ class ClassificationVariationalNetwork(nn.Module):
                             method='all',
                             print_result=False,
                             update_self_ood=True,
+                            updated_epoch=None,
                             outputs=EpochOutput(),
                             recorders=None,
                             sample_dirs=[],
                             log=True):
 
+        if updated_epoch is None:
+            updated_epoch = self.trained
+        
         if not testset:
             testset_name = self.training_parameters['set']
             transformer = self.training_parameters['transformer']
             _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
         
-        if method=='all':
-            ood_methods = self.ood_methods
-
-        elif type(method) is str:
-            assert method in self.ood_methods
-            ood_methods = [method]
-            
-        else:
-            try:
-                method.__iter__()
-                ood_methods = method
-            except AttributeError:
-                raise ValueError(f'{method} is not a '
-                                 'valid method / list of method')
-
         if not method:
             return
+
+        ood_methods = make_list(method, self.ood_methods)
         
         if oodsets is None:
             oodsets = {n: torchdl.get_dataset(n, transformer=testset.transformer)[1]
@@ -1376,7 +1390,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                  return_threshold=True) for a in keeped_tpr] 
                 fpr_m = [f[0] for f in fpr_and_thresholds]
                 t_m = [f[1] for f in fpr_and_thresholds]
-                ood_results[m] = {'epochs': self.trained,
+                ood_results[m] = {'epochs': updated_epoch,
                                   'n': ood_n_batch * batch_size,
                                   'auc': auc_[m],
                                   'tpr': keeped_tpr,
@@ -2001,10 +2015,24 @@ class ClassificationVariationalNetwork(nn.Module):
             try:
                 vae.architecture = default_params.copy()
                 vae.architecture.update(save_load.load_json(dir_name, 'architecture.json'))
+                vae.type = vae.architecture['type']
+                vae.loss_components = cls.loss_components_per_type[vae.type]
                 logging.debug('Ghost network loaded')
                 vae.job_number = job_number
-                vae.ood_methods = cls.ood_methods_per_type[vae.architecture['type']]
-                vae.predict_methods = cls.predict_methods_per_type[vae.architecture['type']]
+                vae.ood_methods = cls.ood_methods_per_type[vae.type]
+                vae.predict_methods = cls.predict_methods_per_type[vae.type]
+                classifier_layer_sizes = params['classifier']
+                gamma = train_params['gamma']
+                vae.y_is_decoded = True
+                if vae.type in ('cvae', 'vae'):
+                    vae.y_is_decoded = classifier_layer_sizes and gamma
+
+                if vae.y_is_decoded and 'esty' not in vae.predict_methods:
+                    vae.predict_methods = ('esty',) + vae.predict_methods
+
+                if vae.y_is_decoded and 'cross_y' not in vae.loss_components:
+                    vae.loss_components += ('cross_y',)
+
                 vae.testing = {}
                 # print('*** sigma loaded from', train_params['sigma'], vae.job_number)
                 if isinstance(train_params['sigma'], dict):

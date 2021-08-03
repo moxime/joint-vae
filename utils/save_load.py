@@ -212,10 +212,17 @@ def option_vector(o, empty=' ', space=' '):
         else: w += empty
     v_.append(w)
 
+    w = 'w:'
+    if training.warmup:
+        w += f'{training.warmup:02d}'
+    else:
+        w += 2 * empty
+    v_.append(w)
+        
     if arch.type == 'cvae':
         w = 'c:'
         if training.learned_coder:
-                w += 'l'
+            w += 'l'
         else:
             w += 'r'
         _md = training.dictionary_min_dist

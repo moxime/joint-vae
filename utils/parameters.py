@@ -103,7 +103,11 @@ def alphanum(x):
         except(ValueError):
             return x
 
+def str2bool(s):
 
+    return s.lower() in ['true', 'yes', 't', '1']
+
+        
 def list_of_alphanums(string):
 
     return [alphanum(a) for a in string.split()]
@@ -391,8 +395,9 @@ def get_filters_args(argv=None):
     
     parser.add_argument('--finished',
                         nargs='?',
+                        const='true',
                         action=FilterAction,
-                        of_type=bool)
+                        of_type=str2bool)
 
     parser.add_argument('--train-batch-size',
                         nargs='+',

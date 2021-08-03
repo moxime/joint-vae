@@ -141,7 +141,7 @@ def texify_test_results(net,
     
     """
     def _pcf(x):
-        if f is None:
+        if x is None:
             return '-'
         return f'{100 * x:5.2f}'
 
@@ -211,7 +211,7 @@ def texify_test_results(net,
             if all_methods:
                 fprs = list(net['ood_fprs'][dataset].values())[:-1]
             else:
-                fprs = [net['ood_fprs'][dataset]['first']]
+                fprs = [net['ood_fprs'][dataset].get('first', None)]
             ood_.append(' & '.join(' & '.join((_pcf(m[t]) if m is not None else '-')
                                               for t in tpr) for m in fprs))
         printout(' & '.join(ood_))

@@ -91,9 +91,9 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'), # , 'mag', 'IYx'),
-                            'xvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
-                            'jvae': ('max', 'sum',  'std'), # 'mag'), 
+    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'),  # , 'mag', 'IYx'),
+                            'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
+                            'jvae': ('max', 'sum',  'std'),  # 'mag'), 
                             'vae': ('logpx', 'iws'),
                             'vib': ('baseline',)}
 
@@ -830,14 +830,18 @@ class ClassificationVariationalNetwork(nn.Module):
 
         needed_components = {m: ('total',) for m in methods}
         if 'kl' in methods:
-            nedded_components['kl'] = ('kl',)
+            needed_components['kl'] = ('kl',)
         if 'iws' in methods:
-            needed_compnents['iws'] = ('iws',)
+            needed_components['iws'] = ('iws',)
         if 'mse' in methods:
-            need_components['mse'] = ('cross_x')
+            needed_components['mse'] = ('cross_x',)
+        if 'baseline' in methods:
+            needed_components['baseline'] = ()
             
         outputs_needed_components = logits is None and losses is None
-        
+
+        if outputs_needed_components:
+            return needed_components
 
         dist_measures = {m: None for m in methods}
         for m in methods:
@@ -869,7 +873,6 @@ class ClassificationVariationalNetwork(nn.Module):
                     measures = d_iws.exp().sum(axis=0).log() + iws_max
                     if not self.is_jvae:
                         measures += np.log(C)
-
                 else:
                     measures = iws
             elif m == 'sum':

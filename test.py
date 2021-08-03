@@ -1,20 +1,17 @@
 from __future__ import print_function
 
-from itertools import groupby
-import numpy as np
 import torch
 from cvae import ClassificationVariationalNetwork as CVNet
 import utils.torch_load as torchdl
 import os
 import sys
 import hashlib
-import argparse
 import logging
 
 import pandas as pd
 
 from utils.parameters import get_args, set_log, gethostname
-from utils.save_load import collect_networks, test_results_df, load_json, LossRecorder
+from utils.save_load import collect_networks, test_results_df, LossRecorder
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
 
 
@@ -231,13 +228,10 @@ if __name__ == '__main__':
     test_sample_size = args.test_sample_size
     ood_sample_size = args.ood
     min_test_sample_size = args.min_test_sample_size
-    unfinished_training = args.unfinished
-
-    train_tolerance = 10
     
     filters = args.filters
-    comma=','
-    filter_str = '--'.join(f'{d}:{comma.join([str(_) for _ in f])}' for d, f in filters.items())
+    _comma = ','
+    filter_str = '--'.join(f'{d}:{_comma.join([str(_) for _ in f])}' for d, f in filters.items())
     logging.debug('Filters: %s', filter_str)
     
     latex_formatting = args.latex
@@ -263,10 +257,13 @@ if __name__ == '__main__':
         log.debug('|')
         log.debug(f'|_{len(l)} {w} of type {a}')
 
-    log.info('Is trained and is tested (*) or will be (.)')
-    log.info('|ood is tested (*) or will be (.)')
-    log.info('|| # trained epochs')
-    log.info('||     directory')
+    log.info('Is keeped')
+    log.info('| Results')
+    log.info('| are available')
+    log.info('| | can be extracted from recorders (x:partially)')
+    log.info('| | | have to be computed')
+    log.info('| | | job #')
+    log.info('| | |        # trained epochs')
     # log.info('|||')
     enough_trained = []
     n_trained = 0

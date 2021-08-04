@@ -26,6 +26,8 @@ from utils.print_log import EpochOutput
 
 from utils.parameters import get_args
 
+from utils.testing import testing_plan
+
 from utils.signaling import SIGHandler
 
 import os.path
@@ -83,7 +85,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'cvae': ('closest', 'iws'),
                                 'xvae': ('loss', 'closest'),
                                 'vae': (),
-                                'vib': ('esty',)}
+                                'vib': ('esty', 'foo')}
 
     metrics_per_type = {'jvae': ('std', 'snr', 'sigma'),
                         'cvae': ('std', 'snr',  'd-mind', 'ld-norm', 'sigma'),
@@ -95,7 +97,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'), 
                             'vae': ('logpx', 'iws'),
-                            'vib': ('baseline',)}
+                            'vib': ('foo',)}
 
     def __init__(self,
                  input_shape,
@@ -819,6 +821,10 @@ class ClassificationVariationalNetwork(nn.Module):
             # return F.softmax(logits, -1).argmax(-1)
             return logits.argmax(-1)
 
+        if method == 'foo':
+            # return F.softmax(logits, -1).argmax(-1)
+            return logits.argmin(-1)
+
         if method == 'closest':
             return losses['zdist'].argmin(0)
 
@@ -878,6 +884,8 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m == 'sum':
                 measures = d_logp.exp().sum(axis=0).log() + logp_max 
             elif m == 'max':
+                measures = logp_max
+            elif m == 'foo':
                 measures = logp_max
             elif m == 'mag':
                 measures = logp_max - logp.median(axis=0)[0]
@@ -1017,17 +1025,22 @@ class ClassificationVariationalNetwork(nn.Module):
             num_batch = len(testset) // batch_size
             shuffle = False
 
-        if isinstance(recorder, str):
-            try:
+        if wygiwyu:
+            from_r, _ = testing_plan(self, ood_sets=[], predict_methods=predict_methods)
+            if not from_r:
+                acc = {m: self.testing[m]['accuracy'] for m in predict_methods}
+                if only_one_method:
+                    return acc[method]
+                else:
+                    return acc
+            else:
                 rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
                 recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
-                if not recorder:
-                    recorder = None
-            except KeyError:
-                recorder = None
+                num_batch = len(recorder)
+                batch_size = recorder.batch_size
                 
-        recorded = recorder is not None and (len(recorder) >= num_batch or wygiwyu)
-        recording = recorder is not None and (len(recorder) < num_batch and not wygiwyu)
+        recorded = recorder is not None and len(recorder) >= num_batch 
+        recording = recorder is not None and len(recorder) < num_batch 
         
         if recorded:
             logging.debug('Losses already recorded')
@@ -1209,6 +1222,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             updated_epoch=None,
                             outputs=EpochOutput(),
                             recorders=None,
+                            wygiwyu=False,
                             sample_dirs=[],
                             log=True):
 
@@ -1219,16 +1233,16 @@ class ClassificationVariationalNetwork(nn.Module):
             testset_name = self.training_parameters['set']
             transformer = self.training_parameters['transformer']
             _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
-        
+
         if not method:
             return
 
         ood_methods = make_list(method, self.ood_methods)
         
         if oodsets is None:
-            oodsets = {n: torchdl.get_dataset(n, transformer=testset.transformer)[1]
-                       for n in testset.same_size}
-            logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets.values()))
+            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer)[1]
+                       for n in testset.same_size]
+            logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 
         all_set_names = [testset.name] + [o.name for o in oodsets] 
 
@@ -1243,19 +1257,28 @@ class ClassificationVariationalNetwork(nn.Module):
         shuffle = {s: False for s in all_set_names}
         recording = {}
         recorded = {}
+
+        if wygiwyu:
+
+            from_r, _ = testing_plan(self, ood_sets=[o.name for o in oodsets], ood_methods=ood_methods)
+            if from_r:
+                rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
+                recorders = LossRecorder.loadall(rec_dir, *all_set_names)
+                num_batch = {s: len(recorders[s]) for s in all_set_names}
+                batch_size = recorders[testset.name].batch_size
         
-        if type(max_num_batch) is int:
-            for s in all_set_names:
+        for s in all_set_names:
+            if type(max_num_batch) is int:
                 num_batch[s] = min(num_batch[s], max_num_batch)
-                recording[s] = recorders[s] is not None and len(recorders[s]) < num_batch[s]
-                recorded[s] = recorders[s] is not None and len(recorders[s]) >= num_batch[s]
                 shuffle[s] = True
-                if recorded[s]:
-                    logging.debug('Losses already computed for %s %s', s, recorders[s])
-                if recording[s]:
-                    recorders[s].reset()
-                    recorders[s].num_batch = num_batch[s]
-                    logging.debug('Recording session for %s %s', s, recorders[s])
+            recording[s] = recorders[s] is not None and len(recorders[s]) < num_batch[s]
+            recorded[s] = recorders[s] is not None and len(recorders[s]) >= num_batch[s]
+            if recorded[s]:
+                logging.debug('Losses already computed for %s %s', s, recorders[s])
+            if recording[s]:
+                recorders[s].reset()
+                recorders[s].num_batch = num_batch[s]
+                logging.debug('Recording session for %s %s', s, recorders[s])
                 
         device = next(self.parameters()).device
 
@@ -1319,8 +1342,6 @@ class ClassificationVariationalNetwork(nn.Module):
                     f = os.path.join(d, f'record-{s}.pth')
         
                     recorders[s].save(f.format(s=s))
-        
-
                 
         keeped_tpr = [pc / 100 for pc in range(90, 100)]
         no_result = {'epochs': 0,

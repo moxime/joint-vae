@@ -19,9 +19,9 @@ def available_methods(model, min_samples=1000, epoch_tolerance=10,
     testset = model.training_parameters['set']
     all_ood_sets = get_same_size_by_name(testset)
     ood_sets = make_list(ood_sets, all_ood_sets)
-
-    sets = [testset] + ood_sets
     
+    sets = [testset] + ood_sets
+
     methods = {testset: predict_methods}
     methods.update({s: ood_methods for s in ood_sets})
     
@@ -45,6 +45,8 @@ def available_methods(model, min_samples=1000, epoch_tolerance=10,
         recorders = LossRecorder.loadall(rec_dir)
         epoch = last_samples(model)
         for s, r in recorders.items():
+            if s not in sets:
+                continue
             n = len(r) * r.batch_size
             for m in methods[s]:
                 if s == testset:

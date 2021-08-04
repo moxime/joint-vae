@@ -357,9 +357,10 @@ def get_args_for_test():
     parser.add_argument('--cautious', action='store_true')
 
     parser.add_argument('--force-cpu', action='store_true')
-    parser.add_argument('--compute', action='store_false',
-                        dest='dry_run',
-                        help='will compute missing rates')
+    parser.add_argument('--compute',
+                        nargs='?',
+                        default=False,
+                        const='recorder')
 
     parser.add_argument('--flash', action='store_true')
 

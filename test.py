@@ -13,6 +13,7 @@ import pandas as pd
 from utils.parameters import get_args, set_log, gethostname
 from utils.save_load import collect_networks, test_results_df, LossRecorder
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
+from utils.testing import worth_computing
 
 
 def test_accuracy_if(jvae=None,
@@ -222,7 +223,7 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     job_dir = args.job_dir
     load_dir = args.load_dir
-    dry_run = args.dry_run
+    dry_run = args.compute
     flash = args.flash
 
     test_sample_size = args.test_sample_size
@@ -259,11 +260,11 @@ if __name__ == '__main__':
 
     log.info('Is keeped')
     log.info('| Results')
-    log.info('| are available')
-    log.info('| | can be extracted from recorders (x:partially)')
+    log.info('| are fully available')
+    log.info('| | can (*: all, x: partially) be extracted from recorders')
     log.info('| | | have to be computed')
-    log.info('| | | job #')
-    log.info('| | |        # trained epochs')
+    log.info('| | | | job #')
+    log.info('| | | | |     # trained epochs')
     # log.info('|||')
     enough_trained = []
     n_trained = 0
@@ -273,20 +274,48 @@ if __name__ == '__main__':
     n_ood_to_be_computed = 0
     testsets = set()
     archs = {}
-
-    networks_to_be_studied = []
+    n_epochs_to_be_computed = 0
+    
+    models_to_be_kept = []
+    models_to_be_computed = {k: [] for k in ('recorder', 'compute')}
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
-        to_be_studied = all(filter_results)
+        to_be_kept = all(filter_results)
+                                         
+        if to_be_kept:
+            to_be_computed = worth_computing(n, from_which='all')
+            models_to_be_kept.append(n)
+            for k in to_be_computed:
+                if to_be_computed[k]:
+                    models_to_be_computed[k].append(n)
+            is_r = to_be_computed['recorder']
+            is_c = to_be_computed['compute']
+            n_epochs_to_be_computed += is_c
 
-        if to_be_studied:
-            networks_to_be_studied.append(n)
+            is_a = (is_c + is_r) == 0
+            _a = '*' if is_a else '|'
+            if is_r:
+                _r = 'x' if is_c else '*'
+            else:
+                _r = '|'
+            _c = is_c if is_c else '|'
+
+            logging.info('* {} {} {} {:6d} {} {} {}'. format(_a, _r,
+                                                             _c, n['job'], n['set'], n['type'], n['arch']))
+
             # for d in filters:
             #   print(d, n[d])
             #   for f in filters[d]:
             #       print(f, f.filter(n[d]))
+        else:
+            logging.debug('| | | | {:6d}'.format(n['job']))
 
-    for n in networks_to_be_studied:
+    logging.info('|   {:d} epochs to be computed'.format(n_epochs_to_be_computed))
+    logging.info('{:d} models kept'.format(len(models_to_be_kept)))
+    
+    for n in models_to_be_kept:
+
+        break
 
         net = n.get('net', None)
 

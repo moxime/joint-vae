@@ -4,6 +4,7 @@ from utils.save_load import LossRecorder, clean_results, last_samples, find_by_j
 from utils.misc import make_list
 import os
 
+
 def testing_plan(model, min_samples=1000, epoch_tolerance=10,
                  predict_methods='all', ood_sets='all', ood_methods='all'):
 
@@ -73,7 +74,7 @@ def testing_plan(model, min_samples=1000, epoch_tolerance=10,
             if delta_epoch > epoch_tolerance or (available['json'][s][m]['n'] < min_samples and n > min_samples):
                 from_recorder[s][m] = {'delta_epoch': delta_epoch, 'n': n}
 
-            n = len(r) * r.batch_size
+            n = 10000  # TBC 
             delta_epoch = model.trained - epoch['recorders']
             if delta_epoch > epoch_tolerance:
                 from_compute[s][m] = {'delta_epoch': delta_epoch, 'n': n}

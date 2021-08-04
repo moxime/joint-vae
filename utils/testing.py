@@ -5,8 +5,8 @@ from utils.misc import make_list
 import os
 
 
-def testing_plan(model, min_samples=1000, epoch_tolerance=10,
-                 predict_methods='all', ood_sets='all', ood_methods='all'):
+def available_methods(model, min_samples=1000, epoch_tolerance=10,
+                      predict_methods='all', ood_sets='all', ood_methods='all'):
 
     if isinstance(model, str):
         model = Model.load(model, load_state=False)
@@ -58,8 +58,33 @@ def testing_plan(model, min_samples=1000, epoch_tolerance=10,
                 if all_components:
                     available['recorders'][s][m] = dict(n=n, epochs=epoch)
 
+    return available
+
+
+def testing_plan(model, min_samples=1000, epoch_tolerance=10,
+                 predict_methods='all', ood_sets='all', ood_methods='all'):
+
+    available = available_methods(model, min_samples, epoch_tolerance, predict_methods, ood_sets, ood_methods)
+        
+    if isinstance(model, str):
+        model = Model.load(model, load_state=False)
+    elif isinstance(model, dict):
+        model = model['net']
+
+    predict_methods = make_list(predict_methods, model.predict_methods)
+    ood_methods = make_list(ood_methods, model.ood_methods)
+
+    testset = model.training_parameters['set']
+    all_ood_sets = get_same_size_by_name(testset)
+    ood_sets = make_list(ood_sets, all_ood_sets)
+
+    sets = [testset] + ood_sets
+    
     from_recorder = {s: {} for s in sets}
     from_compute = {s: {} for s in sets}
+
+    methods = {testset: predict_methods}
+    methods.update({s: ood_methods for s in ood_sets})
 
     # return available, None
     

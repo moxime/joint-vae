@@ -1031,7 +1031,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         if recorded:
             logging.debug('Losses already recorded')
-            num_batch = recorder.num_batch
+            num_batch = len(recorder)
             epoch = last_samples(self)
 
         if recording:

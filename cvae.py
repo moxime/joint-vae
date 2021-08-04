@@ -7,7 +7,7 @@ from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, kl_loss, mse_loss
 
-from utils.save_load import LossRecorder
+from utils.save_load import LossRecorder, last_samples
 
 from utils.misc import make_list
 
@@ -982,6 +982,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  outputs=EpochOutput(),
                  sample_dirs=[],
                  recorder=None,
+                 wygiwyu=False,
                  log=True):
 
         """return detection rate. 
@@ -1009,16 +1010,29 @@ class ClassificationVariationalNetwork(nn.Module):
             only_one_method = False
 
         shuffle = True
+
+        epoch = self.trained
         
         if num_batch == 'all':
             num_batch = len(testset) // batch_size
             shuffle = False
-            
-        recorded = recorder is not None and len(recorder) >= num_batch
-        recording = recorder is not None and len(recorder) < num_batch
+
+        if isinstance(recorder, str):
+            try:
+                rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
+                recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
+                if not recorder:
+                    recorder = None
+            except KeyError:
+                recorder = None
+                
+        recorded = recorder is not None and (len(recorder) >= num_batch or wygiwyu)
+        recording = recorder is not None and (len(recorder) < num_batch and not wygiwyu)
         
         if recorded:
             logging.debug('Losses already recorded')
+            num_batch = recorder.num_batch
+            epoch = last_samples(self)
 
         if recording:
             logging.debug('Recording session loss for accruacy')
@@ -1136,7 +1150,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                 preambule=print_result)
         self.test_loss = mean_loss
 
-
         if recording:
             logging.debug('Saving examples in' + ', '.join(sample_dirs))
 
@@ -1162,7 +1175,7 @@ class ClassificationVariationalNetwork(nn.Module):
         for m in predict_methods:
 
             update_self_testing_method = (update_self_testing and
-                                          (self.trained > self.testing[m]['epochs']
+                                          (epoch > self.testing[m]['epochs']
                                            or
                                            n > self.testing[m]['n']))
             if update_self_testing_method:
@@ -1176,7 +1189,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                   # n, self.trained)
 
                 self.testing[m] = {'n': n,
-                                   'epochs': self.trained,
+                                   'epochs': epoch,
                                    'sampling': self.latent_samplings['eval'],
                                    'accuracy': acc[m]}
 

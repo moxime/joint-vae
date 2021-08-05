@@ -1,4 +1,3 @@
-from cvae import ClassificationVariationalNetwork as Model
 from utils.torch_load import get_same_size_by_name
 from utils.save_load import LossRecorder, clean_results, last_samples, find_by_job_number
 from utils.misc import make_list
@@ -8,9 +7,7 @@ import os
 def available_methods(model, min_samples=1000, epoch_tolerance=10,
                       predict_methods='all', ood_sets='all', ood_methods='all'):
 
-    if isinstance(model, str):
-        model = Model.load(model, load_state=False)
-    elif isinstance(model, dict):
+    if isinstance(model, dict):
         model = model['net']
 
     predict_methods = make_list(predict_methods, model.predict_methods)

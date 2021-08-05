@@ -1034,6 +1034,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     return acc
             else:
+                predict_methods = [m for m in from_r[testset_name] if from_r[testset_name][m]]
                 rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
                 recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
                 num_batch = len(recorder)
@@ -1266,7 +1267,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorders = LossRecorder.loadall(rec_dir, *all_set_names)
                 num_batch = {s: len(recorders[s]) for s in all_set_names}
                 batch_size = recorders[testset.name].batch_size
-        
+                ood_methods = [m for m in ood_methods if all(recorders[s][m] for s in [o.name for o in oodsets])]
+                
         for s in all_set_names:
             if type(max_num_batch) is int:
                 num_batch[s] = min(num_batch[s], max_num_batch)

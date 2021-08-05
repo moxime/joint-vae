@@ -85,7 +85,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'cvae': ('closest', 'iws'),
                                 'xvae': ('loss', 'closest'),
                                 'vae': (),
-                                'vib': ('esty', 'foo')}
+                                'vib': ('esty',)}
 
     metrics_per_type = {'jvae': ('std', 'snr', 'sigma'),
                         'cvae': ('std', 'snr',  'd-mind', 'ld-norm', 'sigma'),
@@ -97,7 +97,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'), 
                             'vae': ('logpx', 'iws'),
-                            'vib': ('foo',)}
+                            'vib': ('baseline',)}
 
     def __init__(self,
                  input_shape,

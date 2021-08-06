@@ -317,7 +317,7 @@ if __name__ == '__main__':
         for m in models_to_be_computed['recorder']:
             model = CVNet.load(m['dir'], load_state=False)
             model.accuracy(wygiwyu=True, update_self_testing=not args.dry_run, print_result='TFR')
-            model.ood_detection_rates(wygiwyu=True, update_self_testing=not args.dry_run, print_result='OFR')
+            model.ood_detection_rates(wygiwyu=True, update_self_ood=not args.dry_run, print_result='OFR')
     
     for n in models_to_be_kept:
 

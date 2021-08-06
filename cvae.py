@@ -1319,7 +1319,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     with torch.no_grad():
                         _, logits, losses, _  = self.evaluate(x, batch=i)
                 else:
-                    component = [k for k in recorders[s].keys() if k in self.loss_components]
+                    components = [k for k in recorders[s].keys() if k in self.loss_components]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     

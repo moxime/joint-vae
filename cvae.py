@@ -885,7 +885,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = d_logp.exp().sum(axis=0).log() + logp_max 
             elif m == 'max':
                 measures = logp_max
-            elif m == 'foo':
+            elif m == 'baseline':
                 measures = logp_max
             elif m == 'mag':
                 measures = logp_max - logp.median(axis=0)[0]
@@ -1093,7 +1093,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 current_measures = measures
                 self._measures = measures
             else:
-                batch_losses = recorder.get_batch(i, *self.loss_components)
+                components = [k for k in recorder.keys() if k in self.loss_components]
+                batch_losses = recorder.get_batch(i, *components)
                 # logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
                 logits = recorder.get_batch(i, 'logits').T
                 y_test = recorder.get_batch(i, 'y_true')
@@ -1267,7 +1268,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorders = LossRecorder.loadall(rec_dir, *all_set_names)
                 num_batch = {s: len(recorders[s]) for s in all_set_names}
                 batch_size = recorders[testset.name].batch_size
-                ood_methods = [m for m in ood_methods if all(recorders[s][m] for s in [o.name for o in oodsets])]
+                ood_methods = [m for m in ood_methods if all(from_r[s][m] for s in [o.name for o in oodsets])]
                 
         for s in all_set_names:
             if type(max_num_batch) is int:
@@ -1318,7 +1319,8 @@ class ClassificationVariationalNetwork(nn.Module):
                     with torch.no_grad():
                         _, logits, losses, _  = self.evaluate(x, batch=i)
                 else:
-                    losses = recorders[s].get_batch(i, *self.loss_components)
+                    component = [k for k in recorders[s].keys() if k in self.loss_components]
+                    losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     
                 if recording[s]:

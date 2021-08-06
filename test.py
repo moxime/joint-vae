@@ -312,6 +312,12 @@ if __name__ == '__main__':
 
     logging.info('|   {:d} epochs to be computed'.format(n_epochs_to_be_computed))
     logging.info('{:d} models kept'.format(len(models_to_be_kept)))
+
+    if args.compute:
+        for m in models_to_be_computed['recorder']:
+            model = ClassificationVariationalNetwork.load(m['dir'], load_state=False)
+            model.accuracy(wygiswyu=True, update_self_testing=not args.dry_run, print_results='TFR')
+            model.ood_detection_rates(wygiswyu=True, update_self_testing=not args.dry_run, print_results='OFR')
     
     for n in models_to_be_kept:
 
@@ -404,11 +410,6 @@ if __name__ == '__main__':
         n_ood_computed += (ood_are_tested is True)
         n_ood_to_be_computed += ood_will_be_computed
 
-    log.info('||')
-    log.info('|%s ood to be computed', n_ood_to_be_computed)
-    log.info('%s tested nets (%s tests to be done)',
-             n_trained,
-             n_to_be_tested)
 
     if not dry_run:
 

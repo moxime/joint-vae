@@ -103,6 +103,7 @@ def alphanum(x):
         except(ValueError):
             return x
 
+
 def str2bool(s):
 
     return s.lower() in ['true', 'yes', 't', '1']
@@ -363,6 +364,11 @@ def get_args_for_test():
                         const='recorder')
 
     parser.add_argument('--flash', action='store_true')
+
+
+    parser.add_argument('--dry-run', action='store_true',
+                        help='will show you what it would do')
+
 
     parser.add_argument('--show', action='store_true')
     

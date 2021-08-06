@@ -808,6 +808,33 @@ def collect_networks(directory,
                   f'found in {shorten_path(directory)}')
 
 
+def is_derailed(model, load_model_for_check=False):
+    from cvae import ClassificationVariationalNetwork
+
+    if isinstance(model, dict):
+        directory = model['dir']
+
+    elif isinstance(model, str):
+        directory = model
+
+    else:
+        directory = model.saved_dir
+
+    if os.path.exists(os.path.join(directory, 'derailed')):
+        return True
+    
+    elif load_model_for_check:
+        try:
+            model = ClassificationVariationalNetwork.load(directory)
+            if torch.cuda.is_available():
+                model.to('cuda')
+            x = torch.zeros(1, *model.input_shape, device=model.device)
+            model.evaluate(x)
+        except ValueError:
+            return True
+
+    return False            
+    
 def find_by_job_number(*job_numbers, dir='jobs', load_net=True, force_dict=False, **kw):
 
     from cvae import ClassificationVariationalNetwork

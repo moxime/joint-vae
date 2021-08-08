@@ -1245,7 +1245,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 ood_methods = [m for m in ood_methods
                                if all(from_r[s].get(m, None) for s in [o.name for o in oodsets])]
 
-            oodsets = [o for o in oodsets if o.names in recorders]
+            oodsets = [o for o in oodsets if o.name in recorders]
             all_set_names = [s for s in all_set_names if s in recorders]
                 
         for s in all_set_names:

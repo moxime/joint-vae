@@ -1267,16 +1267,16 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if oodsets:
             outputs.results(0, 0, -2, 0,
-                            metrics=all_ood_methods,
-                            acc_methods=all_ood_methods)
-            outputs.results(0, 0, -1, 0, metrics=all_ood_methods,
-                            acc_methods=all_ood_methods)
+                            metrics=ood_methods,
+                            acc_methods=ood_methods)
+            outputs.results(0, 0, -1, 0, metrics=ood_methods,
+                            acc_methods=ood_methods)
 
         if oodsets:
 
             logging.debug(f'Computing measures for set {testset.name}')
             ind_measures = {m: np.ndarray(0)
-                            for m in all_ood_methods}
+                            for m in ood_methods}
 
             s = testset.name
             if recorders[s] is not None:
@@ -1316,7 +1316,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 outputs.results(i, num_batch[s], 0, 1, metrics=ood_methods[s],
                                 measures = {m: ind_measures[m].mean()
                                             for m in ood_methods[s]},
-                                acc_methods = all_ood_methods,
+                                acc_methods = ood_methods,
                                 time_per_i = t_per_i,
                                 batch_size=batch_size,
                                 preambule = testset.name)

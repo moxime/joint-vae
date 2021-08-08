@@ -22,8 +22,8 @@ x = torch.randn(*N, *D, device=d)
 y = torch.randint(0, C, N, device=d)
 
 types = ('cvae',)
-types = ('cvae', 'jvae', 'vib', 'vae', 'jvae')
 types = ('vib', 'vae', 'jvae', 'cvae', 'xvae')
+types = ('cvae', 'jvae', 'vae', 'vae', 'cvae')
 
 cls_cvae = []
 gamma = 0
@@ -79,7 +79,8 @@ for o, _y in zip((out, out_y), ('*', 'y')):
     print('=' * 30)
 
 
-x_, logits, mu, log_var, z = nets['vib'](x)
+if 'vib' in nets:
+    x_, logits, mu, log_var, z = nets['vib'](x)
 
 y_ = torch.cat([c * torch.ones((1,) + N, dtype=int) for c in range(C)])
 x_ent = x_loss(None, logits, batch_mean=False) 

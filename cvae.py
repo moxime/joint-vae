@@ -860,7 +860,7 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m == 'max':
                 measures = logp_max
             elif m == 'baseline':
-                measures = logp_max
+                measures = logits.softmax(-1).max(axis=-1)[0]
             elif m == 'mag':
                 measures = logp_max - logp.median(axis=0)[0]
             elif m == 'std':

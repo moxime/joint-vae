@@ -579,6 +579,7 @@ def collect_networks(directory,
         vae = ClassificationVariationalNetwork.load(directory,
                                                     load_state=load_state,
                                                     **default_load_paramaters)
+
         architecture = ObjFromDict(vae.architecture, features=None)
         training = ObjFromDict(vae.training_parameters,
                                transformer='default',
@@ -699,10 +700,17 @@ def collect_networks(directory,
 
         # print('TBR', architecture.type, vae.job_number, *loss_['test'].keys())
 
-        recorders = LossRecorder.loadall(os.path.join(directory, 'samples', 'last'),
-                                         output='paths')
-        recorded_epoch = last_samples(directory)
-                                         
+        rec_dir = os.path.join(directory, 'samples', 'last')
+        if os.path.exists(rec_dir):
+            recorders = LossRecorder.loadall(rec_dir,
+                                             output='paths')
+        else:
+            recorders = {}
+        if recorders:
+            recorded_epoch = last_samples(directory)
+        else:
+            recorded_epoch = None
+            
         vae_dict = {'net': vae,
                     'job': vae.job_number,
                     'is_resumed': vae.is_resumed,
@@ -759,8 +767,8 @@ def collect_networks(directory,
         logging.warning(f'Load error in {directory} see log file')
         logging.debug(f'Load error: {e}')
     
-    except FileNotFoundError:    
-        pass
+    except FileNotFoundError as e:    
+        pass  # print(e)
     list_dir = [os.path.join(directory, d) for d in os.listdir(directory) if not d.startswith('dump')]
     sub_dirs = [e for e in list_dir if os.path.isdir(e)]
     

@@ -493,7 +493,7 @@ def needed_components(method):
     for k in total:
         ncd[k] = ('total',)
 
-    return ncd.get('method', ())
+    return ncd.get(method, ())
 
 
 def available_results(model, min_samples=1000, epoch_tolerance=10,

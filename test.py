@@ -283,7 +283,7 @@ if __name__ == '__main__':
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
         to_be_kept = all(filter_results)
-                                         
+        
         if to_be_kept:
             to_be_computed = worth_computing(n, from_which='all')
             models_to_be_kept.append(n)

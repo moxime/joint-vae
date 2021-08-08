@@ -1372,7 +1372,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if recording[s]:
                     recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
 
-                measures = self.batch_dist_measures(None, losses, ood_methods)
+                measures = self.batch_dist_measures(logits, losses, ood_methods)
                 for m in ood_methods:
                     i_ood_measures[m] = np.concatenate([i_ood_measures[m],
                                                       measures[m].cpu()])

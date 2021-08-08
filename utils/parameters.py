@@ -41,7 +41,7 @@ def set_log(verbose, debug, log_dir, name='train', job_number=0):
     else:
         fn = os.path.join(log_dir, f'{name}.log') 
         file_handler = RotatingFileHandler(fn,
-                                           maxBytes=500000,
+                                           maxBytes=5000000,
                                            backupCount=10)
         file_handler.doRollover()
 

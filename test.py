@@ -233,8 +233,9 @@ if __name__ == '__main__':
     filters = args.filters
     _comma = ','
     filter_str = '--'.join(f'{d}:{_comma.join([str(_) for _ in f])}' for d, f in filters.items())
+
     logging.debug('Filters: %s', filter_str)
-    
+
     latex_formatting = args.latex
 
     sort = args.sort
@@ -258,6 +259,7 @@ if __name__ == '__main__':
         log.debug('|')
         log.debug(f'|_{len(l)} {w} of type {a}')
 
+    log.debug('{} models found'.format(sum([len(l) for l in list_of_networks])))
     log.info('Is keeped')
     log.info('| Results')
     log.info('| are fully available')
@@ -300,7 +302,7 @@ if __name__ == '__main__':
                 _r = '|'
             _c = is_c if is_c else '|'
 
-            logging.info('* {} {} {} {:6d} {} {} {}'. format(_a, _r,
+            logging.info('* {} {} {} {:6d} {:8} {:5} {:80.80}'. format(_a, _r,
                                                              _c, n['job'], n['set'], n['type'], n['arch']))
 
             # for d in filters:
@@ -308,7 +310,8 @@ if __name__ == '__main__':
             #   for f in filters[d]:
             #       print(f, f.filter(n[d]))
         else:
-            logging.debug('| | | | {:6d}'.format(n['job']))
+            # logging.debug('| | | | {:6d}'.format(n['job']))
+            logging.debug('| | | | {:6d} {:8} {:5} {:80.80}'. format(n['job'], n['set'], n['type'], n['arch']))
 
     logging.info('|   {:d} epochs to be computed'.format(n_epochs_to_be_computed))
     logging.info('{:d} models kept'.format(len(models_to_be_kept)))

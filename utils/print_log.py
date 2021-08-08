@@ -22,7 +22,6 @@ class EpochOutput:
                       ('%b', ''),
                       ('%I', ''),
                       ('%i', '')]
-
     
     def __init__(self):
 

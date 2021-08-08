@@ -1244,7 +1244,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorders = LossRecorder.loadall(rec_dir, *all_set_names)
                 num_batch = {s: len(recorders[s]) for s in recorders}
                 batch_size = recorders[testset.name].batch_size
-                ood_methods_per_set = {s: [m for m in ood_methods[s] if from_r[s].get(m, {})] for s in from_r}
+                ood_methods_per_set = {s: [m for m in ood_methods if from_r[s].get(m, {})] for s in from_r}
                 ood_methods_per_set[testset.name] = ood_methods
                 
             oodsets = [o for o in oodsets if o.name in recorders]

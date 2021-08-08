@@ -95,7 +95,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'),  # , 'mag', 'IYx'),
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
-                            'jvae': ('max', 'sum',  'std'),  # 'mag'), 
+                            'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             'vae': ('logpx', 'iws'),
                             'vib': ('baseline',)}
 
@@ -793,21 +793,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
     def predict_after_evaluate(self, logits, losses, method='default'):
 
-        outputs_needed_components = logits is None and losses is None
-        
         if method == 'default':
             method = self.predict_methods[0]
             # method = 'mean' if self.is_jvae else 'esty'
-
-        if outputs_needed_components:
-            if method == 'iws':
-                return ('iws',)
-            if method == ('closest',):
-                return 'zdist'
-            if method == ('loss',):
-                return ('total',)
-            return ()
-
+            
         if method is None:
             return F.softmax(logits, -1)
 
@@ -833,22 +822,7 @@ class ClassificationVariationalNetwork(nn.Module):
         raise ValueError(f'Unknown method {method}')
 
     def batch_dist_measures(self, logits, losses, methods):
-
-        needed_components = {m: ('total',) for m in methods}
-        if 'kl' in methods:
-            needed_components['kl'] = ('kl',)
-        if 'iws' in methods:
-            needed_components['iws'] = ('iws',)
-        if 'mse' in methods:
-            needed_components['mse'] = ('cross_x',)
-        if 'baseline' in methods:
-            needed_components['baseline'] = ()
             
-        outputs_needed_components = logits is None and losses is None
-
-        if outputs_needed_components:
-            return needed_components
-
         dist_measures = {m: None for m in methods}
         for m in methods:
             assert m in self.ood_methods

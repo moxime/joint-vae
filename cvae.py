@@ -1220,7 +1220,6 @@ class ClassificationVariationalNetwork(nn.Module):
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 
-        ood_methods = [o.name: ood_methods for o in oodsets]
         all_set_names = [testset.name] + [o.name for o in oodsets] 
 
         ood_methods_per_set = {s: ood_methods for s in all_set_names}

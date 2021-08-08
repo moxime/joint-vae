@@ -11,7 +11,7 @@ import logging
 import pandas as pd
 
 from utils.parameters import get_args, set_log, gethostname
-from utils.save_load import collect_networks, test_results_df, LossRecorder
+from utils.save_load import collect_networks, test_results_df, LossRecorder, make_dict
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
 from utils.testing import worth_computing
 
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     log.info('| | | | job #')
     log.info('| | | | |     # trained epochs')
     # log.info('|||')
-    enough_trained = []
+
     n_trained = 0
     n_tested = 0
     n_to_be_tested = 0
@@ -321,100 +321,11 @@ if __name__ == '__main__':
             model = CVNet.load(m['dir'], load_state=False)
             model.accuracy(wygiwyu=True, update_self_testing=not args.dry_run, print_result='TFR')
             model.ood_detection_rates(wygiwyu=True, update_self_ood=not args.dry_run, print_result='OFR')
-    
-    for n in models_to_be_kept:
+            if not args.dry_run:
+                model.save(m['dir'])
+            m.update(make_dict(model, m['dir']))                
 
-        break
-
-        net = n.get('net', None)
-
-        is_tested = test_accuracy_if(jvae=net,
-                                     directory=n['dir'],
-                                     dry_run=True,
-                                     min_test_sample_size=min_test_sample_size,
-                                     batch_size=batch_size,
-                                     unfinished=unfinished_training)
-        
-        is_enough_trained = is_tested is not None
-        will_be_tested = is_enough_trained and not is_tested
-
-        ood_are_tested = test_ood_if(jvae=net,
-                                     directory=n['dir'],
-                                     dry_run=True,
-                                     min_test_sample_size=min_test_sample_size,
-                                     batch_size=batch_size,
-                                     unfinished=unfinished_training,)
-
-        if is_enough_trained:
-            ood_will_be_computed = sum([not v for v in ood_are_tested.values()])
-        else:
-            ood_will_be_computed = 0
-
-        is_derailed = False
-
-        if is_enough_trained:
-            d = n['dir']
-            derailed = os.path.join(d, 'derailed')
-            if args.cautious:
-                log.warning('Cautious verifications to be implemented')
-                try:
-                    pass
-                    # log.debug('Evaluation of one sample...')
-                    # net.evaluate(torch.randn(1, *net.input_shape))
-                    # log.debug('...done')
-                except ValueError:
-                    open(derailed, 'a').close()
-                    log.debug(f'Net in {d} has been marked as derailed')
-
-            is_derailed = os.path.exists(derailed)
-            if not is_derailed:
-                if not n['is_resumed']:
-                    enough_trained.append(n)
-                    testsets.add(n['set'])
-
-                    if n['set'] in archs:
-                        archs[n['set']].add(n['arch'])
-                    else:
-                        archs[n['set']] = {n['arch']} 
-                else:
-                    is_enough_trained = False
-                    will_be_tested = False
-                    ood_will_be_computed = 0
-
-        if is_derailed:
-            train_mark = '+'
-            ood_mark = '+'
-            log.info('++ Derailed net in %s',
-                     n['dir'])
-        else:
-            if not is_enough_trained:
-                train_mark = '|'
-                ood_mark = '|'
-            else:
-                train_mark = '*' if is_tested else '.'
-                ood_mark = '*' if not ood_will_be_computed else ood_will_be_computed
-
-            _dir = n['dir'][:130]
-            _dir2 = n['dir'][130:]
-            log.info('%s%s %3d %s', 
-                     train_mark,
-                     ood_mark,
-                     n['done'],
-                     _dir)
-            if _dir2:
-                log.info('||' +
-                         '     ' +
-                         '_' * (130 - len(_dir2)) +
-                         _dir2)
-        
-        n_trained += is_enough_trained
-        n_tested += (is_tested is True)
-        n_to_be_tested += will_be_tested
-        n_ood_computed += (ood_are_tested is True)
-        n_ood_to_be_computed += ood_will_be_computed
-
-
-    if not dry_run:
+    if args.compute == 'hard':
 
         batch_sizes = {}
         dict_of_sets = {}
@@ -518,7 +429,7 @@ if __name__ == '__main__':
             
             n['net'].save(n['dir'])
 
-    for n in enough_trained:
+    for n in models_to_be_kept:
         tex_architecture(n)
         export_losses(n, which='all')
         texify_test_results(n)
@@ -528,7 +439,7 @@ if __name__ == '__main__':
 
     tpr = [t/100 for t in args.tpr]
         
-    df = test_results_df(enough_trained, best_net=show_best,
+    df = test_results_df(models_to_be_kept, best_net=show_best,
                          first_method=first_method,
                          ood=True,
                          tnr=args.tnr,
@@ -569,7 +480,7 @@ if __name__ == '__main__':
         if tex_file:
             with open(tex_file, 'a') as f:
                 f.write('\def\joblist{')
-                f.write(','.join(['{:06d}'.format(n['job']) for n in enough_trained]))
+                f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
 
         for a in archs[s]:

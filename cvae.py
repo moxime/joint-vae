@@ -1244,6 +1244,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_size = recorders[testset.name].batch_size
                 ood_methods = [m for m in ood_methods
                                if all(from_r[s].get(m, None) for s in [o.name for o in oodsets])]
+
+            oodsets = [o for o in oodsets if o.names in recorders]
+            all_set_names = [s for s in all_set_names if s in recorders]
                 
         for s in all_set_names:
             if type(max_num_batch) is int:

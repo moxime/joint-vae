@@ -1220,8 +1220,11 @@ class ClassificationVariationalNetwork(nn.Module):
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 
+        ood_methods = [o.name: ood_methods for o in oodsets]
         all_set_names = [testset.name] + [o.name for o in oodsets] 
 
+        ood_methods_per_set = {s: ood_methods for s in all_set_names}
+        
         if not recorders:
             recorders = {n: None for n in all_set_names}
 
@@ -1242,9 +1245,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorders = LossRecorder.loadall(rec_dir, *all_set_names)
                 num_batch = {s: len(recorders[s]) for s in recorders}
                 batch_size = recorders[testset.name].batch_size
-                ood_methods = [m for m in ood_methods
-                               if all(from_r[s].get(m, None) for s in [o.name for o in oodsets])]
-
+                ood_methods_per_set = {s: [m for m in ood_methods[s] if from_r[s].get(m, {})] for s in from_r}
+                ood_methods_per_set[testset.name] = ood_methods
+                
             oodsets = [o for o in oodsets if o.name in recorders]
             all_set_names = [s for s in all_set_names if s in recorders]
                 
@@ -1265,16 +1268,16 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if oodsets:
             outputs.results(0, 0, -2, 0,
-                            metrics=ood_methods,
-                            acc_methods=ood_methods)
-            outputs.results(0, 0, -1, 0, metrics=ood_methods,
-                            acc_methods=ood_methods)
+                            metrics=all_ood_methods,
+                            acc_methods=all_ood_methods)
+            outputs.results(0, 0, -1, 0, metrics=all_ood_methods,
+                            acc_methods=all_ood_methods)
 
         if oodsets:
 
             logging.debug(f'Computing measures for set {testset.name}')
             ind_measures = {m: np.ndarray(0)
-                            for m in ood_methods}
+                            for m in all_ood_methods}
 
             s = testset.name
             if recorders[s] is not None:
@@ -1304,17 +1307,17 @@ class ClassificationVariationalNetwork(nn.Module):
                 if recording[s]:
                     recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
                     
-                measures = self.batch_dist_measures(logits, losses, ood_methods)
-                for m in ood_methods:
+                measures = self.batch_dist_measures(logits, losses, ood_methods[s])
+                for m in ood_methods[s]:
                     # print('*** ood', m, *measures[m].shape)
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
-                outputs.results(i, num_batch[s], 0, 1, metrics=ood_methods,
+                outputs.results(i, num_batch[s], 0, 1, metrics=ood_methods[s],
                                 measures = {m: ind_measures[m].mean()
-                                            for m in ood_methods},
-                                acc_methods = ood_methods,
+                                            for m in ood_methods[s]},
+                                acc_methods = all_ood_methods,
                                 time_per_i = t_per_i,
                                 batch_size=batch_size,
                                 preambule = testset.name)
@@ -1338,8 +1341,8 @@ class ClassificationVariationalNetwork(nn.Module):
             s = oodset.name
             ood_n_batch = num_batch[s]
             
-            ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
-            i_ood_measures = {m: ind_measures[m] for m in ood_methods}
+            ood_results = {m: copy.deepcopy(no_result) for m in ood_methods[s]}
+            i_ood_measures = {m: ind_measures[m] for m in ood_methods[s]}
             ood_labels = np.ones(batch_size * num_batch[testset.name])
             fpr_ = {}
             tpr_ = {}
@@ -1375,16 +1378,16 @@ class ClassificationVariationalNetwork(nn.Module):
                 if recording[s]:
                     recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
 
-                measures = self.batch_dist_measures(logits, losses, ood_methods)
-                for m in ood_methods:
+                measures = self.batch_dist_measures(logits, losses, ood_methods[s])
+                for m in ood_methods[s]:
                     i_ood_measures[m] = np.concatenate([i_ood_measures[m],
                                                       measures[m].cpu()])
                 ood_labels = np.concatenate([ood_labels, np.zeros(batch_size)])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
                 meaned_measures = {m: i_ood_measures[m][len(ind_measures):].mean()
-                                   for m in ood_methods}
-                for m in ood_methods:
+                                   for m in ood_methods[s]}
+                for m in ood_methods[s]:
                     # logging.debug(f'Computing roc curves for with metrics {m}')
                     fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ood_labels,
                                                                   i_ood_measures[m])
@@ -1403,7 +1406,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 batch_size=batch_size,
                                 preambule = oodset.name)
 
-            for m in ood_methods:
+            for m in ood_methods[s]:
                 fpr_and_thresholds = [fpr_at_tpr(fpr_[m], tpr_[m], a,
                                                  thresholds=thresholds_[m],
                                                  return_threshold=True) for a in keeped_tpr] 

@@ -365,10 +365,8 @@ def get_args_for_test():
 
     parser.add_argument('--flash', action='store_true')
 
-
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
-
 
     parser.add_argument('--show', action='store_true')
     

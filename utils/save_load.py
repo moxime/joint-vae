@@ -593,7 +593,7 @@ def make_dict(model, directory, **kw):
 
     for s in tested_ood_sets:
         res_by_set = {}
-        ood_results = clean_results(model.ood_results[s], model.ood_methods, fpr=[], tpr=[], auc=0)
+        ood_results = clean_results(model.ood_results[s], model.ood_methods, fpr=[], tpr=[], auc=None)
         for m in ood_results:
             fpr_ = ood_results[m]['fpr']
             tpr_ = ood_results[m]['tpr']

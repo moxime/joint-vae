@@ -586,7 +586,7 @@ def make_dict(model, directory, **kw):
 
     ood_fprs = {s: {} for s in all_ood_sets}
     ood_fpr = {s: None for s in all_ood_sets}
-    best_auc = {s: 0 for s in all_ood_sets}
+    best_auc = {s: None for s in all_ood_sets}
     best_method = {s: None for s in all_ood_sets}
     n_ood = {s: 0 for s in all_ood_sets}
     epochs_ood = {s: 0 for s in all_ood_sets}

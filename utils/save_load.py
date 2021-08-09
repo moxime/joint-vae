@@ -598,7 +598,7 @@ def make_dict(model, directory, **kw):
             fpr_ = ood_results[m]['fpr']
             tpr_ = ood_results[m]['tpr']
             auc = ood_results[m]['auc']
-            if auc and auc > best_auc[s]:
+            if auc and (not best_auc[s] or auc > best_auc[s]):
                 best_auc[s] = auc
                 best_method[s] = m
             res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}

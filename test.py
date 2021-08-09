@@ -283,8 +283,26 @@ if __name__ == '__main__':
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
         to_be_kept = all(filter_results)
-        
         if to_be_kept:
+            d = n['dir']
+            derailed = os.path.join(d, 'derailed')
+            to_be_kept = not os.path.exists(derailed)
+            if args.cautious and to_be_kept:
+                log.warning('Cautious verifications to be implemented')
+                try:
+                    # log.debug('Evaluation of one sample...')
+                    # net.evaluate(torch.randn(1, *net.input_shape))
+                    # log.debug('...done')
+                    pass
+                except ValueError:
+                    open(derailed, 'a').close()
+                    log.debug(f'Net in {d} has been marked as derailed')
+            to_be_kept = not n['is_resumed']
+        if to_be_kept:
+            if n['set'] in archs:
+                archs[n['set']].add(n['arch'])
+            else:
+                archs[n['set']] = {n['arch']} 
             to_be_computed = worth_computing(n, from_which='all')
             models_to_be_kept.append(n)
             for k in to_be_computed:

@@ -8,6 +8,9 @@ import numpy as np
 import random
 import torch
 from module.optimizers import Optimizer
+import re
+from utils.misc import make_list
+from utils.torch_load import get_same_size_by_name
 
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -110,6 +113,20 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
         return get_path_from_input(dir_path)
 
 
+def model_directory(model, *subdirs):
+
+    if isinstance(model, str):
+        directory = model
+
+    elif isinstance(model, dict):
+        directory = model['dir']
+
+    else:
+        directory = model.saved_dir
+
+    return os.path.join(directory, *subdirs)
+
+        
 class ObjFromDict:
 
     def __init__(self, d, **defaults):
@@ -345,15 +362,34 @@ class LossRecorder:
         return r
 
     @classmethod
-    def loadall(cls, dir_path, *w, file_name='record-{w}.pth'):
+    def loadall(cls, dir_path, *w, file_name='record-{w}.pth', output='recorders'):
+        r"""
+        If w is empty will find all recorders in directory
+        if output is 'recorders' return recorders, if 'paths' return full paths
 
+        """
+
+        outputs = lambda p: LossRecorder.load(path) if output.startswith('record') else p
+        
         r = {}
 
+        if not w:
+
+            pattern = file_name.replace('.', '\.')
+            pattern = pattern.replace('{w}', '(?P<name>.+)')
+
+            for f in os.listdir(dir_path):
+                regexp_match = re.match(pattern, f)
+                if regexp_match:
+                    path = os.path.join(dir_path, f)
+                    r[regexp_match.group('name')] = outputs(path)
+                
         for word in w:
-            try:
-                f = file_name.format(w=word)
-                r[word] = LossRecorder.load(os.path.join(dir_path, f))
-            except FileNotFoundError:
+            f = file_name.format(w=word)
+            path = os.path.join(dir_path, f)
+            if os.path.exists(path):
+                r[word] = outputs(path)
+            else:
                 logging.warning(f'{f} not found')
                 
         return r
@@ -434,13 +470,276 @@ class LossRecorder:
             self._tensors[k][..., start:end] = tensors[k]
                                                     
         self._recorded_batches += 1
+
+
+def last_samples(model):
+
+    directory = model_directory(model, 'samples')
     
+    samples = [int(d) for d in os.listdir(directory) if d.isnumeric()]
 
-def collect_networks(directory,
-                     list_of_vae_by_architectures=None,
-                     load_state=True,
-                     **default_load_paramaters):
+    return max(samples)
 
+
+def clean_results(results, methods, **zeros):
+
+    trimmed = {k: results[k] for k in results if k in methods}
+    completed = {k: dict(n=0, epochs=0, **zeros) for k in methods}
+    completed.update(trimmed)
+    return completed
+
+
+def needed_components(method):
+
+    total = ('loss', 'logpx', 'sum', 'max', 'mag', 'std', 'mean')
+    ncd = {'iws': ('iws',),
+           'closest': ('zdist',),
+           'kl': ('kl',),
+           'mse': ('cross_x')}
+
+    for k in total:
+        ncd[k] = ('total',)
+
+    return ncd.get(method, ())
+
+
+def available_results(model, min_samples=1000, epoch_tolerance=10,
+                      predict_methods='all', ood_sets='all', ood_methods='all'):
+
+    if isinstance(model, dict):
+        model = model['net']
+
+    predict_methods = make_list(predict_methods, model.predict_methods)
+    ood_methods = make_list(ood_methods, model.ood_methods)
+
+    testset = model.training_parameters['set']
+    all_ood_sets = get_same_size_by_name(testset)
+    ood_sets = make_list(ood_sets, all_ood_sets)
+    
+    sets = [testset] + ood_sets
+
+    methods = {testset: predict_methods}
+    methods.update({s: ood_methods for s in ood_sets})
+    
+    available = {'json': {}, 'recorders': {}}
+
+    test_results = clean_results(model.testing, predict_methods)
+    results = {s: clean_results(model.ood_results.get(s, {}), ood_methods) for s in ood_sets}
+
+    results[testset] = test_results
+
+    available['json'] = {s: {m: {k: results[s][m][k]
+                                 for k in ('n', 'epochs')}
+                             for m in results[s]}
+                         for s in results}
+
+    rec_dir = os.path.join(model.saved_dir, 'samples', 'last')
+
+    available['recorders'] = {s: clean_results({}, methods[s]) for s in sets}
+
+    if os.path.isdir(rec_dir):
+        recorders = LossRecorder.loadall(rec_dir)
+        epoch = last_samples(model)
+        for s, r in recorders.items():
+            if s not in sets:
+                continue
+            n = len(r) * r.batch_size
+            for m in methods[s]:
+                all_components = all(c in r.keys() for c in needed_components(m))
+
+                if all_components:
+                    available['recorders'][s][m] = dict(n=n, epochs=epoch)
+
+    return available
+
+
+def make_dict(model, directory, **kw):
+
+    architecture = ObjFromDict(model.architecture, features=None)
+    training = ObjFromDict(model.training_parameters,
+                           transformer='default',
+                           max_batch_sizes={'train': 8, 'test': 8},
+                           pretrained_upsampler=None)
+
+    logging.debug(f'net found in {shorten_path(directory)}')
+    arch =  model.print_architecture(excludes=('latent_dim', 'batch_norm'))
+    arch_code = hashlib.sha1(bytes(arch, 'utf-8')).hexdigest()[:6]
+    # arch_code = hex(hash(arch))[2:10]
+    pretrained_features =  (None if not architecture.features
+                            else training.pretrained_features)
+    pretrained_upsampler = training.pretrained_upsampler
+    batch_size = training.batch_size
+    if not batch_size:
+        train_batch_size = training.max_batch_sizes['train']
+    else:
+        train_batch_size = batch_size
+
+    testing_results = clean_results(model.testing, model.predict_methods, accuracy=None)
+    accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
+
+    if model.testing:
+        # print('*** model.testing', *model.testing.keys())
+        # print('*** model.predict_methods', model.architecture['type'], *model.predict_methods)
+        accuracies['first'] = accuracies[model.predict_methods[0]] 
+        best_accuracy = max(model.testing[m]['accuracy'] for m in model.testing)
+        epochs_tested = min(testing_results[m]['epochs'] for m in testing_results)
+        n_tested = min(testing_results[m]['n'] for m in testing_results)
+    else:
+        best_accuracy = accuracies['first'] = None
+        epochs_tested = n_tested = 0
+
+    all_ood_sets = torchdl.get_same_size_by_name(model.training_parameters['set'])
+    tested_ood_sets = [s for s in model.ood_results if s in all_ood_sets]
+
+    ood_fprs = {s: {} for s in all_ood_sets}
+    ood_fpr = {s: None for s in all_ood_sets}
+    best_auc = {s: None for s in all_ood_sets}
+    best_method = {s: None for s in all_ood_sets}
+    n_ood = {s: 0 for s in all_ood_sets}
+    epochs_ood = {s: 0 for s in all_ood_sets}
+
+    for s in tested_ood_sets:
+        res_by_set = {}
+        ood_results = clean_results(model.ood_results[s], model.ood_methods, fpr=[], tpr=[], auc=None)
+        for m in ood_results:
+            fpr_ = ood_results[m]['fpr']
+            tpr_ = ood_results[m]['tpr']
+            auc = ood_results[m]['auc']
+            if auc and (not best_auc[s] or auc > best_auc[s]):
+                best_auc[s] = auc
+                best_method[s] = m
+            res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
+            res_by_method['auc'] = auc
+            res_by_set[m] = res_by_method
+        res_by_set['first'] = res_by_set[model.ood_methods[0]]
+        ood_fprs[s] = res_by_set
+        if best_method[s]:
+            ood_fpr[s] = res_by_set[best_method[s]]
+
+        epochs_ood[s] = min(ood_results[m]['epochs'] for m in ood_results)
+        n_ood[s] = min(ood_results[m]['n'] for m in ood_results)
+
+    history = model.train_history
+    if history.get('test_measures', {}):
+        mse = model.train_history['test_measures'][-1].get('mse', np.nan)
+        rmse = np.sqrt(mse)
+    else:
+        rmse = np.nan
+
+    nans = {'total': np.nan, 'zdist': np.nan}
+    loss_ = {}
+    for s in ('train', 'test'):
+        last_loss = ([nans] + history.get(s + '_loss', [nans]))[-1]
+        loss_[s] = nans.copy()
+        loss_[s].update(last_loss)
+
+    sigma = model.sigma
+    beta = model.training_parameters['beta']
+    if sigma.learned:
+        sigma_train = 'learned'
+        beta_sigma = sigma.value * np.sqrt(beta)
+    elif sigma.is_rmse:
+        sigma_train = 'rmse'
+        beta_sigma = rmse * np.sqrt(beta)
+    elif sigma.decay:
+        sigma_train = 'decay'
+        beta_sigma = rmse * np.sqrt(beta)
+    else:
+        sigma_train = 'constant'
+        beta_sigma = sigma.value
+
+    if architecture.type == 'cvae':
+        if model.training_parameters['learned_coder']:
+            coder_dict = 'learned'
+            if history['train_measures']:
+                # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
+                dict_var = history['train_measures'][-1]['ld-norm']
+            else:
+                dict_var = model.training_parameters['dictionary_variance']
+        else:
+            coder_dict = 'constant'
+            dict_var = model.training_parameters['dictionary_variance']
+    else:
+        coder_dict = None
+        dict_var = 0.
+
+    empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
+    depth = (1 + len(architecture.encoder)
+             + len(architecture.decoder))
+             # + len(architecture.classifier))
+
+    width = (architecture.latent_dim +
+             sum(architecture.encoder) +
+             sum(architecture.decoder) +
+             sum(architecture.classifier)) 
+
+    # print('TBR', architecture.type, model.job_number, *loss_['test'].keys())
+
+    rec_dir = os.path.join(directory, 'samples', 'last')
+    if os.path.exists(rec_dir):
+        recorders = LossRecorder.loadall(rec_dir,
+                                         output='paths')
+    else:
+        recorders = {}
+    if recorders:
+        recorded_epoch = last_samples(directory)
+    else:
+        recorded_epoch = None
+
+    return {'net': model,
+                'job': model.job_number,
+                'is_resumed': model.is_resumed,
+                'type': architecture.type,
+                'arch': arch,
+                'dict_var': dict_var,
+                'coder_dict': coder_dict,
+                'gamma': model.training_parameters['gamma'],
+                'rho': model.training_parameters['rho'],
+                'arch_code': arch_code,
+                'features': architecture.features['name'] if architecture.features else 'none',
+                'dir': directory,
+                'set': training.set,
+                'data_augmentation': training.data_augmentation,
+                'train_batch_size': train_batch_size,
+                'sigma': f'{sigma}',
+                'beta_sigma': beta_sigma,
+                'sigma_train': sigma_train,
+                'beta': beta,
+                'done': model.train_history['epochs'],
+                'epochs': model.training_parameters['epochs'],
+                'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
+                'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
+                'n_tested': n_tested,
+                'epochs_tested': epochs_tested,
+                'accuracies': accuracies,
+                'best_accuracy': best_accuracy,
+                'n_ood': n_ood,
+                'ood_fprs': ood_fprs,
+                'ood_fpr': ood_fpr,
+                'recorders': recorders,
+                'recorded_epoch': recorded_epoch,
+                'rmse': rmse,
+                'test_loss': loss_['test']['total'],
+                'train_loss': loss_['train']['total'],
+                'test_zdist': np.sqrt(loss_['test']['zdist']),
+                'train_zdist': np.sqrt(loss_['train']['zdist']),
+                'K': architecture.latent_dim,
+                'L': training.latent_sampling,
+                'warmup': training.warmup,
+                'pretrained_features': str(pretrained_features),
+                'pretrained_upsampler': str(pretrained_upsampler),
+                'batch_norm': architecture.batch_norm,
+                'depth': depth,
+                'width': width,
+                'options': model.option_vector(),
+                'optim_str': f'{empty_optimizer:3}',
+                'optim': empty_optimizer.kind,
+                'lr': empty_optimizer.init_lr,
+    }
+
+
+def collect_networks(directory, list_of_vae_by_architectures=None,
+                     load_state=True, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
     
@@ -467,182 +766,19 @@ def collect_networks(directory,
 
     try:
         logging.debug(f'Loading net in: {directory}')
-        vae = ClassificationVariationalNetwork.load(directory,
-                                                    load_state=load_state,
-                                                    **default_load_paramaters)
-        architecture = ObjFromDict(vae.architecture, features=None)
-        training = ObjFromDict(vae.training_parameters,
-                               transformer='default',
-                               max_batch_sizes={'train': 8, 'test': 8},
-                               pretrained_upsampler=None)
-        
-        logging.debug(f'net found in {shorten_path(directory)}')
-        arch =  vae.print_architecture(excludes=('latent_dim', 'batch_norm'))
-        arch_code = hashlib.sha1(bytes(arch, 'utf-8')).hexdigest()[:6]
-        # arch_code = hex(hash(arch))[2:10]
-        pretrained_features =  (None if not architecture.features
-                                else training.pretrained_features)
-        pretrained_upsampler = training.pretrained_upsampler
-        predict_methods =  [m for m in vae.predict_methods if m in vae.testing]
-        ood_methods = vae.ood_methods
+        model = ClassificationVariationalNetwork.load(directory,
+                                                      load_state=load_state,
+                                                      **default_load_paramaters)
 
-        batch_size = training.batch_size
-        if not batch_size:
-            train_batch_size = training.max_batch_sizes['train']
-        else:
-            train_batch_size = batch_size
-
-        accuracies = {m: vae.testing[m]['accuracy'] for m in predict_methods}
-        if predict_methods:
-            accuracies['first'] = accuracies.get(predict_methods[0], None) 
-            best_accuracy = max(vae.testing[m]['accuracy'] for m in predict_methods)
-            epochs_tested = min(vae.testing[m]['epochs'] for m in predict_methods)
-            n_tested = min(vae.testing[m]['n'] for m in predict_methods)
-        else:
-            best_accuracy = epochs_tested = n_tested = None
-
-        ood_sets = torchdl.get_same_size_by_name(vae.training_parameters['set'])
-        if ood_methods:
-            ood_fprs = {s: {} for s in ood_sets}
-            ood_fpr = {s: None for s in ood_sets}
-            best_auc = {s: 0 for s in ood_sets}
-            best_method = {s: None for s in ood_sets}
-            n_ood = {s: 0 for s in vae.ood_results}
-            for s in ood_sets:
-                res_by_set = {}
-                for m in vae.ood_results.get(s, {}):
-                    if m in ood_methods:
-                        fpr_ = vae.ood_results[s][m]['fpr']
-                        tpr_ = vae.ood_results[s][m]['tpr']
-                        auc = vae.ood_results[s][m]['auc']
-                        if not best_method[s] or auc > best_auc[s]:
-                            best_auc[s] = auc
-                            best_method[s] = m
-                        n = vae.ood_results[s][m]['n']
-                        if n_ood[s] == 0 or n < n_ood[s]:
-                            n_ood[s] = n
-                        res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
-                        res_by_method['auc'] = auc
-                        res_by_set[m] = res_by_method
-                res_by_set['first'] = res_by_set.get(ood_methods[0], None)
-                ood_fprs[s] = res_by_set
-                ood_fpr[s] = res_by_set.get(best_method[s], None)
-                
-        else:
-            ood_fprs = {s: {} for s in ood_sets}
-            ood_fpr = {s: None for s in ood_sets}
-            n_ood = {}
-
-        history = vae.train_history
-        if history.get('test_measures', {}):
-            mse = vae.train_history['test_measures'][-1].get('mse', np.nan)
-            rmse = np.sqrt(mse)
-        else:
-            rmse = np.nan
-
-        nans = {'total': np.nan, 'zdist': np.nan}
-        loss_ = {}
-        for s in ('train', 'test'):
-            last_loss = ([nans] + history.get(s + '_loss', [nans]))[-1]
-            loss_[s] = nans.copy()
-            loss_[s].update(last_loss)
-        
-        sigma = vae.sigma
-        beta = vae.training_parameters['beta']
-        if sigma.learned:
-            sigma_train = 'learned'
-            beta_sigma = sigma.value * np.sqrt(beta)
-        elif sigma.is_rmse:
-            sigma_train = 'rmse'
-            beta_sigma = rmse * np.sqrt(beta)
-        elif sigma.decay:
-            sigma_train = 'decay'
-            beta_sigma = rmse * np.sqrt(beta)
-        else:
-            sigma_train = 'constant'
-            beta_sigma = sigma.value
-
-        if architecture.type == 'cvae':
-            if vae.training_parameters['learned_coder']:
-                coder_dict = 'learned'
-                if history['train_measures']:
-                    # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
-                    dict_var = history['train_measures'][-1]['ld-norm']
-                else:
-                    dict_var = vae.training_parameters['dictionary_variance']
-            else:
-                coder_dict = 'constant'
-                dict_var = vae.training_parameters['dictionary_variance']
-        else:
-            coder_dict = None
-            dict_var = 0.
-            
-        empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
-        depth = (1 + len(architecture.encoder)
-                 + len(architecture.decoder))
-                 # + len(architecture.classifier))
-        
-        width = (architecture.latent_dim +
-                 sum(architecture.encoder) +
-                 sum(architecture.decoder) +
-                 sum(architecture.classifier)) 
-
-        # print('TBR', architecture.type, vae.job_number, *loss_['test'].keys())
-        vae_dict = {'net': vae,
-                    'job': vae.job_number,
-                    'is_resumed': vae.is_resumed,
-                    'type': architecture.type,
-                    'arch': arch,
-                    'dict_var': dict_var,
-                    'coder_dict': coder_dict,
-                    'gamma': vae.training_parameters['gamma'],
-                    'rho': vae.training_parameters['rho'],
-                    'arch_code': arch_code,
-                    'features': architecture.features['name'] if architecture.features else 'none',
-                    'dir': directory,
-                    'set': training.set,
-                    'data_augmentation': training.data_augmentation,
-                    'train_batch_size': train_batch_size,
-                    'sigma': f'{sigma}',
-                    'beta_sigma': beta_sigma,
-                    'sigma_train': sigma_train,
-                    'beta': beta,
-                    'done': vae.train_history['epochs'],
-                    'epochs': vae.training_parameters['epochs'],
-                    'finished': vae.train_history['epochs'] >= vae.training_parameters['epochs'],
-                    'n_tested': n_tested,
-                    'epochs_tested': epochs_tested,
-                    'accuracies': accuracies,
-                    'best_accuracy': best_accuracy,
-                    'n_ood': n_ood,
-                    'ood_fprs': ood_fprs,
-                    'ood_fpr': ood_fpr,
-                    'rmse': rmse,
-                    'test_loss': loss_['test']['total'],
-                    'train_loss': loss_['train']['total'],
-                    'test_zdist': np.sqrt(loss_['test']['zdist']),
-                    'train_zdist': np.sqrt(loss_['train']['zdist']),
-                    'K': architecture.latent_dim,
-                    'L': training.latent_sampling,
-                    'warmup': training.warmup,
-                    'pretrained_features': str(pretrained_features),
-                    'pretrained_upsampler': str(pretrained_upsampler),
-                    'batch_norm': architecture.batch_norm,
-                    'depth': depth,
-                    'width': width,
-                    'options': vae.option_vector(),
-                    'optim_str': f'{empty_optimizer:3}',
-                    'optim': empty_optimizer.kind,
-                    'lr': empty_optimizer.init_lr,
-        }
-        append_by_architecture(vae_dict, list_of_vae_by_architectures)
+        model_dict = make_dict(model, directory) 
+        append_by_architecture(model_dict, list_of_vae_by_architectures)
 
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
         logging.debug(f'Load error: {e}')
     
-    except FileNotFoundError:    
-        pass
+    except FileNotFoundError as e:    
+        pass  # print(e)
     list_dir = [os.path.join(directory, d) for d in os.listdir(directory) if not d.startswith('dump')]
     sub_dirs = [e for e in list_dir if os.path.isdir(e)]
     
@@ -659,6 +795,33 @@ def collect_networks(directory,
                   f'found in {shorten_path(directory)}')
 
 
+def is_derailed(model, load_model_for_check=False):
+    from cvae import ClassificationVariationalNetwork
+
+    if isinstance(model, dict):
+        directory = model['dir']
+
+    elif isinstance(model, str):
+        directory = model
+
+    else:
+        directory = model.saved_dir
+
+    if os.path.exists(os.path.join(directory, 'derailed')):
+        return True
+    
+    elif load_model_for_check:
+        try:
+            model = ClassificationVariationalNetwork.load(directory)
+            if torch.cuda.is_available():
+                model.to('cuda')
+            x = torch.zeros(1, *model.input_shape, device=model.device)
+            model.evaluate(x)
+        except ValueError:
+            return True
+
+    return False            
+    
 def find_by_job_number(*job_numbers, dir='jobs', load_net=True, force_dict=False, **kw):
 
     from cvae import ClassificationVariationalNetwork
@@ -674,18 +837,6 @@ def find_by_job_number(*job_numbers, dir='jobs', load_net=True, force_dict=False
 
     return d if len(job_numbers) > 1 or force_dict else d[job_numbers[0]]
 
-
-def save_features_upsampler(net, dir='.', name=''):
-
-    try:
-        feats = net.encoder.features.state_dict()
-    except:
-        feats = None
-    try:
-        ups = None
-    except:
-        pass
-        
 
 def test_results_df(nets, best_net=True, first_method=True, ood=True,
                     dataset=None,
@@ -883,23 +1034,6 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
     # return df
     
     return df.reindex(sorted(df.columns), axis=1).fillna(np.nan)
-
-
-def save_list_of_networks(list_of, dir_name, file_name='nets.json'):
-
-    d = {}
-
-    for n in list_of:
-        n_ = n.copy()
-        n_.pop('net')
-        d[n_['dir']] = n_
-
-    save_json(d, dir_name, file_name)
-
-
-def load_list_of_networks(dir_name, file_name='nets.json'):
-    
-    return list(load_json(dir_name, file_name).values())
 
 
 if __name__ == '__main__':

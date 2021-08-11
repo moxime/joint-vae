@@ -5,8 +5,9 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 import re, numpy as np
 from socket import gethostname as getrawhostname
-from utils.param_filters import ParamFilter
+from utils.filters import ParamFilter, match_filters
 import os
+
 
 def gethostname():
 
@@ -40,7 +41,7 @@ def set_log(verbose, debug, log_dir, name='train', job_number=0):
     else:
         fn = os.path.join(log_dir, f'{name}.log') 
         file_handler = RotatingFileHandler(fn,
-                                           maxBytes=500000,
+                                           maxBytes=5000000,
                                            backupCount=10)
         file_handler.doRollover()
 
@@ -103,6 +104,11 @@ def alphanum(x):
             return x
 
 
+def str2bool(s):
+
+    return s.lower() in ['true', 'yes', 't', '1']
+
+        
 def list_of_alphanums(string):
 
     return [alphanum(a) for a in string.split()]
@@ -352,11 +358,15 @@ def get_args_for_test():
     parser.add_argument('--cautious', action='store_true')
 
     parser.add_argument('--force-cpu', action='store_true')
-    parser.add_argument('--compute', action='store_false',
-                        dest='dry_run',
-                        help='will compute missing rates')
+    parser.add_argument('--compute',
+                        nargs='?',
+                        default=False,
+                        const='recorder')
 
     parser.add_argument('--flash', action='store_true')
+
+    parser.add_argument('--dry-run', action='store_true',
+                        help='will show you what it would do')
 
     parser.add_argument('--show', action='store_true')
     
@@ -371,14 +381,14 @@ def get_args_for_test():
     
     parser.add_argument('--job-id', type=int, default=0)
 
-    filter_args, remaining_args = get_args_from_filters()
+    filter_args, remaining_args = get_filters_args()
     
     args = parser.parse_args(args=remaining_args, namespace=filter_args)
     
     return args
 
 
-def get_args_from_filters(argv=None):
+def get_filters_args(argv=None):
 
     parser = argparse.ArgumentParser()  # (add_help=False)
 
@@ -390,8 +400,9 @@ def get_args_from_filters(argv=None):
     
     parser.add_argument('--finished',
                         nargs='?',
+                        const='true',
                         action=FilterAction,
-                        of_type=bool)
+                        of_type=str2bool)
 
     parser.add_argument('--train-batch-size',
                         nargs='+',
@@ -525,5 +536,10 @@ if __name__ == '__main__':
 
     arg = get_args_for_test()
 
-    for k in arg.filters.items():
-        print(*k)
+    m = {'done': 4, 'job': 45, 'batch_norm': ['decoder', 'encoder'], 'type': 'cvae'}
+    
+    for k, v in arg.filters.items():
+
+        print(k, *v, *[f.filter(m[k]) for f in v])
+        
+    print(match_filters(m, arg.filters))

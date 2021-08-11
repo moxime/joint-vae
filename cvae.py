@@ -7,7 +7,9 @@ from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, kl_loss, mse_loss
 
-from utils.save_load import LossRecorder
+from utils.save_load import LossRecorder, last_samples
+
+from utils.misc import make_list
 
 from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import onehot_encoding
@@ -23,6 +25,8 @@ from sklearn.metrics import auc, roc_curve
 from utils.print_log import EpochOutput
 
 from utils.parameters import get_args
+
+from utils.testing import testing_plan
 
 from utils.signaling import SIGHandler
 
@@ -89,11 +93,11 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type ={'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'), # , 'mag', 'IYx'),
-                           'xvae': ('max', 'mean', 'std'), # , 'mag', 'IYx'),
-                           'jvae': ('max', 'sum',  'std'), # 'mag'), 
-                           'vae': ('logpx', 'iws'),
-                           'vib': ()}
+    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'),  # , 'mag', 'IYx'),
+                            'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
+                            'jvae': ('max', 'sum',  'std'),  # 'mag'),
+                            'vae': ('logpx', 'iws'),
+                            'vib': ('baseline',)}
 
     def __init__(self,
                  input_shape,
@@ -730,7 +734,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_losses['iws'] = iws_
             # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
             
-            
         if self.y_is_decoded or self.force_cross_y:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',
@@ -793,7 +796,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if method == 'default':
             method = self.predict_methods[0]
             # method = 'mean' if self.is_jvae else 'esty'
-
+            
         if method is None:
             return F.softmax(logits, -1)
 
@@ -807,6 +810,10 @@ class ClassificationVariationalNetwork(nn.Module):
             # return F.softmax(logits, -1).argmax(-1)
             return logits.argmax(-1)
 
+        if method == 'foo':
+            # return F.softmax(logits, -1).argmax(-1)
+            return logits.argmin(-1)
+
         if method == 'closest':
             return losses['zdist'].argmin(0)
 
@@ -815,7 +822,7 @@ class ClassificationVariationalNetwork(nn.Module):
         raise ValueError(f'Unknown method {method}')
 
     def batch_dist_measures(self, logits, losses, methods):
-
+            
         dist_measures = {m: None for m in methods}
         for m in methods:
             assert m in self.ood_methods
@@ -846,13 +853,14 @@ class ClassificationVariationalNetwork(nn.Module):
                     measures = d_iws.exp().sum(axis=0).log() + iws_max
                     if not self.is_jvae:
                         measures += np.log(C)
-
                 else:
                     measures = iws
             elif m == 'sum':
                 measures = d_logp.exp().sum(axis=0).log() + logp_max 
             elif m == 'max':
                 measures = logp_max
+            elif m == 'baseline':
+                measures = logits.softmax(-1).max(axis=-1)[0]
             elif m == 'mag':
                 measures = logp_max - logp.median(axis=0)[0]
             elif m == 'std':
@@ -956,6 +964,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  outputs=EpochOutput(),
                  sample_dirs=[],
                  recorder=None,
+                 wygiwyu=False,
                  log=True):
 
         """return detection rate. 
@@ -983,16 +992,35 @@ class ClassificationVariationalNetwork(nn.Module):
             only_one_method = False
 
         shuffle = True
+
+        epoch = self.trained
         
         if num_batch == 'all':
             num_batch = len(testset) // batch_size
             shuffle = False
-            
-        recorded = recorder is not None and len(recorder) >= num_batch
-        recording = recorder is not None and len(recorder) < num_batch
+
+        if wygiwyu:
+            from_r, _ = testing_plan(self, ood_sets=[], predict_methods=predict_methods)
+            if not from_r:
+                acc = {m: self.testing[m]['accuracy'] for m in predict_methods}
+                if only_one_method:
+                    return acc[method]
+                else:
+                    return acc
+            else:
+                predict_methods = [m for m in from_r[testset_name] if from_r[testset_name][m]]
+                rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
+                recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
+                num_batch = len(recorder)
+                batch_size = recorder.batch_size
+                
+        recorded = recorder is not None and len(recorder) >= num_batch 
+        recording = recorder is not None and len(recorder) < num_batch 
         
         if recorded:
             logging.debug('Losses already recorded')
+            num_batch = len(recorder)
+            epoch = last_samples(self)
 
         if recording:
             logging.debug('Recording session loss for accruacy')
@@ -1039,7 +1067,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 current_measures = measures
                 self._measures = measures
             else:
-                batch_losses = recorder.get_batch(i, *self.loss_components)
+                components = [k for k in recorder.keys() if k in self.loss_components]
+                batch_losses = recorder.get_batch(i, *components)
                 # logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
                 logits = recorder.get_batch(i, 'logits').T
                 y_test = recorder.get_batch(i, 'y_true')
@@ -1110,7 +1139,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                 preambule=print_result)
         self.test_loss = mean_loss
 
-
         if recording:
             logging.debug('Saving examples in' + ', '.join(sample_dirs))
 
@@ -1136,7 +1164,7 @@ class ClassificationVariationalNetwork(nn.Module):
         for m in predict_methods:
 
             update_self_testing_method = (update_self_testing and
-                                          (self.trained > self.testing[m]['epochs']
+                                          (epoch > self.testing[m]['epochs']
                                            or
                                            n > self.testing[m]['n']))
             if update_self_testing_method:
@@ -1150,7 +1178,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                   # n, self.trained)
 
                 self.testing[m] = {'n': n,
-                                   'epochs': self.trained,
+                                   'epochs': epoch,
                                    'sampling': self.latent_samplings['eval'],
                                    'accuracy': acc[m]}
 
@@ -1167,41 +1195,35 @@ class ClassificationVariationalNetwork(nn.Module):
                             method='all',
                             print_result=False,
                             update_self_ood=True,
+                            updated_epoch=None,
                             outputs=EpochOutput(),
                             recorders=None,
+                            wygiwyu=False,
                             sample_dirs=[],
                             log=True):
 
+        if updated_epoch is None:
+            updated_epoch = self.trained
+        
         if not testset:
             testset_name = self.training_parameters['set']
             transformer = self.training_parameters['transformer']
             _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
-        
-        if method=='all':
-            ood_methods = self.ood_methods
-
-        elif type(method) is str:
-            assert method in self.ood_methods
-            ood_methods = [method]
-            
-        else:
-            try:
-                method.__iter__()
-                ood_methods = method
-            except AttributeError:
-                raise ValueError(f'{method} is not a '
-                                 'valid method / list of method')
 
         if not method:
             return
+
+        ood_methods = make_list(method, self.ood_methods)
         
         if oodsets is None:
-            oodsets = {n: torchdl.get_dataset(n, transformer=testset.transformer)[1]
-                       for n in testset.same_size}
-            logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets.values()))
+            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer)[1]
+                       for n in testset.same_size]
+            logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 
         all_set_names = [testset.name] + [o.name for o in oodsets] 
 
+        ood_methods_per_set = {s: ood_methods for s in all_set_names}
+        
         if not recorders:
             recorders = {n: None for n in all_set_names}
 
@@ -1213,19 +1235,33 @@ class ClassificationVariationalNetwork(nn.Module):
         shuffle = {s: False for s in all_set_names}
         recording = {}
         recorded = {}
-        
-        if type(max_num_batch) is int:
-            for s in all_set_names:
+
+        if wygiwyu:
+
+            from_r, _ = testing_plan(self, ood_sets=[o.name for o in oodsets], ood_methods=ood_methods)
+            if from_r:
+                rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
+                recorders = LossRecorder.loadall(rec_dir, *all_set_names)
+                num_batch = {s: len(recorders[s]) for s in recorders}
+                batch_size = recorders[testset.name].batch_size
+                ood_methods_per_set = {s: [m for m in ood_methods if from_r[s].get(m, {})] for s in from_r}
+                ood_methods_per_set[testset.name] = ood_methods
+                
+            oodsets = [o for o in oodsets if o.name in recorders]
+            all_set_names = [s for s in all_set_names if s in recorders]
+                
+        for s in all_set_names:
+            if type(max_num_batch) is int:
                 num_batch[s] = min(num_batch[s], max_num_batch)
-                recording[s] = recorders[s] is not None and len(recorders[s]) < num_batch[s]
-                recorded[s] = recorders[s] is not None and len(recorders[s]) >= num_batch[s]
                 shuffle[s] = True
-                if recorded[s]:
-                    logging.debug('Losses already computed for %s %s', s, recorders[s])
-                if recording[s]:
-                    recorders[s].reset()
-                    recorders[s].num_batch = num_batch[s]
-                    logging.debug('Recording session for %s %s', s, recorders[s])
+            recording[s] = recorders[s] is not None and len(recorders[s]) < num_batch[s]
+            recorded[s] = recorders[s] is not None and len(recorders[s]) >= num_batch[s]
+            if recorded[s]:
+                logging.debug('Losses already computed for %s %s', s, recorders[s])
+            if recording[s]:
+                recorders[s].reset()
+                recorders[s].num_batch = num_batch[s]
+                logging.debug('Recording session for %s %s', s, recorders[s])
                 
         device = next(self.parameters()).device
 
@@ -1263,22 +1299,23 @@ class ClassificationVariationalNetwork(nn.Module):
                     with torch.no_grad():
                         _, logits, losses, _  = self.evaluate(x, batch=i)
                 else:
-                    losses = recorders[s].get_batch(i, *self.loss_components)
+                    components = [k for k in recorders[s].keys() if k in self.loss_components]
+                    losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     
                 if recording[s]:
                     recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
                     
-                measures = self.batch_dist_measures(logits, losses, ood_methods)
-                for m in ood_methods:
+                measures = self.batch_dist_measures(logits, losses, ood_methods_per_set[s])
+                for m in ood_methods_per_set[s]:
                     # print('*** ood', m, *measures[m].shape)
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
-                outputs.results(i, num_batch[s], 0, 1, metrics=ood_methods,
+                outputs.results(i, num_batch[s], 0, 1, metrics=ood_methods_per_set[s],
                                 measures = {m: ind_measures[m].mean()
-                                            for m in ood_methods},
+                                            for m in ood_methods_per_set[s]},
                                 acc_methods = ood_methods,
                                 time_per_i = t_per_i,
                                 batch_size=batch_size,
@@ -1289,8 +1326,6 @@ class ClassificationVariationalNetwork(nn.Module):
                     f = os.path.join(d, f'record-{s}.pth')
         
                     recorders[s].save(f.format(s=s))
-        
-
                 
         keeped_tpr = [pc / 100 for pc in range(90, 100)]
         no_result = {'epochs': 0,
@@ -1305,8 +1340,8 @@ class ClassificationVariationalNetwork(nn.Module):
             s = oodset.name
             ood_n_batch = num_batch[s]
             
-            ood_results = {m: copy.deepcopy(no_result) for m in ood_methods}
-            i_ood_measures = {m: ind_measures[m] for m in ood_methods}
+            ood_results = {m: copy.deepcopy(no_result) for m in ood_methods_per_set[s]}
+            i_ood_measures = {m: ind_measures[m] for m in ood_methods_per_set[s]}
             ood_labels = np.ones(batch_size * num_batch[testset.name])
             fpr_ = {}
             tpr_ = {}
@@ -1342,16 +1377,16 @@ class ClassificationVariationalNetwork(nn.Module):
                 if recording[s]:
                     recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
 
-                measures = self.batch_dist_measures(None, losses, ood_methods)
-                for m in ood_methods:
+                measures = self.batch_dist_measures(logits, losses, ood_methods_per_set[s])
+                for m in ood_methods_per_set[s]:
                     i_ood_measures[m] = np.concatenate([i_ood_measures[m],
                                                       measures[m].cpu()])
                 ood_labels = np.concatenate([ood_labels, np.zeros(batch_size)])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
                 meaned_measures = {m: i_ood_measures[m][len(ind_measures):].mean()
-                                   for m in ood_methods}
-                for m in ood_methods:
+                                   for m in ood_methods_per_set[s]}
+                for m in ood_methods_per_set[s]:
                     # logging.debug(f'Computing roc curves for with metrics {m}')
                     fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ood_labels,
                                                                   i_ood_measures[m])
@@ -1370,13 +1405,13 @@ class ClassificationVariationalNetwork(nn.Module):
                                 batch_size=batch_size,
                                 preambule = oodset.name)
 
-            for m in ood_methods:
+            for m in ood_methods_per_set[s]:
                 fpr_and_thresholds = [fpr_at_tpr(fpr_[m], tpr_[m], a,
                                                  thresholds=thresholds_[m],
                                                  return_threshold=True) for a in keeped_tpr] 
                 fpr_m = [f[0] for f in fpr_and_thresholds]
                 t_m = [f[1] for f in fpr_and_thresholds]
-                ood_results[m] = {'epochs': self.trained,
+                ood_results[m] = {'epochs': updated_epoch,
                                   'n': ood_n_batch * batch_size,
                                   'auc': auc_[m],
                                   'tpr': keeped_tpr,
@@ -2001,10 +2036,24 @@ class ClassificationVariationalNetwork(nn.Module):
             try:
                 vae.architecture = default_params.copy()
                 vae.architecture.update(save_load.load_json(dir_name, 'architecture.json'))
+                vae.type = vae.architecture['type']
+                vae.loss_components = cls.loss_components_per_type[vae.type]
                 logging.debug('Ghost network loaded')
                 vae.job_number = job_number
-                vae.ood_methods = cls.ood_methods_per_type[vae.architecture['type']]
-                vae.predict_methods = cls.predict_methods_per_type[vae.architecture['type']]
+                vae.ood_methods = cls.ood_methods_per_type[vae.type]
+                vae.predict_methods = cls.predict_methods_per_type[vae.type]
+                classifier_layer_sizes = params['classifier']
+                gamma = train_params['gamma']
+                vae.y_is_decoded = True
+                if vae.type in ('cvae', 'vae'):
+                    vae.y_is_decoded = classifier_layer_sizes and gamma
+
+                if vae.y_is_decoded and 'esty' not in vae.predict_methods:
+                    vae.predict_methods = ('esty',) + vae.predict_methods
+
+                if vae.y_is_decoded and 'cross_y' not in vae.loss_components:
+                    vae.loss_components += ('cross_y',)
+
                 vae.testing = {}
                 # print('*** sigma loaded from', train_params['sigma'], vae.job_number)
                 if isinstance(train_params['sigma'], dict):

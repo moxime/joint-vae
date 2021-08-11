@@ -1,21 +1,19 @@
 from __future__ import print_function
 
-from itertools import groupby
-import numpy as np
 import torch
 from cvae import ClassificationVariationalNetwork as CVNet
 import utils.torch_load as torchdl
 import os
 import sys
 import hashlib
-import argparse
 import logging
 
 import pandas as pd
 
 from utils.parameters import get_args, set_log, gethostname
-from utils.save_load import collect_networks, test_results_df, load_json, LossRecorder
+from utils.save_load import collect_networks, test_results_df, LossRecorder, make_dict
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
+from utils.testing import worth_computing
 
 
 def test_accuracy_if(jvae=None,
@@ -225,21 +223,19 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     job_dir = args.job_dir
     load_dir = args.load_dir
-    dry_run = args.dry_run
+    dry_run = args.compute
     flash = args.flash
 
     test_sample_size = args.test_sample_size
     ood_sample_size = args.ood
     min_test_sample_size = args.min_test_sample_size
-    unfinished_training = args.unfinished
-
-    train_tolerance = 10
     
     filters = args.filters
-    comma=','
-    filter_str = '--'.join(f'{d}:{comma.join([str(_) for _ in f])}' for d, f in filters.items())
+    _comma = ','
+    filter_str = '--'.join(f'{d}:{_comma.join([str(_) for _ in f])}' for d, f in filters.items())
+
     logging.debug('Filters: %s', filter_str)
-    
+
     latex_formatting = args.latex
 
     sort = args.sort
@@ -263,12 +259,16 @@ if __name__ == '__main__':
         log.debug('|')
         log.debug(f'|_{len(l)} {w} of type {a}')
 
-    log.info('Is trained and is tested (*) or will be (.)')
-    log.info('|ood is tested (*) or will be (.)')
-    log.info('|| # trained epochs')
-    log.info('||     directory')
+    log.debug('{} models found'.format(sum([len(l) for l in list_of_networks])))
+    log.info('Is kept')
+    log.info('| Results')
+    log.info('| are fully available')
+    log.info('| | can (*: all, x: partially) be extracted from recorders')
+    log.info('| | | have to be computed')
+    log.info('| | | | job #')
+    log.info('| | | | |     # trained epochs')
     # log.info('|||')
-    enough_trained = []
+
     n_trained = 0
     n_tested = 0
     n_to_be_tested = 0
@@ -276,115 +276,74 @@ if __name__ == '__main__':
     n_ood_to_be_computed = 0
     testsets = set()
     archs = {}
-
-    networks_to_be_studied = []
+    n_epochs_to_be_computed = 0
+    
+    models_to_be_kept = []
+    models_to_be_computed = {k: [] for k in ('recorder', 'compute')}
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
-        to_be_studied = all(filter_results)
+        to_be_kept = all(filter_results)
+        if to_be_kept:
+            d = n['dir']
+            derailed = os.path.join(d, 'derailed')
+            to_be_kept = not os.path.exists(derailed)
+            if args.cautious and to_be_kept:
+                log.warning('Cautious verifications to be implemented')
+                try:
+                    # log.debug('Evaluation of one sample...')
+                    # net.evaluate(torch.randn(1, *net.input_shape))
+                    # log.debug('...done')
+                    pass
+                except ValueError:
+                    open(derailed, 'a').close()
+                    log.debug(f'Net in {d} has been marked as derailed')
+            to_be_kept = not n['is_resumed']
+        if to_be_kept:
+            if n['set'] in archs:
+                archs[n['set']].add(n['arch'])
+            else:
+                archs[n['set']] = {n['arch']} 
+            to_be_computed = worth_computing(n, from_which='all')
+            models_to_be_kept.append(n)
+            for k in to_be_computed:
+                if to_be_computed[k]:
+                    models_to_be_computed[k].append(n)
+            is_r = to_be_computed['recorder']
+            is_c = to_be_computed['compute']
+            n_epochs_to_be_computed += is_c
 
-        if to_be_studied:
-            networks_to_be_studied.append(n)
+            is_a = (is_c + is_r) == 0
+            _a = '*' if is_a else '|'
+            if is_r:
+                _r = 'x' if is_c else '*'
+            else:
+                _r = '|'
+            _c = is_c if is_c else '|'
+
+            logging.info('* {} {} {} {:6d} {:8} {:5} {:80.80}'. format(_a, _r,
+                                                             _c, n['job'], n['set'], n['type'], n['arch']))
+
             # for d in filters:
             #   print(d, n[d])
             #   for f in filters[d]:
             #       print(f, f.filter(n[d]))
-
-    for n in networks_to_be_studied:
-
-        net = n.get('net', None)
-
-        is_tested = test_accuracy_if(jvae=net,
-                                     directory=n['dir'],
-                                     dry_run=True,
-                                     min_test_sample_size=min_test_sample_size,
-                                     batch_size=batch_size,
-                                     unfinished=unfinished_training)
-        
-        is_enough_trained = is_tested is not None
-        will_be_tested = is_enough_trained and not is_tested
-
-        ood_are_tested = test_ood_if(jvae=net,
-                                     directory=n['dir'],
-                                     dry_run=True,
-                                     min_test_sample_size=min_test_sample_size,
-                                     batch_size=batch_size,
-                                     unfinished=unfinished_training,)
-
-        if is_enough_trained:
-            ood_will_be_computed = sum([not v for v in ood_are_tested.values()])
         else:
-            ood_will_be_computed = 0
+            # logging.debug('| | | | {:6d}'.format(n['job']))
+            logging.debug('| | | | {:6d} {:8} {:5} {:80.80}'. format(n['job'], n['set'], n['type'], n['arch']))
 
-        is_derailed = False
+    logging.info('|     {:d} epochs to be computed'.format(n_epochs_to_be_computed))
+    logging.info('{:d} models kept'.format(len(models_to_be_kept)))
 
-        if is_enough_trained:
-            d = n['dir']
-            derailed = os.path.join(d, 'derailed')
-            if args.cautious:
-                log.warning('Cautious verifications to be implemented')
-                try:
-                    pass
-                    # log.debug('Evaluation of one sample...')
-                    # net.evaluate(torch.randn(1, *net.input_shape))
-                    # log.debug('...done')
-                except ValueError:
-                    open(derailed, 'a').close()
-                    log.debug(f'Net in {d} has been marked as derailed')
+    if args.compute:
+        for m in models_to_be_computed['recorder']:
+            model = CVNet.load(m['dir'], load_state=False)
+            model.accuracy(wygiwyu=True, update_self_testing=not args.dry_run, print_result='TFR')
+            model.ood_detection_rates(wygiwyu=True, update_self_ood=not args.dry_run, print_result='OFR')
+            if not args.dry_run:
+                model.save(m['dir'])
+            m.update(make_dict(model, m['dir']))                
 
-            is_derailed = os.path.exists(derailed)
-            if not is_derailed:
-                if not n['is_resumed']:
-                    enough_trained.append(n)
-                    testsets.add(n['set'])
-
-                    if n['set'] in archs:
-                        archs[n['set']].add(n['arch'])
-                    else:
-                        archs[n['set']] = {n['arch']} 
-                else:
-                    is_enough_trained = False
-                    will_be_tested = False
-                    ood_will_be_computed = 0
-
-        if is_derailed:
-            train_mark = '+'
-            ood_mark = '+'
-            log.info('++ Derailed net in %s',
-                     n['dir'])
-        else:
-            if not is_enough_trained:
-                train_mark = '|'
-                ood_mark = '|'
-            else:
-                train_mark = '*' if is_tested else '.'
-                ood_mark = '*' if not ood_will_be_computed else ood_will_be_computed
-
-            _dir = n['dir'][:130]
-            _dir2 = n['dir'][130:]
-            log.info('%s%s %3d %s', 
-                     train_mark,
-                     ood_mark,
-                     n['done'],
-                     _dir)
-            if _dir2:
-                log.info('||' +
-                         '     ' +
-                         '_' * (130 - len(_dir2)) +
-                         _dir2)
-        
-        n_trained += is_enough_trained
-        n_tested += (is_tested is True)
-        n_to_be_tested += will_be_tested
-        n_ood_computed += (ood_are_tested is True)
-        n_ood_to_be_computed += ood_will_be_computed
-
-    log.info('||')
-    log.info('|%s ood to be computed', n_ood_to_be_computed)
-    log.info('%s tested nets (%s tests to be done)',
-             n_trained,
-             n_to_be_tested)
-
-    if not dry_run:
+    if args.compute == 'hard':
 
         batch_sizes = {}
         dict_of_sets = {}
@@ -488,7 +447,7 @@ if __name__ == '__main__':
             
             n['net'].save(n['dir'])
 
-    for n in enough_trained:
+    for n in models_to_be_kept:
         tex_architecture(n)
         export_losses(n, which='all')
         texify_test_results(n)
@@ -498,7 +457,7 @@ if __name__ == '__main__':
 
     tpr = [t/100 for t in args.tpr]
         
-    df = test_results_df(enough_trained, best_net=show_best,
+    df = test_results_df(models_to_be_kept, best_net=show_best,
                          first_method=first_method,
                          ood=True,
                          tnr=args.tnr,
@@ -539,7 +498,7 @@ if __name__ == '__main__':
         if tex_file:
             with open(tex_file, 'a') as f:
                 f.write('\def\joblist{')
-                f.write(','.join(['{:06d}'.format(n['job']) for n in enough_trained]))
+                f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
 
         for a in archs[s]:

@@ -1,5 +1,5 @@
 from cvae import ClassificationVariationalNetwork as Net
-from utils.parameters import get_args_from_filters, set_log
+from utils.parameters import get_filters_args, set_log
 import argparse
 import sys
 import logging
@@ -10,6 +10,7 @@ from utils.inspection import loss_comparisons
 import matplotlib.pyplot as plt
 
 root = 'results/%j/samples'
+
 
 
 if __name__ == '__main__':
@@ -43,7 +44,7 @@ if __name__ == '__main__':
                       '-m', '64',
                       '--job-num'] + [str(j) for j in jobs]
     
-    filter_args, remaining_args = get_args_from_filters(None if sys.argv[0] else args_from_file)
+    filter_args, remaining_args = get_filters_args(None if sys.argv[0] else args_from_file)
     
     args = parser.parse_args(args=remaining_args, namespace=filter_args)
 

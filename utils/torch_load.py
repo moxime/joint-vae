@@ -269,7 +269,8 @@ def get_same_size_by_name(set_name):
     shape, _ = get_shape_by_name(set_name)
     same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
     same_size.remove(set_name)
-
+    same_size.append(set_name + '90')
+    
     return same_size
 
 

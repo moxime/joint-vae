@@ -190,7 +190,8 @@ if __name__ == '__main__':
         save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
 
     jvae.job_number = job_number
-
+    jvae.saved_dir = save_dir
+    
     if args.resume:
         with open(os.path.join(args.resume, 'RESUMED'), 'w') as f:
             f.write(str(job_number) + '\n')

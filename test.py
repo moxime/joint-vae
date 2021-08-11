@@ -260,7 +260,7 @@ if __name__ == '__main__':
         log.debug(f'|_{len(l)} {w} of type {a}')
 
     log.debug('{} models found'.format(sum([len(l) for l in list_of_networks])))
-    log.info('Is keeped')
+    log.info('Is kept')
     log.info('| Results')
     log.info('| are fully available')
     log.info('| | can (*: all, x: partially) be extracted from recorders')

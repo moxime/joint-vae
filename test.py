@@ -331,7 +331,7 @@ if __name__ == '__main__':
             # logging.debug('| | | | {:6d}'.format(n['job']))
             logging.debug('| | | | {:6d} {:8} {:5} {:80.80}'. format(n['job'], n['set'], n['type'], n['arch']))
 
-    logging.info('|   {:d} epochs to be computed'.format(n_epochs_to_be_computed))
+    logging.info('|     {:d} epochs to be computed'.format(n_epochs_to_be_computed))
     logging.info('{:d} models kept'.format(len(models_to_be_kept)))
 
     if args.compute:

@@ -120,7 +120,7 @@ class Sigma(Parameter):
         if self.decay:
             return s[:-1] + f', decaying to {self.reach}*mse with rate {self.decay})'
         return s
-        
+
 
 class Sampling(nn.Module):
     """Uses (z_mean, z_log_var) to sample z, the latent vector.

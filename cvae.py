@@ -93,7 +93,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws', 'std', 'mag'),  # , 'mag', 'IYx'),
+    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws'),  # , 'std', 'mag'),  # , 'mag', 'IYx'),
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             'vae': ('logpx', 'iws'),
@@ -1726,9 +1726,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 if self.rho:
                     dict_var = self.encoder.latent_dictionary.pow(2).mean()
-                    log2 = np.log(2)
                     
-                    r_ = self.rho * torch.exp(-dict_var / self.rho_temp * log2)
+                    log10 = np.log(10)
+                    r_ = self.rho * torch.exp(-dict_var / self.rho_temp * log10)
                     L += r_ * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
                     if not i:
                         logging.debug('rho_=%e', r_.item())

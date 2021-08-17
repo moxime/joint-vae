@@ -163,7 +163,7 @@ class ClassificationVariationalNetwork(nn.Module):
         # self.y_is_decoded = self.is_vib or self.is_jvae
         self.y_is_decoded = True
         if self.is_cvae or self.is_vae:
-            self.y_is_decoded = classifier_layer_sizes and gamma
+            self.y_is_decoded = gamma
 
         self.coder_has_dict = self.is_cvae or self.is_xvae
         
@@ -466,7 +466,8 @@ class ClassificationVariationalNetwork(nn.Module):
             x_output = self.imager(u)
 
         if self.is_cvae or self.is_vae:
-            y_output = self.classifier(z_mean.unsqueeze(0))
+            # y_output = self.classifier(z_mean.unsqueeze(0))
+            y_output = self.classifier(z)
         else:
             y_output = self.classifier(z)
             
@@ -1729,6 +1730,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     
                     log10 = np.log(10)
                     r_ = self.rho * torch.exp(-dict_var / self.rho_temp * log10)
+
                     L += r_ * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
                     if not i:
                         logging.debug('rho_=%e', r_.item())

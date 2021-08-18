@@ -530,7 +530,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('*** training:', self.training)
             mode = 'training' if self.training else 'eval'
             logging.debug(f'Evaluating model in {mode} mode with batch size {x.shape[0]} '
-                          f'y in input: {y_in_input}')
+                          'y {}in input'.format('' if y_in_input else '*not* '))
             pass
 
         C = self.num_labels
@@ -850,6 +850,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = logp
 
             elif m == 'iws':
+                # print('*** iws:', 'iws' in losses, *losses.keys())
                 if self.losses_might_be_computed_for_each_class:
                     measures = d_iws.exp().sum(axis=0).log() + iws_max
                     if not self.is_jvae:
@@ -1246,7 +1247,13 @@ class ClassificationVariationalNetwork(nn.Module):
                 num_batch = {s: len(recorders[s]) for s in recorders}
                 batch_size = recorders[testset.name].batch_size
                 ood_methods_per_set = {s: [m for m in ood_methods if from_r[s].get(m, {})] for s in from_r}
-                ood_methods_per_set[testset.name] = ood_methods
+                for s in from_r:  #
+                    if s in [o.name for o in oodsets]:
+                        logging.debug('OOD methods for {}: '.format(s) + 
+                                      '-'.join(ood_methods_per_set[s]))
+                all_ood_methods = [m for m in ood_methods if any([m in from_r[s] for s in from_r])]
+                # print('*** ood methods', *ood_methods)
+                ood_methods_per_set[testset.name] = [m for m in ood_methods if m in all_ood_methods]
                 
             oodsets = [o for o in oodsets if o.name in recorders]
             all_set_names = [s for s in all_set_names if s in recorders]
@@ -1314,11 +1321,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                                       measures[m].cpu()])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
-                outputs.results(i, num_batch[s], 0, 1, metrics=ood_methods_per_set[s],
-                                measures = {m: ind_measures[m].mean()
-                                            for m in ood_methods_per_set[s]},
-                                acc_methods = ood_methods,
-                                time_per_i = t_per_i,
+                outputs.results(i, num_batch[s], 0, 1,
+                                metrics=ood_methods_per_set[s],
+                                measures={m: ind_measures[m].mean()
+                                          for m in ood_methods_per_set[s]},
+                                acc_methods=ood_methods_per_set[s],
+                                time_per_i=t_per_i,
                                 batch_size=batch_size,
                                 preambule = testset.name)
 
@@ -1372,7 +1380,8 @@ class ClassificationVariationalNetwork(nn.Module):
                     with torch.no_grad():
                         _, logits, losses, _ = self.evaluate(x, batch=i)
                 else:
-                    losses = recorders[s].get_batch(i, *self.loss_components)
+                    components = [k for k in recorders[s].keys() if k in self.loss_components]
+                    losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     
                 if recording[s]:
@@ -1398,13 +1407,14 @@ class ClassificationVariationalNetwork(nn.Module):
                                        0.95,
                                        thresholds_[m])
 
-                outputs.results(i, ood_n_batch, 0, 1, metrics=ood_methods,
+                outputs.results(i, ood_n_batch, 0, 1,
+                                metrics=ood_methods_per_set[oodset.name],
                                 measures=meaned_measures,
-                                acc_methods=ood_methods,
+                                acc_methods=ood_methods_per_set[oodset.name],
                                 accuracies=r_,
-                                time_per_i = t_per_i,
+                                time_per_i=t_per_i,
                                 batch_size=batch_size,
-                                preambule = oodset.name)
+                                preambule=oodset.name)
 
             for m in ood_methods_per_set[s]:
                 fpr_and_thresholds = [fpr_at_tpr(fpr_[m], tpr_[m], a,

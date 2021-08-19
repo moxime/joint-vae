@@ -883,6 +883,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
         'sigma_train',
         'beta_sigma',
         'beta',
+        'gamma',
     ] + all_nets
 
     indices = arch_index + train_index

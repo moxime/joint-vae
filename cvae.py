@@ -97,7 +97,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             'vae': ('logpx', 'iws'),
-                            'vib': ('baseline',)}
+                            'vib': ('baseline', 't1000')}
 
     def __init__(self,
                  input_shape,
@@ -863,6 +863,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = logp_max
             elif m == 'baseline':
                 measures = logits.softmax(-1).max(axis=-1)[0]
+            elif m == 't1000':
+                measures = (logits / 1000).softmax(-1).max(axis=-1)[0]
             elif m == 'mag':
                 measures = logp_max - logp.median(axis=0)[0]
             elif m == 'std':

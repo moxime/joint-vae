@@ -381,6 +381,8 @@ def get_args_for_test():
     
     parser.add_argument('--job-id', type=int, default=0)
 
+    parser.add_argument('--sets', action='append', nargs='+')
+
     filter_args, remaining_args = get_filters_args()
     
     args = parser.parse_args(args=remaining_args, namespace=filter_args)

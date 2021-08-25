@@ -93,11 +93,11 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws'),  # , 'std', 'mag'),  # , 'mag', 'IYx'),
+    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             'vae': ('logpx', 'iws'),
-                            'vib': ('baseline', 't1000')}
+                            'vib': ('baseline', 't1000', 'logits')}
 
     def __init__(self,
                  input_shape,
@@ -861,10 +861,18 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = d_logp.exp().sum(axis=0).log() + logp_max 
             elif m == 'max':
                 measures = logp_max
+            elif m == 'soft':
+                # measures = logp.softmax(0).max(axis=0)[0]
+                measures = (-losses['kl']).softmax(0).max(axis=0)[0]
+            elif m == 'logits':
+                measures = logits.max(axis=-1)[0]
             elif m == 'baseline':
                 measures = logits.softmax(-1).max(axis=-1)[0]
-            elif m == 't1000':
+            elif m == 't1000' and self.type in ('vib', 'jvae'):
                 measures = (logits / 1000).softmax(-1).max(axis=-1)[0]
+            elif m == 't1000' and self.type == 'cvae':
+                # measures = (logp / 1000).softmax(0).max(axis=0)[0]
+                measures = (-losses['kl'] / 1000).softmax(0).max(axis=0)[0]
             elif m == 'mag':
                 measures = logp_max - logp.median(axis=0)[0]
             elif m == 'std':
@@ -1277,10 +1285,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if oodsets:
             outputs.results(0, 0, -2, 0,
-                            metrics=ood_methods,
-                            acc_methods=ood_methods)
-            outputs.results(0, 0, -1, 0, metrics=ood_methods,
-                            acc_methods=ood_methods)
+                            metrics=all_ood_methods,
+                            acc_methods=all_ood_methods)
+            outputs.results(0, 0, -1, 0, metrics=all_ood_methods,
+                            acc_methods=all_ood_methods)
 
         if oodsets:
 
@@ -1431,9 +1439,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                   'fpr': fpr_m, 
                                   'thresholds': t_m }
                 
-            if update_self_ood:
-                a = self.ood_results
-                self.ood_results[oodset.name] = ood_results
+                if update_self_ood:
+                    if oodset.name not in self.ood_results:
+                        self.ood_results[oodset.name] = {}
+                    self.ood_results[oodset.name][m] = ood_results[m]
 
             if recording[s]:
                 for d in sample_dirs:

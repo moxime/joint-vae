@@ -495,6 +495,7 @@ def needed_components(method):
     ncd = {'iws': ('iws',),
            'closest': ('zdist',),
            'kl': ('kl',),
+           'soft': ('kl',),
            'mse': ('cross_x')}
 
     for k in total:
@@ -838,7 +839,7 @@ def find_by_job_number(*job_numbers, dir='jobs', load_net=True, force_dict=False
     return d if len(job_numbers) > 1 or force_dict else d[job_numbers[0]]
 
 
-def test_results_df(nets, best_net=True, first_method=True, ood=True,
+def test_results_df(nets, best_net=True, first_method=True, ood={},
                     dataset=None,
                     tpr=[0.95], tnr=False, sorting_keys=[]):
     """
@@ -860,7 +861,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
     if not dataset:
         testsets = {n['set'] for n in nets}
         return {s: test_results_df(nets,
-                                   best_net, first_method, ood,
+                                   best_net, first_method, ood.get(s, []),
                                    s,
                                    tpr, tnr,
                                    sorting_keys) for s in testsets}
@@ -912,6 +913,8 @@ def test_results_df(nets, best_net=True, first_method=True, ood=True,
     # return acc_df
     # return ood_df
     d_ = {dataset: acc_df}
+    if ood:
+        ood_df = {s: ood_df[s] for s in ood}
     for s in ood_df:
         d_s = pd.DataFrame(ood_df[s].values.tolist(), index=df.index)
         d_s_ = {}

@@ -236,6 +236,15 @@ if __name__ == '__main__':
 
     logging.debug('Filters: %s', filter_str)
 
+    oodsets = {}
+    if args.sets:
+        for s_ in args.sets:
+            for s in s_:                       
+                oodsets[s] = [_ for _ in s_ if _ != s]
+
+    for s in oodsets:
+        logging.info('OOD sets kept for %s: %s', s, ' - '.join(oodsets[s]))
+                     
     latex_formatting = args.latex
 
     sort = args.sort
@@ -337,8 +346,8 @@ if __name__ == '__main__':
     if args.compute:
         for m in models_to_be_computed['recorder']:
             model = CVNet.load(m['dir'], load_state=False)
-            model.accuracy(wygiwyu=True, update_self_testing=not args.dry_run, print_result='TFR')
-            model.ood_detection_rates(wygiwyu=True, update_self_ood=not args.dry_run, print_result='OFR')
+            model.accuracy(wygiwyu=True, print_result='TFR')
+            model.ood_detection_rates(wygiwyu=True, print_result='OFR')
             if not args.dry_run:
                 model.save(m['dir'])
             m.update(make_dict(model, m['dir']))                
@@ -459,7 +468,7 @@ if __name__ == '__main__':
         
     df = test_results_df(models_to_be_kept, best_net=show_best,
                          first_method=first_method,
-                         ood=True,
+                         ood=oodsets,
                          tnr=args.tnr,
                          tpr=tpr,
                          sorting_keys=sort)

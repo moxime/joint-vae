@@ -2,7 +2,7 @@ import sys
 from datetime import datetime
 import string
 import functools
-from utils.save_load import create_file_for_job as create_file
+from utils.save_load import create_file_for_job as create_file, find_by_job_number
 from utils.print_log import texify
 from module.optimizers import Optimizer
 import torch
@@ -10,6 +10,8 @@ import numpy as np
 import utils.torch_load as torchdl
 import pandas as pd
 import hashlib
+import argparse
+import logging
 
 
 def printout(s='', file_id=None, std=True, end='\n'):
@@ -381,16 +383,87 @@ def pgfplotstable_preambule(df, dataset, file, mode='a'):
                 cols[c] = {'style': 'fixed num',
                             'name': ' '.join(w_)}
 
+                
+def digest_table(*jobs, tex_macro=r'\acron{%t}',
+                 tpr=0.95, precision=1,
+                 empty= r'\text{--}',
+                 out=sys.stdout,
+                 **method_and_set_dict):
+
+    models = find_by_job_number(*jobs, load_net=False, force_dict=True)
+    for j in jobs:
+
+        logging.debug('Job # %d', j)
         
+        m = models[j]
+        testset = m['set']
+        mtype = m['type']
+        test_results = m['net'].testing
+        ood_results = m['net'].ood_results
+        oodsets = method_and_set_dict[testset]
+        methods = method_and_set_dict.get(mtype, [None, None])
+        out.write(tex_macro.replace('%t', mtype) + ' & ')
+
+        predict_method = methods[0] if methods[0] != 'none' else None
+        ood_methods = [_ if _.lower() != 'none' else None for _ in methods[1:]]
+        
+        if predict_method:
+            acc = 100 * test_results[predict_method]['accuracy']
+            logging.debug('%s %.2f', predict_method, acc)
+            out.write(f'{acc:.{precision}f} & ')
+        else:
+            out.write(f'{empty} & ')
+            logging.debug('No predict method')
+            
+        list_of_fpr = []
+        for o in oodsets:
+            for m in ood_methods:
+                if m and o in ood_results and m in ood_results[o]:
+                    fpr_ = {t: 100 * f for t, f in zip(ood_results[o][m]['tpr'], ood_results[o][m]['fpr'])}
+                    t_ = min(t for t in fpr_ if t >= tpr)
+                    fpr = f'{fpr_[t_]:.{precision}f}'
+                else:
+                    fpr = empty
+                    
+                list_of_fpr.append(fpr)
+
+                logging.debug(' '.join([o, m, fpr]))
+                
+        out.write(' & '.join(list_of_fpr))
+        out.write(' \\\\  % job # {}\n'.format(j))
+            
+              
 if __name__ == '__main__':
+    
+    parser = argparse.ArgumentParser()
 
-    from utils.save_load import collect_networks, test_results_df
+    parser.add_argument('jobs', nargs='+', type=int)
 
-    load = True
-    load = False
-    if load:
-        nets = sum(collect_networks('jobs', load_state=False, load_net=False), [])
+    parser.add_argument('--debug', '-d', action='store_true')
+                       
+    for k in ('sets', 'methods'):
+        parser.add_argument('--' + k, action='append', nargs='+')
+                       
+    args = parser.parse_args()
 
-    df_e = test_results_df(nets, dataset='cifar10', best_net=False, first_method=False)
-    df = test_results_df(nets, dataset='cifar10', best_net=False, first_method=True)
-    # output_df(df, '/tmp/tab.tab')
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+        
+    method_and_set_dict = {}
+
+    for s_ in args.sets:
+        for s in s_:                       
+            method_and_set_dict[s] = [_ for _ in s_ if _ != s]
+
+    for m_ in args.methods:
+        method_and_set_dict[m_[0]] = m_[1:]
+                       
+    logging.info('Jobs : ' + ', '.join(str(_) for _ in args.jobs))
+
+    for k in method_and_set_dict:
+
+        logging.info(k + ' : ' + ' - '.join(method_and_set_dict[k]))
+    
+    digest_table(*args.jobs, **method_and_set_dict)

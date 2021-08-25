@@ -1235,6 +1235,7 @@ class ClassificationVariationalNetwork(nn.Module):
         all_set_names = [testset.name] + [o.name for o in oodsets] 
 
         ood_methods_per_set = {s: ood_methods for s in all_set_names}
+        all_ood_methods = ood_methods
         
         if not recorders:
             recorders = {n: None for n in all_set_names}
@@ -1248,6 +1249,7 @@ class ClassificationVariationalNetwork(nn.Module):
         recording = {}
         recorded = {}
 
+        
         if wygiwyu:
 
             from_r, _ = testing_plan(self, ood_sets=[o.name for o in oodsets], ood_methods=ood_methods)

@@ -21,8 +21,8 @@ def printout(s='', file_id=None, std=True, end='\n'):
         sys.stdout.write(s + end)
 
         
-def create_printout(file_id=None, std=True):
-    return functools.partial(printout, file_id=file_id, std=std) 
+def create_printout(file_id=None, std=True, end='\n'):
+    return functools.partial(printout, file_id=file_id, std=std, end=end) 
 
 
 def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdout=False,):
@@ -168,7 +168,6 @@ def texify_test_results(net,
         show_ood = False
     elif not list(net['ood_fpr'].values())[0]:
         show_ood = False
-    
     
     header = dict()
 
@@ -387,13 +386,21 @@ def pgfplotstable_preambule(df, dataset, file, mode='a'):
 def digest_table(*jobs, tex_macro=r'\acron{%t}',
                  tpr=0.95, precision=1,
                  empty= r'\text{--}',
-                 out=sys.stdout,
+                 stdout=True,
+                 directory='./results/%j',
+                 filename='row.tex',
                  **method_and_set_dict):
-
+    
+    f = {j: create_file(j, directory, filename) if filename else None for j in jobs}
+    printouts = {j: create_printout(file_id=f[j], std=stdout, end='') for j in jobs}
+        
     models = find_by_job_number(*jobs, load_net=False, force_dict=True)
     for j in jobs:
 
+        printout = printouts[j]
         logging.debug('Job # %d', j)
+        #         printout(' \\\\  % job # {}\n'.format(j))
+        printout('% job # {}\n'.format(j))
         
         m = models[j]
         testset = m['set']
@@ -402,17 +409,17 @@ def digest_table(*jobs, tex_macro=r'\acron{%t}',
         ood_results = m['net'].ood_results
         oodsets = method_and_set_dict[testset]
         methods = method_and_set_dict.get(mtype, [None, None])
-        out.write(tex_macro.replace('%t', mtype) + ' & ')
+        printout(tex_macro.replace('%t', mtype) + ' & ')
 
         predict_method = methods[0] if methods[0] != 'none' else None
         ood_methods = [_ if _.lower() != 'none' else None for _ in methods[1:]]
         
-        if predict_method:
+        if predict_method and predict_method in test_results:
             acc = 100 * test_results[predict_method]['accuracy']
             logging.debug('%s %.2f', predict_method, acc)
-            out.write(f'{acc:.{precision}f} & ')
+            printout(f'{acc:.{precision}f} & ')
         else:
-            out.write(f'{empty} & ')
+            printout(f'{empty} & ')
             logging.debug('No predict method')
             
         list_of_fpr = []
@@ -429,8 +436,8 @@ def digest_table(*jobs, tex_macro=r'\acron{%t}',
 
                 logging.debug(' '.join([o, m, fpr]))
                 
-        out.write(' & '.join(list_of_fpr))
-        out.write(' \\\\  % job # {}\n'.format(j))
+        printout(' & '.join(list_of_fpr))
+        printout('\n')
             
               
 if __name__ == '__main__':

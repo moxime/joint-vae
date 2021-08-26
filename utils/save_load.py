@@ -822,7 +822,8 @@ def is_derailed(model, load_model_for_check=False):
             return True
 
     return False            
-    
+
+
 def find_by_job_number(*job_numbers, dir='jobs', load_net=True, force_dict=False, **kw):
 
     from cvae import ClassificationVariationalNetwork

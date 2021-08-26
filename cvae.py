@@ -97,7 +97,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             'vae': ('logpx', 'iws'),
-                            'vib': ('baseline', 't1000', 'logits')}
+                            'vib': ('t1000', 'baseline', 'logits')}
 
     def __init__(self,
                  input_shape,

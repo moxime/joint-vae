@@ -239,9 +239,15 @@ if __name__ == '__main__':
     oodsets = {}
     if args.sets:
         for s_ in args.sets:
+            rotate = False
+            if '90' in s_:
+                s_.remove('90')
+                rotate = True
             for s in s_:                       
                 oodsets[s] = [_ for _ in s_ if _ != s]
-
+                if rotate:
+                    oodsets[s].append(s + '90')
+                
     for s in oodsets:
         logging.info('OOD sets kept for %s: %s', s, ' - '.join(oodsets[s]))
                      

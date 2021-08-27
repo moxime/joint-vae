@@ -345,11 +345,6 @@ class Encoder(nn.Module):
         self.dictionary_is_learned = learned_dictionary
         
         self.dictionary_dist_lb = dictionary_min_dist
-
-        if sigma:
-            self.sigma = nn.Linear(np.prod(input_shape), np.prod(input_shape) if sigma_per_dim else 1)
-            if sigma0 is not None:
-                self.sigma.data.fill_(sigma0)
         
     @property
     def sampling_size(self):

@@ -260,6 +260,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                intermediate_dims=encoder_layer_sizes,
                                latent_dim=latent_dim,
                                y_is_coded = self.y_is_coded,
+                               sigma_output_dim=self.sigma.output_dim if self.sigma.coded else 0,
                                forced_variance = encoder_forced_variance,
                                sampling_size=latent_sampling,
                                dictionary_variance=dictionary_variance,
@@ -429,7 +430,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                           None if y is None else y.view(*batch_shape),
                                           x, **kw)
 
-    def forward_from_features(self, x_features, y, x, z_output=True, sampling_epsilon_norm_out=False):
+    def forward_from_features(self, x_features, y, x,
+                              z_output=True, sampling_epsilon_norm_out=False, sigma_out=False):
 
         batch_shape = x_features.shape
         batch_size = batch_shape[:-len(self.encoder.input_shape)]  # N1 x...xNg
@@ -447,7 +449,7 @@ class ClassificationVariationalNetwork(nn.Module):
               'y_01:', *y_onehot.shape if y is not None else ('*',))
         """
         try:
-            z_mean, z_log_var, z, sample_eps = self.encoder(x_, y_onehot)
+            z_mean, z_log_var, z, sample_eps, sigma = self.encoder(x_, y_onehot)
             # z of size LxN1x...xNgxK
         except ValueError as e:
             dir_ = f'log/dump-{self.job_number}'
@@ -486,6 +488,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if sampling_epsilon_norm_out:
             out += ((sample_eps ** 2).sum(-1),)
+
+        if sigma_out:
+            out += (sigma,)
+            
         return out
 
     def evaluate(self, x,
@@ -566,13 +572,15 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.features:
             o = self.forward_from_features(t, y_in, x,
                                            sampling_epsilon_norm_out=True,
+                                           sigma_out=True,
                                            **kw)
         else:
             o = self.forward(t, y_in, x,
                              sampling_epsilon_norm_out=True,
+                             sigma_out=True,
                              **kw)
             
-        x_reco, y_est, mu, log_var, z, eps_norm = o
+        x_reco, y_est, mu, log_var, z, eps_norm, sigma_coded = o
         # print('*** eps norm:', *eps_norm.shape)
         # print('*** cvae:472 logits:', 't:', *t.shape, 'x_:', *x_reco.shape)
             
@@ -581,20 +589,20 @@ class ClassificationVariationalNetwork(nn.Module):
         total_measures = {}
 
         if not current_measures:
-            current_measures =  {k: 0.
-                                for k in ('xpow',
-                                          'mse', 
-                                          'snr',
-                                          'imut-zy',
-                                          'd-mind',
-                                          'ld-norm',
-                                          'var_kl',
-                                          'zdist')}
+            current_measures = {k: 0. for k in ('xpow', 'mse', 'snr',
+                                                'imut-zy', 'd-mind',
+                                                'ld-norm', 'var_kl',
+                                                'zdist')}
             
         total_measures['sigma'] = self.sigma.value
 
         if self.x_is_generated:
-            s_ = self.sigma.update(x=x)
+
+            if self.sigma.coded:
+                s_ = sigma_coded.view(-1, *self.sigma.output_dim)
+                self.sigma.update(v=s_)
+            else:
+                s_ = self.sigma
             if not batch: print('*** sigma', *self.sigma.shape)
             sigma_ = s_.exp() if self.sigma.is_log else s_
             log_sigma = s_ if self.sigma.is_log else s_.log()

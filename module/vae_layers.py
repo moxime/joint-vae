@@ -30,11 +30,11 @@ activation_layers = {'linear': nn.Identity,
                      'sigmoid': nn.Sigmoid, 
                      'relu': nn.ReLU} 
 
-
+        
 class Sigma(Parameter):
 
     @staticmethod
-    def __new__(cls, value=None, learned=False, is_rmse=False, is_log=False,**kw):
+    def __new__(cls, value=None, learned=False, is_rmse=False, is_log=False, **kw):
 
         assert value is not None or is_rmse
         if is_rmse and value is None:
@@ -269,6 +269,8 @@ class Encoder(nn.Module):
                  y_is_coded=False,
                  latent_dim=32,
                  intermediate_dims=[64],
+                 sigma=False,
+                 sigma_per_dim=False,
                  name='encoder',
                  activation='relu',
                  sampling_size=10,
@@ -316,6 +318,10 @@ class Encoder(nn.Module):
         self.dictionary_is_learned = learned_dictionary
         
         self.dictionary_dist_lb = dictionary_min_dist
+
+        if sigma:
+            self.sigma = nn.Linear(np.prod(input_shape), np.prod(input_shape) if sigma_per_dim else 1)
+            
         
     @property
     def sampling_size(self):

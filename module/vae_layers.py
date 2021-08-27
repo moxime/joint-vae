@@ -46,7 +46,7 @@ class Sigma(Parameter):
         if is_log:    
             value = np.log(value)
 
-        return super().__new__(cls, torch.zeros(sdim).fill_(value).squeeze(), requires_grad=learned)
+        return super().__new__(cls, torch.zeros(sdim).fill_(value), requires_grad=learned)
     
     def __init__(self, value=None, learned=False,  is_rmse=False,
                  sdim=1,

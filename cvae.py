@@ -595,26 +595,28 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if self.x_is_generated:
             self.sigma.update(x=x)
-            sigma_ = self.sigma.exp() if self.sigma.is_log else sigma_
-            log_sigma = self.sigma.exp() if self.sigma.is_log else sigma_
+            sigma_ = self.sigma.exp() if self.sigma.is_log else self.sigma_
+            log_sigma = self.sigma if self.sigma.is_log else self.sigma.log()
+
             weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
-                                                        x_reco[1:] / self.sigma,
+                                                        x_reco[1:] / sigma_,
                                                         ndim=len(self.input_shape),
                                                         batch_mean=False)
 
-            batch_quants['mse'] = weighted_mse_loss_sampling.mean(0) * 2 * self.sigma.value ** 2
-
+            batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
+            batch_quants['mse'] = (batch_quants['wmse']).mean() * 2 * (sigma_ ** 2).mean()
+            
             D = np.prod(self.input_shape)
             weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0]
             iws = (-D * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
             if iws.isinf().sum(): logging.error('MSE INF')
-            weighted_mse_remainder += D / 2 * torch.log(sigma_ * np.pi)
+            weighted_mse_remainder += D / 2 * (log_sigma.mean() + np.log(np.pi))
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch 
                                      + batch_quants['xpow']) / (batch + 1)
 
-            mse = batch_quants['mse'].mean().item()
+            mse = batch_quants['mse']
             total_measures['mse'] = (current_measures['mse'] * batch
                                     + mse) / (batch + 1)
 
@@ -681,12 +683,12 @@ class ClassificationVariationalNetwork(nn.Module):
                 total_measures[k] = batch_quants[k].item()
         
         if self.x_is_generated:
-            batch_mse = batch_quants['mse']
+            batch_wmse = batch_quants['wmse']
             D = np.prod(self.input_shape)
 
             # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
             if self.training:
-                self.sigma.update(rmse=batch_mse.mean().sqrt())
+                self.sigma.update(rmse=batch_wmse.mean().sqrt())
                 self.training_parameters['sigma'] = self.sigma.params
 
             if not self.sigma.is_log:

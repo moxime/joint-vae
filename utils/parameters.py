@@ -206,7 +206,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--sigma-is-rmse',
                         action='store_true',)
 
-    parser.add_argument('--sigpa-per-dim', action='store_true')
+    parser.add_argument('--sigma-per-dim', action='store_true')
 
     parser.add_argument('--sigma-coded', action='store_true')
     

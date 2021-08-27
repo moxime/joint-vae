@@ -70,9 +70,6 @@ class Sigma(Parameter):
         self.sdim = sdim
         self._output_dim = input_dim if self.per_dim else (1,)
         
-        if self.coded:
-            _input_dim = np.prod(input_dim)
-            self.coder = nn.Linear(_input_dim, np.prod(self.sdim))
         
     @property
     def value(self):

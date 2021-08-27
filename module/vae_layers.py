@@ -37,7 +37,7 @@ class Sigma(Parameter):
     def __new__(cls, value=None, sdim=1, input_dim=False, learned=False, is_rmse=False, is_log=False, **kw):
 
         assert value is not None or is_rmse or input_dim
-        if is_rmse and value is None:
+        if is_rmse or input_dim and value is None:
             value = 0
         if input_dim:
             learned = True
@@ -97,13 +97,26 @@ class Sigma(Parameter):
         d['value'] = self.value
         return d
 
+    def code(self, x):
+
+        if not self.coded:
+            return self.data
+
+        o_shape = x.shape
+        if not self.per_dim:
+            o_shape = x.shape[:-len(self.input_dim)] + (1,) * len(self.input_dim)
+
+        o = self.coder(x.view(-1, self.coder.in_features))
+
+        self.data = o.mean(0).view(self.sdim)
+        
+        return o.view(o_shape)
+        
     def update(self, rmse=None, x=None):
 
-        if self.coded:
-            if x is None:
-                return
-            self.data = self.coder(x.view(-1)).view(self.sdim)
-            return
+        if x is not None:
+            return self.code(x)
+        
         if rmse is None:
             return
         self._rmse = rmse

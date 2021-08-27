@@ -594,9 +594,9 @@ class ClassificationVariationalNetwork(nn.Module):
         total_measures['sigma'] = self.sigma.value
 
         if self.x_is_generated:
-            self.sigma.update(x=x)
-            sigma_ = self.sigma.exp() if self.sigma.is_log else self.sigma_
-            log_sigma = self.sigma if self.sigma.is_log else self.sigma.log()
+            s_ = self.sigma.update(x=x)
+            sigma_ = s_.exp() if self.sigma.is_log else s_
+            log_sigma = s_ if self.sigma.is_log else s_.log()
 
             weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
                                                         x_reco[1:] / sigma_,

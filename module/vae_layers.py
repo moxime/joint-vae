@@ -68,8 +68,10 @@ class Sigma(Parameter):
         self.reach = reach if decay or is_rmse else None
         self.max_step = max_step
         self.sdim = sdim
-        self._output_dim = input_dim if self.per_dim else (1,) * len(input_dim)
-                
+        if self.coded:
+            self._output_dim = input_dim if self.per_dim else (1,) * len(input_dim)
+        else:
+            self._output_dim = None
     @property
     def value(self):
 

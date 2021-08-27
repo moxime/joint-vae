@@ -616,7 +616,7 @@ class ClassificationVariationalNetwork(nn.Module):
             total_measures['xpow'] = (current_measures['xpow'] * batch 
                                      + batch_quants['xpow']) / (batch + 1)
 
-            mse = batch_quants['mse']
+            mse = batch_quants['mse'].item()
             total_measures['mse'] = (current_measures['mse'] * batch
                                     + mse) / (batch + 1)
 

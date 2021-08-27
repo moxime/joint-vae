@@ -652,7 +652,7 @@ def make_dict(model, directory, **kw):
         sigma_train = 'constant'
         beta_sigma = sigma.value
 
-    sigma_size = 'S' if sigma_dim == 1 
+    sigma_size = 'S' if sigma.sdim == 1 else 'M' 
         
     if architecture.type == 'cvae':
         if model.training_parameters['learned_coder']:

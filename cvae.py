@@ -595,6 +595,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if self.x_is_generated:
             s_ = self.sigma.update(x=x)
+            if not batch: print('*** sigma', s_)
             sigma_ = s_.exp() if self.sigma.is_log else s_
             log_sigma = s_ if self.sigma.is_log else s_.log()
 

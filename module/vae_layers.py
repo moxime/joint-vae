@@ -101,7 +101,7 @@ class Sigma(Parameter):
 
         if not self.coded:
             return self.data
-
+        
         o_shape = x.shape
         if not self.per_dim:
             o_shape = x.shape[:-len(self.input_dim)] + (1,) * len(self.input_dim)

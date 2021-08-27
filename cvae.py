@@ -610,15 +610,15 @@ class ClassificationVariationalNetwork(nn.Module):
             weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0]
             iws = (-D * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
             if iws.isinf().sum(): logging.error('MSE INF')
-            weighted_mse_remainder += D / 2 * (log_sigma.mean() + np.log(np.pi))
+            weighted_mse_remainder += D * (log_sigma.mean() + np.log(2 * np.pi) / 2)
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch 
-                                     + batch_quants['xpow']) / (batch + 1)
+                                      + batch_quants['xpow']) / (batch + 1)
 
-            mse = batch_quants['mse'].item()
+            mse = batch_quants['mse'].mean().item()
             total_measures['mse'] = (current_measures['mse'] * batch
-                                    + mse) / (batch + 1)
+                                     + mse) / (batch + 1)
 
             total_measures['std'] = np.sqrt(total_measures['mse'])
             snr = total_measures['xpow'] / total_measures['mse']
@@ -691,13 +691,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.sigma.update(rmse=batch_wmse.mean().sqrt())
                 self.training_parameters['sigma'] = self.sigma.params
 
-            if not self.sigma.is_log:
-                batch_logpx = (- D / 2 * torch.log(self.sigma**2 * 2 * np.pi)
-                               - D / (2 * self.sigma**2) * batch_mse)
-            else:
-                # sigma is actually log(sigma)
-                batch_logpx = (- D * self.sigma - D / 2 * np.log(2 * np.pi)
-                                - D / 2 * (-self.sigma * 2).exp() * batch_mse) 
+            batch_logpx = -D * (log_sigma.mean() + np.log(2 * np.pi)
+                                + batch_wmse)
                 
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
 
@@ -727,12 +722,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if log_inv_q_remainder.isinf().sum():
                 logging.error('*** q_r is inf')
-            if weighted = mse_remainder.isinf().sum():
+            if weighted_mse_remainder.isinf().sum():
                 logging.error('*** mse_r is inf')
             if sdist_remainder.isinf().sum():
                 logging.error('*** sd_r is inf')
 
-            iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - weighted = mse_remainder
+            iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - weighted_mse_remainder
 
             if 'iws' in self.loss_components:
                 batch_losses['iws'] = iws_

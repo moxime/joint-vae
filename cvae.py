@@ -596,6 +596,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.x_is_generated:
             self.sigma.update(x=x)
             sigma_ = self.sigma.exp() if self.sigma.is_log else sigma_
+            log_sigma = self.sigma.exp() if self.sigma.is_log else sigma_
             weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
                                                         x_reco[1:] / self.sigma,
                                                         ndim=len(self.input_shape),
@@ -605,9 +606,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
             D = np.prod(self.input_shape)
             weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0]
-            iws = (-D * weighted_mse_loss_sampling / (2 * sigma_ ** 2) + weighted_mse_remainder).exp()
+            iws = (-D * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
             if iws.isinf().sum(): logging.error('MSE INF')
-            weighted = mse_remainder += D / 2 * torch.log(sigma_ * np.pi)
+            weighted_mse_remainder += D / 2 * torch.log(sigma_ * np.pi)
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch 

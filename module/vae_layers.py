@@ -45,6 +45,7 @@ class Sigma(Parameter):
             is_log = True
         if is_log:    
             value = np.log(value)
+
         return super().__new__(cls, torch.zeros(sdim).fill_(value), requires_grad=learned)
     
     def __init__(self, value=None, learned=False,  is_rmse=False,
@@ -99,8 +100,8 @@ class Sigma(Parameter):
 
     def code(self, x):
 
-        if not self.coded:
-            return self.data
+        if not self.coded or True:
+            return self
         
         o_shape = x.shape
         if not self.per_dim:

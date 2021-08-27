@@ -241,7 +241,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not test_latent_sampling:
             test_latent_sampling = latent_sampling
             
-        sampling = latent_sampling > 1 or bool(self.sigma > 0)
+        sampling = latent_sampling > 1 or self.sigma.learned or self.sigma.per_dim or bool(self.sigma.value > 0)
         if not sampling:
             logging.debug('Building a vanilla classifier')
 
@@ -595,7 +595,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if self.x_is_generated:
             s_ = self.sigma.update(x=x)
-            if not batch: print('*** sigma', s_)
+            if not batch: print('*** sigma', *self.sigma.shape)
             sigma_ = s_.exp() if self.sigma.is_log else s_
             log_sigma = s_ if self.sigma.is_log else s_.log()
 

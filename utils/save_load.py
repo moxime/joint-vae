@@ -636,9 +636,12 @@ def make_dict(model, directory, **kw):
 
     sigma = model.sigma
     beta = model.training_parameters['beta']
-    if sigma.learned:
+    if sigma.learned and not sigma.coded:
         sigma_train = 'learned'
         beta_sigma = sigma.value * np.sqrt(beta)
+    elif sigma.coded:
+        sigma_train = 'coded'
+        beta_sigma = sigma.value * np.sqrt(beta)        
     elif sigma.is_rmse:
         sigma_train = 'rmse'
         beta_sigma = rmse * np.sqrt(beta)
@@ -649,6 +652,8 @@ def make_dict(model, directory, **kw):
         sigma_train = 'constant'
         beta_sigma = sigma.value
 
+    sigma_size = 'S' if sigma_dim == 1 
+        
     if architecture.type == 'cvae':
         if model.training_parameters['learned_coder']:
             coder_dict = 'learned'

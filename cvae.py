@@ -594,19 +594,20 @@ class ClassificationVariationalNetwork(nn.Module):
         total_measures['sigma'] = self.sigma.value
 
         if self.x_is_generated:
-            mse_loss_sampling = mse_loss(x, x_reco[1:],
-                                           ndim=len(self.input_shape),
-                                           batch_mean=False)
+            self.sigma.update(x=x)
+            sigma_ = self.sigma.exp() if self.sigma.is_log else sigma_
+            weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
+                                                        x_reco[1:] / self.sigma,
+                                                        ndim=len(self.input_shape),
+                                                        batch_mean=False)
 
-            batch_quants['mse'] = mse_loss_sampling.mean(0)
-
-            sigma_ = self.sigma.exp() if self.sigma.is_log else self.sigma
+            batch_quants['mse'] = weighted_mse_loss_sampling.mean(0) * 2 * self.sigma.value ** 2
 
             D = np.prod(self.input_shape)
-            mse_remainder = D * mse_loss_sampling.min(0)[0] / (2 * sigma_ ** 2)
-            iws = (-D * mse_loss_sampling / (2 * sigma_ ** 2) + mse_remainder).exp()
+            weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0]
+            iws = (-D * weighted_mse_loss_sampling / (2 * sigma_ ** 2) + weighted_mse_remainder).exp()
             if iws.isinf().sum(): logging.error('MSE INF')
-            mse_remainder += D / 2 * torch.log(sigma_ * np.pi)
+            weighted = mse_remainder += D / 2 * torch.log(sigma_ * np.pi)
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch 
@@ -620,7 +621,6 @@ class ClassificationVariationalNetwork(nn.Module):
             snr = total_measures['xpow'] / total_measures['mse']
             total_measures['snr'] = 10 * np.log10(snr)
             
-
         dictionary = self.encoder.latent_dictionary if self.coder_has_dict else None
 
         if not batch:
@@ -685,7 +685,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
             if self.training:
-                self.sigma.decay_to(batch_mse.mean().sqrt())
+                self.sigma.update(rmse=batch_mse.mean().sqrt())
                 self.training_parameters['sigma'] = self.sigma.params
 
             if not self.sigma.is_log:
@@ -724,12 +724,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if log_inv_q_remainder.isinf().sum():
                 logging.error('*** q_r is inf')
-            if mse_remainder.isinf().sum():
+            if weighted = mse_remainder.isinf().sum():
                 logging.error('*** mse_r is inf')
             if sdist_remainder.isinf().sum():
                 logging.error('*** sd_r is inf')
 
-            iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - mse_remainder
+            iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - weighted = mse_remainder
 
             if 'iws' in self.loss_components:
                 batch_losses['iws'] = iws_

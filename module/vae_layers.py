@@ -30,22 +30,26 @@ activation_layers = {'linear': nn.Identity,
                      'sigmoid': nn.Sigmoid, 
                      'relu': nn.ReLU} 
 
-        
+
 class Sigma(Parameter):
 
     @staticmethod
-    def __new__(cls, value=None, learned=False, is_rmse=False, is_log=False, **kw):
+    def __new__(cls, value=None, sdim=1, input_dim=False, learned=False, is_rmse=False, is_log=False, **kw):
 
-        assert value is not None or is_rmse
+        assert value is not None or is_rmse or input_dim
         if is_rmse and value is None:
             value = 0
+        if input_dim:
+            learned = True
         if learned:
             is_log = True
         if is_log:    
             value = np.log(value)
-        return super().__new__(cls, Tensor([value]), requires_grad=learned)
+        return super().__new__(cls, torch.zeros(sdim).fill_(value), requires_grad=learned)
     
     def __init__(self, value=None, learned=False,  is_rmse=False,
+                 sdim=1,
+                 input_dim=False,
                  reach=1, decay=0, max_step=None, sigma0=None, is_log=False):
 
         assert not learned or not is_rmse
@@ -55,21 +59,36 @@ class Sigma(Parameter):
         self.is_rmse = is_rmse
         self.sigma0 = value if (sigma0 is None and not is_rmse) else sigma0
         self.learned = learned
-        self.is_log = learned or is_log
+        self.input_dim = input_dim
+        self.input_dim = input_dim
+        self.is_log = learned or is_log or input_dim
 
         self.decay = decay if not is_rmse else 1
         self.reach = reach if decay or is_rmse else None
         self.max_step = max_step
+        self.sdim = sdim
+        
+        if self.coded:
+            _input_dim = np.prod(input_dim)
+            self.coder = nn.Linear(_input_dim, np.prod(self.sdim))
         
     @property
     def value(self):
 
         with torch.no_grad():
             if self.is_log:
-                return self.data.exp().item()
+                return (self.data * 2).exp().mean().sqrt().item()
             else:
-                return self.data.item()
-        
+                return self.data.pow(2).mean().sqrt().item()
+
+    @property
+    def coded(self):
+        return bool(self.input_dim)
+
+    @property
+    def per_dim(self):
+        return self.sdim != 1
+            
     @property
     def params(self):
 
@@ -78,8 +97,15 @@ class Sigma(Parameter):
         d['value'] = self.value
         return d
 
-    def decay_to(self, rmse):
+    def update(self, rmse=None, x=None):
 
+        if self.coded:
+            if x is None:
+                return
+            self.data = self.coder(x.view(-1)).view(self.sdim)
+            return
+        if rmse is None:
+            return
         self._rmse = rmse
         if self.learned or not self.decay:
             return
@@ -87,7 +113,7 @@ class Sigma(Parameter):
         if self.max_step and abs(delta) > self.max_step:
             delta = self.max_step if delta > 0 else -self.max_step
         self.data += delta
-
+        
     def __format__(self, spec):
 
         if spec.endswith(('f', 'g', 'e')):
@@ -102,6 +128,9 @@ class Sigma(Parameter):
             if self._rmse is np.nan:
                 return 'rmse'
             return f'rmse ({self._rmse:g})'
+
+        if self.coded:
+            return 'coded {}'.format('mask' if self.per_dim else 'scalar')
         if self.learned:
             return f'{self.sigma0:g}->rmse[l] ({self.value:g})'
             return f'learned from {self.sigma0:g}'
@@ -269,8 +298,6 @@ class Encoder(nn.Module):
                  y_is_coded=False,
                  latent_dim=32,
                  intermediate_dims=[64],
-                 sigma=False,
-                 sigma_per_dim=False,
                  name='encoder',
                  activation='relu',
                  sampling_size=10,
@@ -321,7 +348,8 @@ class Encoder(nn.Module):
 
         if sigma:
             self.sigma = nn.Linear(np.prod(input_shape), np.prod(input_shape) if sigma_per_dim else 1)
-            
+            if sigma0 is not None:
+                self.sigma.data.fill_(sigma0)
         
     @property
     def sampling_size(self):

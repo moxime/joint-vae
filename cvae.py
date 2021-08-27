@@ -603,10 +603,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.sigma.update(v=s_)
             else:
                 s_ = self.sigma
-            if not batch: print('*** sigma', *self.sigma.shape)
+            # if not batch: print('*** sigma', *self.sigma.shape)
             sigma_ = s_.exp() if self.sigma.is_log else s_
             log_sigma = s_ if self.sigma.is_log else s_.log()
 
+            # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape) 
             weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
                                                         x_reco[1:] / sigma_,
                                                         ndim=len(self.input_shape),

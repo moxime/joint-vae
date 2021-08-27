@@ -213,7 +213,8 @@ def texify_test_results(net,
                 fprs = list(net['ood_fprs'][dataset].values())[:-1]
             else:
                 fprs = [net['ood_fprs'][dataset].get('first', None)]
-            ood_.append(' & '.join(' & '.join((_pcf(m[t]) if m is not None else '-')
+                # print('*** fprs', *fprs)
+            ood_.append(' & '.join(' & '.join((_pcf(m.get(t, None)) if m is not None else '-')
                                               for t in tpr) for m in fprs))
         printout(' & '.join(ood_))
 

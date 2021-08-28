@@ -95,7 +95,11 @@ if __name__ == '__main__':
         log.info('Building network for shape %s (%s with %s)',
                  _shape, args.dataset, args.transformer)
 
+        sdim = input_shape if args.sigma_per_dim else 1
+                
         sigma = Sigma(args.sigma,
+                      sdim=sdim,
+                      input_dim=input_shape if args.sigma_coded else False,
                       reach=args.sigma_reach,
                       decay=args.sigma_decay,
                       max_step=args.sigma_max_step,

@@ -34,18 +34,23 @@ activation_layers = {'linear': nn.Identity,
 class Sigma(Parameter):
 
     @staticmethod
-    def __new__(cls, value=None, learned=False, is_rmse=False, is_log=False,**kw):
+    def __new__(cls, value=None, sdim=1, input_dim=False, learned=False, is_rmse=False, is_log=False, **kw):
 
-        assert value is not None or is_rmse
-        if is_rmse and value is None:
+        assert value is not None or is_rmse or input_dim
+        if is_rmse or input_dim and value is None:
             value = 0
+        if input_dim:
+            learned = True
         if learned:
             is_log = True
         if is_log:    
             value = np.log(value)
-        return super().__new__(cls, Tensor([value]), requires_grad=learned)
+
+        return super().__new__(cls, torch.zeros(sdim).fill_(value), requires_grad=learned)
     
     def __init__(self, value=None, learned=False,  is_rmse=False,
+                 sdim=1,
+                 input_dim=False,
                  reach=1, decay=0, max_step=None, sigma0=None, is_log=False):
 
         assert not learned or not is_rmse
@@ -55,31 +60,63 @@ class Sigma(Parameter):
         self.is_rmse = is_rmse
         self.sigma0 = value if (sigma0 is None and not is_rmse) else sigma0
         self.learned = learned
-        self.is_log = learned or is_log
+        self.input_dim = input_dim
+
+        self.is_log = learned or is_log or input_dim
 
         self.decay = decay if not is_rmse else 1
         self.reach = reach if decay or is_rmse else None
         self.max_step = max_step
-        
+        self.sdim = sdim
+        if self.coded:
+            self._output_dim = input_dim if self.per_dim else (1,) * len(input_dim)
+        else:
+            self._output_dim = None
     @property
     def value(self):
 
         with torch.no_grad():
             if self.is_log:
-                return self.data.exp().item()
+                return (self.data * 2).exp().mean().sqrt().item()
             else:
-                return self.data.item()
-        
+                return self.data.pow(2).mean().sqrt().item()
+
+    @property
+    def coded(self):
+        return bool(self.input_dim)
+
+    @property
+    def per_dim(self):
+        return self.sdim != 1
+
+    @property
+    def output_dim(self):
+        return self._output_dim
+
     @property
     def params(self):
 
         d = self.__dict__.copy()
-        d.pop('_rmse')
+        for k in [_ for _ in d if _.startswith('_')]:
+            d.pop(k)
         d['value'] = self.value
         return d
+        
+    def update(self, rmse=None, v=None):
 
-    def decay_to(self, rmse):
+        assert (rmse is None) or (v is None)
 
+        if v is not None:
+            mean_dims = tuple(range(v.dim() - self.dim()))
+            
+            v_ = v.mean(mean_dims) if mean_dims else v
+
+            assert v_.dim() == self.dim()
+            self.data = v_
+            return
+            
+        if rmse is None:
+            return
         self._rmse = rmse
         if self.learned or not self.decay:
             return
@@ -87,7 +124,7 @@ class Sigma(Parameter):
         if self.max_step and abs(delta) > self.max_step:
             delta = self.max_step if delta > 0 else -self.max_step
         self.data += delta
-
+        
     def __format__(self, spec):
 
         if spec.endswith(('f', 'g', 'e')):
@@ -102,6 +139,9 @@ class Sigma(Parameter):
             if self._rmse is np.nan:
                 return 'rmse'
             return f'rmse ({self._rmse:g})'
+
+        if self.coded:
+            return 'coded {}'.format('mask' if self.per_dim else 'scalar')
         if self.learned:
             return f'{self.sigma0:g}->rmse[l] ({self.value:g})'
             return f'learned from {self.sigma0:g}'
@@ -273,6 +313,7 @@ class Encoder(nn.Module):
                  activation='relu',
                  sampling_size=10,
                  sampling=True,
+                 sigma_output_dim=0,
                  forced_variance=False,
                  dictionary_variance=1,
                  learned_dictionary=False,
@@ -307,6 +348,10 @@ class Encoder(nn.Module):
         self.dense_mean = nn.Linear(input_dim, latent_dim)
         self.dense_log_var = nn.Linear(input_dim, latent_dim)
 
+        self.sigma_output_dim = sigma_output_dim
+        if sigma_output_dim:
+            self.sigma = nn.Linear(input_dim, np.prod(sigma_output_dim))
+            
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
         centroids = np.sqrt(dictionary_variance) * torch.randn(num_labels, latent_dim)
@@ -421,7 +466,7 @@ class Encoder(nn.Module):
             
         u = x if y is None else torch.cat((x, y), dim=-1) 
 
-            # print('**** vl l 242', 'y mean', y.mean().item())
+        # print('**** vl l 242', 'y mean', y.mean().item())
 
         """ At first cat was not working, so...
         # cat not working
@@ -438,11 +483,11 @@ class Encoder(nn.Module):
 
         u = self.dense_projs(u)
         if torch.isnan(u).any():
-             for p in self.dense_projs.parameters():
-                 print(torch.isnan(p).sum().item(), 'nans in',
-                       'parameters of size',
+            for p in self.dense_projs.parameters():
+                print(torch.isnan(p).sum().item(), 'nans in',
+                      'parameters of size',
                        *p.shape)  
-             raise ValueError('ERROR')
+            raise ValueError('ERROR')
 
         z_mean = self.dense_mean(u)
 
@@ -453,8 +498,13 @@ class Encoder(nn.Module):
             z_log_var = self.dense_log_var(u)
 
         z, e = self.sampling(z_mean, z_log_var)
-        
-        return z_mean, z_log_var, z, e
+
+        if self.sigma_output_dim:
+            sigma = self.sigma(u)
+        else:
+            sigma = None
+            
+        return z_mean, z_log_var, z, e, sigma
 
 
 class ConvDecoder(nn.Module):

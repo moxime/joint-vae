@@ -206,6 +206,10 @@ def get_args_for_train(argv=None):
     parser.add_argument('--sigma-is-rmse',
                         action='store_true',)
 
+    parser.add_argument('--sigma-per-dim', action='store_true')
+
+    parser.add_argument('--sigma-coded', action='store_true')
+    
     parser.add_argument('--beta', type=float, default=1.0,
                         help='Beta-(C)VAE',
                         metavar='ß')

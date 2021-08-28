@@ -4,6 +4,8 @@ from module.vae_layers import Sigma
 from utils.save_load import find_by_job_number
 from shutil import copyfile
 
+
+
 def refactor_from_log_file(json_file,
                            key,
                            ktype=int,
@@ -53,6 +55,7 @@ def refactor_from_log_file(json_file,
         print('\n***',j, ':', val, '***')
         load_and_save_json(directory, json_file, key, new_value=val, recursive=False, write_json=write_json)
             
+
 def load_and_save_json(directory,
                        json_file,
                        key,

@@ -50,6 +50,7 @@ def load_json(dir_name, file_name):
 
     p = get_path(dir_name, file_name, create_dir=False)
 
+    # logging.debug('*** %s', p)
     with open(p, 'rb') as f:
         return json.load(f)
     

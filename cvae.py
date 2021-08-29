@@ -1818,14 +1818,44 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if save_dir:
                 self.save(save_dir)
-
-            
+    
             if full_test and signal_handler.sig:
                 logging.warning(f'Gently stopping training loop bc of {signal_handler}'
                                 'after {epoch} epochs')
                 break
             
+        for s in recorders:
+            recorders[s].reset()
+        if save_dir:
+            sample_dirs = [os.path.join(save_dir, 'samples', d)
+                           for d in ('last', f'{epoch + 1:04d}')]                
+
+            for d in sample_dirs:
+                if not os.path.exists(d):
+                    os.makedirs(d)
+
+        if oodsets and not signal_handler.sig > 1:
+                            
+            self.ood_detection_rates(oodsets=oodsets, testset=testset,
+                                     batch_size=test_batch_size,
+                                     num_batch=len(testset) // test_batch_size,
+                                     outputs=outputs,
+                                     recorders=recorders,
+                                     sample_dirs=sample_dirs,
+                                     print_result='*')
+
+            outputs.results(0, 0, -2, epochs,
+                            metrics=self.metrics,
+                            loss_components=self.loss_components,
+                            acc_methods=acc_methods)
+            outputs.results(0, 0, -1, epochs,
+                            metrics=self.metrics,
+                            loss_components=self.loss_components,
+                            acc_methods=acc_methods)
+
         if testset and not signal_handler.sig > 1:
+
+            recorder = recorders[set_name]
             # print(num_batch, sample_size)
             with torch.no_grad():
                 test_accuracy = self.accuracy(testset,
@@ -1833,6 +1863,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                               # num_batch=num_batch,
                                               # device=device,
                                               method=acc_methods,
+                                              recorder=recorder,
+                                              sample_dirs=sample_dirs
                                               # log=False,
                                               outputs=outputs,
                                               print_result='TEST')

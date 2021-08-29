@@ -1864,7 +1864,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                               # device=device,
                                               method=acc_methods,
                                               recorder=recorder,
-                                              sample_dirs=sample_dirs
+                                              sample_dirs=sample_dirs,
                                               # log=False,
                                               outputs=outputs,
                                               print_result='TEST')

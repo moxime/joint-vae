@@ -82,7 +82,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vib': ('cross_y', 'kl', 'total')}
     
     predict_methods_per_type = {'jvae': ('loss', 'esty'),
-                                'cvae': ('closest', 'iws'),
+                                # 'cvae': ('closest', 'iws'),
+                                'cvae': ('iws', 'closest'),
                                 'xvae': ('loss', 'closest'),
                                 'vae': (),
                                 'vib': ('esty',)}
@@ -93,10 +94,12 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type = {'cvae': ('max', 'kl', 'mse', 'iws', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
+    ood_methods_per_type = {'cvae': ('iws', 'kl', 'mse', 'max', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
+                            # 'cvae': ('max', 'kl', 'mse', 'iws', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
-                            'vae': ('logpx', 'iws'),
+                            # 'vae': ('logpx', 'iws'),
+                            'vae': ('iws', 'logpx'),
                             'vib': ('t1000', 'baseline', 'logits')}
 
     def __init__(self,

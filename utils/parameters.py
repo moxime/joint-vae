@@ -452,6 +452,9 @@ def get_filters_args(argv=None):
     parser.add_argument('--gamma', action=FilterAction, of_type=float,
                         nargs='+')
 
+    parser.add_argument('--beta', action=FilterAction, of_type=float,
+                        nargs='+')
+
     parser.add_argument('--coder-dict', action=FilterAction, 
                         nargs='+')
 

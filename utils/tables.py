@@ -384,13 +384,23 @@ def pgfplotstable_preambule(df, dataset, file, mode='a'):
                             'name': ' '.join(w_)}
 
                 
-def digest_table(*jobs, tex_macro=r'\acron{%t}',
+def digest_table(*jobs, 
                  tpr=0.95, precision=1,
+                 tex_acron=r'\acron{%t}',
+                 cols=['sigma'],
+                 highlight=r'\bfseries',
                  empty= r'\text{--}',
                  stdout=True,
                  directory='./results/%j',
                  filename='row.tex',
                  **method_and_set_dict):
+
+    ours = {'jvae': ['esty', 'max', 'iws'],
+            'cvae': ['closest', 'max', 'iws']}
+
+    replacement_dict = {'learned': r'$\nabla$',
+                        'constant': r'--',
+                        'coded': r'$c(x)$'}
     
     f = {j: create_file(j, directory, filename) if filename else None for j in jobs}
     printouts = {j: create_printout(file_id=f[j], std=stdout, end='') for j in jobs}
@@ -401,7 +411,7 @@ def digest_table(*jobs, tex_macro=r'\acron{%t}',
         printout = printouts[j]
         logging.debug('Job # %d', j)
         #         printout(' \\\\  % job # {}\n'.format(j))
-        printout('% job # {}\n'.format(j))
+        printout('% job # {} @TPR {:2}\n'.format(j, 100 * tpr ))
         
         m = models[j]
         testset = m['set']
@@ -410,14 +420,23 @@ def digest_table(*jobs, tex_macro=r'\acron{%t}',
         ood_results = m['net'].ood_results
         oodsets = method_and_set_dict[testset]
         methods = method_and_set_dict.get(mtype, [None, None])
-        printout(tex_macro.replace('%t', mtype) + ' & ')
+        if mtype in ours:
+            printout(highlight + ' ')
+        printout(tex_acron.replace('%t', mtype) + ' & ')
 
+        for c in cols:
+            if c == 'sigma':
+                s = replacement_dict[m['sigma_train']]
+                printout(s + ' & ')
+        
         predict_method = methods[0] if methods[0] != 'none' else None
         ood_methods = [_ if _.lower() != 'none' else None for _ in methods[1:]]
         
         if predict_method and predict_method in test_results:
             acc = 100 * test_results[predict_method]['accuracy']
             logging.debug('%s %.2f', predict_method, acc)
+            if predict_method in ours.get(mtype, []):
+                printout(f'{highlight} ')
             printout(f'{acc:.{precision}f} & ')
         else:
             printout(f'{empty} & ')
@@ -426,10 +445,12 @@ def digest_table(*jobs, tex_macro=r'\acron{%t}',
         list_of_fpr = []
         for o in oodsets:
             for m in ood_methods:
+            
+                highlighted = highlight + ' ' if m in ours.get(mtype, []) else ''
                 if m and o in ood_results and m in ood_results[o]:
                     fpr_ = {t: 100 * f for t, f in zip(ood_results[o][m]['tpr'], ood_results[o][m]['fpr'])}
                     t_ = min(t for t in fpr_ if t >= tpr)
-                    fpr = f'{fpr_[t_]:.{precision}f}'
+                    fpr = highlighted + f'{fpr_[t_]:.{precision}f}'
                 else:
                     fpr = empty
                     
@@ -451,7 +472,10 @@ if __name__ == '__main__':
                        
     for k in ('sets', 'methods'):
         parser.add_argument('--' + k, action='append', nargs='+')
-                       
+
+    parser.add_argument('--tpr', type=int, default=95)
+    parser.add_argument('--empty', type=str, default=' ')
+        
     args = parser.parse_args()
 
     if args.debug:
@@ -474,4 +498,6 @@ if __name__ == '__main__':
 
         logging.info(k + ' : ' + ' - '.join(method_and_set_dict[k]))
     
-    digest_table(*args.jobs, **method_and_set_dict)
+    digest_table(*args.jobs, tpr=args.tpr / 100,
+                 empty=f'\\text{{{args.empty}}}',
+                 **method_and_set_dict)

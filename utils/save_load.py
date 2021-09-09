@@ -579,7 +579,7 @@ def make_dict(model, directory, **kw):
     testing_results = clean_results(model.testing, model.predict_methods, accuracy=None)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
 
-    if model.testing:
+    if model.testing and model.predict_methods:
         # print('*** model.testing', *model.testing.keys())
         # print('*** model.predict_methods', model.architecture['type'], *model.predict_methods)
         accuracies['first'] = accuracies[model.predict_methods[0]] 

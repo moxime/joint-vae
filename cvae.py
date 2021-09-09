@@ -2114,7 +2114,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 gamma = train_params['gamma']
                 vae.y_is_decoded = True
                 if vae.type in ('cvae', 'vae'):
-                    vae.y_is_decoded = classifier_layer_sizes and gamma
+                    vae.y_is_decoded = gamma
 
                 if vae.y_is_decoded and 'esty' not in vae.predict_methods:
                     vae.predict_methods = ('esty',) + vae.predict_methods

@@ -1746,7 +1746,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                          batch=i,
                                                          with_beta=True,
                                                          kl_var_weighting=warmup_weighting ** 2,
-                                                         mse_weighting=warmup_weighting,
+                                                         # mse_weighting=warmup_weighting,
                                                          current_measures=current_measures)
 
                 current_measures = measures
@@ -1754,7 +1754,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 L = batch_loss
                 if self.coder_capacity_regularization and self.encoder.dictionary_dist_lb:
-                        L += self.encoder.dist_barrier()
+                    L += self.encoder.dist_barrier()
 
                 if self.force_cross_y and not self.y_is_decoded:
                     L += self.force_cross_y * batch_losses['cross_y'].mean()

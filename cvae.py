@@ -527,7 +527,7 @@ class ClassificationVariationalNetwork(nn.Module):
         losses_computed_for_each_class = (self.losses_might_be_computed_for_each_class
                                           and not y_in_input)
 
-        y_is_built = losses_computed_for_each_class
+        y_is_built = losses_computed_for_each_class 
 
         cross_y_weight = False
         if self.y_is_decoded:

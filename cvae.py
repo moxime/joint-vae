@@ -172,7 +172,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         self.x_is_generated = not self.is_vib
 
-        self.losses_might_be_computed_for_each_class = not (self.is_vae or self.is_vib)
+        self.losses_might_be_computed_for_each_class = not self.is_vae
         
         logging.debug('y is%s coded', '' if self.y_is_coded else ' not')
 

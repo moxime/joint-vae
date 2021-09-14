@@ -473,9 +473,10 @@ if __name__ == '__main__':
     for k in ('sets', 'methods'):
         parser.add_argument('--' + k, action='append', nargs='+')
 
-    parser.add_argument('--tpr', type=int, default=95)
+    parser.add_argument('--tpr', type=int, default=98)
     parser.add_argument('--empty', type=str, default=' ')
-        
+    parser.add_argument('--texfile', default='row')
+    
     args = parser.parse_args()
 
     if args.debug:
@@ -500,4 +501,5 @@ if __name__ == '__main__':
     
     digest_table(*args.jobs, tpr=args.tpr / 100,
                  empty=f'\\text{{{args.empty}}}',
+                 filename=args.texfile + '.tex',
                  **method_and_set_dict)

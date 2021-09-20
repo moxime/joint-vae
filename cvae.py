@@ -1265,7 +1265,6 @@ class ClassificationVariationalNetwork(nn.Module):
         recording = {}
         recorded = {}
 
-        
         if wygiwyu:
 
             from_r, _ = testing_plan(self, ood_sets=[o.name for o in oodsets], ood_methods=ood_methods)

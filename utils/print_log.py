@@ -207,7 +207,6 @@ def texify(s, num=False, space=None, underscore=None, verbatim=False):
     return re.sub(r'[-+]?\d*\.\d+', r'\\num{\g<0>}', s)
 
     
-
 class Time(float):
 
     def __str__(self, max=2):
@@ -283,6 +282,31 @@ class Time(float):
 
         return str(self).__format__(*a, **k)
 
+
+def text_dataviz(start, end, *marks, N=100, min_val=None, max_val=None, default='-'):
+
+    if min_val is None:
+        min_val = start
+    if max_val is None:
+        max_val = end
+
+    width = max_val - min_val
+       
+    def f2i(x):
+        i = int(N * (x - min_val) / width)
+        return max(min(i, N-1), 0)
+
+    start_ = f2i(start)
+    end_ = f2i(end)
+
+    chars = {_: (default if (start_ <= _ <= end_) else ' ') for _ in range(N)}
+
+    for m in marks:
+        chars[f2i(m[0])] = m[1]
+
+    return ''.join([chars[_] for _ in range(N)])
+        
+        
     
 if __name__ == '__main__':
     pass

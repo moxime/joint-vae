@@ -114,7 +114,7 @@ if __name__ == '__main__':
     
     n_ = [25000, 25000]
     s_ = [1, 0.5]
-    m_ = [0, 2]
+    m_ = [2, 2]
     
     ins = np.concatenate([np.random.randn(n) * s + m for (n, s, m) in zip(n_, s_, m_)])
     ins = np.random.permutation(ins)
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     
     kept_tpr = [_ / 100 for _ in range(90, 100)]
 
-    offset = 4
+    offset = 0
     for two_sided, factor in zip((False,) + (True,) * 1, (1,) + (1,) + (1,) * 1):
         print('2S' if two_sided else '1S')
         t0 = time()

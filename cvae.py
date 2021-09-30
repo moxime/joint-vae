@@ -99,7 +99,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             # 'vae': ('logpx', 'iws'),
-                            'vae': ('iws', 'logpx'),
+                            'vae': ('iws-2s', 'iws', 'logpx'),
                             'vib': ('t1000', 'baseline', 'logits')}
 
     def __init__(self,
@@ -1380,8 +1380,7 @@ class ClassificationVariationalNetwork(nn.Module):
             ood_n_batch = num_batch[s]
             
             ood_results = {m: copy.deepcopy(no_result) for m in ood_methods_per_set[s]}
-            ood_measures = {m: np.ndarray(0) for m in ood_methods_per_sets[s]}
-
+            ood_measures = {m: np.ndarray(0) for m in ood_methods_per_set[s]}
 
             fpr_ = {}
             tpr_ = {}
@@ -1429,9 +1428,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                    for m in ood_methods_per_set[s]}
 
                 for m in ood_methods_per_set[s]:
-                    # logging.debug(f'Computing roc curves for with metrics {m}')
+                    logging.debug(f'Computing roc curves for with metrics {m}')
                     auc_[m], fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ind_measures[m], ood_measures[m],
-                                                                           *kept_tpr,
+                                                                           *kept_tpr, debug='soft',
                                                                            two_sided=m.endswith('-2s'))
 
                     r_[m] = fpr_at_tpr(fpr_[m],

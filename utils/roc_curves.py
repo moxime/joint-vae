@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.metrics import auc
-
+import logging
 
 def fpr_at_tpr(fpr, tpr, a, thresholds=None,
                return_threshold=False):
@@ -35,6 +35,10 @@ def tpr_at_fpr(fpr, tpr, a):
 
 def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1000, debug=False):
 
+    if debug:
+        logging.debug('Computing fprs with a {}-sided test with data of lengths {} / {}'.format(
+            'two' if two_sided else 'one', len(ins), len(outs)))
+                      
     if validation < 1:
         validation = int(validation * len(ins)) 
         
@@ -98,12 +102,16 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
             kept_tpr[kept_tpr_i] = tpr
             kept_thresholds[kept_tpr_i] = t
             kept_tpr_i += 1
-
+            logging.debug('-- FPR: {:.1f} @TPR: {:.1f}  Thr: '.format(100 * fpr, 100 * tpr) +
+                          ('{:+.2e} -- {:+.2e}'.format(center - t, center + t) if two_sided else
+                           '{:+.2e}'.format(t))
+                          )
+            
     auroc = auc(relevant_fpr, relevant_tpr)
 
     if two_sided:
         kept_thresholds = np.concatenate([np.array([center]), kept_thresholds])
-
+        
     return auroc, kept_fpr, kept_tpr, kept_thresholds
     
 

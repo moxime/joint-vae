@@ -19,8 +19,8 @@ from utils.torch_load import choose_device
 from utils import save_load
 import numpy as np
 
-from utils.roc_curves import fpr_at_tpr
-from sklearn.metrics import auc, roc_curve
+from utils.roc_curves import roc_curve, fpr_at_tpr
+# from sklearn.metrics import auc, roc_curve
 
 from utils.print_log import EpochOutput
 
@@ -861,6 +861,9 @@ class ClassificationVariationalNetwork(nn.Module):
             
         for m in methods:
 
+            two_sided = m.endswith('-2s')
+            if two_sided:
+                m = m[:-3]
             if m == 'logpx':
                 assert not self.losses_might_be_computed_for_each_class
                 measures = logp
@@ -911,7 +914,7 @@ class ClassificationVariationalNetwork(nn.Module):
             else:
                 raise ValueError(f'{m} is an unknown ood method')
 
-            dist_measures[m] = measures
+            dist_measures[m + ('-2s' if two_sided else '')] = measures
 
         return dist_measures
 
@@ -1363,13 +1366,13 @@ class ClassificationVariationalNetwork(nn.Module):
         
                     recorders[s].save(f.format(s=s))
                 
-        keeped_tpr = [pc / 100 for pc in range(90, 100)]
+        kept_tpr = [pc / 100 for pc in range(90, 100)]
         no_result = {'epochs': 0,
                      'n': 0,
                      'auc': 0,
-                     'tpr': keeped_tpr,
-                     'fpr': [1 for _ in keeped_tpr],
-                     'thresholds':[None for _ in keeped_tpr]}
+                     'tpr': kept_tpr,
+                     'fpr': [1 for _ in kept_tpr],
+                     'thresholds':[None for _ in kept_tpr]}
                      
         for oodset in oodsets:
 
@@ -1377,8 +1380,9 @@ class ClassificationVariationalNetwork(nn.Module):
             ood_n_batch = num_batch[s]
             
             ood_results = {m: copy.deepcopy(no_result) for m in ood_methods_per_set[s]}
-            i_ood_measures = {m: ind_measures[m] for m in ood_methods_per_set[s]}
-            ood_labels = np.ones(batch_size * num_batch[testset.name])
+            ood_measures = {m: np.ndarray(0) for m in ood_methods_per_sets[s]}
+
+
             fpr_ = {}
             tpr_ = {}
             thresholds_ = {}
@@ -1416,18 +1420,19 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 measures = self.batch_dist_measures(logits, losses, ood_methods_per_set[s])
                 for m in ood_methods_per_set[s]:
-                    i_ood_measures[m] = np.concatenate([i_ood_measures[m],
+                    ood_measures[m] = np.concatenate([ood_measures[m],
                                                       measures[m].cpu()])
-                ood_labels = np.concatenate([ood_labels, np.zeros(batch_size)])
+
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
-                meaned_measures = {m: i_ood_measures[m][len(ind_measures):].mean()
+                meaned_measures = {m: ood_measures[m].mean()
                                    for m in ood_methods_per_set[s]}
+
                 for m in ood_methods_per_set[s]:
                     # logging.debug(f'Computing roc curves for with metrics {m}')
-                    fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ood_labels,
-                                                                  i_ood_measures[m])
-                    auc_[m] = auc(fpr_[m], tpr_[m])
+                    auc_[m], fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ind_measures[m], ood_measures[m],
+                                                                           *kept_tpr,
+                                                                           two_sided=m.endswith('-2s'))
 
                     r_[m] = fpr_at_tpr(fpr_[m],
                                        tpr_[m],
@@ -1444,17 +1449,13 @@ class ClassificationVariationalNetwork(nn.Module):
                                 preambule=oodset.name)
 
             for m in ood_methods_per_set[s]:
-                fpr_and_thresholds = [fpr_at_tpr(fpr_[m], tpr_[m], a,
-                                                 thresholds=thresholds_[m],
-                                                 return_threshold=True) for a in keeped_tpr] 
-                fpr_m = [f[0] for f in fpr_and_thresholds]
-                t_m = [f[1] for f in fpr_and_thresholds]
+
                 ood_results[m] = {'epochs': updated_epoch,
                                   'n': ood_n_batch * batch_size,
                                   'auc': auc_[m],
-                                  'tpr': keeped_tpr,
-                                  'fpr': fpr_m, 
-                                  'thresholds': t_m }
+                                  'tpr': kept_tpr,
+                                  'fpr': list(fpr_[m]), 
+                                  'thresholds': list(thresholds_[m])}
                 
                 if update_self_ood:
                     if oodset.name not in self.ood_results:

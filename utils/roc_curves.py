@@ -141,8 +141,8 @@ if __name__ == '__main__':
     import sklearn.metrics
     logging.getLogger().setLevel(logging.DEBUG)
     
-    n_ = [10000, 10000]
-    s_ = [1, 1]
+    n_ = [25000, 25000]
+    s_ = [1, 0.5]
     m_ = [2, 2]
     
     ins = np.concatenate([np.random.randn(n) * s + m for (n, s, m) in zip(n_, s_, m_)])

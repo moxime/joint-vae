@@ -1,5 +1,6 @@
+from time import time
 import numpy as np
-from sklearn.metrics import auc
+from sklearn.metrics import auc, roc_curve as fast_roc_curve
 import logging
 
 
@@ -75,13 +76,19 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
 
     n_ins = len(sorted_ins)
     n_outs = len(outs)
-    for t in all_thresholds:
 
+    if debug == 'time':
+        t0 = time()
+        print('*** Going through thresholds')
+        
+    for i, t in enumerate(all_thresholds):
+
+        tpr = i / n_ins
         if two_sided:
-            tpr = (abs(sorted_ins - center) <= t).sum() / n_ins
+            # tpr = (abs(sorted_ins - center) <= t).sum() / n_ins
             fpr = (abs(outs - center) <= t).sum() / n_outs
         else:
-            tpr = (sorted_ins >= t).sum() / n_ins
+            # tpr = (sorted_ins >= t).sum() / n_ins
             fpr = (outs >= t).sum() / n_outs
 
         if debug == 'hard':
@@ -126,9 +133,15 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
                     logging.debug(_s)
 
                 logging.debug('--')
-            
+    
+    if debug == 'time':
+        print(f'Thresholding ins done in {time() - t0:3f}s')
+        t0 = time()
     auroc = auc(relevant_fpr, relevant_tpr)
+    if debug == 'time':
+        print(f'AUC computed in {time() - t0:3f}s')
 
+    
     if two_sided:
         kept_thresholds = np.concatenate([np.array([center]), kept_thresholds])
         
@@ -141,14 +154,14 @@ if __name__ == '__main__':
     import sklearn.metrics
     logging.getLogger().setLevel(logging.DEBUG)
     
-    n_ = [25000, 25000]
+    n_ = [15000, 10000]
     s_ = [1, 0.5]
     m_ = [2, 2]
     
     ins = np.concatenate([np.random.randn(n) * s + m for (n, s, m) in zip(n_, s_, m_)])
     ins = np.random.permutation(ins)
     
-    outs = np.random.randn(10000) + 1
+    outs = np.random.randn(25000) + 1
 
     inandouts = np.concatenate([ins, outs])
     labels = np.concatenate([np.ones_like(ins), np.zeros_like(outs)])
@@ -160,7 +173,7 @@ if __name__ == '__main__':
         print('2S' if two_sided else '1S')
         t0 = time()
         auroc, fpr, tpr, thr = roc_curve(factor * ins + offset, outs, *kept_tpr,
-                                         debug='medium',
+                                         debug='time',
                                          two_sided=two_sided, validation=1000)
 
         t_home_made = time() - t0

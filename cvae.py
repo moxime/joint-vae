@@ -94,7 +94,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type = {'cvae': ('iws', 'kl', 'mse', 'max', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
+    ood_methods_per_type = {'cvae': ('iws-2s', 'iws', 'kl', 'mse', 'max', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
                             # 'cvae': ('max', 'kl', 'mse', 'iws', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
@@ -1429,9 +1429,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 for m in ood_methods_per_set[s]:
                     logging.debug(f'Computing roc curves for with metrics {m}')
-                    auc_[m], fpr_[m], tpr_[m], thresholds_[m] =  roc_curve(ind_measures[m], ood_measures[m],
-                                                                           *kept_tpr, debug='soft',
-                                                                           two_sided=m.endswith('-2s'))
+                    _debug = 'medium' if i == ood_n_batch - 1 else 'soft'
+                    auc_[m], fpr_[m], tpr_[m], thresholds_[m] = roc_curve(ind_measures[m], ood_measures[m],
+                                                                          *kept_tpr,
+                                                                          debug=_debug,
+                                                                          two_sided=m.endswith('-2s'))
 
                     r_[m] = fpr_at_tpr(fpr_[m],
                                        tpr_[m],

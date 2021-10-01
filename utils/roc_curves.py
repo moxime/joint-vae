@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.metrics import auc
 import logging
 
+
 def fpr_at_tpr(fpr, tpr, a, thresholds=None,
                return_threshold=False):
 
@@ -48,7 +49,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
     val_ins_idx = permute_ins[:ins_n_valid]
     test_ins_idx = permute_ins[ins_n_valid:]
     
-    sorted_ins = np.sort(np.asarray(ins)[test_ins_idx])
+    sorted_ins = np.sort(ins[test_ins_idx])
     ins_validation = np.asarray(ins)[val_ins_idx]
 
     if two_sided:
@@ -56,7 +57,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
             center = ins_validation.mean()
             
     if two_sided:
-        all_thresholds = np.concatenate([[-np.inf], np.sort(abs(sorted_ins - center)), [np.inf]])
+        all_thresholds = np.concatenate([[0], np.sort(abs(sorted_ins - center)), [np.inf]])
         
     else:
         all_thresholds = np.concatenate([[-np.inf], sorted_ins, [np.inf]])[::-1]
@@ -72,15 +73,15 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
     kept_thresholds = np.zeros_like(kept_tpr)
     kept_tpr_i = 0
 
-    n_ins = len(ins)
+    n_ins = len(sorted_ins)
     n_outs = len(outs)
     for t in all_thresholds:
 
         if two_sided:
-            tpr = (abs(ins - center) <= t).sum() / n_ins
+            tpr = (abs(sorted_ins - center) <= t).sum() / n_ins
             fpr = (abs(outs - center) <= t).sum() / n_outs
         else:
-            tpr = (ins >= t).sum() / n_ins
+            tpr = (sorted_ins >= t).sum() / n_ins
             fpr = (outs >= t).sum() / n_outs
 
         if debug == 'hard':
@@ -102,10 +103,29 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
             kept_tpr[kept_tpr_i] = tpr
             kept_thresholds[kept_tpr_i] = t
             kept_tpr_i += 1
-            logging.debug('-- FPR: {:.1f} @TPR: {:.1f}  Thr: '.format(100 * fpr, 100 * tpr) +
-                          ('{:+.2e} -- {:+.2e}'.format(center - t, center + t) if two_sided else
-                           '{:+.2e}'.format(t))
-                          )
+
+            if debug in ('medium', 'hard'):
+
+                for what, data in zip(('TPR', 'FPR'), (sorted_ins, outs)):
+
+                    n = len(data)
+                    if two_sided:
+
+                        t1 = center - t
+                        t2 = center + t
+                        bt = (data < center - t).sum() / n * 100
+                        at = (data > center + t).sum() / n * 100
+                        pr = 100 - at - bt
+                        _s = f'{what}: {bt:5.2f} ({t1:+.2e}) {pr:5.2f} ({t2:+.2e}) {at:5.2f}'
+
+                    else:
+                        bt = (data < t).sum() / n * 100
+                        pr = (data >= t).sum() / n * 100
+                        _s = f'{what}: {bt:5.2f} ({t:+.2e}) {pr:5.2f}'
+                    
+                    logging.debug(_s)
+
+                logging.debug('--')
             
     auroc = auc(relevant_fpr, relevant_tpr)
 
@@ -119,10 +139,11 @@ if __name__ == '__main__':
 
     from time import time
     import sklearn.metrics
+    logging.getLogger().setLevel(logging.DEBUG)
     
-    n_ = [25000, 25000]
-    s_ = [1, 0.5]
-    m_ = [0, 2]
+    n_ = [10000, 10000]
+    s_ = [1, 1]
+    m_ = [2, 2]
     
     ins = np.concatenate([np.random.randn(n) * s + m for (n, s, m) in zip(n_, s_, m_)])
     ins = np.random.permutation(ins)
@@ -134,22 +155,22 @@ if __name__ == '__main__':
     
     kept_tpr = [_ / 100 for _ in range(90, 100)]
 
-    offset = 4
+    offset = 2
     for two_sided, factor in zip((False,) + (True,) * 1, (1,) + (1,) + (1,) * 1):
         print('2S' if two_sided else '1S')
         t0 = time()
         auroc, fpr, tpr, thr = roc_curve(factor * ins + offset, outs, *kept_tpr,
+                                         debug='medium',
                                          two_sided=two_sided, validation=1000)
 
         t_home_made = time() - t0
         
-        print('AUC={:.1f}'.format(100 * auroc))
+        print('AUC={:.2f}'.format(100 * auroc))
         for h, f, t in zip(thr, fpr, tpr):
 
             f_ = (outs >= h).sum() / len(outs)
             t_ = (ins >= h).sum() / len(ins)
             print(('{:7.3f}--{:7.3f} ').format(100 * f, 100 * t))
-
 
         t0 = time()
         sklearn.metrics.roc_curve(labels, inandouts)

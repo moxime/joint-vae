@@ -142,6 +142,9 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
                     logging.debug(_s)
 
                 logging.debug('--')
+
+    relevant_fpr.append(1.0)
+    relevant_tpr.append(1.0)
     
     if debug == 'time':
         print(f'Thresholding ins done in {time() - t0:3f}s')
@@ -162,23 +165,25 @@ if __name__ == '__main__':
     import sklearn.metrics
     logging.getLogger().setLevel(logging.DEBUG)
     
-    n_ = [1, 100-1]
-    s_ = [1, 0.5]
-    m_ = [2, 2]
+    n_ = [1, 100000-1]
+    s_ = [1, 1]
+    m_ = [0, 0]
     
     ins = np.concatenate([np.random.randn(n) * s + m for (n, s, m) in zip(n_, s_, m_)])
     ins = np.random.permutation(ins)
     
-    outs = np.random.randn(250) + 1
+    outs = np.random.randn(10000) 
 
     inandouts = np.concatenate([ins, outs])
     labels = np.concatenate([np.ones_like(ins), np.zeros_like(outs)])
     
     kept_tpr = [_ / 100 for _ in range(90, 100)]
 
-    offset = 2
+    kept_tpr.append(0.999)
+    
+    offset = -6
 
-    two_sided_ = (True, False)
+    two_sided_ = (False, True)
     factor_ = (1, 1)
 
     # two_sided_ = (False,)
@@ -191,7 +196,7 @@ if __name__ == '__main__':
         t0 = time()
         auroc, fpr, tpr, thr = roc_curve(factor * ins + offset, outs, *kept_tpr,
                                          debug=False,
-                                         two_sided=two_sided, validation=1)
+                                         two_sided=two_sided, validation=100)
 
         t_home_made = time() - t0
         

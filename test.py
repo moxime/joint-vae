@@ -351,6 +351,7 @@ if __name__ == '__main__':
 
     if args.compute:
         for m in models_to_be_computed['recorder']:
+            print('Computing rates of job {} of type {}'.format(m['job'], m['type'])) 
             model = CVNet.load(m['dir'], load_state=False)
             model.accuracy(wygiwyu=True, print_result='TFR')
             model.ood_detection_rates(wygiwyu=True, print_result='OFR')

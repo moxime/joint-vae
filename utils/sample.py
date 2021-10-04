@@ -177,7 +177,7 @@ def zsample(x, net,y=None, batch_size=128, root='results/%j/samples', bins=10, d
             i_ = y==c
 
             for rtype, fname in zip(('hist_of_var', 'scatter'),
-                                    ('hist_var_z_{}.dat','mu_z_var_z_{}.dat')):
+                                    ('hist_var_z{}.dat','mu_z_var_z{}.dat')):
                 f = os.path.join(dir_path, fname.format(c))
                 output_latent_distribution(mu_z, var_z, f, result_type=rtype,
                                            bins=bins, per_dim=True)

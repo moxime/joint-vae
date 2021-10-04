@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import logging
 import os
+import errno
 import sys
 import argparse
 import logging
@@ -25,6 +26,12 @@ def _create_output_plot(*outputs, pltf='plot'):
             write_functions.append(_w)
 
         elif isinstance(o, str):
+            if not os.path.exists(os.path.dirname(o)):
+                try:
+                    os.makedirs(os.path.dirname(o))
+                except OSError as exc:  # Guard against race condition
+                    if exc.errno != errno.EEXIST:
+                        raise
             f = open(o, 'w')
 
             def _c():

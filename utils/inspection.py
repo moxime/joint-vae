@@ -91,7 +91,9 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
         data = var_z.log().cpu() if log_scale else var_z.cpu()
         if per_dim:
             data = data.mean(0)
-        hist, bins = np.histogram(data, **options)
+            
+        hrange = (data.min().item(), data.max().item()) if log_scale else (0, data.max().item()) 
+        hist, bins = np.histogram(data, range=hrange, **options)
         if log_scale:
             bins = np.exp(bins)
 

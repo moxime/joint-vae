@@ -139,7 +139,7 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
     return list_of_images
 
 
-def zsample(x, net, batch_size=128, root='results/%j/samples', bins=10, directory='test'):
+def zsample(x, net,y=None, batch_size=128, root='results/%j/samples', bins=10, directory='test'):
     r"""will sample varaible latent and ouput scatter and histogram of
     variance and mean of z
 
@@ -171,7 +171,18 @@ def zsample(x, net, batch_size=128, root='results/%j/samples', bins=10, director
     f = os.path.join(dir_path, 'mu_z_var_z.dat')
     output_latent_distribution(mu_z, var_z, f, result_type='scatter', per_dim=True)
 
-    
+    if y is not None:
+
+        for c in range(net.num_labels):
+            i_ = y==c
+
+            for rtype, fname in zip(('hist_of_var', 'scatter'),
+                                    ('hist_var_z_{}.dat','mu_z_var_z_{}.dat')):
+                f = os.path.join(dir_path, fname.format(c))
+                output_latent_distribution(mu_z, var_z, f, result_type=rtype,
+                                           bins=bins, per_dim=True)
+
+            
 def comparison(x, *nets, batch_size=128, root='results/%j/samples', directory='ood'):
     r""" Comparison of different nets """
     

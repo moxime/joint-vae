@@ -140,12 +140,15 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
 
 
 def zsample(x, net,y=None, batch_size=128, root='results/%j/samples', bins=10, directory='test'):
-    r"""will sample varaible latent and ouput scatter and histogram of
+    r"""will sample variable latent and ouput scatter and histogram of
     variance and mean of z
 
     """
     N = len(x)
+    N -= N % batch_size
 
+    assert net.type != 'cvae' or y is not None
+    
     mu_z = torch.zeros(N, net.latent_dim)
     var_z = torch.zeros(N, net.latent_dim)
     log_var_z = torch.zeros(N, net.latent_dim)
@@ -161,7 +164,14 @@ def zsample(x, net,y=None, batch_size=128, root='results/%j/samples', bins=10, d
         x_,  _, _, _, mu_z[start:end], log_var_z[start:end], _ = out
 
     var_z = log_var_z.exp()
-                       
+
+    print('*** net.type', net.type)
+    if net.is_cvae:
+
+        encoder_dictionary = net.encoder.latent_dictionary
+        centroids = latent_dictionary.index_select(0, y[:N])
+        print('*** centroids shape', *centroids.shape)
+    
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
 
     f = os.path.join(dir_path, 'hist_var_z.dat')

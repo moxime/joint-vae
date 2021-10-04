@@ -469,13 +469,14 @@ if __name__ == '__main__':
         texify_test_results(n)
         
     first_method = args.expand < 2
-    show_best = args.expand < 1 
+    nets_to_show = 'all' if args.expand >= 1 else 'mean' 
 
     tpr = [t/100 for t in args.tpr]
         
-    df = test_results_df(models_to_be_kept, best_net=show_best,
+    df = test_results_df(models_to_be_kept, nets_to_show=nets_to_show,
                          first_method=first_method,
                          ood=oodsets,
+                         show_measures=args.show_measures,
                          tnr=args.tnr,
                          tpr=tpr,
                          sorting_keys=sort)

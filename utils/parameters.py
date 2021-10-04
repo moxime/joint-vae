@@ -378,6 +378,8 @@ def get_args_for_test():
 
     parser.add_argument('--expand', '-e', action='count', default=0)
 
+    parser.add_argument('--hide-measures', dest='show_measures', action='store_false')
+
     parser.add_argument('--tpr', nargs='*', default=[95], type=int)
     parser.add_argument('--tnr', action='store_true', help='Show TNR instead of FPR')
 
@@ -386,6 +388,10 @@ def get_args_for_test():
     parser.add_argument('--job-id', type=int, default=0)
 
     parser.add_argument('--sets', action='append', nargs='+')
+
+    parser.add_argument('--classification-methods', action=NewEntryDictofLists, nargs='+', default={})
+    parser.add_argument('--ood-methods', action=NewEntryDictofLists, nargs='+', default={})
+    
 
     filter_args, remaining_args = get_filters_args()
     
@@ -521,7 +527,7 @@ class FilterAction(argparse.Action):
         # print('FilterAction called', option_string, values)
         
         if type(values) is not list:
-            values= [values]
+            values = [values]
 
         neg = False
         if values and values[0].lower() == 'not':
@@ -540,15 +546,35 @@ class FilterAction(argparse.Action):
             namespace.filters[self.dest] = []
         namespace.filters[self.dest].append(filter)
 
-        
+
+class NewEntryDictofLists(argparse.Action):
+
+    def __call__(self, parser, namespace, values, option_string=None):
+
+        if type(values) is not list:
+            values = [values]
+
+        if getattr(namespace, self.dest) == None:
+
+            setattr(namespace, self.dest, {})
+
+        d = getattr(namespace, self.dest)
+
+        d[values[0]] = d.get(values[0], []) + values[1:]
+
+            
 if __name__ == '__main__':
 
     arg = get_args_for_test()
 
-    m = {'done': 4, 'job': 45, 'batch_norm': ['decoder', 'encoder'], 'type': 'cvae'}
-    
-    for k, v in arg.filters.items():
+    print(arg.classification_methods)
 
-        print(k, *v, *[f.filter(m[k]) for f in v])
+    print(arg.sets)
+
+    # m = {'done': 4, 'job': 45, 'batch_norm': ['decoder', 'encoder'], 'type': 'cvae'}
+    
+    # for k, v in arg.filters.items():
+
+    #     print(k, *v, *[f.filter(m[k]) for f in v])
         
-    print(match_filters(m, arg.filters))
+    # print(match_filters(m, arg.filters))

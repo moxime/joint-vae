@@ -846,8 +846,8 @@ def find_by_job_number(*job_numbers, dir='jobs', load_net=True, force_dict=False
     return d if len(job_numbers) > 1 or force_dict else d[job_numbers[0]]
 
 
-def test_results_df(nets, best_net=True, first_method=True, ood={},
-                    dataset=None,
+def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
+                    dataset=None, show_measures=True,
                     tpr=[0.95], tnr=False, sorting_keys=[]):
     """
     nets : list of dicts n
@@ -868,8 +868,9 @@ def test_results_df(nets, best_net=True, first_method=True, ood={},
     if not dataset:
         testsets = {n['set'] for n in nets}
         return {s: test_results_df(nets,
-                                   best_net, first_method, ood.get(s, []),
+                                   nets_to_show, first_method, ood.get(s, []),
                                    s,
+                                   show_measures,
                                    tpr, tnr,
                                    sorting_keys) for s in testsets}
 
@@ -881,7 +882,7 @@ def test_results_df(nets, best_net=True, first_method=True, ood={},
                   'dict_var',
     ]
 
-    all_nets = [] if best_net else ['job', 'done']
+    all_nets = ['job', 'done'] if nets_to_show == 'all' else []
 
     train_index = [
         'options',
@@ -944,7 +945,8 @@ def test_results_df(nets, best_net=True, first_method=True, ood={},
 
         #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
 
-    d_['measures'] = meas_df
+    if show_measures:
+        d_['measures'] = meas_df
     df = pd.concat(d_, axis=1)
 
     cols = df.columns

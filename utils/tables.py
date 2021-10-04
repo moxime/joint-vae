@@ -396,7 +396,7 @@ def digest_table(*jobs,
                  **method_and_set_dict):
 
     ours = {'jvae': ['esty', 'max', 'iws'],
-            'cvae': ['closest', 'max', 'iws']}
+            'cvae': ['closest', 'max', 'iws', 'iws-2s']}
 
     replacement_dict = {'learned': r'$\nabla$',
                         'constant': r'--',

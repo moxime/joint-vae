@@ -145,6 +145,8 @@ def zsample(x, net,y=None, batch_size=128, root='results/%j/samples', bins=10, d
 
     """
     N = len(x)
+    batch_size = min(N, batch_size)
+
     N -= N % batch_size
 
     assert net.type != 'cvae' or y is not None
@@ -165,12 +167,11 @@ def zsample(x, net,y=None, batch_size=128, root='results/%j/samples', bins=10, d
 
     var_z = log_var_z.exp()
 
-    print('*** net.type', net.type)
     if net.is_cvae:
 
         encoder_dictionary = net.encoder.latent_dictionary
-        centroids = latent_dictionary.index_select(0, y[:N])
-        print('*** centroids shape', *centroids.shape)
+        centroids = encoder_dictionary.index_select(0, y[:N])
+        mu_z = mu_z - centroids.cpu()
     
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
 

@@ -291,6 +291,8 @@ def get_args_for_train(argv=None):
     
     help = 'save train(ing|ed) network in DIR/<architecture/#>'
 
+    parser.add_argument('--full-test-every', type=int, default=10)
+    
     parser.add_argument('--job-dir', metavar='DIR/',
                         help=help)
 

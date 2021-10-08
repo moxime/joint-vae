@@ -100,16 +100,19 @@ class ClassificationVariationalNetwork(nn.Module):
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             # 'vae': ('logpx', 'iws'),
                             'vae': ('iws-2s', 'iws', 'logpx'),
-                            'vib': ('odin', 'baseline', 'logits')}
+                            'vib': ('odin*', 'baseline', 'logits')}
 
     ODIN_TEMPS = [_ * 10 ** i for _ in (1, 2, 5) for i in (0, 1, 2)] + [1000]
-    ODIN_EPS = [_ /20 * 0.004 for _ in range(21)]
-    
+    ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
+
+    ODIN_TEMPS = [500, 1000]
+    ODIN_EPS = [0, 0.002, 0.004]
+
     def __init__(self,
                  input_shape,
                  num_labels,
-                 type_of_net = 'jvae', # or 'vib' or cvae or vae
-                 y_is_coded = False,
+                 type_of_net='jvae',  # or 'vib' or cvae or vae
+                 y_is_coded=False,
                  job_number=0,
                  features=None,
                  pretrained_features=None,
@@ -841,11 +844,11 @@ class ClassificationVariationalNetwork(nn.Module):
             return losses['iws'].argmax(0)
         raise ValueError(f'Unknown method {method}')
 
-    def batch_dist_measures(self, logits, losses, methods):
+    def batch_dist_measures(self, logits, losses, methods, odin_softmax={}):
             
         dist_measures = {m: None for m in methods}
         for m in methods:
-            assert m in self.ood_methods
+            assert m in self.ood_methods or m.startswith('odin') and m in odin_softmax
         
         C = self.num_labels
         
@@ -913,7 +916,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = -losses['kl'].min(axis=0)[0]
             elif m == 'mse' and self.is_cvae:
                 measures = -losses['cross_x']
-                    
+
+            elif m.startswith('odin'):
+                measures = odin_softmax[m]
+            
             else:
                 raise ValueError(f'{m} is an unknown ood method')
 
@@ -1247,6 +1253,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if not method:
             return
 
+        odin_parameters = [_ for _ in self.ood_methods if _.startswith('odin')]
+
         ood_methods = make_list(method, self.ood_methods)
         
         if oodsets is None:
@@ -1335,45 +1343,47 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 if not recorded[s]:
 
-                    odin_parameters = []
-                    if 'odin*' in ood_methods_per_set[s]:
-                        ood_methods_per_sets[s].remove('odin*')
-                        for T in ODIN_TEMPS:
-                            for eps in ODIN_EPS:
-                                odin_parameters.append((T, eps))
-                                ood_methods_per_set[s].append('odin-{:.0f}-{.3f}'.format(T, eps))
                     data = next(test_iterator)
                     x = data[0].to(device)
                     y = data[1].to(device)
                     if odin_parameters:
                         x.requires_grad_(True)
-                    with torch.set_grad_enabled(odin_method_in__methods):
+                    with torch.no_grad():
                         _, logits, losses, _  = self.evaluate(x, batch=i)
-                    softmax_odin = {}
+
+                    odin_softmax = {}
                     if odin_parameters:
-                        for T in ODIN_TEMPS:
-                            softmax = (logits / T).softmax(-1).max(-1)[0]
-                            softmax.sum().backward()
+                        for T in self.ODIN_TEMPS:
+                            with torch.enable_grad():
+                                _, no_temp_logits = self.forward(x, z_output=False)
+                                softmax = (no_temp_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
+                                X = softmax.sum()
+                            # print('***', X.requires_grad, (X / batch_size).cpu().item())
+                            X.backward()
                             dx = x.grad.sign()
-                            for eps in ODIN_EPS:
+                            for eps in self.ODIN_EPS:
                                 _, odin_logits = self.forward(x + eps * dx, z_output=False)
-                                out_probs = (odin_logits / T).softmax(-1).max(-1)[0]
-                                softmax_odin['{:.0f}-{.3f}'.format(Tn eps)] = out_probs
+                                out_probs = (odin_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
+                                odin_softmax['odin-{:.0f}-{:.3f}'.format(T, eps)] = out_probs
                 else:
                     components = [k for k in recorders[s].keys() if k in self.loss_components]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     
                 if recording[s]:
-                    recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
+                    recorders[s].append_batch(**losses, **odin_softmax, y_true=y, logits=logits.T)
                     
-                measures = self.batch_dist_measures(logits, losses, ood_methods_per_set[s])
+                measures = self.batch_dist_measures(logits, losses,
+                                                    ood_methods_per_set[s],
+                                                    odin_softmax=odin_softmax)
                 for m in ood_methods_per_set[s]:
                     # print('*** ood', m, *measures[m].shape)
+                    
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
+                                   
                 outputs.results(i, num_batch[s], 0, 1,
                                 metrics=ood_methods_per_set[s],
                                 measures={m: ind_measures[m].mean()
@@ -1381,7 +1391,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 acc_methods=ood_methods_per_set[s],
                                 time_per_i=t_per_i,
                                 batch_size=batch_size,
-                                preambule = testset.name)
+                                preambule=testset.name)
 
             if recording[s]:
                 for d in sample_dirs:
@@ -1395,7 +1405,7 @@ class ClassificationVariationalNetwork(nn.Module):
                      'auc': 0,
                      'tpr': kept_tpr,
                      'fpr': [1 for _ in kept_tpr],
-                     'thresholds':[None for _ in kept_tpr]}
+                     'thresholds': [None for _ in kept_tpr]}
                      
         for oodset in oodsets:
 
@@ -1430,17 +1440,37 @@ class ClassificationVariationalNetwork(nn.Module):
                     data = next(test_iterator)
                     x = data[0].to(device)
                     y = data[1].to(device)
+                    if odin_parameters:
+                        x.requires_grad_(True)
+
                     with torch.no_grad():
                         _, logits, losses, _ = self.evaluate(x, batch=i)
+
+                    odin_softmax = {}
+                    if odin_parameters:
+                        for T in self.ODIN_TEMPS:
+                            with torch.enable_grad():
+                                _, no_temp_logits = self.forward(x, z_output=False)
+                                softmax = (no_temp_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
+                                X = softmax.sum()
+                            # print('***', X.requires_grad, (X / batch_size).cpu().item())
+                            X.backward()
+                            dx = x.grad.sign()
+                            for eps in self.ODIN_EPS:
+                                _, odin_logits = self.forward(x + eps * dx, z_output=False)
+                                out_probs = (odin_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
+                                odin_softmax['odin-{:.0f}-{:.3f}'.format(T, eps)] = out_probs
+                        
                 else:
                     components = [k for k in recorders[s].keys() if k in self.loss_components]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     
                 if recording[s]:
-                    recorders[s].append_batch(**losses, y_true=y, logits=logits.T)
+                    recorders[s].append_batch(**losses, **odin_softmax, y_true=y, logits=logits.T)
 
-                measures = self.batch_dist_measures(logits, losses, ood_methods_per_set[s])
+                measures = self.batch_dist_measures(logits, losses, ood_methods_per_set[s],
+                                                    odin_softmax=odin_softmax)
                 for m in ood_methods_per_set[s]:
                     ood_measures[m] = np.concatenate([ood_measures[m],
                                                       measures[m].cpu()])
@@ -1588,8 +1618,21 @@ class ClassificationVariationalNetwork(nn.Module):
         sets = [set_name]
         for s in oodsets:
             sets.append(s.name)
-            
-        recorders = {s: LossRecorder(test_batch_size, **losses,
+
+        if 'odin*' in self.ood_methods:
+            self.ood_methods = tuple(_ for _ in self.ood_methods if _ != 'odin*')
+
+            for T in self.ODIN_TEMPS:
+                for eps in self.ODIN_EPS:
+                    self.ood_methods += ('odin-{:.0f}-{:.3f}'.format(T, eps),)
+                
+        odin_parameters = [_ for _ in self.ood_methods if _.startswith('odin')]
+
+        fake_odin_softmax = {o: torch.zeros(test_batch_size) for o in odin_parameters}
+
+        recorders = {s: LossRecorder(test_batch_size,
+                                     **losses,
+                                     **fake_odin_softmax,
                                      logits=logits.T,
                                      y_true=y_fake)
                      for s in sets}

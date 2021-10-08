@@ -94,14 +94,17 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ('std', 'snr', 'sigma'),
                         'vib': ('sigma',)}
 
-    ood_methods_per_type = {'cvae': ('iws-2s', 'iws', 'kl', 'mse', 'max', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
+    ood_methods_per_type = {'cvae': ('iws-2s', 'iws', 'kl', 'mse', 'max', 'soft', 't1000'),
                             # 'cvae': ('max', 'kl', 'mse', 'iws', 'soft', 't1000'),  # , 'std', 'mag', 'IYx'),
                             'xvae': ('max', 'mean', 'std'),  # , 'mag', 'IYx'),
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             # 'vae': ('logpx', 'iws'),
                             'vae': ('iws-2s', 'iws', 'logpx'),
-                            'vib': ('t1000', 'baseline', 'logits')}
+                            'vib': ('odin', 'baseline', 'logits')}
 
+    ODIN_TEMPS = [_ * 10 ** i for _ in (1, 2, 5) for i in (0, 1, 2)] + [1000]
+    ODIN_EPS = [_ /20 * 0.004 for _ in range(21)]
+    
     def __init__(self,
                  input_shape,
                  num_labels,
@@ -1331,11 +1334,31 @@ class ClassificationVariationalNetwork(nn.Module):
             for i in range(num_batch[s]):
 
                 if not recorded[s]:
+
+                    odin_parameters = []
+                    if 'odin*' in ood_methods_per_set[s]:
+                        ood_methods_per_sets[s].remove('odin*')
+                        for T in ODIN_TEMPS:
+                            for eps in ODIN_EPS:
+                                odin_parameters.append((T, eps))
+                                ood_methods_per_set[s].append('odin-{:.0f}-{.3f}'.format(T, eps))
                     data = next(test_iterator)
                     x = data[0].to(device)
                     y = data[1].to(device)
-                    with torch.no_grad():
+                    if odin_parameters:
+                        x.requires_grad_(True)
+                    with torch.set_grad_enabled(odin_method_in__methods):
                         _, logits, losses, _  = self.evaluate(x, batch=i)
+                    softmax_odin = {}
+                    if odin_parameters:
+                        for T in ODIN_TEMPS:
+                            softmax = (logits / T).softmax(-1).max(-1)[0]
+                            softmax.sum().backward()
+                            dx = x.grad.sign()
+                            for eps in ODIN_EPS:
+                                _, odin_logits = self.forward(x + eps * dx, z_output=False)
+                                out_probs = (odin_logits / T).softmax(-1).max(-1)[0]
+                                softmax_odin['{:.0f}-{.3f}'.format(Tn eps)] = out_probs
                 else:
                     components = [k for k in recorders[s].keys() if k in self.loss_components]
                     losses = recorders[s].get_batch(i, *components)

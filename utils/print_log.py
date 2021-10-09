@@ -40,7 +40,7 @@ class EpochOutput:
         return s
 
     def format_key(self, k, size=CELL_WIDTH - 2):
-        if k.startswith('odin'):
+        if k.startswith('odin-'):
 
             temp = int(k.split('-')[1])
             eps = int(float(k.split('-')[2]) * 10000)
@@ -67,9 +67,9 @@ class EpochOutput:
 
     def results(self, i, per_epoch, epoch, epochs,
                 loss_components=None,
-                losses=None,
+                losses={},
                 acc_methods=(),
-                accuracies=None,
+                accuracies={},
                 metrics=(),
                 measures=None,
                 best_of={'odin': -1},
@@ -98,8 +98,29 @@ class EpochOutput:
                       'snr': '{' + f':{cell_width-4}.1f' + '} dB '}
 
         kept_accuracies = {}
-        kept_metrics = set()
-        best_accuracies = {k: -best_of[k] * np.inf for k in best_of}
+        kept_methods = set()
+        which_is_best = {}
+        
+        for k in acc_methods:
+            kept = True
+            for k_ in best_of:
+                if k.startswith(k_):
+                    kept_methods.add(k_)
+                    _s = best_of[k_]
+                    if _s * accuracies.get(k, -_s * np.inf) > _s * kept_accuracies.get(k_, -_s * np.inf):
+                        kept_accuracies[k_] = accuracies[k]
+                        which_is_best[k_] = k
+
+                    kept = False
+
+            if kept:
+                kept_methods.add(k)
+                if k in accuracies:
+                    kept_accuracies[k] = accuracies[k]
+                            
+        acc_methods = kept_methods
+        accuracies = kept_accuracies
+        
                     
         if epoch == -2:
             i = per_epoch - 1        

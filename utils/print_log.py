@@ -100,25 +100,6 @@ class EpochOutput:
         kept_accuracies = {}
         kept_metrics = set()
         best_accuracies = {k: -best_of[k] * np.inf for k in best_of}
-
-        for k in metrics:
-            kept = True
-            for k_ in best_of:
-                if k.startswith(k_):
-                    if k not in kept_metrics:
-                        kept_metrics.add(k_)
-                        if accuracies and k in accuracies:
-                            kept_accuracies[k_] = accuracies[k]
-                    elif accuracies and k in accuracies and best_of[k_] * accuracies[k] > best_of[k_] * kept_accuracies[k_]:
-                      kept_accuracies[k_] = accuracies[k]      
-                    kept = False
-            if kept:
-                kept_metrics.add(k)
-                if accuracies and k in accuracies:
-                    kept_accuracies[k] = accuracies[k]
-
-        metrics = kept_metrics
-        accuracies = kept_accuracies
                     
         if epoch == -2:
             i = per_epoch - 1        

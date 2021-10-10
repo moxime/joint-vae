@@ -31,23 +31,13 @@ class EpochOutput:
         self.streams = [stdout]
         self.files = []
 
-    def format(self, string, tags=no_style_tags):
+    def format_encoding(self, string, tags=no_style_tags):
 
         s = string
         for pair in tags:
             s = s.replace(*pair)
 
         return s
-
-    def format_key(self, k, size=CELL_WIDTH - 2):
-        if k.startswith('odin-'):
-
-            temp = int(k.split('-')[1])
-            eps = int(float(k.split('-')[2]) * 10000)
-
-            return 'O-{:04d}-{:02d}'.format(temp, eps)
-
-        return k[:size]
 
     def add_file(self, path, when=EVERY_BATCH, tags=unix_tags):
 
@@ -57,12 +47,12 @@ class EpochOutput:
 
         for stream in self.streams:
             if stream['when'] >= when:
-                stream['stream'].write(self.format(string, stream['tags']))
+                stream['stream'].write(self.format_encoding(string, stream['tags']))
 
         for f in self.files:
             if f['when'] >= when:
                 with open(f['path'], 'a') as f_:
-                    f_.write(self.format(string, f['tags']))
+                    f_.write(self.format_encoding(string, f['tags']))
                     f_.flush()
 
     def results(self, i, per_epoch, epoch, epochs,
@@ -71,7 +61,7 @@ class EpochOutput:
                 acc_methods=(),
                 accuracies={},
                 metrics=(),
-                measures=None,
+                measures={},
                 best_of={'odin': -1},
                 time_per_i=0, batch_size=100,
                 preambule='',
@@ -87,50 +77,65 @@ class EpochOutput:
             sep = '|'
             double_sep = '||'
             
-        no_loss = losses is None
-        no_metrics = metrics is None
-
         K_epochs = 5
         cell_width = self.CELL_WIDTH
         K_preambule = 9
         
         num_format = {'default': '{' + f':{cell_width-1}.2e' + '} ',
+                      'odin': '{' + f':>{cell_width}' + '}',
                       'snr': '{' + f':{cell_width-4}.1f' + '} dB '}
 
+        kept_metrics = {}
+        for k in metrics:
+            kept = True
+            for k_ in best_of:
+                if k.startswith(k_):
+                    kept_metrics[k_] = None
+                    kept = False
+            if kept:
+                kept_metrics[k] = None
+        metrics = list(kept_metrics)
+
         kept_accuracies = {}
-        kept_methods = set()
+        kept_methods = {}
         which_is_best = {}
         
         for k in acc_methods:
             kept = True
             for k_ in best_of:
                 if k.startswith(k_):
-                    kept_methods.add(k_)
+                    kept_methods[k_] = None
                     _s = best_of[k_]
+                    # ex _s = -1 ; acc = 29 k_acc = inf
+                    # ex _s = -1 ; acc = inf k_acc = 29
+                    # ex _s = 1 ; acc = 29 k_acc = -inf 
                     if _s * accuracies.get(k, -_s * np.inf) > _s * kept_accuracies.get(k_, -_s * np.inf):
+                        # print('***     best {:16} {:4.1f}'.format(k, 100 * accuracies.get(k, -_s * np.inf)))
                         kept_accuracies[k_] = accuracies[k]
-                        which_is_best[k_] = k
-
+                        measures[k_] = k[len(k_) + 1:]
+                    else:
+                        pass
+                        # print('*** not best {:16} {:4.1f}'.format(k, 100 * accuracies.get(k, -_s * np.inf)))
                     kept = False
 
             if kept:
-                kept_methods.add(k)
+                kept_methods[k] = None
                 if k in accuracies:
                     kept_accuracies[k] = accuracies[k]
                             
-        acc_methods = kept_methods
+        acc_methods = list(kept_methods)
         accuracies = kept_accuracies
-        
-                    
+
+        # print('*** acc_m', *acc_methods)
         if epoch == -2:
             i = per_epoch - 1        
             preambule = f'{"epoch":_^{2 * K_epochs}}{preambule:_>{K_preambule}}_'
             if loss_components:
-                length = len(sep.join(f'{self.format_key(k):^{cell_width}}' for k in loss_components))
+                length = len(sep.join(f'{k:^{cell_width}}' for k in loss_components))
                 loss_str = f'{"losses":_^{length}}'
             else: loss_str = ''
             if metrics:
-                length = len(sep.join(f'{self.format_key(k):^{cell_width}}' for k in metrics))
+                length = len(sep.join(f'{k:^{cell_width}}' for k in metrics))
                 metrics_str = f'{"metrics":_^{length}}'
             else: metrics_str = ''
 
@@ -139,12 +144,12 @@ class EpochOutput:
             preambule = f'{" ":^{2 * K_epochs}}{preambule:>{K_preambule}} '
 
             if loss_components:
-                length = len(sep.join(f'{self.format_key(k):^{cell_width}}' for k in loss_components))
-                loss_str = sep.join(f'{self.format_key(k):^{cell_width}}' for k in loss_components)
+                length = len(sep.join(f'{k:^{cell_width}}' for k in loss_components))
+                loss_str = sep.join(f'{k:^{cell_width}}' for k in loss_components)
             else: loss_str = ''
             if metrics:
                 length = len(sep.join(f'{k:^{cell_width}}' for k in metrics))
-                metrics_str = sep.join(f'{self.format_key(k):^{cell_width}}' for k in metrics)
+                metrics_str = sep.join(f'{k:^{cell_width}}' for k in metrics)
             else: metrics_str=''
         else:
             if epoch:
@@ -154,9 +159,7 @@ class EpochOutput:
 
             if loss_components:
 
-                if no_loss:
-                    loss_str = sep.join(cell_width * ' ' for k in loss_components)
-                else:
+                if losses:
                     formatted = {k: num_format.get(k, num_format['default'])
                                  for k in loss_components}
                     value = {k: losses.get(k, np.nan)
@@ -164,11 +167,12 @@ class EpochOutput:
 
                     loss_str = sep.join(formatted[k].format(value[k])
                                         for k in loss_components)
-            else: loss_str = ''
-            if metrics:
-                if no_metrics:
-                    metrics_str = sep.join(cell_width * ' ' for k in metrics)
                 else:
+                    loss_str = sep.join(cell_width * ' ' for k in loss_components)
+            else: loss_str = ''
+
+            if metrics:
+                if measures:
                     formatted = {k: num_format.get(k, num_format['default'])
                              for k in metrics}
                     value = {k: measures.get(k, np.nan)
@@ -176,6 +180,8 @@ class EpochOutput:
 
                     metrics_str = sep.join(formatted[k].format(value[k])
                                            for k in metrics)
+                else:
+                    metrics_str = sep.join(cell_width * ' ' for k in metrics)
 
             else: metrics_str = ''
 
@@ -183,7 +189,7 @@ class EpochOutput:
             length = len(sep.join(f'{k:^9}' for k in acc_methods)) 
             acc_str = f'{"accuracy":_^{length}}'
         elif epoch == -1: 
-            acc_str = sep.join(f'{self.format_key(k):^9}' for k in acc_methods)
+            acc_str = sep.join(f'{k:^9}' for k in acc_methods)
         elif accuracies:
             acc_str_ = []
             for k in acc_methods:

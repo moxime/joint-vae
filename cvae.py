@@ -100,13 +100,15 @@ class ClassificationVariationalNetwork(nn.Module):
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             # 'vae': ('logpx', 'iws'),
                             'vae': ('iws-2s', 'iws', 'logpx'),
-                            'vib': ('odin*', 'baseline', 'logits')}
+                            'vib': ('t1000', 'odin*', 'baseline', 'logits')}
 
     ODIN_TEMPS = [_ * 10 ** i for _ in (1, 2, 5) for i in (0, 1, 2)] + [1000]
-    ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
-
-    ODIN_TEMPS = [500, 1000]
-    ODIN_EPS = [0, 0.002, 0.004]
+    ODIN_EPS = [_ / 20 * 0.008 for _ in range(21)]
+    # ODIN_EPS = [_ / 40 * 0.008 for _ in range(41)]
+    
+    # ODIN_TEMPS = [500, 1000]
+    # ODIN_TEMPS = [1, 1000]
+    # ODIN_EPS = [0]  # , 0.002, 0.004]
 
     def __init__(self,
                  input_shape,
@@ -788,9 +790,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         # logging.debug('Losses computed')
         if self.is_cvae:
-            y_est_out = y_est.mean(0)
+            y_est_out = y_est[1:].mean(0)
         else:
-            y_est_out = y_est.mean(0) 
+            y_est_out = y_est[1:].mean(0) 
         out = (x_reco, y_est_out, batch_losses, total_measures)
         if z_output:
             out += (mu, log_var, z)
@@ -1364,7 +1366,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             for eps in self.ODIN_EPS:
                                 _, odin_logits = self.forward(x + eps * dx, z_output=False)
                                 out_probs = (odin_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
-                                odin_softmax['odin-{:.0f}-{:.3f}'.format(T, eps)] = out_probs
+                                odin_softmax['odin-{:.0f}-{:.4f}'.format(T, eps)] = out_probs
                 else:
                     components = [k for k in recorders[s].keys() if k in self.loss_components]
                     losses = recorders[s].get_batch(i, *components)
@@ -1459,7 +1461,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             for eps in self.ODIN_EPS:
                                 _, odin_logits = self.forward(x + eps * dx, z_output=False)
                                 out_probs = (odin_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
-                                odin_softmax['odin-{:.0f}-{:.3f}'.format(T, eps)] = out_probs
+                                odin_softmax['odin-{:.0f}-{:.4f}'.format(T, eps)] = out_probs
                         
                 else:
                     components = [k for k in recorders[s].keys() if k in self.loss_components]
@@ -1624,7 +1626,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             for T in self.ODIN_TEMPS:
                 for eps in self.ODIN_EPS:
-                    self.ood_methods += ('odin-{:.0f}-{:.3f}'.format(T, eps),)
+                    self.ood_methods += ('odin-{:.0f}-{:.4f}'.format(T, eps),)
                 
         odin_parameters = [_ for _ in self.ood_methods if _.startswith('odin')]
 

@@ -100,7 +100,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'jvae': ('max', 'sum',  'std'),  # 'mag'),
                             # 'vae': ('logpx', 'iws'),
                             'vae': ('iws-2s', 'iws', 'logpx'),
-                            'vib': ('t1000', 'odin*', 'baseline', 'logits')}
+                            'vib': ('odin*', 'baseline', 'logits')}
 
     ODIN_TEMPS = [_ * 10 ** i for _ in (1, 2, 5) for i in (0, 1, 2)] + [1000]
     ODIN_EPS = [_ / 20 * 0.008 for _ in range(21)]

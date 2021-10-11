@@ -405,7 +405,7 @@ def digest_table(*jobs,
     f = {j: create_file(j, directory, filename) if filename else None for j in jobs}
     printouts = {j: create_printout(file_id=f[j], std=stdout, end='') for j in jobs}
         
-    models = find_by_job_number(*jobs, load_net=False, force_dict=True)
+    models = find_by_job_number(*jobs, tpr_for_max=tpr, load_net=False, force_dict=True)
     for j in jobs:
 
         printout = printouts[j]
@@ -417,7 +417,7 @@ def digest_table(*jobs,
         testset = m['set']
         mtype = m['type']
         test_results = m['net'].testing
-        ood_results = m['net'].ood_results
+        ood_results = m['ood_fprs']
         oodsets = method_and_set_dict[testset]
         methods = method_and_set_dict.get(mtype, [None, None])
         if mtype in ours:
@@ -444,13 +444,20 @@ def digest_table(*jobs,
             
         list_of_fpr = []
         for o in oodsets:
+
+            _m = ','.join(ood_results[o])
+            logging.debug('OOD methods for %s %s:',
+                          o, _m)
             for m in ood_methods:
             
                 highlighted = highlight + ' ' if m in ours.get(mtype, []) else ''
                 if m and o in ood_results and m in ood_results[o]:
-                    fpr_ = {t: 100 * f for t, f in zip(ood_results[o][m]['tpr'], ood_results[o][m]['fpr'])}
-                    t_ = min(t for t in fpr_ if t >= tpr)
-                    fpr = highlighted + f'{fpr_[t_]:.{precision}f}'
+                    fpr_ = ood_results[o][m]
+                    t_ = min((t for t in fpr_ if isinstance(t, float) and t >= tpr), default=None)
+                    if t_:
+                        fpr = highlighted + f'{100 * fpr_[t_]:.{precision}f}'
+                    else:
+                        fpr = empty
                 else:
                     fpr = empty
                     

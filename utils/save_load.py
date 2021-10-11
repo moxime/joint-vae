@@ -11,7 +11,7 @@ from module.optimizers import Optimizer
 import re
 from utils.misc import make_list
 from utils.torch_load import get_same_size_by_name
-
+from utils.roc_curves import fpr_at_tpr
 
 def get_path(dir_name, file_name, create_dir=True):
 
@@ -555,7 +555,7 @@ def available_results(model, min_samples=1000, epoch_tolerance=10,
     return available
 
 
-def make_dict(model, directory, **kw):
+def make_dict_from_model(model, directory, tpr=0.95, **kw):
 
     architecture = ObjFromDict(model.architecture, features=None)
     training = ObjFromDict(model.training_parameters,
@@ -603,6 +603,20 @@ def make_dict(model, directory, **kw):
     for s in tested_ood_sets:
         res_by_set = {}
         ood_results = clean_results(model.ood_results[s], model.ood_methods, fpr=[], tpr=[], auc=None)
+
+        starred_methods = [m for m in ood_results if m.endswith('*')]
+
+        _r = model.ood_results[s]
+        for m in starred_methods:
+            methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr)
+                                   for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
+            params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
+            # print('***', *methods_to_be_maxed)
+            if params_max_auc:
+                ood_results[m] = _r[params_max_auc]
+                # print(model.job_number, s, params_max_auc, _r[params_max_auc]['auc'])
+            ood_results[m]['params'] = params_max_auc
+            
         for m in ood_results:
             fpr_ = ood_results[m]['fpr']
             tpr_ = ood_results[m]['tpr']
@@ -746,7 +760,7 @@ def make_dict(model, directory, **kw):
 
 
 def collect_networks(directory, list_of_vae_by_architectures=None,
-                     load_state=True, **default_load_paramaters):
+                     load_state=True, tpr_for_max=0.95, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
     
@@ -777,7 +791,7 @@ def collect_networks(directory, list_of_vae_by_architectures=None,
                                                       load_state=load_state,
                                                       **default_load_paramaters)
 
-        model_dict = make_dict(model, directory) 
+        model_dict = make_dict_from_model(model, directory, tpr=tpr_for_max) 
         append_by_architecture(model_dict, list_of_vae_by_architectures)
 
     except RuntimeError as e:
@@ -830,12 +844,12 @@ def is_derailed(model, load_model_for_check=False):
     return False            
 
 
-def find_by_job_number(*job_numbers, dir='jobs', load_net=True, force_dict=False, **kw):
+def find_by_job_number(*job_numbers, dir='jobs', tpr_for_max=0.95, load_net=True, force_dict=False, **kw):
 
     from cvae import ClassificationVariationalNetwork
     d = {}
 
-    v_ = sum(collect_networks(dir, load_net=False, **kw), [])
+    v_ = sum(collect_networks(dir, tpr_for_max=tpr_for_max,load_net=False, **kw), [])
     for number in job_numbers:
         for v in v_:
             if v['job'] == number:

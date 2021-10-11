@@ -11,7 +11,7 @@ import logging
 import pandas as pd
 
 from utils.parameters import get_args, set_log, gethostname
-from utils.save_load import collect_networks, test_results_df, LossRecorder, make_dict
+from utils.save_load import collect_networks, test_results_df, LossRecorder, make_dict_from_model
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
 from utils.testing import worth_computing
 
@@ -262,6 +262,7 @@ if __name__ == '__main__':
 
     logging.debug('Collecting networks')
     list_of_networks = collect_networks(search_dir,
+                                        tpr_for_max=args.tpr[0] / 100,
                                         load_net=False,
                                         load_state=False)
         
@@ -357,7 +358,7 @@ if __name__ == '__main__':
             model.ood_detection_rates(wygiwyu=True, print_result='OFR')
             if not args.dry_run:
                 model.save(m['dir'])
-            m.update(make_dict(model, m['dir']))                
+            m.update(make_dict_from_model(model, m['dir']))                
 
     if args.compute == 'hard':
 

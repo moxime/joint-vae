@@ -103,7 +103,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'vib': ('odin*', 'baseline', 'logits')}
 
     ODIN_TEMPS = [_ * 10 ** i for _ in (1, 2, 5) for i in (0, 1, 2)] + [1000]
-    ODIN_EPS = [_ / 20 * 0.008 for _ in range(21)]
+    ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
     # ODIN_EPS = [_ / 40 * 0.008 for _ in range(41)]
     
     # ODIN_TEMPS = [500, 1000]

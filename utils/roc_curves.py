@@ -91,9 +91,10 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
 
         tpr = (ins_idx) / n_ins 
         fpr = (outs_idx) / n_outs
-        prec = ins_idx / (ins_idx + outs_idx) if ins_idx + out_idx else 1.
+        prec = ins_idx / (ins_idx + outs_idx) if ins_idx + outs_idx else 1.
 
-        if not two_sided: t = -t
+        if not two_sided:
+            t = -t
         if debug == 'hard':
             if two_sided:
                 tpr_ = (abs(ins[test_ins_idx] - center) <= t).sum() / n_ins

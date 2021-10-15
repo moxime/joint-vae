@@ -65,12 +65,14 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
     relevant_thresholds = []
     relevant_fpr = []
     relevant_tpr = []
+    relevant_prec = []
     
     last_fpr = -.01
 
     kept_tpr = np.sort(kept_tpr)
     kept_fpr = np.zeros_like(kept_tpr)
     kept_thresholds = np.zeros_like(kept_tpr)
+    kept_precisions = np.zeros_like(kept_tpr)
     kept_tpr_i = 0
 
     n_ins = len(all_thresholds) - 1
@@ -89,6 +91,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
 
         tpr = (ins_idx) / n_ins 
         fpr = (outs_idx) / n_outs
+        prec = ins_idx / (ins_idx + outs_idx) if ins_idx + out_idx else 1.
 
         if not two_sided: t = -t
         if debug == 'hard':
@@ -118,6 +121,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
             kept_fpr[kept_tpr_i] = fpr
             kept_tpr[kept_tpr_i] = tpr
             kept_thresholds[kept_tpr_i] = t
+            kept_precisions[kept_tpr_i] = t
             kept_tpr_i += 1
 
             if debug in ('medium', 'hard'):

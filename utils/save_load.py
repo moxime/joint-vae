@@ -494,9 +494,11 @@ def needed_components(method):
 
     total = ('loss', 'logpx', 'sum', 'max', 'mag', 'std', 'mean')
     ncd = {'iws': ('iws',),
+           'softiws': ('iws',),
            'closest': ('zdist',),
            'kl': ('kl',),
            'soft': ('kl',),
+           'softkl': ('kl',),
            'mse': ('cross_x')}
 
     for k in total:
@@ -505,14 +507,19 @@ def needed_components(method):
     return ncd.get(method, ())
 
 
-def available_results(model, min_samples=1000, epoch_tolerance=10,
-                      predict_methods='all', ood_sets='all', ood_methods='all'):
+def available_results(model, min_samples=1000,
+                      epoch_tolerance=10,
+                      predict_methods='all',
+                      misclass_methods='all',
+                      ood_sets='all',
+                      ood_methods='all'):
 
     if isinstance(model, dict):
         model = model['net']
 
     predict_methods = make_list(predict_methods, model.predict_methods)
     ood_methods = make_list(ood_methods, model.ood_methods)
+    misclass_methods = make_list(misclass_methods, model.misclass_methods)
 
     testset = model.training_parameters['set']
     all_ood_sets = get_same_size_by_name(testset)
@@ -520,12 +527,16 @@ def available_results(model, min_samples=1000, epoch_tolerance=10,
     
     sets = [testset] + ood_sets
 
-    methods = {testset: predict_methods}
+    methods = {testset: predict_methods + misclass_methods}
     methods.update({s: ood_methods for s in ood_sets})
     
     available = {'json': {}, 'recorders': {}}
 
     test_results = clean_results(model.testing, predict_methods)
+    pm_ = list(test_results.keys())
+    for pm in pm_:
+        misclass_results = clean_results(test_results[pm], misclass_methods)
+        test_results.update({pm + '-' + m: misclass_results[m] for m in misclass_results})
     results = {s: clean_results(model.ood_results.get(s, {}), ood_methods) for s in ood_sets}
 
     results[testset] = test_results

@@ -5,10 +5,14 @@ import logging
 
 
 def testing_plan(model, min_samples=1000, epoch_tolerance=10,
-                 predict_methods='all', ood_sets='all', ood_methods='all'):
+                 predict_methods='all', ood_sets='all', ood_methods='all', misclass_methods='all'):
 
-    available = available_results(model, min_samples, epoch_tolerance, predict_methods, ood_sets, ood_methods)
-        
+    available = available_results(model, min_samples, epoch_tolerance,
+                                  predict_methods=predict_methods,
+                                  misclass_methods=misclass_methods,
+                                  ood_sets=ood_sets,
+                                  ood_methods=ood_methods)
+
     if isinstance(model, str):
         model = Model.load(model, load_state=False)
     elif isinstance(model, dict):
@@ -32,7 +36,8 @@ def testing_plan(model, min_samples=1000, epoch_tolerance=10,
     # return available, None
     
     for s in sets:
-        for m in methods[s]:
+        for m in available['recorders'][s]:
+            # print('***', s, m)
             n, epoch = ({w: available[w][s][m][k] for w in ('json', 'recorders')} for k in ('n', 'epochs'))
 
             delta_epoch = epoch['recorders'] - epoch['json']

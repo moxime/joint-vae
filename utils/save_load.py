@@ -490,7 +490,23 @@ def clean_results(results, methods, **zeros):
     return completed
 
 
-def needed_components(method):
+def develop_starred_methods(methods, methods_params, inplace=True):
+
+    if not inplace:
+        methods = methods.copy()
+    starred_methods = []
+    for m in methods:
+        if m.endswith('*'):
+            methods += methods_params.get(m[:-1], [])
+            starred_methods.append(m)
+
+    for m in starred_methods:
+        methods.remove(m)
+
+    return methods
+
+
+def needed_components(*methods):
 
     total = ('loss', 'logpx', 'sum', 'max', 'mag', 'std', 'mean')
     ncd = {'iws': ('iws',),
@@ -504,7 +520,7 @@ def needed_components(method):
     for k in total:
         ncd[k] = ('total',)
 
-    return ncd.get(method, ())
+    return sum(tuple(ncd.get(m, ()) for m in methods), ())
 
 
 def available_results(model, min_samples=1000,
@@ -521,34 +537,44 @@ def available_results(model, min_samples=1000,
     ood_methods = make_list(ood_methods, model.ood_methods)
     misclass_methods = make_list(misclass_methods, model.misclass_methods)
 
+    for _l in (predict_methods, ood_methods, misclass_methods):
+        develop_starred_methods(_l, model.methods_params)
+
     testset = model.training_parameters['set']
     all_ood_sets = get_same_size_by_name(testset)
     ood_sets = make_list(ood_sets, all_ood_sets)
     
     sets = [testset] + ood_sets
 
-    methods = {testset: predict_methods + misclass_methods}
-    methods.update({s: ood_methods for s in ood_sets})
-    
+    methods = {testset: [(m,) for m in predict_methods]}
+    methods[testset] += [(pm, mm) for mm in misclass_methods for pm in predict_methods]
+    methods.update({s: [(m,) for m in ood_methods] for s in ood_sets})
+        
     available = {'json': {}, 'recorders': {}}
 
     test_results = clean_results(model.testing, predict_methods)
+    # print(test_results)
+    
     pm_ = list(test_results.keys())
     for pm in pm_:
         misclass_results = clean_results(test_results[pm], misclass_methods)
         test_results.update({pm + '-' + m: misclass_results[m] for m in misclass_results})
+
     results = {s: clean_results(model.ood_results.get(s, {}), ood_methods) for s in ood_sets}
 
     results[testset] = test_results
 
+    # print(test_results)
+    
     available['json'] = {s: {m: {k: results[s][m][k]
                                  for k in ('n', 'epochs')}
                              for m in results[s]}
                          for s in results}
 
+    # print(available['json'])
     rec_dir = os.path.join(model.saved_dir, 'samples', 'last')
 
-    available['recorders'] = {s: clean_results({}, methods[s]) for s in sets}
+    available['recorders'] = {s: clean_results({}, ['-'.join(_) for _ in methods[s]]) for s in sets}
 
     if os.path.isdir(rec_dir):
         recorders = LossRecorder.loadall(rec_dir)
@@ -558,10 +584,10 @@ def available_results(model, min_samples=1000,
                 continue
             n = len(r) * r.batch_size
             for m in methods[s]:
-                all_components = all(c in r.keys() for c in needed_components(m))
+                all_components = all(c in r.keys() for c in needed_components(*m))
 
                 if all_components:
-                    available['recorders'][s][m] = dict(n=n, epochs=epoch)
+                    available['recorders'][s]['-'.join(m)] = dict(n=n, epochs=epoch)
 
     return available
 

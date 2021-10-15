@@ -7,7 +7,7 @@ from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, kl_loss, mse_loss
 
-from utils.save_load import LossRecorder, last_samples, available_results
+from utils.save_load import LossRecorder, last_samples, available_results, develop_starred_methods
 
 from utils.misc import make_list
 
@@ -1542,7 +1542,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                          wygiswyu=True,
                                          sample_dir=None,
                                          predict_methods='all',
-                                         ood_methods='all',
+                                         misclass_methods='all',
                                          shown_tpr=0.95,
                                          outputs=EpochOutput):
 
@@ -1551,7 +1551,9 @@ class ClassificationVariationalNetwork(nn.Module):
                           'before computing misclassification rates')
             return
 
-        available = available_results(self, min_samples=1, ood_sets='testset')['recorders']
+        from_r = testing_plan(self, ood_sets=[],
+                              predict_methods=predict_methods,
+                              misclass_methods=misclass_methods)
         
         if not sample_dir:
             sample_dir = os.path.join(self.saved_dir, 'samples', 'last')
@@ -1562,12 +1564,14 @@ class ClassificationVariationalNetwork(nn.Module):
             f = f'record-{testset}.pth'
             recorder = LossRecorder.load(os.path.join(sample_dir, f))
         
-        methods = {'predict': predict_methods, 'miss': ood_methods}
+        methods = {'predict': predict_methods, 'miss': misclass_methods}
 
         for which, all_methods in zip(('predict', 'miss'),
-                                      (self.predict_methods, self.ood_methods)):
+                                      (self.predict_methods, self.misclass_methods)):
 
-            methods[which] = make_list(methods[which], all_methods)
+            methods[which] = make_list(methods[which],
+                                       develop_starred_methods(all_methods, self.methods_params))
+            
             # print('*** methods for', which, ':', methods[which], '(', *all_methods, ')')
 
             for m in methods[which]:
@@ -1733,12 +1737,7 @@ class ClassificationVariationalNetwork(nn.Module):
         for s in oodsets:
             sets.append(s.name)
 
-        for m in self.ood_methods:
-            if m.endswith('*'):
-                self.ood_methods += self.methods_params[m[:-1]]
-        for m in self.ood_methods:
-            if m.endswith('*'):
-                self.ood_methods.remove(m)
+        develop_starred_methods(self.ood_methods, self.methods_params)
                 
         odin_parameters = [_ for _ in self.ood_methods if _.startswith('odin')]
 
@@ -2295,6 +2294,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.debug('Ghost network loaded')
                 vae.job_number = job_number
                 vae.ood_methods = cls.ood_methods_per_type[vae.type]
+                vae.methods_params = cls.methods_params
                 vae.predict_methods = cls.predict_methods_per_type[vae.type]
                 vae.misclass_methods = cls.misclass_methods_per_type[vae.type]
                 classifier_layer_sizes = params['classifier']

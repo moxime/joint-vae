@@ -2304,7 +2304,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     vae.y_is_decoded = gamma
 
                 if vae.y_is_decoded and 'esty' not in vae.predict_methods:
-                    vae.predict_methods = ('esty',) + vae.predict_methods
+                    vae.predict_methods = ['esty'] + vae.predict_methods
 
                 if vae.y_is_decoded and 'cross_y' not in vae.loss_components:
                     vae.loss_components += ('cross_y',)

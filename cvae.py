@@ -100,7 +100,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'vae': ['iws-2s', 'iws', 'logpx'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
-    misclass_methods_per_type = {'cvae': ['iws', 'kl', 'softkl', 'softiws'],
+    misclass_methods_per_type = {'cvae': ['iws', 'kl', 'softkl*', 'softiws*'],
                            'xvae': [],
                            'jvae': [],
                            'vae': [],
@@ -118,7 +118,10 @@ class ClassificationVariationalNetwork(nn.Module):
     for T in ODIN_TEMPS:
         for eps in ODIN_EPS:
             odin_params.append('odin-{:.0f}-{:.4f}'.format(T, eps))
-    methods_params = {'odin': tuple(odin_params)}
+    methods_params = {'odin': odin_params,
+                      'softiws': [f'softiws-{_:.0f}' for _ in ODIN_TEMPS],
+                      'softkl': [f'softkl-{_:.0f}' for _ in ODIN_TEMPS]}
+    
 
     def __init__(self,
                  input_shape,
@@ -857,11 +860,11 @@ class ClassificationVariationalNetwork(nn.Module):
             return losses['iws'].argmax(0)
         raise ValueError(f'Unknown method {method}')
 
-    def batch_dist_measures(self, logits, losses, methods, odin_softmax={}):
+    def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
             
         dist_measures = {m: None for m in methods}
-        for m in methods:
-            assert not m.startswith('odin') or m in odin_softmax 
+        # for m in methods:
+        #    assert not m.startswith('odin') or m in odin_softmax 
         
         C = self.num_labels
         
@@ -901,9 +904,15 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = logp_max
             elif m == 'softiws':
                 measures = (losses['iws']).softmax(0).max(axis=0)[0]
+            elif m.startswith('softiws-'):
+                T = float(m[8:])
+                measures = (losses['iws'] / T).softmax(0).max(axis=0)[0]
             elif m in ('soft', 'softkl'):
                 # measures = logp.softmax(0).max(axis=0)[0]
                 measures = (-losses['kl']).softmax(0).max(axis=0)[0]
+            elif m.startswith('softkl-'):
+                T = float(m[7:])
+                measures = (- losses['kl'] / T).softmax(0).max(axis=0)[0]
             elif m == 'logits':
                 measures = logits.max(axis=-1)[0]
             elif m == 'baseline':
@@ -933,12 +942,12 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = -losses['cross_x']
 
             elif m.startswith('odin'):
-                measures = odin_softmax[m]
+                measures = losses[m]
             
             else:
                 raise ValueError(f'{m} is an unknown ood method')
 
-            dist_measures[m + ('-2s' if two_sided else '')] = measures
+            dist_measures[m + ('-2s' if two_sided else '')] = measures.cpu() if to_cpu else measures
 
         return dist_measures
 
@@ -1364,7 +1373,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     if odin_parameters:
                         x.requires_grad_(True)
                     with torch.no_grad():
-                        _, logits, losses, _  = self.evaluate(x, batch=i)
+                        _, logits, losses, _ = self.evaluate(x, batch=i)
 
                     odin_softmax = {}
                     if odin_parameters:
@@ -1381,7 +1390,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 out_probs = (odin_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
                                 odin_softmax['odin-{:.0f}-{:.4f}'.format(T, eps)] = out_probs
                 else:
-                    components = [k for k in recorders[s].keys() if k in self.loss_components]
+                    components = [k for k in recorders[s].keys() if k in self.loss_components or k.startswtih('odin')]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     
@@ -1389,8 +1398,8 @@ class ClassificationVariationalNetwork(nn.Module):
                     recorders[s].append_batch(**losses, **odin_softmax, y_true=y, logits=logits.T)
                     
                 measures = self.batch_dist_measures(logits, losses,
-                                                    ood_methods_per_set[s],
-                                                    odin_softmax=odin_softmax)
+                                                    ood_methods_per_set[s])
+
                 for m in ood_methods_per_set[s]:
                     # print('*** ood', m, *measures[m].shape)
                     
@@ -1585,6 +1594,8 @@ class ClassificationVariationalNetwork(nn.Module):
         kept_tpr = [pc / 100 for pc in range(90, 100)]
 
         _p = 5.2
+        _p_1 = 4.1
+        
         for predict_method in methods['predict']:
             
             y_ = self.predict_after_evaluate(logits, losses, method=predict_method)
@@ -1593,36 +1604,28 @@ class ClassificationVariationalNetwork(nn.Module):
 
             acc = correct.sum().item() / (correct.sum().item() + missed.sum().item())
                    
-            miss_losses = {k: losses[k][..., missed] for k in losses}
-            test_measures = self.batch_dist_measures(logits, losses, methods['miss'])
-            miss_measures = self.batch_dist_measures(logits[missed], miss_losses, methods['miss'])
+            test_measures = self.batch_dist_measures(logits, losses, methods['miss'], to_cpu=True)
 
             fpr_, tpr_, precision_, recall_, thresholds_ = {}, {}, {}, {}, {}
 
             logging.debug(f'*** {predict_method} ({100 * acc:{_p}f})')
+
+            max_P = 0
+            
             for m in methods['miss']:
-                correct_labels = np.concatenate([np.ones(len(y)), np.zeros(sum(missed))])
-                all_missed_measures = np.concatenate([test_measures[m].cpu(),
-                                                      miss_measures[m].cpu()])
                 
-                all_fpr, all_tpr, all_thresholds =  roc_curve(correct_labels,
-                                                              all_missed_measures)
+                auc, fpr, tpr, thr = roc_curve(test_measures[m][correct],
+                                               test_measures[m][missed], *kept_tpr)
 
-                kept_thr = [fpr_at_tpr(all_fpr, all_tpr, a,
-                                        all_thresholds,
-                                        return_threshold=True)[1] for a in kept_tpr]
+                tp = [(test_measures[m][correct] > t).sum().item() for t in thr]
+                tn =  [(test_measures[m][missed] <= t).sum().item() for t in thr]
+                fp =  [(test_measures[m][missed] > t).sum().item() for t in thr]
+                fn = [(test_measures[m][correct] <= t).sum().item() for t in thr]
 
-                tp = [(test_measures[m][correct] > t).sum().item() for t in kept_thr]
-                tn =  [(test_measures[m][missed] <= t).sum().item() for t in kept_thr]
-                fp =  [(test_measures[m][missed] > t).sum().item() for t in kept_thr]
-                fn = [(test_measures[m][correct] <= t).sum().item() for t in kept_thr]
-
-                t95 = fpr_at_tpr(all_fpr, all_tpr, shown_tpr, all_thresholds,
-                                 return_threshold=True)[1]
+                t95 = fpr_at_tpr(fpr, tpr, shown_tpr, thr, return_threshold=True)[1]
                 
                 tp95 = (test_measures[m][correct] > t95).sum().item()
                 fp95 = (test_measures[m][missed] > t95).sum() .item()
-
                 
                 p95 = tp95 / (tp95 + fp95)
 
@@ -1635,11 +1638,15 @@ class ClassificationVariationalNetwork(nn.Module):
                 precision_[m] = [(t / (t + f)) for t, f in zip(tp, fp)]
                 recall_[m] = [t / correct.sum().item() for t in tp]
 
-                logging.debug('{:6}: '.format(m) +
+                if p95 > max_P:
+                    best_m = m
+                    max_P = p95
+                logging.debug('{:16}: '.format(m) +
                               '\tP={:{p}f} '.format(100 * p95, p=_p) +
                               '({:+{p}f}) '.format(100 * dp95, p = _p_1) +
                               'R={:{p}f} FPR={:{p}f}'.format(100 * r95, 100 * fpr95, p=_p))
-            
+            # print('*** {}: {:{p}f} ({:+{p1}f})'.format(best_m, 100 * max_P, 100 * (max_P -acc), p=_p, p1=_p-1.1))
+                
     def train_model(self,
                     trainset=None,
                     transformer=None,

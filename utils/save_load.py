@@ -515,12 +515,12 @@ def needed_components(*methods):
            'kl': ('kl',),
            'soft': ('kl',),
            'softkl': ('kl',),
-           'mse': ('cross_x')}
+           'mse': ('cross_x',)}
 
     for k in total:
         ncd[k] = ('total',)
 
-    return sum(tuple(ncd.get(m, ()) for m in methods), ())
+    return sum((ncd.get(m, ()) for m in methods), ())
 
 
 def available_results(model, min_samples=1000,

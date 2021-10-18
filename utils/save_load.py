@@ -344,7 +344,7 @@ class LossRecorder:
         torch.save(self.__dict__, file_path)
 
     @classmethod
-    def load(cls, file_path):
+    def load(cls, file_path, device=None):
 
         dict_of_params = torch.load(file_path)
         num_batch = dict_of_params['_num_batch']
@@ -359,7 +359,11 @@ class LossRecorder:
         for k in dict_of_params:
             if not k.startswith('_'):
                 setattr(r, k, dict_of_params[k])
-            
+
+        if device:
+            for k in r._tensors:
+                if r._tensors[k].device != device:
+                    r._tensors[k] =  r._tensors[k].to('cpu')
         return r
 
     @classmethod

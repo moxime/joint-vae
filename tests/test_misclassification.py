@@ -20,7 +20,7 @@ args = argparse.ArgumentParser()
 
 args.add_argument('-j', default=j, type=int)
 args.add_argument('--tpr', default=tpr, type=float)
-args.add_argument('direct_load')
+args.add_argument('direct_load', nargs='?')
 args.add_argument('--plot', action='store_true')
 args.add_argument('-N', type=int, default=1000)
 args.add_argument('-T', type=int, nargs='+', default=[1])
@@ -85,7 +85,7 @@ for T in a.T:
     totals = {_: None for _ in set(cols.values())}
     
     _n = len(misclass_thresholds)
-    _i = [_ * _n // 100 for _ in range(30)]
+    _i = [_ * _n // 100 for _ in range(100)]
 
 
     print('|{:_^8}'.format('t'), end='|')
@@ -121,8 +121,9 @@ for T in a.T:
     plt.figure()
 
     i_ = np.random.permutation(len(correct))[:a.N]
-    plt.plot(logp_x_y_max[i_][correct[i_]].numpy(), p_y_x[i_][correct[i_]].numpy(), 'b.')
-    plt.plot(logp_x_y_max[i_][missed[i_]].numpy(), p_y_x[i_][missed[i_]].numpy(), 'r.')
+    log_p_y_x = p_y_x.exp()
+    plt.plot(logp_x_y_max[i_][correct[i_]].numpy(), log_p_y_x[i_][correct[i_]].numpy(), 'b.')
+    plt.plot(logp_x_y_max[i_][missed[i_]].numpy(), log_p_y_x[i_][missed[i_]].numpy(), 'r.')
     plt.title(T)
 
     plt.show(block=False)

@@ -23,6 +23,16 @@ def gethostname():
     return raw_host.split('.')[0]
     
 
+def in_list_with_starred(k, list_with_starred):
+
+    for k_ in list_with_starred:
+        if k_.endswith('*') and k.startswith(k_[:-1]):
+            return True
+        elif k_ == k:
+            return True
+    return False
+
+
 def set_log(verbose, debug, log_dir, name='train', job_number=0):
     
     log = logging.getLogger('')

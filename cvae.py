@@ -861,7 +861,8 @@ class ClassificationVariationalNetwork(nn.Module):
         raise ValueError(f'Unknown method {method}')
 
     def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
-            
+
+        # print('*** cvae:865', *losses)
         dist_measures = {m: None for m in methods}
         # for m in methods:
         #    assert not m.startswith('odin') or m in odin_softmax 
@@ -1397,7 +1398,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if recording[s]:
                     recorders[s].append_batch(**losses, **odin_softmax, y_true=y, logits=logits.T)
                     
-                measures = self.batch_dist_measures(logits, losses,
+                measures = self.batch_dist_measures(logits, dict(**losses, **odin_softmax),
                                                     ood_methods_per_set[s])
 
                 for m in ood_methods_per_set[s]:
@@ -1486,15 +1487,16 @@ class ClassificationVariationalNetwork(nn.Module):
                                 odin_softmax['odin-{:.0f}-{:.4f}'.format(T, eps)] = out_probs
                         
                 else:
-                    components = [k for k in recorders[s].keys() if k in self.loss_components]
+                    components = [k for k in recorders[s].keys() if k in self.loss_components or k.startswith('odin')]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     
                 if recording[s]:
                     recorders[s].append_batch(**losses, **odin_softmax, y_true=y, logits=logits.T)
 
-                measures = self.batch_dist_measures(logits, losses, ood_methods_per_set[s],
-                                                    odin_softmax=odin_softmax)
+                measures = self.batch_dist_measures(logits, dict(**losses, **odin_softmax),
+                                                    ood_methods_per_set[s])
+                                                    
                 for m in ood_methods_per_set[s]:
                     ood_measures[m] = np.concatenate([ood_measures[m],
                                                       measures[m].cpu()])
@@ -1504,6 +1506,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 meaned_measures = {m: ood_measures[m].mean()
                                    for m in ood_methods_per_set[s]}
 
+                t0 = time.time()
                 for m in ood_methods_per_set[s]:
                     logging.debug(f'Computing roc curves for with metrics {m}')
                     _debug = 'medium' if i == ood_n_batch - 1 else 'soft'
@@ -1511,11 +1514,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                                                           *kept_tpr,
                                                                           debug=_debug,
                                                                           two_sided=m.endswith('-2s'))
-
                     r_[m] = fpr_at_tpr(fpr_[m],
                                        tpr_[m],
                                        0.95,
                                        thresholds_[m])
+
+                # print('*** cvae:1522 *** {} {:.0f}ms / method'.format(s, 1e3 * (time.time() - t0) / len(r_)))
 
                 outputs.results(i, ood_n_batch, 0, 1,
                                 metrics=ood_methods_per_set[oodset.name],

@@ -1029,23 +1029,36 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
     for c in df.columns[df.columns.isin(['measures'], level=0)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
-    sorting_levels = list(df.index.names)
-    sorting_levels.remove('sigma')
-    sorting_levels.remove('sigma_train')
+    sorting_index = list(df.index.names)
+    # sorting_index.remove('sigma')
+    # sorting_index.remove('sigma_train')
 
+    sorting_columns = []
     if sorting_keys:
         sorting_keys_ = [k.replace('-', '_') for k in sorting_keys]
         for k in sorting_keys_:
             try:
-                sorting_levels.remove(k)
+                sorting_index.remove(k)
             except ValueError as e:
-                print('Possible sorting keys:',
-                      ' -- '.join(sorting_levels))
-                raise e
+                str_k_ = k.split('_')
+                k_ = []
+                for s_ in str_k_:
+                    try:
+                        k_.append(float(s_))
+                    except ValueError:
+                        k_.append(s_)
+                if tuple(k_) in df.columns:
+                    sorting_columns.append(tuple(k_))
+                    sorting_keys_.remove(k)
+                else:
+                    print('Possible sorting keys:',
+                          ' -- '.join(sorting_index + df.columns))
+                    raise e
                 
-        sorting_levels = sorting_keys_ + sorting_levels
-    
-    return df.sort_index(level=sorting_levels).apply(col_format)
+        sorting_index = sorting_keys_ + sorting_index
+
+    print('*** save_load:1060', *sorting_columns)
+    return df.sort_values(sorting_columns).sort_index(level=sorting_index).apply(col_format)
         
     if not best_method:
         

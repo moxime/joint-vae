@@ -473,7 +473,11 @@ if __name__ == '__main__':
     nets_to_show = 'all' if args.expand >= 1 else 'mean' 
 
     tpr = [t/100 for t in args.tpr]
-        
+
+    print_sorting_keys = False
+    if 'print' in sort:
+        sort.remove('print')
+        print_sorting_keys = True
     df = test_results_df(models_to_be_kept, nets_to_show=nets_to_show,
                          first_method=first_method,
                          ood=oodsets,
@@ -522,7 +526,11 @@ if __name__ == '__main__':
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
             print(arch_code,':\n', a)
-            
+        if print_sorting_keys:
+            print('Possible sorting keys :', *d.index.names)
+
+        # print('***', *d.columns)
+
     # print(df.to_string())
     
     # if latex_formatting:

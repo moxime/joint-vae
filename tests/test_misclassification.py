@@ -24,6 +24,9 @@ args.add_argument('direct_load', nargs='?')
 args.add_argument('--plot', action='store_true')
 args.add_argument('-N', type=int, default=1000)
 args.add_argument('-T', type=int, nargs='+', default=[1])
+args.add_argument('--metrics', choices=['kl', 'iws'], default='iws')
+args.add_argument('--2s', action='store_true', dest='two_sided')
+args.add_argument('--hide-correct', action='store_true')
 
 a = args.parse_args()
 j = a.j
@@ -56,36 +59,59 @@ n_correct = correct.sum().item()
 missed = (y != y_)
 accuracy = n_correct / len(y)
 
-# for T in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]:
-logp_x_y_max = losses['iws'].max(axis=0)[0]
-ood_threshold = logp_x_y_max.sort()[0][int(np.floor(len(y) * (1 - tpr)))]
+logp_x_y_max = losses[a.metrics].max(axis=0)[0]
+
+if a.two_sided:
+    around = logp_x_y_max.mean()
+    t_ = abs(around - logp_x_y_max).sort()[0]
+    i = 0
+    while ((around - t_[i] <= logp_x_y_max) * (logp_x_y_max <= around + t_[i])).sum() <= tpr * len(y):
+        i += 1
+    ood_thresholds = (around - t_[i], around + t_[i])
+
+else:
+    ood_thresholds = (logp_x_y_max.sort()[0][int(np.floor(len(y) * (1 - tpr)))], np.inf)
+
+tpr = ((ood_thresholds[0] <= logp_x_y_max) * (logp_x_y_max <= ood_thresholds[1])).sum() / len(y)
+print('OOD TPR  {:.2f}'.format(tpr.item() * 100))
+print('Accuracy {:.2f}'.format(accuracy * 100))
+
 
 for T in a.T:
-    
-    print('{:_^79}'.format(f'T={T}'))
+
     p_y_x = torch.nn.functional.softmax(losses['iws'] / T, dim=0).max(axis=0)[0]
 
-    pos_d = (logp_x_y_max >= ood_threshold)
+    _p = 5.1
+    print(' ' * 8, end='|')
+    print('|'.join(['{:_^{p}}'.format(_, p=int(_p) * 2 + 3) for _ in ('OOD', 'IND')]), end='|\n')
 
+    
+    
+    
+    print('{:_^79}'.format(f'T={T}'))
+
+    pos_d = (logp_x_y_max >= ood_thresholds[0]) * (logp_x_y_max <= ood_thresholds[1])
+    
     misclass_thresholds = p_y_x.sort()[0]
 
     num_of = {}
 
     idx_d = {'tp': pos_d, 'fn': ~pos_d}
 
-    cols = {'tptp': 'TP',
-            'tpfn': 'FN',
-            'tpfp': 'FP',
-            'tptn': 'TN',
-            'fntp': 'FN',
-            'fnfn': 'FN',
-            'fnfp': 'FN',
-            'fntn': 'TN'}
+    #                       Correctly detected as Ind Correctly
+    cols = {'tptp': 'TP', # y                     y   y
+            'tpfn': 'FN', # y                     y   n
+            'tpfp': 'FP', # n                     y   y
+            'tptn': 'TN', # n                     y   n
+            'fntp': 'FN', # y                     n   y => n
+            'fnfn': 'FN', # y                     n   n
+            'fnfp': 'TN', # n                     n   y => n
+            'fntn': 'TN'} # n                     n   n
 
     totals = {_: None for _ in set(cols.values())}
     
     _n = len(misclass_thresholds)
-    _i = [_ * _n // 100 for _ in range(100)]
+    _i = [_ * _n // 100 for _ in range(10)]
 
 
     print('|{:_^8}'.format('t'), end='|')
@@ -121,11 +147,22 @@ for T in a.T:
     plt.figure()
 
     i_ = np.random.permutation(len(correct))[:a.N]
-    log_p_y_x = p_y_x.exp()
-    plt.plot(logp_x_y_max[i_][correct[i_]].numpy(), log_p_y_x[i_][correct[i_]].numpy(), 'b.')
-    plt.plot(logp_x_y_max[i_][missed[i_]].numpy(), log_p_y_x[i_][missed[i_]].numpy(), 'r.')
+    logp_y_x = p_y_x.log()
+    hthreshold = p_y_x.sort()[0][-int(np.floor(tpr * len(y)))]
+
+    if not a.hide_correct:
+        plt.semilogy(logp_x_y_max[i_][correct[i_]].numpy(), p_y_x[i_][correct[i_]].numpy(), 'b.')
+    plt.semilogy(logp_x_y_max[i_][missed[i_]].numpy(), p_y_x[i_][missed[i_]].numpy(), 'r.')
     plt.title(T)
 
+    if a.two_sided:
+        plt.axvline(x=ood_thresholds[1], linestyle='--')
+    plt.axvline(x=ood_thresholds[0], linestyle='--')
+
+    if not a.two_sided:
+        ood_thresholds =  ood_thresholds[0], max(logp_x_y_max)
+        
+    plt.hlines(hthreshold, *ood_thresholds, linestyle='--')
     plt.show(block=False)
 
 input()

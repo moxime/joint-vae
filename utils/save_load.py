@@ -1029,36 +1029,30 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
     for c in df.columns[df.columns.isin(['measures'], level=0)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
-    sorting_index = list(df.index.names)
-    # sorting_index.remove('sigma')
-    # sorting_index.remove('sigma_train')
+    sorting_index = []
 
-    sorting_columns = []
     if sorting_keys:
         sorting_keys_ = [k.replace('-', '_') for k in sorting_keys]
         for k in sorting_keys_:
-            try:
-                sorting_index.remove(k)
-            except ValueError as e:
-                str_k_ = k.split('_')
-                k_ = []
-                for s_ in str_k_:
-                    try:
-                        k_.append(float(s_))
-                    except ValueError:
-                        k_.append(s_)
-                if tuple(k_) in df.columns:
-                    sorting_columns.append(tuple(k_))
-                    sorting_keys_.remove(k)
-                else:
-                    print('Possible sorting keys:',
-                          ' -- '.join(sorting_index + df.columns))
-                    raise e
-                
-        sorting_index = sorting_keys_ + sorting_index
+            if k in df.index.names:
+                sorting_index.append(k)
+                continue
+            str_k_ = k.split('_')
+            k_ = []
+            for s_ in str_k_:
+                try:
+                    k_.append(float(s_))
+                except ValueError:
+                    k_.append(s_)
+            tuple_k = (k_[0], '_'.join([str(_) for _ in k_[1:]]))
+            if tuple_k in df.columns:
+                sorting_index.append(tuple_k)
+                continue
+            logging.error(f'Key {k} not used for sorting')
+            logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
+            logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
 
-    print('*** save_load:1060', *sorting_columns)
-    return df.sort_values(sorting_columns).sort_index(level=sorting_index).apply(col_format)
+    return df.sort_values(sorting_index).apply(col_format)
         
     if not best_method:
         

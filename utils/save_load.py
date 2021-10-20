@@ -1048,6 +1048,11 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
             if tuple_k in df.columns:
                 sorting_index.append(tuple_k)
                 continue
+            tuple_k = ('_'.join([str(_) for _ in k_[:-1]]), k_[-1])
+            if tuple_k in df.columns:
+                sorting_index.append(tuple_k)
+                continue
+            print('***', *df.columns)
             logging.error(f'Key {k} not used for sorting')
             logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
             logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))

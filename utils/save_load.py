@@ -367,14 +367,14 @@ class LossRecorder:
         return r
 
     @classmethod
-    def loadall(cls, dir_path, *w, file_name='record-{w}.pth', output='recorders'):
+    def loadall(cls, dir_path, *w, file_name='record-{w}.pth', output='recorders', **kw):
         r"""
         If w is empty will find all recorders in directory
         if output is 'recorders' return recorders, if 'paths' return full paths
 
         """
 
-        outputs = lambda p: LossRecorder.load(path) if output.startswith('record') else p
+        outputs = lambda p: LossRecorder.load(path, **kw) if output.startswith('record') else p
         
         r = {}
 

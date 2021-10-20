@@ -475,7 +475,7 @@ if __name__ == '__main__':
     tpr = [t/100 for t in args.tpr]
 
     print_sorting_keys = False
-    if 'print' in sort:
+    if sort and 'print' in sort:
         sort.remove('print')
         print_sorting_keys = True
     df = test_results_df(models_to_be_kept, nets_to_show=nets_to_show,

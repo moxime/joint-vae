@@ -1395,6 +1395,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     components = [k for k in recorders[s].keys() if k in self.loss_components or k.startswith('odin')]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
+                    odin_softmax = {}
                     
                 if recording[s]:
                     recorders[s].append_batch(**losses, **odin_softmax, y_true=y, logits=logits.T)

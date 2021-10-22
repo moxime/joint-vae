@@ -1065,7 +1065,7 @@ class ClassificationVariationalNetwork(nn.Module):
             shuffle = False
 
         if wygiwyu:
-            from_r, _ = testing_plan(self, ood_sets=[], predict_methods=predict_methods)
+            from_r, _ = testing_plan(self, ood_sets=[], predict_methods=predict_methods, misclass_methods=[])
             if not from_r:
                 acc = {m: self.testing[m]['accuracy'] for m in predict_methods}
                 if only_one_method:
@@ -1139,6 +1139,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 y_test = recorder.get_batch(i, 'y_true')
 
             y_pred = {}
+            # print('*** predict methods:', *predict_methods)
             # logging.debug('TBD cvae:878: %s', ' '.join(batch_losses.keys()))
             for m in predict_methods:
                 y_pred[m] = self.predict_after_evaluate(logits,
@@ -1391,7 +1392,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 out_probs = (odin_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
                                 odin_softmax['odin-{:.0f}-{:.4f}'.format(T, eps)] = out_probs
                 else:
-                    components = [k for k in recorders[s].keys() if k in self.loss_components or k.startswtih('odin')]
+                    components = [k for k in recorders[s].keys() if k in self.loss_components or k.startswith('odin')]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     

@@ -943,6 +943,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = -losses['cross_x']
 
             elif m.startswith('odin'):
+                # print('odin losses:', *[_ for _ in losses if _.startswith('odin')])
                 measures = losses[m]
             
             else:

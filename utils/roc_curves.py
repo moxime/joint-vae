@@ -86,9 +86,10 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
         
     for ins_idx, t in enumerate(all_thresholds):
 
-        while outs_idx < n_outs and sorted_outs[outs_idx] < t:
+        while outs_idx < n_outs and sorted_outs[outs_idx] <= t:
             outs_idx += 1
 
+        # print('***', outs_idx, '/', n_outs)
         tpr = (ins_idx) / n_ins 
         fpr = (outs_idx) / n_outs
         prec = ins_idx / (ins_idx + outs_idx) if ins_idx + outs_idx else 1.

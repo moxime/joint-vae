@@ -1674,7 +1674,6 @@ class ClassificationVariationalNetwork(nn.Module):
                     ood_detection_every=10,
                     train_accuracy=False,
                     save_dir=None,
-                    heldout_classes=[],
                     outputs=EpochOutput(),
                     signal_handler=SIGHandler()):
         """
@@ -1930,7 +1929,9 @@ class ClassificationVariationalNetwork(nn.Module):
             for i, data in enumerate(trainloader, 0):
 
                 # get the inputs; data is a list of [inputs, labels]
-                x, y = data[0].to(device), data[1].to(device)
+                i_ = data[1] >= 0
+                
+                x, y = data[0][i_].to(device), data[1][i_].to(device)
                 # zero the parameter gradients
                 optimizer.zero_grad()
 

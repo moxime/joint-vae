@@ -220,6 +220,7 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
             s.heldout = []
             if heldout_classes:
                 s.heldout = heldout_classes
+                s.classes = [c for (i, c) in enumerate(s.classes) if i not in heldout_classes]
                 if len(heldout_classes) < C / 2:
                     s.name = s.name + '-' + '-'.join(str(_) for _ in heldout_classes)
                 else:
@@ -302,11 +303,13 @@ def get_same_size_by_name(set_name):
 
 
 def get_heldout_classes_by_name(dataset):
+
     if '-' in dataset:
         set_names = dataset.split('-')
         heldout_classes = [int(_) for _ in set_names[1:]]
         heldout_classes.sort()
         return set_names[0], heldout_classes
+
     if '+' in dataset:
         set_names = dataset.split('+')
         parent_set = set_names[0]
@@ -314,6 +317,7 @@ def get_heldout_classes_by_name(dataset):
         heldout_classes = [_ for _ in range(C) if str(_) not in set_names]
         return parent_set, heldout_classes
 
+    return dataset, []
 
 def get_name_by_heldout_classes(dataset, *heldout):
 
@@ -344,13 +348,20 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
 
 def show_images(imageset, shuffle=True, num=4, **kw):
 
+    f = 1
+    if imageset.heldout_classes:
+        f = 1 + len(imageset.heldout_classes) / len(imageset.classes)
     loader = torch.utils.data.DataLoader(imageset,
                                          shuffle=shuffle,
-                                         batch_size=num)
+                                         batch_size=2 * int(f * num))
 
-    data = next(iter(loader))
-    npimages = torchvision.utils.make_grid(data[0]).numpy().transpose(1, 2, 0)
-    labels = data[1]
+    x, y = next(iter(loader))
+
+    i_ = y > 0
+    x = x[i_]
+    
+    npimages = torchvision.utils.make_grid(x[:num]).numpy().transpose(1, 2, 0)
+    labels = y[i_][:num]
     try:
         classes = [imageset.classes[y] for y in labels]
     except AttributeError:

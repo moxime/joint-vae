@@ -273,8 +273,8 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--forced-encoder-variance', type=float, default=False, nargs='?', const=1.0)
     
-    parser.add_argument('--dataset', 
-                        choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10', 'letters'])
+    parser.add_argument('--dataset',) 
+                        # choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10', 'letters'])
 
     parser.add_argument('--transformer',
                         choices=['simple', 'normal', 'default'],

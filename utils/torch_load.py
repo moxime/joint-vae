@@ -239,8 +239,13 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
             if s.target_transform:
                 y = torch.tensor([s.target_transform(int(_)) for _ in s.targets], dtype=int)
                 s.data = s.data[y >= 0]
-                s.targets = s.targets[y >= 0]
-            
+                if isinstance(s.targets, torch.Tensor):
+                    s.targets = s.targets[y >= 0]
+                elif isinstance(s.targets, list):
+                    s.targets = [_ for _ in s.targets if s.target_transform(_) >= 0] 
+                else:
+                    raise TypeError
+                
     return trainset, testset
 
 

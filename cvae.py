@@ -1153,6 +1153,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # print('*** 842', y_test[0].item(), *y_test.shape)
             # print('*** 843', batch_losses['cross_y'].min(0)[0].mean())
             ind = y_test.unsqueeze(0)
+            # print('*** 1156 y:', min(y_test), max(y_test)) 
             for k in batch_losses:
                 _s = 'x'.join([str(_) for _ in batch_losses[k].shape])
                 if k in ('total', 'iws'):

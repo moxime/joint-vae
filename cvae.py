@@ -1674,6 +1674,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     ood_detection_every=10,
                     train_accuracy=False,
                     save_dir=None,
+                    heldout_classes=[],
                     outputs=EpochOutput(),
                     signal_handler=SIGHandler()):
         """

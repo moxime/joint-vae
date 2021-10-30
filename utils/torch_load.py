@@ -48,7 +48,7 @@ def modify_getter(getter, pretransform=None, **added_kw):
 
     return modified_getter
 
-        
+
 def choose_device(device=None):
     """if device is None, returns cuda or cpu if not available.
     else returns device
@@ -151,13 +151,24 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
 
     dataset = dataset.lower()
     rotated = dataset.endswith('90')
-    
     if rotated:
         dataset = dataset[:-2]
         rotation = transforms.Lambda(lambda img: transforms.functional.rotate(img, 90))
+
+    target_transform = None
+    parent_set, heldout_classes = get_heldout_classes_by_name(dataset)
     
+    if heldout_classes:
+        dataset = parent_set
+        C = get_shape_by_name(parent_set)[-1]
+        heldin = [_ for _ in range(C) if _ not in heldout_classes]
+        d = {c: i for (i, c) in enumerate(heldin)}
+        d.update({_: -1 for _ in heldout_classes})
+        target_transform =  d.get
+
     if transformer == 'default':
         transformer = set_dict[dataset]['default']
+
     transform = transformers[transformer][dataset]
 
     shape = set_dict[dataset]['shape']
@@ -186,14 +197,16 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
     getter = set_dict[dataset]['getter']
     if rotated:
         getter = modify_getter(getter, pretransform=rotation)
-        
+
     with suppress_stdout():
         trainset = getter(root=root, train=True,
                           download=True,
+                          target_transform=target_transform,
                           transform=train_transform)
 
         testset = getter(root=root, train=False,
                          download=True,
+                         target_transform=target_transform,
                          transform=transform)
 
     for s in (trainset, testset):
@@ -203,7 +216,15 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
             s.transformer = transformer
             C = set_dict[dataset]['labels']
             s.classes = set_dict[dataset].get('classes', [str(i) for i in range(C)])
-    
+
+            s.heldout = []
+            if heldout_classes:
+                s.heldout = heldout_classes
+                if len(heldout_classes) < C / 2:
+                    s.name = s.name + '-' + '-'.join(str(_) for _ in heldout_classes)
+                else:
+                    s.name = s.name + '+' + '+'.join(str(_) for _ in range(C) if _ not in heldout_classes)
+                    
     return trainset, testset
 
 
@@ -266,6 +287,12 @@ def get_shape_by_name(set_name, transform='default'):
 
 def get_same_size_by_name(set_name):
 
+    parent_set, heldout = get_heldout_classes_by_name(set_name)
+    if heldout:
+        C = get_shape_by_name(parent_set)[-1]
+        new_heldout = [_ for _ in range(C) if _ not in heldout]
+        return get_name_by_heldout_classes(parent_set, *new_heldout)
+        
     shape, _ = get_shape_by_name(set_name)
     same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
     same_size.remove(set_name)
@@ -273,6 +300,31 @@ def get_same_size_by_name(set_name):
     
     return same_size
 
+
+def get_heldout_classes_by_name(dataset):
+    if '-' in dataset:
+        set_names = dataset.split('-')
+        heldout_classes = [int(_) for _ in set_names[1:]]
+        heldout_classes.sort()
+        return set_names[0], heldout_classes
+    if '+' in dataset:
+        set_names = dataset.split('+')
+        parent_set = set_names[0]
+        C = get_shape_by_name(parent_set)[-1]
+        heldout_classes = [_ for _ in range(C) if str(_) not in set_names]
+        return parent_set, heldout_classes
+
+
+def get_name_by_heldout_classes(dataset, *heldout):
+
+    C = get_shape_by_name(dataset)[-1]
+    heldout = sorted(heldout)
+    
+    if len(heldout) / C > 0.5:
+        return dataset + '+' + '+'.join(str(_) for _ in range(C) if _ not in heldout)
+
+    return dataset + '-' + '-'.join(str(_) for _ in heldout)
+    
 
 def get_dataset_from_dict(dict_of_sets, set_name, transformer):
 
@@ -288,7 +340,7 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
             dict_of_sets[set_name] = {}
         dict_of_sets[set_name][transformer] = sets
     return sets
-
+    
 
 def show_images(imageset, shuffle=True, num=4, **kw):
 

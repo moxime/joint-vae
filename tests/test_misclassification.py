@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from sklearn.metrics import precision_recall_curve as prc, auc
 from matplotlib import pyplot as plt
+import sys
 
 j = 133953
 j = 134538
@@ -19,7 +20,8 @@ tpr = 95
 args = argparse.ArgumentParser()
 
 args.add_argument('-j', default=j, type=int)
-args.add_argument('--tpr', default=tpr, type=float)
+args.add_argument('--ood-tpr', default=tpr, type=float)
+args.add_argument('--mis-tpr', default=tpr, type=float)
 args.add_argument('direct_load', nargs='?')
 args.add_argument('--oodsets', nargs='*', default=[])
 args.add_argument('--plot', action='store_true')
@@ -30,11 +32,12 @@ args.add_argument('--soft', choices=['kl', 'iws'], default='default')
 args.add_argument('--hard', choices=['kl', 'iws'])
 args.add_argument('--elbo', action='store_true')
 args.add_argument('--2s', action='store_true', dest='two_sided')
-
+args.add_argument('--print', action='store_true')
 
 a = args.parse_args()
 j = a.j
-tpr = a.tpr / 100
+ood_tpr = a.ood_tpr / 100
+mis_tpr = a.mis_tpr / 100
 
 reload = False
 if a.direct_load:
@@ -51,6 +54,18 @@ if reload:
 dir_path = os.path.join(net.saved_dir, 'samples', 'last')
 testset = net.training_parameters['set']
 
+if net.type == 'vib':
+    pass # a.plot = False
+    
+if a.soft == 'default':
+    if net.type == 'cvae':
+        a.soft = 'iws'
+    elif net.type == 'vib':
+        a.hard = 'odin*'
+    else:
+        logging.error('Type %s of model not supported', net.type)
+        sys.exit(1)
+        
 recorders = LossRecorder.loadall(dir_path, testset, *a.oodsets, device='cpu')
 
 oodsets = [s for s in a.oodsets if s in recorders]
@@ -59,16 +74,35 @@ losses = recorders[testset]._tensors
 
 
 for s in [testset] + oodsets:
-    losses = recorders[s]._tensors
-    y = losses.pop('y_true')
 
+    losses = recorders[s]._tensors
+    sign_for_ood = 1
+    sign_for_mis = -1
+    
+    if a.hard == 'odin*':
+        metrics_for_ood = [k for k in losses if k.startswith('odin')]
+        metrics_for_mis = [k for k in losses if k.startswith('odin')]
+        ndim_of_losses = 1
+    else:
+        metrics_for_mis = [a.hard or a.soft]
+        metrics_for_ood = ['total' if a.elbo else 'iws']
+        sign_for_ood = -1 if a.elbo else 1
+        sign_for_mis = -1 if metrics_for_mis == 'kl' else 1
+        ndim_of_losses = 2
+
+
+    print('*** metrics {}{} (ood) {}{}{} (miss) of dim={}'.format('' if sign_for_ood==1 else '-',
+                                                                  metrics_for_ood[0],
+                                                                  '' if sign_for_mis==1 else '-',
+                                                                  '' if a.hard else 'soft-',
+                                                                  metrics_for_mis[0],
+                                                                  ndim_of_losses
+                                                                  ))
+    
+    y = losses.pop('y_true')
     logits = losses.pop('logits').T
 
-    if a.elbo:
-        logp_x_y_max = -losses['total'].min(axis=0)[0]
-    else:
-        logp_x_y_max = losses['iws'].max(axis=0)[0]
-    y_ = net.predict_after_evaluate(logits, losses, method='iws')
+    y_ = net.predict_after_evaluate(logits, losses)
 
     if s == testset:
         correct = (y == y_)
@@ -78,124 +112,172 @@ for s in [testset] + oodsets:
         correct = (y != y)
         missed = (y == y)
 
-    n_correct = correct.sum().item()
-    accuracy = n_correct / len(y)
 
-    if s == testset:        
+    mis_fpr_at_tpr = []
+    for m_for_ood, m_for_mis in zip(metrics_for_ood, metrics_for_mis):
 
-        if a.two_sided:
-            around = logp_x_y_max.mean()
-            t_ = abs(around - logp_x_y_max).sort()[0]
-            i = 0
-            while ((around - t_[i] <= logp_x_y_max) * (logp_x_y_max <= around + t_[i])).sum() <= tpr * len(y):
-                i += 1
-            ood_thresholds = (around - t_[i], around + t_[i])
-
+        print('*** OOD:', m_for_ood, '*** MIS:', m_for_mis)
+        if ndim_of_losses == 2:
+            logp_x_y_max = (sign_for_ood * losses[m_for_ood]).max(axis=0)[0]
         else:
-            ood_thresholds = (logp_x_y_max.sort()[0][int(np.floor(len(y) * (1 - tpr)))], np.inf)
-        
-    if a.elbo:
-        logp_x_y_max = -losses['total'].min(axis=0)[0]
-    else:
-        logp_x_y_max = losses['iws'].max(axis=0)[0]
+            logp_x_y_max = (sign_for_ood * losses[m_for_ood])
 
-    pr = ((ood_thresholds[0] <= logp_x_y_max) * (logp_x_y_max <= ood_thresholds[1])).sum() / len(y)
-    print('{} OOD {}PR {:.2f}'.format(s, 'T' if s == testset else 'F', pr.item() * 100))
-    print('Accuracy: {:.2f}'.format(100 * accuracy))
+        n_correct = correct.sum().item()
+        accuracy = n_correct / len(y)
+
+        if s == testset:        
+
+            if a.two_sided:
+                around = logp_x_y_max.mean()
+                t_ = abs(around - logp_x_y_max).sort()[0]
+                i = 0
+                tp = ood_tpr = len(y)
+                while ((around - t_[i] <= logp_x_y_max) * (logp_x_y_max <= around + t_[i])).sum() <= tp:
+                    i += 1
+                ood_thresholds = (around - t_[i], around + t_[i])
+
+            else:
+                ood_thresholds = (logp_x_y_max.sort()[0][int(np.floor(len(y) * (1 - ood_tpr)))], np.inf)
+
+        pr = ((ood_thresholds[0] <= logp_x_y_max) * (logp_x_y_max <= ood_thresholds[1])).sum() / len(y)
+        print('{} OOD {}PR {:.2f}'.format(s, 'T' if s == testset else 'F', pr.item() * 100))
+        print('Accuracy: {:.2f}'.format(100 * accuracy))
+
+        for T in a.T:
+
+            metrics = sign_for_mis * losses[m_for_mis]
+            if a.hard:
+                if ndim_of_losses == 2:
+                    p_y_x = metrics.max(axis=0)[0]
+                else:
+                    p_y_x = metrics
+            else:
+                assert ndim_of_losses == 2
+                p_y_x = torch.nn.functional.softmax(losses[m_for_mis] / T, dim=0).max(axis=0)[0]
+
+            if s == testset:
+                _p = 5.1
+                # print(' ' * 8, end='|')
+                # print('|'.join(['{:_^{p}}'.format(_, p=int(_p) * 2 + 3) for _ in ('OOD', 'IND')]), end='|\n')
+
+                print('{:_^79}'.format(f'T={T}'))
+
+                pos_d = (logp_x_y_max >= ood_thresholds[0]) * (logp_x_y_max <= ood_thresholds[1])
+
+                misclass_thresholds = p_y_x.sort()[0]
+
+                num_of = {}
+
+                idx_d = {'tp': pos_d, 'fn': ~pos_d}
+
+                #                       Correctly detected as Ind Correctly
+                cols = {'tptp': 'TP', # y                     y   y
+                        'tpfn': 'FN', # y                     y   n
+                        'tpfp': 'FP', # n                     y   y
+                        'tptn': 'TN', # n                     y   n
+                        'fntp': 'FN', # y                     n   y => n
+                        'fnfn': 'FN', # y                     n   n
+                        'fnfp': 'TN', # n                     n   y => n
+                        'fntn': 'TN'} # n                     n   n
+
+                totals = {_: None for _ in set(cols.values())}
+
+                _n = len(misclass_thresholds)
+                _i = [_ * _n // 100 for _ in range(10)]
+
+
+                print('|{:_^8}'.format('t'), end='|')
+                print('|'.join([f'{_:_^6}' for _ in cols]), end='|')
+                print('|'.join([f'{_:_^7}' for _ in ['TPR', 'P', 'FPR']]), end='|\n')
+
+                if m_for_mis == m_for_ood:
+                    pass  # _i = [0]
+
+                found_fpr_at_tpr = False
+                for i, t in enumerate(misclass_thresholds):
+
+                    found_fpr_at_tpr_now = False
+
+                    pos_c = (p_y_x >= t)
+                    idx_m = {'tp': correct * pos_c,
+                             'fn': correct * ~pos_c,
+                             'fp': ~correct * pos_c,
+                             'tn': ~correct * ~pos_c}
+
+                    for ood_test in ('tp', 'fn'):
+                        for misclass_test in ('tp', 'fn', 'fp', 'tn'):
+
+                            idx = idx_d[ood_test] * idx_m[misclass_test]
+                            num_of[ood_test + misclass_test] = idx.sum().item()  
+
+                    for n in totals:
+                        totals[n] = sum(num_of[_] for _ in cols if cols[_] == n)
+
+                    TPR = totals['TP'] / (totals['TP'] + totals['FN'])
+                    P = totals['TP'] / (totals['TP'] + totals['FP'])
+                    FPR = totals['FP'] / (totals['FP'] + totals['TN'])
+
+                    if TPR <= mis_tpr and not found_fpr_at_tpr:
+                        mis_fpr_at_tpr.append((FPR, P))
+                        found_fpr_at_tpr = True
+                        found_fpr_at_tpr_now = True
+
+                    if i in _i and a.print or found_fpr_at_tpr_now:
+                        print('|{:8.1e}'.format(t), end='|')
+                        print('|'.join('{:6d}'.format(num_of[_]) for _ in num_of), end='|')
+                        print('|'.join('{:6.1f}%'.format(100 * _) for _ in (TPR, P, FPR)), end='|\n')
+
+                    if found_fpr_at_tpr : break
+
+                if not found_fpr_at_tpr:
+                    mis_fpr_at_tpr.append((FPR, P))
+
+            if a.plot:
+                plt.figure()
+
+                i_ = np.random.permutation(len(correct))[:a.N]
+                logp_y_x = p_y_x.log()
+
+                if s == testset:
+                    hthresholds = [p_y_x.sort()[0][-int(np.floor(mis_tpr * len(y)))],
+                                   ood_thresholds[0],
+                                   max(logp_x_y_max) if not a.two_sided else ood_thresholds[1]]
+
+                if not a.hide_correct:
+                    plt.semilogy(logp_x_y_max[i_][correct[i_]].numpy(), p_y_x[i_][correct[i_]].numpy(), 'b.')
+                plt.semilogy(logp_x_y_max[i_][missed[i_]].numpy(), p_y_x[i_][missed[i_]].numpy(), 'r.')
+                plt.title('{}: T={}'.format(s, T))
+
+                if a.two_sided:
+                    plt.axvline(x=ood_thresholds[1], linestyle='--')
+                plt.axvline(x=ood_thresholds[0], linestyle='--')
+
+                plt.hlines(*hthresholds, linestyle='--')
+                plt.show(block=False)
+
+    best_fpr = 1
     
-    for T in a.T:
+    for m in metrics_for_mis:
+        for T in a.T:
+            FPR, P = mis_fpr_at_tpr.pop(0)
+            if FPR < best_fpr:
+                best_fpr = FPR
+                best_P = P
+                best_m = m
+                best_T = T
 
-        metrics = a.hard or a.soft
-        print('' if a.hard else 'soft', metrics)
-        if a.hard:
-            p_y_x = losses[metrics].max(axis=0)[0]
-        else:
-            p_y_x = torch.nn.functional.softmax(losses[metrics] / T, dim=0).max(axis=0)[0]
-
-        if s == testset:
-            _p = 5.1
-            print(' ' * 8, end='|')
-            print('|'.join(['{:_^{p}}'.format(_, p=int(_p) * 2 + 3) for _ in ('OOD', 'IND')]), end='|\n')
-
-            print('{:_^79}'.format(f'T={T}'))
-
-            pos_d = (logp_x_y_max >= ood_thresholds[0]) * (logp_x_y_max <= ood_thresholds[1])
-
-            misclass_thresholds = p_y_x.sort()[0]
-
-            num_of = {}
-
-            idx_d = {'tp': pos_d, 'fn': ~pos_d}
-
-            #                       Correctly detected as Ind Correctly
-            cols = {'tptp': 'TP', # y                     y   y
-                    'tpfn': 'FN', # y                     y   n
-                    'tpfp': 'FP', # n                     y   y
-                    'tptn': 'TN', # n                     y   n
-                    'fntp': 'FN', # y                     n   y => n
-                    'fnfn': 'FN', # y                     n   n
-                    'fnfp': 'TN', # n                     n   y => n
-                    'fntn': 'TN'} # n                     n   n
-
-            totals = {_: None for _ in set(cols.values())}
-
-            _n = len(misclass_thresholds)
-            _i = [_ * _n // 100 for _ in range(10)]
-
-
-            print('|{:_^8}'.format('t'), end='|')
-            print('|'.join([f'{_:_^6}' for _ in cols]), end='|')
-            print('|'.join([f'{_:_^7}' for _ in ['TPR', 'P', 'FPR']]), end='|\n')
-
-            for t in misclass_thresholds[_i]:
-
-                pos_c = (p_y_x >= t)
-                idx_m = {'tp': correct * pos_c,
-                         'fn': correct * ~pos_c,
-                         'fp': ~correct * pos_c,
-                         'tn': ~correct * ~pos_c}
-
-                for ood_test in ('tp', 'fn'):
-                    for misclass_test in ('tp', 'fn', 'fp', 'tn'):
-
-                        idx = idx_d[ood_test] * idx_m[misclass_test]
-                        num_of[ood_test + misclass_test] = idx.sum().item()  
-
-                print('|{:8.1e}'.format(t), end='|')
-                print('|'.join('{:6d}'.format(num_of[_]) for _ in num_of), end='|')
-
-                for n in totals:
-                    totals[n] = sum(num_of[_] for _ in cols if cols[_] == n)
-
-                TPR = totals['TP'] / (totals['TP'] + totals['FN'])
-                P = totals['TP'] / (totals['TP'] + totals['FP'])
-                FPR = totals['FP'] / (totals['FP'] + totals['TN'])
-
-                print('|'.join('{:6.1f}%'.format(100 * _) for _ in (TPR, P, FPR)), end='|\n')
-
-        plt.figure()
-
-        i_ = np.random.permutation(len(correct))[:a.N]
-        logp_y_x = p_y_x.log()
-
-        if s == testset:
-            hthresholds = [p_y_x.sort()[0][-int(np.floor(tpr * len(y)))],
-                           ood_thresholds[0],
-                           max(logp_x_y_max) if not a.two_sided else ood_thresholds[1]]
-
-        if not a.hide_correct:
-            plt.semilogy(logp_x_y_max[i_][correct[i_]].numpy(), p_y_x[i_][correct[i_]].numpy(), 'b.')
-        plt.semilogy(logp_x_y_max[i_][missed[i_]].numpy(), p_y_x[i_][missed[i_]].numpy(), 'r.')
-        plt.title('{}: T={}'.format(s, T))
-
-        if a.two_sided:
-            plt.axvline(x=ood_thresholds[1], linestyle='--')
-        plt.axvline(x=ood_thresholds[0], linestyle='--')
-
-        plt.hlines(*hthresholds, linestyle='--')
-        plt.show(block=False)
-
-input()
+    dP = best_P - accuracy
+    print('{:16} {:4} at TPR {:.1f} : FPR={:.1f} P={:.1f} ({:.1f} + {:.1f})'.format(best_m,
+                                                                                   best_T,
+                                                                                   100 * mis_tpr,
+                                                                                   100 * best_fpr,
+                                                                                   100 * best_P,
+                                                                                   100 * accuracy,
+                                                                                   100 * dP
+                                                                                   ))
+                        
+if a.plot:
+    input()
 
     # tp = (correct * pos_d).sum().item()
     # fp = ((~correct) * pos_d).sum().item()

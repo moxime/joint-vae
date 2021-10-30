@@ -287,8 +287,10 @@ def get_shape(dataset):
 
 def get_shape_by_name(set_name, transform='default'):
 
+    set_name, heldout = get_heldout_classes_by_name(set_name)
+    
     shape = set_dict[set_name]['shape']
-    num_labels = len(set_dict[set_name]['classes'])
+    num_labels = len(set_dict[set_name]['classes']) - len(heldout)
     if transform != 'pad':
         return set_dict[set_name]['shape'], num_labels
     p = transformers['pad'][set_name].transforms[0].padding

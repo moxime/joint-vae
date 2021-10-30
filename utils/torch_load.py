@@ -235,7 +235,12 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
                     s.name = s.name + '-' + '-'.join(str(_) for _ in heldout_classes)
                 else:
                     s.name = s.name + '+' + '+'.join(str(_) for _ in range(C) if _ not in heldout_classes)
-                    
+
+            if s.target_transform:
+                y = torch.tensor([s.target_transform(int(_)) for _ in s.targets], dtype=int)
+                s.data = s.data[y >= 0]
+                s.targets = s.targets[y >= 0]
+            
     return trainset, testset
 
 
@@ -361,22 +366,14 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
 def show_images(imageset, shuffle=True, num=4, **kw):
 
     batch_size = num
-    if imageset.heldout:
-        f = 1 + len(imageset.heldout) / len(imageset.classes)
-        batch_size = int(num * 2 * f)
-
     loader = torch.utils.data.DataLoader(imageset,
                                          shuffle=shuffle,
                                          batch_size=batch_size)
 
     x, y = next(iter(loader))
-
-    i_ = y >= 0
-
-    x = x[i_]
     
     npimages = torchvision.utils.make_grid(x[:num]).numpy().transpose(1, 2, 0)
-    labels = y[i_][:num]
+    labels = y
     try:
         classes = [imageset.classes[y] for y in labels]
     except AttributeError:

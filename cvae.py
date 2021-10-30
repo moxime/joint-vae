@@ -1929,9 +1929,7 @@ class ClassificationVariationalNetwork(nn.Module):
             for i, data in enumerate(trainloader, 0):
 
                 # get the inputs; data is a list of [inputs, labels]
-                i_ = data[1] >= 0
-                
-                x, y = data[0][i_].to(device), data[1][i_].to(device)
+                x, y = data[0].to(device), data[1].to(device)
                 # zero the parameter gradients
                 optimizer.zero_grad()
 

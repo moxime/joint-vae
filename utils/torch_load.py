@@ -41,10 +41,20 @@ def stdout_as_debug():
 def modify_getter(getter, pretransform=None, **added_kw):
 
     def modified_getter(*a, **kw):
+        copied_kw = added_kw.copy()
+
 
         if 'transform' in kw and pretransform:
             kw['transform'] = transforms.Compose([pretransform, kw['transform']])
-        return getter(*a, **added_kw, **kw)
+
+        k = 'target_transform'
+        if added_kw.get(k):
+            if kw.get(k):
+                kw[k] = transforms.Compose([copied_kw.pop(k), kw[k]])
+            else:
+                kw[k] = copied_kw.pop(k)
+        kw.update(copied_kw)
+        return getter(*a, **kw)
 
     return modified_getter
 
@@ -348,16 +358,19 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
 
 def show_images(imageset, shuffle=True, num=4, **kw):
 
-    f = 1
-    if imageset.heldout_classes:
-        f = 1 + len(imageset.heldout_classes) / len(imageset.classes)
+    batch_size = num
+    if imageset.heldout:
+        f = 1 + len(imageset.heldout) / len(imageset.classes)
+        batch_size = int(num * 2 * f)
+
     loader = torch.utils.data.DataLoader(imageset,
                                          shuffle=shuffle,
-                                         batch_size=2 * int(f * num))
+                                         batch_size=batch_size)
 
     x, y = next(iter(loader))
 
-    i_ = y > 0
+    i_ = y >= 0
+
     x = x[i_]
     
     npimages = torchvision.utils.make_grid(x[:num]).numpy().transpose(1, 2, 0)

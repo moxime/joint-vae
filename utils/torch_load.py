@@ -181,11 +181,11 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
 
     transform = transformers[transformer][dataset]
 
-    shape = set_dict[dataset]['shape']
-    same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
-    same_size.remove(dataset)
-
-    if not rotated:
+    # shape = set_dict[dataset]['shape']
+    # same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
+    # same_size.remove(dataset)
+    same_size = get_same_size_by_name(get_name_by_heldout_classes(dataset, *heldout_classes))
+    if not rotated and not heldout_classes:
         same_size.append(dataset + '90')
 
     train_transforms = []
@@ -309,7 +309,7 @@ def get_same_size_by_name(set_name):
     if heldout:
         C = get_shape_by_name(parent_set)[-1]
         new_heldout = [_ for _ in range(C) if _ not in heldout]
-        return get_name_by_heldout_classes(parent_set, *new_heldout)
+        return [get_name_by_heldout_classes(parent_set, *new_heldout)]
         
     shape, _ = get_shape_by_name(set_name)
     same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
@@ -336,8 +336,11 @@ def get_heldout_classes_by_name(dataset):
 
     return dataset, []
 
+
 def get_name_by_heldout_classes(dataset, *heldout):
 
+    if not heldout:
+        return dataset
     C = get_shape_by_name(dataset)[-1]
     heldout = sorted(heldout)
     

@@ -334,7 +334,7 @@ def get_args_for_train(argv=None):
 
 def get_args_for_test():
 
-    parser = argparse.ArgumentParser() #(add_help=False)
+    parser = argparse.ArgumentParser()  # (add_help=False)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--verbose', '-v', action='count', default=0)
 

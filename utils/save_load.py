@@ -269,6 +269,7 @@ class LossRecorder:
                  device=None,
                  **tensors):
 
+        self.last_batch_size = {}
         self.reset()
 
         self._num_batch = 0
@@ -294,11 +295,13 @@ class LossRecorder:
 
         self.device = device
 
+        
         for k, t in tensors.items():
             shape = t.shape[:-1] + (self._samples,)
             self._tensors[k] = torch.zeros(shape,
                                            dtype=t.dtype,
                                            device=self.device)
+            self.last_batch_size[k] = 0
 
     def to(self, device):
 
@@ -309,6 +312,7 @@ class LossRecorder:
 
         self._recorded_batches = 0
         self._seed = np.random.randint(1, int(1e8))
+        self.last_batch_size = {k: 0 for k in self.last_batch_size}
         return
 
     def init_seed_for_dataloader(self):
@@ -337,8 +341,8 @@ class LossRecorder:
         if cut:
             self.num_batch = len(self)
             t = self._tensors
-            end = self.num_batch * self.batch_size
             for k in t:
+                end = (self.num_batch - 1) * self.batch_size + self.last_batch_size[k]
                 t[k] = t[k][..., 0:end]
 
         torch.save(self.__dict__, file_path)
@@ -446,9 +450,12 @@ class LossRecorder:
             raise IndexError(f'{i} >= {len(self)}')
         
         start = i * self.batch_size
-        end = start + self.batch_size
         
         w = which[0]
+        if i == len(self) - 1:
+            end = start + self.last_batch_size[w]
+        else:
+            end = start + self.batch_size
 
         t = self._tensors[w]
         
@@ -471,7 +478,13 @@ class LossRecorder:
         for k in tensors:
             if k not in self.keys():
                 raise KeyError(k)
-            # print('sl:426', 'rec', k, *tensors[k].shape)  # 
+            # print('sl:426', 'rec', k, *tensors[k].shape)  #
+            batch_size = tensors[k].shape[-1]
+            if batch_size < self.batch_size:
+                assert self.last_batch_size[k] in (0, self.batch_size)
+                self.last_batch_size[k] = tensors[k].shape[-1]
+                end = start + batch_size
+            self.last_batch_size[k] = batch_size
             self._tensors[k][..., start:end] = tensors[k]
                                                     
         self._recorded_batches += 1
@@ -1057,7 +1070,9 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
             logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
             logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
 
-    return df.sort_values(sorting_index).apply(col_format)
+    if sorting_keys:
+        df = df.sort_values(sorting_keys)
+    return df.apply(col_format)
         
     if not best_method:
         

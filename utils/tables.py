@@ -40,11 +40,14 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
     if net.sigma.is_rmse:
         sigmabeta += f' (\\ensuremath\\beta=\\num{{{beta}}})'
 
+    parent_set, heldout = torchdl.get_heldout_classes_by_name(trainset)
+    parent_classes = torchdl.set_dict[parent_set]['classes']
+    classes = [c for (i, c) in enumerate(parent_classes) if i not in heldout]
     exported_values = dict(
         oftype=oftype,
         dataset=trainset,
         numclasses=arch['labels'],
-        classes=','.join(torchdl.set_dict[trainset]['classes']),
+        classes=','.join(classes),
         oodsets=','.join(net.ood_results.keys()),
         noodsets=len(net.ood_results),
         texoodsets=', '.join(['\\' + o.rstrip(string.digits) for o in net.ood_results.keys()]),

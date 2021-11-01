@@ -863,6 +863,8 @@ class ClassificationVariationalNetwork(nn.Module):
     def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
 
         # print('*** cvae:865', *losses)
+        # for k in losses:
+        #    print(k, *losses[k].shape)
         dist_measures = {m: None for m in methods}
         # for m in methods:
         #    assert not m.startswith('odin') or m in odin_softmax 
@@ -1286,6 +1288,7 @@ class ClassificationVariationalNetwork(nn.Module):
         ood_methods = make_list(method, self.ood_methods)
         
         if oodsets is None:
+            # print('*** 1291', *testset.same_size)
             oodsets = [torchdl.get_dataset(n, transformer=testset.transformer)[1]
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
@@ -1369,6 +1372,7 @@ class ClassificationVariationalNetwork(nn.Module):
             test_iterator = iter(loader)
             for i in range(num_batch[s]):
 
+                # print('*** 1378', i, num_batch[s])
                 if not recorded[s]:
 
                     data = next(test_iterator)

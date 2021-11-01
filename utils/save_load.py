@@ -295,13 +295,12 @@ class LossRecorder:
 
         self.device = device
 
-        
         for k, t in tensors.items():
             shape = t.shape[:-1] + (self._samples,)
             self._tensors[k] = torch.zeros(shape,
                                            dtype=t.dtype,
                                            device=self.device)
-            self.last_batch_size[k] = 0
+            self.last_batch_size[k] = self.batch_size
 
     def to(self, device):
 
@@ -312,7 +311,7 @@ class LossRecorder:
 
         self._recorded_batches = 0
         self._seed = np.random.randint(1, int(1e8))
-        self.last_batch_size = {k: 0 for k in self.last_batch_size}
+        self.last_batch_size = {k: self.batch_size for k in self.last_batch_size}
         return
 
     def init_seed_for_dataloader(self):
@@ -481,7 +480,7 @@ class LossRecorder:
             # print('sl:426', 'rec', k, *tensors[k].shape)  #
             batch_size = tensors[k].shape[-1]
             if batch_size < self.batch_size:
-                assert self.last_batch_size[k] in (0, self.batch_size)
+                assert self.last_batch_size[k] == self.batch_size
                 self.last_batch_size[k] = tensors[k].shape[-1]
                 end = start + batch_size
             self.last_batch_size[k] = batch_size

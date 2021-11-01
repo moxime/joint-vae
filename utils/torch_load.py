@@ -185,8 +185,6 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
     # same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
     # same_size.remove(dataset)
     same_size = get_same_size_by_name(get_name_by_heldout_classes(dataset, *heldout_classes))
-    if not rotated and not heldout_classes:
-        same_size.append(dataset + '90')
 
     train_transforms = []
 
@@ -308,7 +306,10 @@ def get_shape_by_name(set_name, transform='default'):
         return (shape[0], shape[1] + 2 * p, shape[2] + 2 *p), num_labels
 
 
-def get_same_size_by_name(set_name):
+def get_same_size_by_name(set_name, rotated=False):
+
+    if set_name.endswith('90'):
+        return get_same_size_by_name(set_name[:-2], rotated=True)
 
     parent_set, heldout = get_heldout_classes_by_name(set_name)
     if heldout:
@@ -318,8 +319,9 @@ def get_same_size_by_name(set_name):
         
     shape, _ = get_shape_by_name(set_name)
     same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
-    same_size.remove(set_name)
-    same_size.append(set_name + '90')
+    if not rotated:
+        same_size.remove(set_name)
+        same_size.append(set_name + '90')
     
     return same_size
 

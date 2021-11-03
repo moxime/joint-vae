@@ -645,7 +645,17 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
 
     training_set = model.training_parameters['set']
     parent_set, heldout = torchdl.get_heldout_classes_by_name(training_set)
-    all_ood_sets = torchdl.get_same_size_by_name(training_set)
+
+    if heldout:
+        # print('***', *heldout, '***', *model.ood_results)
+        matching_ood_sets = [k for k in model.ood_results if k.startswith(parent_set)]
+        if matching_ood_sets:
+            model.ood_results[parent_set + '+'] = model.ood_results.pop(matching_ood_sets[0])
+        all_ood_sets = [parent_set + '+']
+
+    else:
+        all_ood_sets = torchdl.get_same_size_by_name(training_set)
+
     tested_ood_sets = [s for s in model.ood_results if s in all_ood_sets]
 
     ood_fprs = {s: {} for s in all_ood_sets}
@@ -762,7 +772,6 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
     else:
         recorded_epoch = None
 
-    print('***', training.set, parent_set)
     return {'net': model,
             'job': model.job_number,
             'is_resumed': model.is_resumed,
@@ -775,7 +784,9 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
             'arch_code': arch_code,
             'features': architecture.features['name'] if architecture.features else 'none',
             'dir': directory,
-            'set': parent_set,
+            'heldout': tuple(sorted(heldout)),
+            'set': parent_set + ('-' if heldout else ''),
+            # 'parent_set': parent_set,
             'data_augmentation': training.data_augmentation,
             'train_batch_size': train_batch_size,
             'sigma': f'{sigma}',
@@ -944,7 +955,8 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
                                    tpr, tnr,
                                    sorting_keys) for s in testsets}
 
-    arch_index = ['type',
+    arch_index = ['heldout',
+                  'type',
                   'depth',
                   'features',
                   'arch_code',
@@ -991,6 +1003,8 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
     # return acc_df
     # return ood_df
     d_ = {dataset: acc_df}
+
+    # print('*** ood_df:', *ood_df, 'ood', ood)
     if ood:
         ood_df = {s: ood_df[s] for s in ood}
     for s in ood_df:

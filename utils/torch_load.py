@@ -311,6 +311,9 @@ def get_same_size_by_name(set_name, rotated=False):
     if set_name.endswith('90'):
         return get_same_size_by_name(set_name[:-2], rotated=True)
 
+    if set_name.endswith('-'):
+        return [set_name[:-1] + '+']
+
     parent_set, heldout = get_heldout_classes_by_name(set_name)
     if heldout:
         C = get_shape_by_name(parent_set)[-1]

@@ -643,7 +643,21 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
         best_accuracy = accuracies['first'] = None
         epochs_tested = n_tested = 0
 
-    all_ood_sets = torchdl.get_same_size_by_name(model.training_parameters['set'])
+    training_set = model.training_parameters['set']
+    parent_set, heldout = torchdl.get_heldout_classes_by_name(training_set)
+
+    if heldout:
+        # print('***', *heldout, '***', *model.ood_results)
+        matching_ood_sets = [k for k in model.ood_results if k.startswith(parent_set)]
+        if matching_ood_sets:
+            model.ood_results[parent_set + '+?'] = model.ood_results.pop(matching_ood_sets[0])
+        all_ood_sets = [parent_set + '+?']
+
+    else:
+        all_ood_sets = torchdl.get_same_size_by_name(training_set)
+
+    heldout = tuple(sorted(heldout))
+    
     tested_ood_sets = [s for s in model.ood_results if s in all_ood_sets]
 
     ood_fprs = {s: {} for s in all_ood_sets}
@@ -761,54 +775,57 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
         recorded_epoch = None
 
     return {'net': model,
-                'job': model.job_number,
-                'is_resumed': model.is_resumed,
-                'type': architecture.type,
-                'arch': arch,
-                'dict_var': dict_var,
-                'coder_dict': coder_dict,
-                'gamma': model.training_parameters['gamma'],
-                'rho': model.training_parameters['rho'],
-                'arch_code': arch_code,
-                'features': architecture.features['name'] if architecture.features else 'none',
-                'dir': directory,
-                'set': training.set,
-                'data_augmentation': training.data_augmentation,
-                'train_batch_size': train_batch_size,
-                'sigma': f'{sigma}',
-                'beta_sigma': beta_sigma,
-                'sigma_train': sigma_train,
-                'beta': beta,
-                'done': model.train_history['epochs'],
-                'epochs': model.training_parameters['epochs'],
-                'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
-                'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
-                'n_tested': n_tested,
-                'epochs_tested': epochs_tested,
-                'accuracies': accuracies,
-                'best_accuracy': best_accuracy,
-                'n_ood': n_ood,
-                'ood_fprs': ood_fprs,
-                'ood_fpr': ood_fpr,
-                'recorders': recorders,
-                'recorded_epoch': recorded_epoch,
-                'rmse': rmse,
-                'test_loss': loss_['test']['total'],
-                'train_loss': loss_['train']['total'],
-                'test_zdist': np.sqrt(loss_['test']['zdist']),
-                'train_zdist': np.sqrt(loss_['train']['zdist']),
-                'K': architecture.latent_dim,
-                'L': training.latent_sampling,
-                'warmup': training.warmup,
-                'pretrained_features': str(pretrained_features),
-                'pretrained_upsampler': str(pretrained_upsampler),
-                'batch_norm': architecture.batch_norm,
-                'depth': depth,
-                'width': width,
-                'options': model.option_vector(),
-                'optim_str': f'{empty_optimizer:3}',
-                'optim': empty_optimizer.kind,
-                'lr': empty_optimizer.init_lr,
+            'job': model.job_number,
+            'is_resumed': model.is_resumed,
+            'type': architecture.type,
+            'arch': arch,
+            'dict_var': dict_var,
+            'coder_dict': coder_dict,
+            'gamma': model.training_parameters['gamma'],
+            'rho': model.training_parameters['rho'],
+            'arch_code': arch_code,
+            'features': architecture.features['name'] if architecture.features else 'none',
+            'dir': directory,
+            'heldout': heldout,  # tuple(sorted(heldout)),
+            'h/o': ','.join(str(_) for _ in heldout),
+            'set': parent_set + ('-?' if heldout else ''),
+            # 'parent_set': parent_set,
+            'data_augmentation': training.data_augmentation,
+            'train_batch_size': train_batch_size,
+            'sigma': f'{sigma}',
+            'beta_sigma': beta_sigma,
+            'sigma_train': sigma_train,
+            'beta': beta,
+            'done': model.train_history['epochs'],
+            'epochs': model.training_parameters['epochs'],
+            'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
+            'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
+            'n_tested': n_tested,
+            'epochs_tested': epochs_tested,
+            'accuracies': accuracies,
+            'best_accuracy': best_accuracy,
+            'n_ood': n_ood,
+            'ood_fprs': ood_fprs,
+            'ood_fpr': ood_fpr,
+            'recorders': recorders,
+            'recorded_epoch': recorded_epoch,
+            'rmse': rmse,
+            'test_loss': loss_['test']['total'],
+            'train_loss': loss_['train']['total'],
+            'test_zdist': np.sqrt(loss_['test']['zdist']),
+            'train_zdist': np.sqrt(loss_['train']['zdist']),
+            'K': architecture.latent_dim,
+            'L': training.latent_sampling,
+            'warmup': training.warmup,
+            'pretrained_features': str(pretrained_features),
+            'pretrained_upsampler': str(pretrained_upsampler),
+            'batch_norm': architecture.batch_norm,
+            'depth': depth,
+            'width': width,
+            'options': model.option_vector(),
+            'optim_str': f'{empty_optimizer:3}',
+            'optim': empty_optimizer.kind,
+            'lr': empty_optimizer.init_lr,
     }
 
 
@@ -941,13 +958,14 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
                                    tpr, tnr,
                                    sorting_keys) for s in testsets}
 
-    arch_index = ['type',
-                  'depth',
-                  'features',
-                  'arch_code',
-                  'K',
-                  'dict_var',
-    ]
+    arch_index = ['h/o']  if dataset.endswith('-?') else []
+    arch_index += ['type',
+                   'depth',
+                   'features',
+                   'arch_code',
+                   'K',
+                   'dict_var',
+                   ]
 
     all_nets = ['job', 'done'] if nets_to_show == 'all' else []
 
@@ -988,6 +1006,8 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
     # return acc_df
     # return ood_df
     d_ = {dataset: acc_df}
+
+    # print('*** ood_df:', *ood_df, 'ood', ood)
     if ood:
         ood_df = {s: ood_df[s] for s in ood}
     for s in ood_df:
@@ -1035,12 +1055,17 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
     def _f(x, type='pc'):
         if type == 'pc':
             return 100 * x
+        elif type == 'tuple':
+            return '-'.join(str(_) for _ in x)
         return x
         
     col_format = {c: _f for c in df.columns}
     for c in df.columns[df.columns.isin(['measures'], level=0)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
+    index_format = {}
+    index_format['heldout'] = lambda x: 'H' # _f(x, 'tuple')
+    
     sorting_index = []
 
     if sorting_keys:
@@ -1070,7 +1095,11 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
             logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
 
     if sorting_keys:
-        df = df.sort_values(sorting_keys)
+        df = df.sort_values(sorting_index)
+    # index_rename = {t: '-'.join(str(_) for _ in t) for t in df.index.get_level_values('heldout')}
+    # print(*index_rename, *index_rename.values())
+    # df.rename(index=index_rename)
+    # print('df index', df.index.get_level_values('heldout'))  
     return df.apply(col_format)
         
     if not best_method:

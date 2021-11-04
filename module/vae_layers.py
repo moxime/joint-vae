@@ -117,6 +117,7 @@ class Sigma(Parameter):
             
         if rmse is None:
             return
+
         self._rmse = rmse
         if self.learned or not self.decay:
             return

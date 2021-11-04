@@ -628,15 +628,27 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.sigma.update(v=s_)
             else:
                 s_ = self.sigma
-            # if not batch: print('*** sigma', *self.sigma.shape)
-            sigma_ = s_.exp() if self.sigma.is_log else s_
-            log_sigma = s_ if self.sigma.is_log else s_.log()
+            if self.sigma.is_rmse:
+                sigma_ = 1.
+                log_sigma = 0.
+            else:
+                sigma_ = s_.exp() if self.sigma.is_log else s_
+                log_sigma = s_ if self.sigma.is_log else s_.log()
 
             # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape) 
             weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
                                                         x_reco[1:] / sigma_,
                                                         ndim=len(self.input_shape),
                                                         batch_mean=False)
+
+            if self.sigma.is_rmse:
+                sigma_ = weighted_mse_loss_sampling * 2
+                log_sigma = sigma_.log()
+                weighted_mse_loss_sampling = 0.5 * torch.ones_like(weighted_mse_loss_sampling)
+
+            if not batch:
+                pass
+                # print('*** sigma', *self.sigma.shape, 'sigma_', sigma_.shape)  # 
 
             batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
             batch_quants['mse'] = (batch_quants['wmse']).mean() * 2 * (sigma_ ** 2).mean()
@@ -721,9 +733,9 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_wmse = batch_quants['wmse']
             D = np.prod(self.input_shape)
 
-            # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
             if self.training:
-                self.sigma.update(rmse=batch_wmse.mean().sqrt())
+                self.sigma.update(rmse=batch_quants['mse'].mean().sqrt())
+                # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
                 self.training_parameters['sigma'] = self.sigma.params
 
             batch_logpx = -D * (log_sigma.mean() + np.log(2 * np.pi)
@@ -979,7 +991,7 @@ class ClassificationVariationalNetwork(nn.Module):
             if y is not None:
                 y = y[:batch_size]
             try:
-                logging.debug('Trying batch size of %s for %s of %s.',
+                logging.debug('Trying batch size of %s for %s of job#%s.',
                               batch_size,
                               which,
                               self.job_number)

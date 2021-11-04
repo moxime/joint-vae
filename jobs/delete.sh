@@ -16,7 +16,7 @@ cd "$(dirname "$0")"
 for job in "$@"
 do
     echo Searching "$job"
-    dir=$(find . -type d -regex ".*/0*$job")
+    dir=$(find . -type d -regex ".*/0*$job" -not -regex ".*/samples/0*$job")
     if [ "$dir" ]
     then
 	while [ -z $force ]; do

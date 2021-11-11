@@ -401,6 +401,8 @@ def get_args_for_test():
 
     parser.add_argument('--sets', action='append', nargs='+')
 
+    parser.add_argument('--last', nargs='?', const=10, default=0, type=int)
+
     parser.add_argument('--classification-methods', action=NewEntryDictofLists, nargs='+', default={})
     parser.add_argument('--ood-methods', action=NewEntryDictofLists, nargs='+', default={})
     
@@ -510,7 +512,7 @@ def get_filters_args(argv=None):
     parser.add_argument('--batch-norm',
                         nargs='+',
                         action=FilterAction)
-    
+
     parser.add_argument('--job-number',
                         dest='job',
                         of_type=int,

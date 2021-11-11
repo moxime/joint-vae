@@ -350,6 +350,12 @@ if __name__ == '__main__':
     logging.info('|     {:d} epochs to be computed'.format(n_epochs_to_be_computed))
     logging.info('{:d} models kept'.format(len(models_to_be_kept)))
 
+    models_to_be_kept.sort(key=lambda d: d.get('job',0))
+    models_to_be_kept = models_to_be_kept[-args.last:]
+
+    for s in archs:
+        archs[s] = {n['arch'] for n in models_to_be_kept if n['set'] == s}
+    
     if args.compute:
         for m in models_to_be_computed['recorder']:
             print('Computing rates of job {} of type {}'.format(m['job'], m['type'])) 

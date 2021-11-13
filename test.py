@@ -9,6 +9,7 @@ import hashlib
 import logging
 
 import pandas as pd
+import numpy as np
 
 from utils.parameters import get_args, set_log, gethostname
 from utils.save_load import collect_networks, test_results_df, LossRecorder, make_dict_from_model
@@ -506,35 +507,87 @@ if __name__ == '__main__':
     
     pd.set_option('max_colwidth', 15)
 
-    sep = ['\n' * 2 + '=' * 180 for _ in df]
-    if sep:
-        sep[0] = ''
-
-    sep_ = iter(sep)
     for s, d in df.items():
 
+        # print('**********', d.reset_index().columns)  # 
         texify_test_results_df(d, s, tex_file, tab_file)
 
         # d.index = d.index.droplevel(('sigma_train', 'beta_sigma', 'features'))
         # d.index = d.index.droplevel(('sigma_train', 'sigma', 'features'))
-        d.index = d.index.droplevel(('sigma', 'features'))
+        # d.index = d.index.droplevel(('sigma', 'features'))
+        d.index = d.index.droplevel(('features'))
+        d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('NaN'))
         
-        print(next(sep_))
-        print(f'Results for {s}')
-        print(d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True))
-
         if tex_file:
             with open(tex_file, 'a') as f:
                 f.write('\def\joblist{')
                 f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
 
+        if not args.show_measures:
+            # print(*[_[0] for _ in d.columns])
+            d.drop(columns=[_ for _ in d.columns if _[0] == 'measures'], inplace=True)
+
+        removable_index = ['sigma_train', 'sigma', 'beta', 'gamma']
+        removed_index = [i for i, l in enumerate(d.index.levels) if len(l) < 2 and l.name in removable_index]
+        d = d.droplevel(removed_index)
+
+        d_str = d.copy()
+
+        def _f(x):
+            if isinstance(x, str):
+                return x
+            return '{:4g}'.format(x)
+    
+        # d_str.index = d.index.format(formatter=_f)
+        d_str = d_str.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
+
+        width = len(d_str.split('\n')[0])
+        print(f'{s.upper():=^{width}}')
+        print(d_str)
+
+        if 'job' in d.index.names:
+            idx = d.index.names
+            d.reset_index(inplace=True)
+            wj = d['job'].apply(str).apply(len).max()
+            d['job'] = ' ' * wj
+            d.set_index(idx, inplace=True)
+
+        gb = d.groupby(level=d.index.names)
+
+        d_mean = gb.agg('mean')
+        d_count = gb.agg('count')
+        _s = '{{:{}d}}'.format(wj)
+        d_count_s = d_count[d_count.columns[-1]].apply(_s.format)
+        d_count_v = d_count_s.values
+
+        if 'job' in d.index.names:
+            idx = d.index.names
+            d_mean.reset_index(inplace=True)
+            d_mean['job'] = d_count_v
+            d_mean.set_index(idx, inplace=True)
+
+        # d_mean.index = d_mean.index.format(formatter=_f)        
+        m_str = d_mean.to_string(na_rep='', float_format='{:.3g}'.format).split('\n')
+        width = len(m_str[0])
+        first_row = '{:=^{w}}'.format('AVERAGE', w=width)
+        header = d.columns.nlevels
+        second_row = m_str[header-1]
+
+        print()
+        print(first_row)
+        print()
+        print(second_row)
+        print('\n'.join(m_str[header+1:]))
+        
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
             print(arch_code,':\n', a)
         if print_sorting_keys:
             print('Possible sorting keys :', *d.index.names)
 
+        for _ in range(2):
+            print('=' * width)
         # print('***', *d.columns)
 
     # print(df.to_string())

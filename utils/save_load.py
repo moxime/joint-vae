@@ -792,9 +792,9 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
             # 'parent_set': parent_set,
             'data_augmentation': training.data_augmentation,
             'train_batch_size': train_batch_size,
-            'sigma': f'{sigma}',
+            'sigma': sigma.value if sigma_train == 'constant' else np.nan,
             'beta_sigma': beta_sigma,
-            'sigma_train': sigma_train,
+            'sigma_train': sigma_train[:5],
             'beta': beta,
             'done': model.train_history['epochs'],
             'epochs': model.training_parameters['epochs'],
@@ -964,33 +964,33 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
                    'features',
                    'arch_code',
                    'K',
-                   'dict_var',
+                   # 'dict_var',
                    ]
-
-    all_nets = ['job', 'done'] if nets_to_show == 'all' else []
 
     train_index = [
         'options',
         'optim_str',
         'L',
-        'sigma',
         'sigma_train',
-        'beta_sigma',
+        'sigma',
+        # 'beta_sigma',
         'beta',
         'gamma',
-    ] + all_nets
+    ] + (['job'] if nets_to_show == 'all' else [])
 
     indices = arch_index + train_index
-    
+
     # acc_cols = ['best_accuracy', 'accuracies']
     # ood_cols = ['ood_fpr', 'ood_fprs']
 
     acc_cols = ['accuracies']
     ood_cols = ['ood_fprs']
-    meas_cols = ['rmse', 'train_loss', 'test_loss', 'train_zdist', 'test_zdist']
+    meas_cols = ['done'] if nets_to_show == 'all' else []
+    meas_cols += ['dict_var', 'beta_sigma', 'rmse',
+                 'train_loss', 'test_loss',
+                 'train_zdist', 'test_zdist']
     
     columns = indices + acc_cols + ood_cols + meas_cols
-
     df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
                                    columns=columns)
 
@@ -1032,10 +1032,10 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
 
         #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
 
-    if show_measures:
-        d_['measures'] = meas_df
+    # if show_measures:
+    d_['measures'] = meas_df
     df = pd.concat(d_, axis=1)
-
+    
     cols = df.columns
     # print('*** save_load:379', [type(c[-1]) for c in cols])
     keeped_columns = cols.isin(tpr + ['rate', 'auc'] + [str(_) for _ in tpr], level=2)
@@ -1089,13 +1089,14 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
             if tuple_k in df.columns:
                 sorting_index.append(tuple_k)
                 continue
-            print('***', *df.columns)
+
             logging.error(f'Key {k} not used for sorting')
             logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
             logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
 
     if sorting_keys:
         df = df.sort_values(sorting_index)
+
     # index_rename = {t: '-'.join(str(_) for _ in t) for t in df.index.get_level_values('heldout')}
     # print(*index_rename, *index_rename.values())
     # df.rename(index=index_rename)

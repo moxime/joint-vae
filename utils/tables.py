@@ -267,6 +267,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
     tab_df = df.copy()
     tab_df.columns = tab_cols
     tab_df = tab_df.reset_index()
+    # print('*** tab_df.cols', *tab_df.columns)
     tab_df.columns = [texify(c, underscore='-') for c in tab_df.columns]
     tab_df = tab_df.applymap(lambda x: texify(x, space='-', num=True))
     
@@ -317,7 +318,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             f.write(r'}')
             f.write('\n')
 
-            unique_dict_vars = tab_df['dict-var'].unique()
+            unique_dict_vars = tab_df['measures-dict-var'].unique()
             unique_dict_vars.sort()
             f.write(r'\def\tabdictvars{')
             f.write(','.join(str(a) for a in unique_dict_vars))

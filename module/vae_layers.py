@@ -132,6 +132,15 @@ class Sigma(Parameter):
             return self.value.__format__(spec)
         if spec.endswith('x'):
             return texify(str(self), num=True)
+        if spec.endswith('i'):
+            if self.is_rmse:
+                return 'e'
+            if self.coded:
+                return 'C' if self.per_dim else 'c'
+            if self.learned:
+                return 'l'
+            return str(self)
+                
         return str(self)
         
     def __str__(self):

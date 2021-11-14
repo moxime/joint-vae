@@ -20,7 +20,7 @@ tpr = 95
 args = argparse.ArgumentParser()
 
 args.add_argument('-j', default=j, type=int)
-args.add_argument('--ood-tpr', default=tpr, type=float)
+args.add_argument('--ood-tpr', default=100, type=float)
 args.add_argument('--mis-tpr', default=tpr, type=float)
 args.add_argument('direct_load', nargs='?')
 args.add_argument('--oodsets', nargs='*', default=[])
@@ -30,7 +30,9 @@ args.add_argument('-N', type=int, default=1000)
 args.add_argument('-T', type=int, nargs='+', default=[1])
 args.add_argument('--soft', choices=['kl', 'iws'], default='default')
 args.add_argument('--hard', choices=['kl', 'iws'])
+args.add_argument('--entropy', '-H', action='store_true')
 args.add_argument('--elbo', action='store_true')
+args.add_argument('--baseline', action='store_true')
 args.add_argument('--2s', action='store_true', dest='two_sided')
 args.add_argument('--print', action='store_true')
 
@@ -65,42 +67,57 @@ if a.soft == 'default':
     else:
         logging.error('Type %s of model not supported', net.type)
         sys.exit(1)
-        
+
+if a.elbo:
+    a.soft = 'total'
+
+if a.baseline:
+    a.soft = 'logits'
+    a.hard = None
+
 recorders = LossRecorder.loadall(dir_path, testset, *a.oodsets, device='cpu')
 
 oodsets = [s for s in a.oodsets if s in recorders]
 
 losses = recorders[testset]._tensors
 
+# for k in losses:
+#     print(k, *losses[k].shape)
 
 for s in [testset] + oodsets:
 
     losses = recorders[s]._tensors
+
     sign_for_ood = 1
-    sign_for_mis = -1
+    sign_for_mis = 1
     
     if a.hard == 'odin*':
         metrics_for_ood = [k for k in losses if k.startswith('odin')]
         metrics_for_mis = [k for k in losses if k.startswith('odin')]
-        ndim_of_losses = 1
+        ndim_of_losses = dict(ood=1, mis=1)
+        sign_for_mis = 1
+                
     else:
         metrics_for_mis = [a.hard or a.soft]
-        metrics_for_ood = ['total' if a.elbo else 'iws']
+        default_metrics = 'iws' if net.type == 'cvae' else metrics_for_mis[0]
+        metrics_for_ood = ['total' if a.elbo else default_metrics]
         sign_for_ood = -1 if a.elbo else 1
-        sign_for_mis = -1 if metrics_for_mis == 'kl' else 1
-        ndim_of_losses = 2
+        if 'kl' in metrics_for_mis or a.elbo:
+            sign_for_mis = -1
+        ndim_of_losses = dict(ood=2, mis=2)
 
-
-    print('*** metrics {}{} (ood) {}{}{} (miss) of dim={}'.format('' if sign_for_ood==1 else '-',
-                                                                  metrics_for_ood[0],
-                                                                  '' if sign_for_mis==1 else '-',
-                                                                  '' if a.hard else 'soft-',
-                                                                  metrics_for_mis[0],
-                                                                  ndim_of_losses
-                                                                  ))
+    _s = '*** metrics {}{} of dim {} (ood) {}{}{} of dim {} (miss)'
+    print(_s.format('' if sign_for_ood==1 else '-',
+                    metrics_for_ood[0],
+                    ndim_of_losses['ood'],
+                    '' if sign_for_mis==1 else '-',
+                    '' if a.hard else 'soft-',
+                    metrics_for_mis[0],
+                    ndim_of_losses['mis']
+    ))
     
     y = losses.pop('y_true')
-    logits = losses.pop('logits').T
+    logits = losses['logits'].T
 
     y_ = net.predict_after_evaluate(logits, losses)
 
@@ -112,12 +129,13 @@ for s in [testset] + oodsets:
         correct = (y != y)
         missed = (y == y)
 
-
+        
+    
     mis_fpr_at_tpr = []
     for m_for_ood, m_for_mis in zip(metrics_for_ood, metrics_for_mis):
 
         print('*** OOD:', m_for_ood, '*** MIS:', m_for_mis)
-        if ndim_of_losses == 2:
+        if ndim_of_losses['ood'] == 2:
             logp_x_y_max = (sign_for_ood * losses[m_for_ood]).max(axis=0)[0]
         else:
             logp_x_y_max = (sign_for_ood * losses[m_for_ood])
@@ -139,21 +157,37 @@ for s in [testset] + oodsets:
             else:
                 ood_thresholds = (logp_x_y_max.sort()[0][int(np.floor(len(y) * (1 - ood_tpr)))], np.inf)
 
-        pr = ((ood_thresholds[0] <= logp_x_y_max) * (logp_x_y_max <= ood_thresholds[1])).sum() / len(y)
+        pr = ((ood_thresholds[0] <= logp_x_y_max) * (logp_x_y_max <= ood_thresholds[1])).sum() / float(len(y))
         print('{} OOD {}PR {:.2f}'.format(s, 'T' if s == testset else 'F', pr.item() * 100))
         print('Accuracy: {:.2f}'.format(100 * accuracy))
 
         for T in a.T:
 
+            print(m_for_mis)
             metrics = sign_for_mis * losses[m_for_mis]
             if a.hard:
-                if ndim_of_losses == 2:
+                if ndim_of_losses['mis'] == 2:
                     p_y_x = metrics.max(axis=0)[0]
                 else:
                     p_y_x = metrics
             else:
-                assert ndim_of_losses == 2
-                p_y_x = torch.nn.functional.softmax(losses[m_for_mis] / T, dim=0).max(axis=0)[0]
+                assert ndim_of_losses['mis'] == 2
+                p_y_x = torch.nn.functional.softmax(metrics / T, dim=0)
+                if a.entropy:
+                    # print(p_y_x.min())
+                    p_y_x = ((p_y_x + 1e-10) * (p_y_x + 1e-10).log2()).sum(axis=0)
+                else:
+                    p_y_x = p_y_x.max(axis=0)[0]
+
+            _d = {'s': s,
+                  'c': p_y_x[correct].mean(),
+                  'c_': p_y_x[correct].std(),
+                  'm': p_y_x[missed].mean(),
+                  'm_': p_y_x[missed].std()}
+            _s = 'Metrics mean for {s} correct: {c:.4g} +- {c_:.4g} missed: {m:4g} +- {m_:.4g}'
+            
+            print(_s.format(**_d))
+        
 
             if s == testset:
                 _p = 5.1
@@ -267,7 +301,7 @@ for s in [testset] + oodsets:
                 best_T = T
 
     dP = best_P - accuracy
-    print('{:16} {:4} at TPR {:.1f} : FPR={:.1f} P={:.1f} ({:.1f} + {:.1f})'.format(best_m,
+    print('{:16} {:4} at TPR {:.1f} : FPR={:.1f} P={:.1f} ({:.1f}{:+.1f})'.format(best_m,
                                                                                    best_T,
                                                                                    100 * mis_tpr,
                                                                                    100 * best_fpr,

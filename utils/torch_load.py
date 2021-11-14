@@ -8,7 +8,6 @@ import os
 import logging
 import string
 
-
 class LoggerAsfile(object):
 
     def write(self, s):
@@ -403,6 +402,5 @@ def show_images(imageset, shuffle=True, num=4, **kw):
     
 if __name__ == '__main__':
 
-    t, T = get_dataset('cifar10', data_augmentation=['flip', 'crop'])
-
-    show_images(t)
+    pass
+    

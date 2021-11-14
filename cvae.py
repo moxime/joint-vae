@@ -493,8 +493,8 @@ class ClassificationVariationalNetwork(nn.Module):
             x_output = self.imager(u)
 
         if self.is_cvae or self.is_vae:
-            # y_output = self.classifier(z_mean.unsqueeze(0))
-            y_output = self.classifier(z)
+            y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means
+            # y_output = self.classifier(z) # for classification on z
         else:
             y_output = self.classifier(z)
             

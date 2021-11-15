@@ -794,7 +794,7 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
             'train_batch_size': train_batch_size,
             'sigma': sigma.value if sigma_train == 'constant' else np.nan,
             'beta_sigma': beta_sigma,
-            'sigma_train': sigma_train[:5],
+            'sigma_train': sigma_train,  #[:5],
             'beta': beta,
             'done': model.train_history['epochs'],
             'epochs': model.training_parameters['epochs'],

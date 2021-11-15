@@ -332,7 +332,7 @@ def get_args_for_train(argv=None):
     return args
 
 
-def get_args_for_test():
+def get_args_for_test(argv=None):
 
     parser = argparse.ArgumentParser()  # (add_help=False)
     parser.add_argument('--debug', action='store_true')
@@ -407,7 +407,7 @@ def get_args_for_test():
     parser.add_argument('--ood-methods', action=NewEntryDictofLists, nargs='+', default={})
     
 
-    filter_args, remaining_args = get_filters_args()
+    filter_args, remaining_args = get_filters_args(argv)
     
     args = parser.parse_args(args=remaining_args, namespace=filter_args)
     

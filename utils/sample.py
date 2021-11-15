@@ -236,183 +236,146 @@ def comparison(x, *nets, batch_size=128, root='results/%j/samples', directory='o
 
 if __name__ == '__main__':
     
-    device = 'cuda'
-
-    reload = True
-    reload = False
-
-    root = 'results/%j/samples'
-    
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-j', '--jobs', type=int,
-                        nargs='+',
-                        default=[],)
-                       
+    parser.add_argument('--job-dir', default='jobs')
     parser.add_argument('-m', '--batch-size', type=int, default=256)
-    parser.add_argument('-L', '--grid-width', type=int, default=0)
+    parser.add_argument('-W', '--grid-width', type=int, default=0)
+    parser.add_argument('--total-width', type=int, default=30)
     parser.add_argument('-N', '--grid-height', type=int, default=0)
     parser.add_argument('-D', '--directory', default=root)
-    parser.add_argument('--debug', action='store_true')
-    parser.add_argument('-v', action='count')
     parser.add_argument('--z-sample', type=int, default=0)
     parser.add_argument('--bins', type=int, default=20)
-    parser.add_argument('--sync', action='store_true')
-    parser.add_argument('--compare', type=int, default=0)
     parser.add_argument('--look-for-missed', type=int, default=0)
+    parser.add_argument('--list-jobs-and-quit', action='store_true')
+    parser.add_argument('-v', '--verbose', action='count', default=0)
+    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('-p', '--plot', nargs='?', const='all')
+    
+    jobs = [117281,
+            129527,
+            117250,
+            112267
+            ]
     
     args_from_file = ['-D', '/tmp/%j/samples',
-                      '--compare', '1024',
+                      '-N', '10',
                       # '--debug',
                       '-vv',
                       '-m', '64',
-                      '-j', '117281', '117250', '112267',
-                      ]
+                      '--job-num'] + [str(j) for j in jobs]
     
-    args = parser.parse_args(None if sys.argv[0] else args_from_file)
+    filter_args, remaining_args = get_filters_args(None if sys.argv[0] else args_from_file)
     
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-    elif args.v:
-        logging.getLogger().setLevel(logging.WARNING if args.v==1 else logging.INFO)
-        
-    jobs = args.jobs
+    args = parser.parse_args(args=remaining_args, namespace=filter_args)
+
+    set_log(args.verbose, args.debug, 'jobs/log', name='results')
+    
     L = args.grid_width
     N = args.grid_height
     m = args.batch_size
     root = args.directory
     z_sample = args.z_sample
     bins = args.bins
-    cross_sample = args.compare
+    # cross_sample = args.compare
+
+    filters = args.filters
+
+    device = tl.choose_device()
+    logging.debug(device)
     
-    if args.sync:
+    """if args.sync:
         r = LossRecorder(1)
         computed_max_batch_size = False
-
-
-    logging.info('Will work in %s', root)
+    """
     
-    shells = find_by_job_number(*jobs, load_net=False, force_dict=True)
+    logging.info('Will work in %s', root)
 
-    adapt_L = not L
-    LL = 30
+    list_of_networks = sum(collect_networks(args.job_dir, load_net=False, load_state=False), [])
 
-    if z_sample or N:
-        for j in shells:
+    networks_to_be_studied = []
+    for n in list_of_networks:
+        filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
+        to_be_studied = all(filter_results)
 
-            if adapt_L:
-                L = LL // (2 + len(shells[j]['net'].ood_results))
+        if to_be_studied:
+            networks_to_be_studied.append(n)
+            # for d in filters:
+            #   print(d, n[d])
+            #   for f in filters[d]:
+            #       print(f, f.filter(n[d]))
 
-            x = dict()
-            y = dict()
-            logging.info('loading state of %s', j)
+    if args.list_jobs_and_quit:
+        networks_to_be_studied.sort(key=lambda n: n['job'] if isinstance(n['job'], int) else 0)
+        for i, n in enumerate(networks_to_be_studied):
+            #            print(f'{i:4d}:', n['job'])
+            print(n['job'])
+        logging.info('%d networks listed', i + 1)
+        sys.exit(0)
 
-            net = Net.load(shells[j]['dir'])
-            net.to(device)
-            logging.info('done')
-            logging.info('Compute max batch size')
+    if len(networks_to_be_studied) > 2:
+        args.plot = False
 
-            batch_size = min(m, net.compute_max_batch_size(batch_size=m, which='test'))
-            logging.info(f'done ({batch_size})')
+    logging.info('{} plot will be done'.format('One' if args.plot else 'No'))
+    logging.info('{} models will be worked'.format(len(networks_to_be_studied)))
 
-            if args.sync and computed_max_batch_size and  batch_size != computed_max_batch_size:
-                logging.warning("Let's assume you know what you're doing")
+    dict_of_sets = dict()
+    for n in networks_to_be_studied:
+        model = n['net']
+        trainset_ = tuple(model.training_parameters[k] for k in ('set', 'transformer'))
+        if trainset_ not in dict_of_sets:
+            dict_of_sets[trainset_] = [n]
+        else:
+            dict_of_sets[trainset_].append(n)
 
-            computed_max_batch_size = batch_size
-            z_sample = z_sample // batch_size * batch_size
-
-            testset, transformer = (shells[j]['net'].training_parameters[k] for k in ('set', 'transformer'))
-            _, test_dataset = tl.get_dataset(testset, transformer=transformer)
-
-            if args.sync:
-                r.init_seed_for_dataloader()
-
-            x[testset], y[testset] = tl.get_batch(test_dataset, device=device,
-                                                  batch_size=max(z_sample, N))
-
-            oodsets = test_dataset.same_size
-
-            for o in oodsets:
-                _, ood_dataset = tl.get_dataset(o, transformer=transformer)
-                x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=max(z_sample, N))
-
-            for s in x:
-                logging.info('sampling %s', s)
-
-                if N:
-                    list_of_images = sample(net, x[s][:N], root=root,
-                                            directory=s,
-                                            N=N, L=L)
-
-                if z_sample:
-
-                    zsample(x[s][:z_sample], net, batch_size, root=root, directory=s)
-
-            if N:
-                list_of_images = sample(net, root=root,
-                                        directory='generate', N=N, L=L)
-
-    if cross_sample:
-
-        first_net = next(iter(shells.values()))
-        testset, transformer = (first_net['net'].training_parameters[k] for k in ('set', 'transformer'))
-        _, test_dataset = tl.get_dataset(testset, transformer=transformer)
-
-        x, y = {}, {}
+    for (testset, transformer), list_of_nets in dict_of_sets.items():
+        logging.info('Going with %s (%s): %d nets to be done',
+                     testset, transformer, len(list_of_nets)) 
+        x, y = dict(), dict()
         
-        x[testset], y[testset] = tl.get_batch(test_dataset, device=device, batch_size=cross_sample)
+        _, test_dataset = tl.get_dataset(testset, transformer=transformer)
+        x[testset], y[testset] = tl.get_batch(test_dataset, device=device,
+                                              batch_size=max(z_sample, N))
 
         oodsets = test_dataset.same_size
 
         for o in oodsets:
             _, ood_dataset = tl.get_dataset(o, transformer=transformer)
-            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=cross_sample)
+            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=max(z_sample, N))
 
-        nets = [Net.load(shells[j]['dir']) for j in shells]
+        if not L:
+            L = args.total_width // (1 + len(x))
 
-        batch_size = m
+        for n in list_of_nets:
 
-        # logging.info('Computing min of max batch size. Starting with %s', m)
-        # for n in nets:
-        #     if torch.cuda.is_available():
-        #         n.to('cuda')
+            logging.info('loading state of %s', n['job'])
+
+            model = Net.load(n['dir'])
+            model.to(device)
+            logging.info('done')
+            logging.info('Compute max batch size')
+
+            batch_size = min(m, model.compute_max_batch_size(batch_size=m, which='test'))
+            logging.info(f'done ({batch_size})')
+
+            for s in x:
                 
-        #     batch_size = min(batch_size, n.compute_max_batch_size(batch_size=m, which='test'))
-        #     logging.info(f'Done for {n.job_number}: {batch_size}')
+                logging.info('sampling %s', s)
 
-        div, y_pred = {}, {}
-        
-        for s in x:
+                if N:
+                    list_of_images = sample(model, x[s][:N], root=root,
+                                            directory=s,
+                                            N=N, L=L)
 
-            logging.info('Comparing nets %s for set %s', ' '.join(str(n.job_number) for n in nets), s)
-            div[s], y_pred[s] = comparison(x[s], *nets, batch_size=batch_size, root=root, directory=s)
+                if z_sample:
 
-        print('Divergence')
+                    zsample(x[s][:z_sample], model, y=y[s][:z_sample],
+                            batch_size=m,
+                            root=root, bins=args.bins, directory=s)
 
-        thr = {j :{} for j in div[testset]}
-        for j in div[testset]:
-            for jj in div[testset][j]:
-                thr[j][jj] = np.quantile(div[testset][j][jj].cpu(), 0.9)
+            if N:
+                list_of_images = sample(model, root=root,
+                                        directory='generate', N=N, L=L)
                 
-        for s in x:
-            print('Set', s)
-            for j in div[s]:
-                for jj in div[s][j]:
-                    d = div[s][j][jj].mean()
-                    dv = div[s][j][jj].std()
-                    fpr = float(sum(div[s][j][jj] <= thr[j][jj])) / len(div[s][j][jj])
-                    q = np.quantile(div[s][j][jj].cpu(), [0.1, 0.5, 0.9])
-                    # print(f'{j} -- {jj}: {d:7.2e} +- {dv:7.2e}')
-                    print(f'{j} -- {jj}:',
-                          ' - '.join(f'{_:7.2e}' for _ in q),
-                          f'FPR: {100*fpr:.1f}%')
+            loss_comparisons(model, root=root, plot=args.plot, bins=args.bins)    
 
-        print('Mismatch of detection')
-        for s in x:
-            print('Set', s)
-            for j in div[s]:
-                for jj in div[s][j]:
-                    r = 1 - float(sum(y_pred[s][j] != y_pred[s][jj])) / len(y_pred[s][j])
-                    print(f'{j} -- {jj}: {100*r:.1f}%')
-
-        

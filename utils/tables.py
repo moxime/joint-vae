@@ -225,6 +225,43 @@ def texify_test_results(net,
     printout('\\end{tabular}')
 
 
+def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replacement_dict={}):
+    """ 
+    df_dict : dict of dataframe
+    kept_cols: either a list or a dict (with the same keys as df_dict
+    kept_levels: a list of kept indiex levels
+    """
+
+    if not isinstance(df_dict, dict):
+        df_dict = {'main': df_dict}
+
+    if isinstance(kept_cols, (list, tuple)):
+        kept_cols = {k: kept_cols for k in df_dict}
+
+    for k, df in df_dict.items():
+        df.drop(columns=[_ for _ in df.columns if _[0] == 'measures'], inplace=True)
+        df.index = pd.MultiIndex.from_frame(df.index.to_frame().fillna('NaN'))
+
+        removed_index = [i for i, l in enumerate(df.index.levels) if len(l) < 2 and l.name not in kept_levels]
+        df = df.droplevel(removed_index)
+        df = df[kept_cols[k]]
+
+        df = df.stack(0).unstack(0)
+        level = df.index.nlevels - 1
+            df = df.stack(level=0).unstack(level=level)
+            if level:
+                df = df.reorder_levels([-1, *list(range(level))]).sort_index(0)
+            df.columns = df.columns.reorder_levels([2, 0, 1])
+        
+
+        
+
+
+        
+    large_df = pd.concat(df, axis=1)
+        
+
+
 def texify_test_results_df(df, dataset, tex_file, tab_file):
 
     datasets = torchdl.get_same_size_by_name(dataset)

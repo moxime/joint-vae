@@ -208,7 +208,7 @@ class ClassificationVariationalNetwork(nn.Module):
             upsampler_channels = None
 
         if self.y_is_decoded and 'esty' not in self.predict_methods:
-            self.predict_methods = ['esty'] + self.predict_methods
+            self.predict_methods =  self.predict_methods + ['esty']
 
         if self.y_is_decoded and 'cross_y' not in self.loss_components:
             self.loss_components += ('cross_y',)
@@ -2335,7 +2335,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     vae.y_is_decoded = gamma
 
                 if vae.y_is_decoded and 'esty' not in vae.predict_methods:
-                    vae.predict_methods = ['esty'] + vae.predict_methods
+                    vae.predict_methods =  vae.predict_methods + ['esty']
 
                 if vae.y_is_decoded and 'cross_y' not in vae.loss_components:
                     vae.loss_components += ('cross_y',)

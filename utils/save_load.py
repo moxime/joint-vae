@@ -13,6 +13,7 @@ from utils.misc import make_list
 from utils.torch_load import get_same_size_by_name
 from utils.roc_curves import fpr_at_tpr
 
+
 def get_path(dir_name, file_name, create_dir=True):
 
     dir_path = os.path.realpath(dir_name)
@@ -498,6 +499,42 @@ def last_samples(model):
     return max(samples)
 
 
+def average_ood_results(ood_results):
+
+    ood = [s for s in ood_results if not s.endswith('90')]
+
+    mean_keys = {'auc': 'val', 'fpr': 'list'}
+    min_keys = {'epochs': 'val', 'n': 'val'}
+    same_keys = {'tpr', 'thresholds'}
+
+    all_methods = [set(ood_results[s].keys()) for s in ood]
+    if all_methods:
+        methods = set.intersection(*[set(ood_results[s].keys()) for s in ood])
+
+    else:
+        return None
+        
+    avge_res = {m: {} for m in methods}
+
+    for m in methods:
+        for k in mean_keys:
+            if mean_keys[k] == 'val':
+                vals = [ood_results[s][m][k] for s in ood]
+                avge_res[m][k] = np.mean(vals)
+            else:
+                lists = [ood_results[s][m][k] for s in ood]
+                n = min(len(l) for l in lists)
+                avge_res[m][k] = [np.mean([l_[i] for l_ in lists]) for i in range(n)]
+
+        for k in min_keys:
+            avge_res[m][k] = min(ood_results[s][m][k] for s in ood)
+
+        for k in same_keys:
+            avge_res[m][k] = ood_results[ood[0]][m][k]
+            
+    return avge_res
+
+
 def clean_results(results, methods, **zeros):
 
     trimmed = {k: results[k] for k in results if k in methods}
@@ -658,6 +695,10 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
 
     heldout = tuple(sorted(heldout))
     
+    average_ood = average_ood_results(model.ood_results)
+    if average_ood:
+        model.ood_results['average'] = average_ood
+    all_ood_sets.append('average')
     tested_ood_sets = [s for s in model.ood_results if s in all_ood_sets]
 
     ood_fprs = {s: {} for s in all_ood_sets}

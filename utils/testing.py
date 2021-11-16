@@ -71,7 +71,7 @@ def worth_computing(model, from_which='recorder', **kw):
 
     return resd[from_which]
 
-
+            
 if __name__ == '__main__':
 
     j = 137540

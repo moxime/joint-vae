@@ -354,8 +354,9 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             # f.write(r'}')
             # f.write('\n')
 
-            if 'done' in tab_df:
-                total_epochs = tab_df['done'].sum()
+            done_col = [c for c in tab_df if c.endswith('done')]
+            if done_col:
+                total_epochs = tab_df[done_col[0]].sum()
                 f.write(r'\def\totalepochs{')
                 f.write(f'{total_epochs}')
                 f.write(r'}')
@@ -367,12 +368,13 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             f.write(r'}')
             f.write('\n')
 
-            unique_dict_vars = tab_df['measures-dict-var'].unique()
-            unique_dict_vars.sort()
-            f.write(r'\def\tabdictvars{')
-            f.write(','.join(str(a) for a in unique_dict_vars))
-            f.write(r'}')
-            f.write('\n')
+            if 'measures-dict-var' in tab_df:
+                unique_dict_vars = tab_df['measures-dict-var'].unique()
+                unique_dict_vars.sort()
+                f.write(r'\def\tabdictvars{')
+                f.write(','.join(str(a) for a in unique_dict_vars))
+                f.write(r'}')
+                f.write('\n')
 
             unique_sigmas = tab_df['sigma'].unique()
             unique_sigmas.sort()
@@ -384,6 +386,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
             f.write('\n')
 
+            tab_cols = [_ for _ in tab_cols if not _.startswith('std-')]
             f.write(r'\def\typesetwithmeasures#1{\pgfplotstabletypeset[columns={')
             f.write(','.join(tab_cols))
             # f.write('job,type')
@@ -392,7 +395,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
             f.write(r']{\testtab}}')
             f.write('\n')
 
-            tab_cols_wo_measures = [c for c in tab_cols if not c.startswith('measures')]
+            tab_cols_wo_measures = [c for c in tab_cols if 'measures-' not in c]
             f.write(r'\def\typeset#1{\pgfplotstabletypeset[columns={')
             f.write(','.join(tab_cols_wo_measures))
             # f.write('job,type')

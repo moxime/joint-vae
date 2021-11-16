@@ -405,7 +405,7 @@ def get_args_for_test(argv=None):
 
     parser.add_argument('--classification-methods', action=NewEntryDictofLists, nargs='+', default={})
     parser.add_argument('--ood-methods', action=NewEntryDictofLists, nargs='+', default={})
-    
+    parser.add_argument('--remove-index', nargs='*')
 
     filter_args, remaining_args = get_filters_args(argv)
     

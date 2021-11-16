@@ -497,9 +497,14 @@ if __name__ == '__main__':
     tex_filter_str = filter_str
     for _ in _sep:
         tex_filter_str = tex_filter_str.replace(_, '-')
-    
-    tab_file = os.path.join('results', tex_filter_str + '.tab') if len(df) == 1 else None
-    tex_file = os.path.join('results', tex_filter_str + '.tex') if len(df) == 1 else None
+
+    tab_file, tex_file, agg_tab_file, agg_tex_file = None, None, None, None
+
+    if len(df) == 1:
+        tab_file = os.path.join('results', tex_filter_str + '.tab') 
+        tex_file = os.path.join('results', tex_filter_str + '.tex')
+        agg_tab_file = os.path.join('results', tex_filter_str + '-agg.tab') 
+        agg_tex_file = os.path.join('results', tex_filter_str + '-agg.tex') 
 
     log.info('')
     log.info('')
@@ -512,6 +517,7 @@ if __name__ == '__main__':
         # print('**********', d.reset_index().columns)  # 
         texify_test_results_df(d, s, tex_file, tab_file)
 
+        
         # d.index = d.index.droplevel(('sigma_train', 'beta_sigma', 'features'))
         # d.index = d.index.droplevel(('sigma_train', 'sigma', 'features'))
         # d.index = d.index.droplevel(('sigma', 'features'))
@@ -524,22 +530,14 @@ if __name__ == '__main__':
                 f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
 
-        if not args.show_measures:
-            # print(*[_[0] for _ in d.columns])
-            d.drop(columns=[_ for _ in d.columns if _[0] == 'measures'], inplace=True)
-
-        removable_index = ['sigma_train', 'sigma', 'beta', 'gamma']
-        removed_index = [i for i, l in enumerate(d.index.levels) if len(l) < 2 and l.name in removable_index]
-        d = d.droplevel(removed_index)
+        if args.remove_index is not None:
+            removable_index = ['sigma_train', 'sigma', 'beta', 'gamma']
+            removed_index = [i for i, l in enumerate(d.index.levels) if len(l) < 2 and l.name in removable_index]
+            removed_index += args.remove_index
+            d = d.droplevel(removed_index)
 
         d_str = d.copy()
 
-        def _f(x):
-            if isinstance(x, str):
-                return x
-            return '{:4g}'.format(x)
-    
-        # d_str.index = d.index.format(formatter=_f)
         d_str = d_str.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
 
         width = len(d_str.split('\n')[0])
@@ -556,16 +554,30 @@ if __name__ == '__main__':
         gb = d.groupby(level=d.index.names)
 
         d_mean = gb.agg('mean')
+        d_std = gb.agg('std')
         d_count = gb.agg('count')
-        _s = '{{:{}d}}'.format(wj)
-        d_count_s = d_count[d_count.columns[-1]].apply(_s.format)
-        d_count_v = d_count_s.values
 
         if 'job' in d.index.names:
-            idx = d.index.names
-            d_mean.reset_index(inplace=True)
-            d_mean['job'] = d_count_v
-            d_mean.set_index(idx, inplace=True)
+            _s = '{{:{}d}}'.format(wj)
+            d_count_s = d_count[d_count.columns[-1]].apply(_s.format)
+            d_count_v = d_count_s.values
+            d_mean.reset_index(level='job', drop=True, inplace=True)
+            d_std.reset_index(level='job', drop=True, inplace=True)
+            d_mean.insert(loc=0, column='count', value=d_count_v)
+
+        if agg_tab_file:
+            # last_names = d_mean.columns.levels[-1]
+            # mean_last_names = [_ + 'mean' for _ in last_names]
+            # std_last_names = [_ + 'std' for _ in last_names]
+            # d_mean.columns = d_mean.columns.set_level(mean_last_names, level=-1)
+            d_agg = pd.concat(dict(mean=d_mean, std=d_std), axis=1)
+            texify_test_results_df(d_agg, s, agg_tex_file, agg_tab_file)
+
+        if not args.show_measures:
+            # print(*[_[0] for _ in d.columns])
+            d.drop(columns=[_ for _ in d.columns if _[0] == 'measures'], inplace=True)
+            d_mean.drop(columns=[_ for _ in d.columns if _[0] == 'measures'], inplace=True)
+
 
         # d_mean.index = d_mean.index.format(formatter=_f)        
         m_str = d_mean.to_string(na_rep='', float_format='{:.3g}'.format).split('\n')
@@ -588,16 +600,3 @@ if __name__ == '__main__':
 
         for _ in range(2):
             print('=' * width)
-        # print('***', *d.columns)
-
-    # print(df.to_string())
-    
-    # if latex_formatting:
-    """
-    with open('test.tex', 'w') as f:
-    f.write(d.to_latex(na_rep='',
-                            float_format='%.2f',
-                            decimal=',',
-                            formatters=formats))
-
-    """

@@ -9,8 +9,8 @@ while :; do
     esac
     shift
 done
-echo Force delete: $force_delete
-echo Working on "$(dirname "$0")"
+echo Force delete: $force
+echo Working on "$(dirname "$0")"/jobs
 cd "$(dirname "$0")"
 
 for job in "$@"

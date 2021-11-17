@@ -11,7 +11,7 @@ while :; do
 done
 echo Force delete: $force
 echo Working on "$(dirname "$0")"/jobs
-cd "$(dirname "$0")"
+cd "$(dirname "$0")"/jobs
 
 for job in "$@"
 do

@@ -376,8 +376,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
                 f.write(r'}')
                 f.write('\n')
 
-            unique_sigmas = tab_df['sigma'].unique()
-            unique_sigmas.sort()
+            unique_sigmas = sorted(tab_df['sigma'].unique(), key=lambda x: (str(type(x)), x))
             f.write(r'\def\tabsigmas{')
             f.write(','.join(str(a) for a in unique_sigmas))
             f.write(r'}')

@@ -536,22 +536,12 @@ if __name__ == '__main__':
             removed_index += args.remove_index
             d = d.droplevel(removed_index)
 
-        d_str = d.copy()
-
-        d_str = d_str.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
-
-        width = len(d_str.split('\n')[0])
-        print(f'{s.upper():=^{width}}')
-        print(d_str)
-
+        idx = list(d.index.names)
         if 'job' in d.index.names:
-            idx = d.index.names
-            d.reset_index(inplace=True)
-            wj = d['job'].apply(str).apply(len).max()
-            d['job'] = ' ' * wj
-            d.set_index(idx, inplace=True)
+            wj = d.index.get_level_values('job').to_series().apply(str).apply(len).max()
+            idx.remove('job')
 
-        gb = d.groupby(level=d.index.names)
+        gb = d.groupby(level=idx)
 
         d_mean = gb.agg('mean')
         d_std = gb.agg('std')
@@ -561,8 +551,8 @@ if __name__ == '__main__':
             _s = '{{:{}d}}'.format(wj)
             d_count_s = d_count[d_count.columns[-1]].apply(_s.format)
             d_count_v = d_count_s.values
-            d_mean.reset_index(level='job', drop=True, inplace=True)
-            d_std.reset_index(level='job', drop=True, inplace=True)
+            # d_mean.reset_index(level='job', drop=True, inplace=True)
+            # d_std.reset_index(level='job', drop=True, inplace=True)
             d_mean.insert(loc=0, column='count', value=d_count_v)
 
         if agg_tab_file:
@@ -574,10 +564,14 @@ if __name__ == '__main__':
             texify_test_results_df(d_agg, s, agg_tex_file, agg_tab_file)
 
         if not args.show_measures:
-            # print(*[_[0] for _ in d.columns])
             d.drop(columns=[_ for _ in d.columns if _[0] == 'measures'], inplace=True)
-            d_mean.drop(columns=[_ for _ in d.columns if _[0] == 'measures'], inplace=True)
+            d_mean.drop(columns=[_ for _ in d_mean.columns if _[0] == 'measures'], inplace=True)
 
+        d_str = d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
+
+        width = len(d_str.split('\n')[0])
+        print(f'{s.upper():=^{width}}')
+        print(d_str)
 
         # d_mean.index = d_mean.index.format(formatter=_f)        
         m_str = d_mean.to_string(na_rep='', float_format='{:.3g}'.format).split('\n')

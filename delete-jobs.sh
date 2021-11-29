@@ -30,7 +30,7 @@ do
 	scancel "$job" 2> /dev/null
 	echo "$dir" 'will be deleted'
 	rm log/train.log.$job 2> /dev/null && echo Log file deleted || echo No log file found
-	rm out/job-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
+	rm out/train-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
 	rm -r "$dir"
     else
 	echo "$job" 'not found'

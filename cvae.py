@@ -1679,6 +1679,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     epochs=50,
                     batch_size=100,
                     test_batch_size=100,
+                    validation=4096,
                     device=None,
                     testset=None,
                     oodsets=None,
@@ -1686,7 +1687,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     fine_tuning=False,
                     warmup=0,
                     latent_sampling=None,
-                    sample_size=1000,
+                    validation_sample_size=1024,
                     full_test_every=10,
                     ood_detection_every=10,
                     train_accuracy=False,
@@ -1715,6 +1716,7 @@ class ClassificationVariationalNetwork(nn.Module):
             if trainset:
                 self.training_parameters['set'] = set_name
                 self.training_parameters['transformer'] = transformer
+                self.training_parameters['validation'] = validation
                 ss = trainset.data[0].shape
                 ns = self.input_shape
                 logging.debug(f'Shapes : {ss} / {ns}')
@@ -1740,6 +1742,18 @@ class ClassificationVariationalNetwork(nn.Module):
                                                 transformer=transformer,
                                                 data_augmentation=data_augmentation)
 
+
+        if self.training_parameters.get('validation_split_seed ') is None:
+            np.random.seed()
+            self.training_parameters['validation'] = np.random.randint(0, 2 ** 20)
+
+        torch.random.manual_seed(self.training_parameters['validation_split_seed'])
+        validation = self.training_parameters.get('validation', 0)
+        validationset, trainset = torch.utils.data.random_split(trainset,
+                                                                (validation_sample_size,
+                                                                 len(trainset) - validation))
+        torch.seed()
+        
         logging.debug('Choosing device')
         device = choose_device(device)
         logging.debug(f'done {device}')
@@ -1764,7 +1778,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         _, logits, losses, measures = self.evaluate(x_fake)
         
-        sets = [set_name]
+        sets = [set_name, 'validation']
         for s in oodsets:
             sets.append(s.name)
 
@@ -1784,11 +1798,18 @@ class ClassificationVariationalNetwork(nn.Module):
         for s in recorders:
             logging.debug('Recorder created for %s %s', s, recorders[s])
             
-        logging.debug('Creating dataloader for training with batch size %s',
-                      train_batch_size)
+        logging.debug('Creating dataloader for training with batch size %s'
+                      ' and validation with batch size %s',
+                      train_batch_size, test_batch_size)
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=train_batch_size,
+                                                  # pin_memory=True,
+                                                  shuffle=True,
+                                                  num_workers=0)
+
+        validationloader = torch.utils.data.DataLoader(validationset,
+                                                  batch_size=test_batch_size,
                                                   # pin_memory=True,
                                                   shuffle=True,
                                                   num_workers=0)
@@ -1802,12 +1823,15 @@ class ClassificationVariationalNetwork(nn.Module):
         done_epochs = self.train_history['epochs']
         if done_epochs == 0:
             self.train_history = {'epochs': 0}  # will not be returned
-            self.train_history['train_loss'] = []
-            self.train_history['test_accuracy'] = []
             self.train_history['train_accuracy'] = []
+            self.train_history['train_loss'] = []
             self.train_history['train_measures'] = []
+            self.train_history['test_accuracy'] = []
             self.train_history['test_measures'] = []
             self.train_history['test_loss'] = []
+            self.train_history['validation_accuracy'] = []
+            self.train_history['validation_measures'] = []
+            self.train_history['validation_loss'] = []
             self.train_history['lr'] = []
             
         if not acc_methods:
@@ -1851,75 +1875,83 @@ class ClassificationVariationalNetwork(nn.Module):
             t_start_epoch = time.time()
             # test
 
-            num_batch = max(sample_size // test_batch_size, 1)
-            if testset:
-                # print(num_batch, sample_size)
-                full_test = ((epoch - done_epochs) and
-                             epoch % full_test_every == 0)
+            full_test = ((epoch - done_epochs) and
+                         epoch % full_test_every == 0)
+            ood_detection = ((epoch - done_epochs) and
+                             epoch % ood_detection_every == 0)
+            if (full_test or not epoch or ood_detection) and save_dir:
+                sample_dirs = [os.path.join(save_dir, 'samples', d)
+                               for d in ('last', f'{epoch:04d}')]
 
-                ood_detection = ((epoch - done_epochs) and
-                                 epoch % ood_detection_every == 0)
+                for d in sample_dirs:
+                    if not os.path.exists(d):
+                        os.makedirs(d)
+            else:
+                sample_dirs = []
 
-                if (full_test or not epoch or ood_detection) and save_dir:
-                    sample_dirs = [os.path.join(save_dir, 'samples', d)
-                                   for d in ('last', f'{epoch:04d}')]
+            with torch.no_grad():
 
-                    for d in sample_dirs:
-                        if not os.path.exists(d):
-                            os.makedirs(d)
-                else:
-                    sample_dirs = []
+                if oodsets and ood_detection:
 
-                with torch.no_grad():
+                    self.ood_detection_rates(oodsets=oodsets, testset=testset,
+                                             batch_size=test_batch_size,
+                                             num_batch=len(testset) // test_batch_size,
+                                             outputs=outputs,
+                                             recorders=recorders,
+                                             sample_dirs=sample_dirs,
+                                             print_result='*')
 
-                    if oodsets and ood_detection:
-                            
-                        self.ood_detection_rates(oodsets=oodsets, testset=testset,
-                                                 batch_size=test_batch_size,
-                                                 num_batch=len(testset) // test_batch_size,
-                                                 outputs=outputs,
-                                                 recorders=recorders,
-                                                 sample_dirs=sample_dirs,
-                                                 print_result='*')
+                    outputs.results(0, 0, -2, epochs,
+                                    metrics=self.metrics,
+                                    loss_components=self.loss_components,
+                                    acc_methods=acc_methods)
+                    outputs.results(0, 0, -1, epochs,
+                                    metrics=self.metrics,
+                                    loss_components=self.loss_components,
+                                    acc_methods=acc_methods)
 
-                        outputs.results(0, 0, -2, epochs,
-                                        metrics=self.metrics,
-                                        loss_components=self.loss_components,
-                                        acc_methods=acc_methods)
-                        outputs.results(0, 0, -1, epochs,
-                                        metrics=self.metrics,
-                                        loss_components=self.loss_components,
-                                        acc_methods=acc_methods)
-
-                    if full_test:
-                        recorder = recorders[set_name]
-                        # recorder.reset()
-                    else:
-                        recorder = None
-
+                if full_test:
                     test_accuracy = self.accuracy(testset,
                                                   batch_size=test_batch_size,
-                                                  num_batch='all' if full_test else num_batch,
+                                                  num_batch='all',
                                                   # device=device,
                                                   method=acc_methods,
                                                   # log=False,
                                                   outputs=outputs,
                                                   sample_dirs=sample_dirs,
                                                   update_self_testing=full_test,
-                                                  recorder=recorder,
+                                                  recorder=recorders[set_name],
                                                   print_result='TEST' if full_test else 'test')
                     test_loss = self.test_loss
+                    test_measures = self._measures.copy()
+
+                num_batch = 'all' if fulltst else max(1, validation_sample_size // test_batch_size) 
+                validation_accuracy =self.accuracy(validationset,
+                                                   batch_size=test_batch_size,
+                                                   num_batch=num_batch,
+                                                   device=device,
+                                                   method=acc_methods,
+                                                   # log=False,
+                                                   outputs=outputs,
+                                                   sample_dirs=sample_dirs,
+                                                   update_self_testing=False,
+                                                   recorder=recorders['validation'],
+                                                   print_result='VALID'
+                                                   if full_test else
+                                                   'test')
+                validation_loss = self.test_loss
+                validation_measures = self._measures.copy()
+                
                 if signal_handler.sig > 1:
                     logging.warning(f'Breaking training loop bc of {signal_handler}')
                     break
                 if save_dir: self.save(save_dir)
-                test_measures = self._measures.copy()
             # train
             if train_accuracy:
                 with torch.no_grad():
                     train_accuracy = self.accuracy(trainset,
                                                    batch_size=test_batch_size,
-                                                   num_batch=num_batch,
+                                                   num_batch=valid_num_batch,
                                                    device=device,
                                                    method=acc_methods,
                                                    update_self_testing=False,

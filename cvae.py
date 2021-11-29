@@ -1752,7 +1752,7 @@ class ClassificationVariationalNetwork(nn.Module):
         validationset, trainset = torch.utils.data.random_split(trainset,
                                                                 (validation,
                                                                  len(trainset) - validation))
-        torch.seed()
+        # torch.seed()
         
         logging.debug('Choosing device')
         device = choose_device(device)

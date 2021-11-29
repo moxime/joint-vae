@@ -1750,7 +1750,7 @@ class ClassificationVariationalNetwork(nn.Module):
         torch.random.manual_seed(self.training_parameters['validation_split_seed'])
         validation = self.training_parameters.get('validation', 0)
         validationset, trainset = torch.utils.data.random_split(trainset,
-                                                                (validation_sample_size,
+                                                                (validation,
                                                                  len(trainset) - validation))
         torch.seed()
         

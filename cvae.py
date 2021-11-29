@@ -1929,7 +1929,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 validation_accuracy =self.accuracy(validationset,
                                                    batch_size=test_batch_size,
                                                    num_batch=num_batch,
-                                                   device=device,
+                                                   # device=device,
                                                    method=acc_methods,
                                                    # log=False,
                                                    outputs=outputs,
@@ -1938,7 +1938,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                    recorder=recorders['validation'],
                                                    print_result='VALID'
                                                    if full_test else
-                                                   'test')
+                                                   'valid')
                 validation_loss = self.test_loss
                 validation_measures = self._measures.copy()
                 

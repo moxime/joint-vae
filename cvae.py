@@ -1745,7 +1745,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if self.training_parameters.get('validation_split_seed ') is None:
             np.random.seed()
-            self.training_parameters['validation_split_seed'] = np.random.randint(0, 2 ** 20)
+            self.training_parameters['validation_split_seed'] = np.random.randint(0, 2 ** 12)
 
         torch.random.manual_seed(self.training_parameters['validation_split_seed'])
         validation = self.training_parameters.get('validation', 0)

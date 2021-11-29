@@ -1925,7 +1925,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     test_loss = self.test_loss
                     test_measures = self._measures.copy()
 
-                num_batch = 'all' if fulltst else max(1, validation_sample_size // test_batch_size) 
+                num_batch = 'all' if fulltest else max(1, validation_sample_size // test_batch_size) 
                 validation_accuracy =self.accuracy(validationset,
                                                    batch_size=test_batch_size,
                                                    num_batch=num_batch,

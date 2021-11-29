@@ -183,6 +183,7 @@ def get_args_for_train(argv=None):
                         metavar='N',
                         help=help)
 
+    parser.add_argument('-V', '--validation', type=int, default=4096)
     parser.add_argument('--force-cpu', action='store_true')
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')

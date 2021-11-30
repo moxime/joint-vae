@@ -7,6 +7,7 @@ import sys
 import os
 import logging
 import string
+import numpy as np
 
 class LoggerAsfile(object):
 
@@ -17,10 +18,10 @@ laf = LoggerAsfile()
 
 
 @contextmanager
-def suppress_stdout():
+def suppress_stdout(log=False):
     with open(os.devnull, "w") as dev_null:
         orig = sys.stdout
-        sys.stdout = dev_null
+        sys.stdout = laf if log else dev_null
         try:
             yield
         finally:
@@ -155,8 +156,11 @@ transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTe
                        for n in set_dict}
 
 
-def get_dataset(dataset='MNIST', root='./data', ood=None,
-                transformer='default', data_augmentation=[]):
+def get_dataset(dataset='MNIST', root='./data', 
+                transformer='default', data_augmentation=[],
+                validation_split=None,
+                validation_split_seed=None,
+                ):
 
     dataset = dataset.lower()
     rotated = dataset.endswith('90')
@@ -205,7 +209,7 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
     if rotated:
         getter = modify_getter(getter, pretransform=rotation)
 
-    with suppress_stdout():
+    with suppress_stdout(log=True):
         trainset = getter(root=root, train=True,
                           download=True,
                           target_transform=target_transform,
@@ -216,7 +220,36 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
                          target_transform=target_transform,
                          transform=transform)
 
-    for s in (trainset, testset):
+        returned_sets = (trainset, testset)
+        if validation_split is not None:
+            validationset = getter(root=root, train=True,
+                                   download=True,
+                                   target_transform=target_transform,
+                                   transform=transform)
+
+            change_random_seed = validation_split_seed is not None
+            if change_random_seed:
+                numpy_state = np.random.get_state()
+                np.random.seed(validation_split_seed)
+            split = np.random.permutation(len(trainset))
+            if change_random_seed:
+                np.random.set_state(numpy_state)
+                
+            validationset.data = trainset.data[split[:validation_split]]
+            trainset.data = trainset.data[split[validation_split:]]
+            for attr in ('targets', 'labels'):
+                if hasattr(trainset, attr):
+                    # print(dset, attr)
+                    for s, i in zip((trainset, validationset),
+                                    (split[validation_split:], split[:validation_split])):
+                        labels = getattr(s, attr)
+                        if isinstance(labels, list):
+                            setattr(s, attr, [labels[_] for _ in i])
+                        else:
+                            setattr(s, attr, labels[i])
+            returned_sets += (validationset,)
+        
+    for s in returned_sets:
         if s is not None:
             s.name = dataset + ('90' if rotated else '')
             s.same_size = same_size
@@ -236,14 +269,17 @@ def get_dataset(dataset='MNIST', root='./data', ood=None,
             if s.target_transform:
                 y = torch.tensor([s.target_transform(int(_)) for _ in s.targets], dtype=int)
                 s.data = s.data[y >= 0]
-                if isinstance(s.targets, torch.Tensor):
-                    s.targets = s.targets[y >= 0]
-                elif isinstance(s.targets, list):
-                    s.targets = [_ for _ in s.targets if s.target_transform(_) >= 0] 
-                else:
-                    raise TypeError
+                for attr in ('targets', 'labels'):
+                    if hasattr(s, attr):
+                        labels = getattr(s, attr)
+                        if isinstance(labels, torch.Tensor):
+                            setattr(s, attr, labels[y >= 0])
+                        elif isinstance(labels, list):
+                            setattr(s, attr, [_ for _ in labels if s.target_transform(_) >= 0])
+                        else:
+                            raise TypeError
                 
-    return trainset, testset
+    return returned_sets
 
 
 def get_mnist(**kw):

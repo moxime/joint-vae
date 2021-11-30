@@ -12,6 +12,7 @@ import re
 from utils.misc import make_list
 from utils.torch_load import get_same_size_by_name
 from utils.roc_curves import fpr_at_tpr
+from contextlib import contextmanager
 
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -316,12 +317,14 @@ class LossRecorder:
         return
 
     def init_seed_for_dataloader(self):
-    
+
+        self._initial_seed = torch.seed() 
         seed = self._seed
-        np.random.seed(seed)
         torch.manual_seed(seed)
-        random.seed(seed)
         
+    def restore_seed(self):
+        torch.manual_seed(self._initial_seed)
+            
     def keys(self):
         return self._tensors.keys()
     

@@ -1220,7 +1220,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                 batch_size=batch_size,
                                 preambule=print_result)
         self.test_loss = mean_loss
-
+        
+        if recorder is not None:
+            recorder.restore_seed()
+        
         if recording:
             logging.debug('Saving examples in' + ', '.join(sample_dirs))
 
@@ -1438,6 +1441,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                 batch_size=batch_size,
                                 preambule=testset.name)
 
+            if recorders[s] is not None:
+                recorders[s].restore_seed()
+
             if recording[s]:
                 for d in sample_dirs:
                     f = os.path.join(d, f'record-{s}.pth')
@@ -1549,6 +1555,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                 time_per_i=t_per_i,
                                 batch_size=batch_size,
                                 preambule=oodset.name)
+
+            if recorders[s] is not None:
+                recorders[s].restore_seed()
 
             for m in ood_methods_per_set[s]:
 
@@ -1738,22 +1747,19 @@ class ClassificationVariationalNetwork(nn.Module):
         data_augmentation = self.training_parameters['data_augmentation']
         
         logging.debug(f'Getting {set_name}')
-        trainset, testset = torchdl.get_dataset(set_name,
-                                                transformer=transformer,
-                                                data_augmentation=data_augmentation)
-
 
         if self.training_parameters.get('validation_split_seed ') is None:
             np.random.seed()
             self.training_parameters['validation_split_seed'] = np.random.randint(0, 2 ** 12)
 
-        torch.random.manual_seed(self.training_parameters['validation_split_seed'])
-        validation = self.training_parameters.get('validation', 0)
-        validationset, trainset = torch.utils.data.random_split(trainset,
-                                                                (validation,
-                                                                 len(trainset) - validation))
-        # torch.seed()
-        
+        seed = self.training_parameters['validation_split_seed']
+        trainset, testset, validationset = torchdl.get_dataset(set_name,
+                                                               transformer=transformer,
+                                                               data_augmentation=data_augmentation,
+                                                               validation_split=validation,
+                                                               validation_split_seed = seed
+                                                               )
+
         logging.debug('Choosing device')
         device = choose_device(device)
         logging.debug(f'done {device}')

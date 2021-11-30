@@ -2052,10 +2052,13 @@ class ClassificationVariationalNetwork(nn.Module):
             
             self.eval()
             train_measures = measures.copy()
-            if testset:
+            if full_test:
                 self.train_history['test_accuracy'].append(test_accuracy)
                 self.train_history['test_measures'].append(test_measures)
                 self.train_history['test_loss'].append(test_loss)
+            for k,v in zip(('accuracy', 'measures', 'loss'),
+                           (validation_accuracy, validation_measures, validation_loss)):
+                self.train_history['validation_'+k].append(v)
             if train_accuracy:
                 self.train_history['train_accuracy'].append(train_accuracy)
             self.train_history['train_loss'].append(train_mean_loss)
@@ -2604,7 +2607,7 @@ if __name__ == '__main__':
     if force_cpu:
         device = torch.device('cpu')
     else:
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('Used device:', device)
 
     trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)

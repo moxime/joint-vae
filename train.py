@@ -47,13 +47,14 @@ if __name__ == '__main__':
         log.info(f'Job number {job_number} started')
         
     if not args.force_cpu:
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         log.info(f'Used device: {device}')
     else:
         device = torch.device('cpu')
         log.info(f'Used device: {device}')
         log.debug(f'CPU asked by user')
 
+    # print('*** device:', device)
     cuda_version = torch.version.cuda
     cudnn_version = torch.backends.cudnn.version()
 
@@ -213,6 +214,8 @@ if __name__ == '__main__':
 
     jvae.to(device)
 
+    # print('*** .device', jvae.device)
+    
     x, y = torchdl.get_batch(trainset, device=device, batch_size=8)
 
     if debug:

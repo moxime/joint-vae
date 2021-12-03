@@ -5,7 +5,6 @@ from utils.save_load import find_by_job_number
 from shutil import copyfile
 
 
-
 def refactor_from_log_file(json_file,
                            key,
                            ktype=int,

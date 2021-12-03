@@ -580,7 +580,7 @@ def needed_components(*methods):
 
 
 def available_results(model, min_samples=1000,
-                      epoch_tolerance=10,
+                      samples_available_by_compute=10000,
                       predict_methods='all',
                       misclass_methods='all',
                       ood_sets='all',
@@ -608,43 +608,72 @@ def available_results(model, min_samples=1000,
         
     available = {'json': {}, 'recorders': {}}
 
-    test_results = clean_results(model.testing, predict_methods)
+    sample_dir = os.path.join(model.saved_dir, 'samples')
+
+    sample_sub_dirs = {int(_): _ for _ in os.listdir(sample_dir) if _.isnumeric()}
+
+    epochs = set(sample_sub_dirs)
+
+    """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
+    if not all(isinstance(_, int) for _ in model.testing):
+        n = next(iter(model.testing.values()))['epochs']
+        test_results = {n: model.testing}
+        ood_results = {n: model.ood_results}
+        epochs.add(n)
+    else:
+        test_results = model.testing 
+        ood_results = model.ood_results
+        epochs = set.union(epochs, ood_results, test_results)
+
+    epochs.add(model.trained)
     # print(test_results)
+    epochs = sorted(set.union(epochs, set(test_results), set(ood_results)))
+
+    test_results = {_: clean_results(test_results.get(_, {}), predict_methods) for _ in epochs} 
+
+    results = {}
     
-    pm_ = list(test_results.keys())
-    for pm in pm_:
-        misclass_results = clean_results(test_results[pm], misclass_methods)
-        test_results.update({pm + '-' + m: misclass_results[m] for m in misclass_results})
+    for e in sorted(epochs):
 
-    results = {s: clean_results(model.ood_results.get(s, {}), ood_methods) for s in ood_sets}
+        pm_ = list(test_results[e].keys())
+        for pm in pm_:
+            misclass_results = clean_results(test_results[e][pm], misclass_methods)
+            test_results[e].update({pm + '-' + m: misclass_results[m] for m in misclass_results})
+            results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in ood_sets}
 
-    results[testset] = test_results
-
-    # print(test_results)
+            results[e][testset] = test_results[e]
     
-    available['json'] = {s: {m: {k: results[s][m][k]
-                                 for k in ('n', 'epochs')}
-                             for m in results[s]}
-                         for s in results}
+    available['json'] = {e: {s: {m: {k: results[e][s][m][k]
+                                     for k in ('n', 'epochs')}
+                                 for m in results[e][s]}
+                             for s in results[e]}
+                         for e in results}
 
     # print(available['json'])
-    rec_dir = os.path.join(model.saved_dir, 'samples', 'last')
 
-    available['recorders'] = {s: clean_results({}, ['-'.join(_) for _ in methods[s]]) for s in sets}
+    for w in ('recorders', 'compute'):
+        available['compute'] = {_: {s: clean_results({}, ['-'.join(_) for _ in methods[s]]) for s in sets}
+                                for _ in results}
 
-    if os.path.isdir(rec_dir):
-        recorders = LossRecorder.loadall(rec_dir)
-        epoch = last_samples(model)
-        for s, r in recorders.items():
-            if s not in sets:
-                continue
-            n = len(r) * r.batch_size
-            for m in methods[s]:
-                all_components = all(c in r.keys() for c in needed_components(*m))
+    for epoch in results:
+        rec_dir = os.path.join(sample_dir, sample_sub_dirs.get(epoch, 'false_dir'))
+        if os.path.isdir(rec_dir):
+            recorders = LossRecorder.loadall(rec_dir)
+            # epoch = last_samples(model)
+            for s, r in recorders.items():
+                if s not in sets:
+                    continue
+                n = len(r) * r.batch_size
+                for m in methods[s]:
+                    all_components = all(c in r.keys() for c in needed_components(*m))
+                    if all_components:
+                        available['recorders'][epoch][s]['-'.join(m)] = dict(n=n, epochs=epoch)
 
-                if all_components:
-                    available['recorders'][s]['-'.join(m)] = dict(n=n, epochs=epoch)
-
+    for s in sets:
+        for m in methods[s]:
+            _a = dict(n=samples_available_by_compute, epoch=model.trained)
+            available['compute'][model.trained][s][m] = _a
+    
     return available
 
 

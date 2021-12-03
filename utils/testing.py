@@ -4,7 +4,8 @@ from utils.misc import make_list
 import logging
 
 
-def testing_plan(model, min_samples=1000, epoch_tolerance=10,
+def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=10,
+                 available_by_compute=10000,
                  predict_methods='all', ood_sets='all', ood_methods='all', misclass_methods='all'):
 
     available = available_results(model, min_samples, epoch_tolerance,
@@ -12,11 +13,15 @@ def testing_plan(model, min_samples=1000, epoch_tolerance=10,
                                   misclass_methods=misclass_methods,
                                   ood_sets=ood_sets,
                                   ood_methods=ood_methods)
-
+    
     if isinstance(model, str):
         model = Model.load(model, load_state=False)
     elif isinstance(model, dict):
         model = model['net']
+
+    if wanted_epoch == 'last':
+        wanted_epoch = model.trained
+    print(wanted_epoch)
 
     predict_methods = make_list(predict_methods, model.predict_methods)
     ood_methods = make_list(ood_methods, model.ood_methods)
@@ -34,25 +39,35 @@ def testing_plan(model, min_samples=1000, epoch_tolerance=10,
     methods.update({s: ood_methods for s in ood_sets})
 
     # return available, None
-    
+    epochs_to_look_for = [e for e in available['recorders'] if abs(e - wanted_epoch) <= epoch_tolerance]
+
+    n = {}
+    """
+    which:
+    json >= min_samples, recorder >= min_samples, compute >= min_samples, json >= recorder
+    """
+    # which = {(True, _, __): 'json' for _ in (False, True) for __ in (False, True)}
+    # which.update({(False, True, _): 'recorder' for _ in (True, False)})
+    # which.update({(False, False, False): 'compute' if available_by_compute else None})
+    # which.update({(False, False, True): 'compute' if available_by_compute else 'recorder'})
+        
     for s in sets:
-        for m in available['recorders'][s]:
-            # print('***', s, m)
-            n, epoch = ({w: available[w][s][m][k] for w in ('json', 'recorders')} for k in ('n', 'epochs'))
-
-            delta_epoch = epoch['recorders'] - epoch['json']
-            # print('***', s, m, 'r', epoch['recorders'], 'j', epoch['json'])
-            n = available['recorders'][s][m]['n']
-            
-            if delta_epoch > epoch_tolerance or (available['json'][s][m]['n'] < min_samples and n > min_samples):
-                from_recorder[s][m] = {'delta_epoch': delta_epoch, 'n': n}
-
-            n = 10000  # TBC 
-            delta_epoch = model.trained - epoch['recorders']
-            if delta_epoch > epoch_tolerance:
-                from_compute[s][m] = {'delta_epoch': delta_epoch, 'n': n}
+        for m in available['recorders'][e][s]:
+            max_n = {w: {'n': 0, 'delta_epoch': None} for w in ('json', 'recorders', 'compute')}
+            for e in epochs_to_lo_look_for:
+                n = available[w][e][s][m]['n']
+                if n >= max_n[w]:
+                    max_n[w] = {'n': n, 'delta_epoch': e - wanted_epoch}
+                    
+                if max_n['recorders']['n'] > max_n['json']:
+                    if max_n['recorders']['n'] >= min_samples or not available_by_compute:
+                        from_recorder[s][m] = max_n['recorders']
+                    else:
+                        from_compute[s][m] = max_n['compute']
+                elif max_n['recorders']['n'] < min_samples and available_by_compute:
+                    from_compute[s][m] = max_n['compute']
                 
-    return from_recorder, from_compute
+    return {'recorders': from_recorder, 'compute': from_compute}
 
 
 def worth_computing(model, from_which='recorder', **kw):

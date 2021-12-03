@@ -40,7 +40,6 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=1
 
     # return available, None
     epochs_to_look_for = [e for e in available['recorders'] if abs(e - wanted_epoch) <= epoch_tolerance]
-
     n = {}
     """
     which:
@@ -50,16 +49,18 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=1
     # which.update({(False, True, _): 'recorder' for _ in (True, False)})
     # which.update({(False, False, False): 'compute' if available_by_compute else None})
     # which.update({(False, False, True): 'compute' if available_by_compute else 'recorder'})
-        
-    for s in sets:
-        for m in available['recorders'][epochs_to_look_for[0]][s]:
-            max_n = {w: {'n': 0, 'delta_epoch': None} for w in ('json', 'recorders', 'compute')}
-            for e in epochs_to_look_for:
-                for w in max_n:
-                    n = available[w][e][s][m]['n']
-                    if n >= max_n[w]['n']:
-                        max_n[w] = {'n': n, 'delta_epoch': e - wanted_epoch}                    
+    if epochs_to_look_for:
+        for s in sets:
+            for m in available['recorders'][epochs_to_look_for[0]][s]:
+                max_n = {w: {'n': 0, 'delta_epoch': None} for w in ('json', 'recorders', 'compute')}
+                for e in epochs_to_look_for:
+                    for w in max_n:
+                        n = available[w][e][s][m]['n']
+                        if n >= max_n[w]['n']:
+                            max_n[w] = {'n': n, 'delta_epoch': e - wanted_epoch}                    
+                            # if w == 'recorders': print('***', e, w, n, max_n[w])
                 if max_n['recorders']['n'] > max_n['json']['n']:
+                    # print('***', e, max_n['recorders']['n'], max_n['json']['n'])
                     if max_n['recorders']['n'] >= min_samples or max_n['compute'] < 2 * max_n['recorders']['n']:
                         from_recorder[s][m] = max_n['recorders']
                     else:
@@ -96,6 +97,6 @@ if __name__ == '__main__':
     model = find_by_job_number(j, load_net=False)
 
     print('Loaded')
-    from_r, from_c = testing_plan(model)
+    froms = testing_plan(model)
     
     

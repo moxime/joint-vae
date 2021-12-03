@@ -296,7 +296,7 @@ if __name__ == '__main__':
     n_epochs_to_be_computed = 0
     
     models_to_be_kept = []
-    models_to_be_computed = {k: [] for k in ('recorder', 'compute')}
+    models_to_be_computed = {k: [] for k in ('recorders', 'compute')}
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
         to_be_kept = all(filter_results)
@@ -320,12 +320,12 @@ if __name__ == '__main__':
                 archs[n['set']].add(n['arch'])
             else:
                 archs[n['set']] = {n['arch']} 
-            to_be_computed = worth_computing(n, from_which='all')
+            to_be_computed = worth_computing(n, from_which='all', misclass_methods=[])
             models_to_be_kept.append(n)
             for k in to_be_computed:
                 if to_be_computed[k]:
                     models_to_be_computed[k].append(n)
-            is_r = to_be_computed['recorder']
+            is_r = to_be_computed['recorders']
             is_c = to_be_computed['compute']
             n_epochs_to_be_computed += is_c
 
@@ -358,7 +358,7 @@ if __name__ == '__main__':
         archs[s] = {n['arch'] for n in models_to_be_kept if n['set'] == s}
     
     if args.compute:
-        for m in models_to_be_computed['recorder']:
+        for m in models_to_be_computed['recorders']:
             print('Computing rates of job {} of type {}'.format(m['job'], m['type'])) 
             model = CVNet.load(m['dir'], load_state=False)
             model.accuracy(wygiwyu=True, print_result='TFR')

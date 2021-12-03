@@ -95,10 +95,15 @@ def export_losses(net_dict, which='loss',
     net = net_dict['net']
     history = net.train_history
 
-    sets = ['train', 'test']
+    if 'validation_loss' in history:
+        valid_w = 'validation'
+    else:
+        valid_w = 'test'
+        
+    sets = ['train', valid_w]
 
     if type(which) == str:
-        which = ['loss', 'measures', 'accuracy'] if which=='all' else [which]
+        which = ['loss', 'measures', 'accuracy'] if which == 'all' else [which]
 
     entries = [f'{s}_{w}' for w in which for s in sets] 
 

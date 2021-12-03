@@ -1080,7 +1080,9 @@ class ClassificationVariationalNetwork(nn.Module):
             shuffle = False
 
         if wygiwyu:
-            from_r, _ = testing_plan(self, ood_sets=[], predict_methods=predict_methods, misclass_methods=[])
+            from_r = testing_plan(self, ood_sets=[],
+                                  predict_methods=predict_methods,
+                                  misclass_methods=[])['recorders']
             if not from_r:
                 acc = {m: self.testing[m]['accuracy'] for m in predict_methods}
                 if only_one_method:
@@ -1327,7 +1329,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if wygiwyu:
 
-            from_r, _ = testing_plan(self, ood_sets=[o.name for o in oodsets], ood_methods=ood_methods)
+            from_r = testing_plan(self,
+                                  ood_sets=[o.name for o in oodsets],
+                                  misclass_methods=None,
+                                  ood_methods=ood_methods)['recorders']
             if from_r:
                 rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
                 recorders = LossRecorder.loadall(rec_dir, *all_set_names)
@@ -1595,7 +1600,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         from_r = testing_plan(self, ood_sets=[],
                               predict_methods=predict_methods,
-                              misclass_methods=misclass_methods)
+                              misclass_methods=misclass_methods)['recorders']
         
         if not sample_dir:
             sample_dir = os.path.join(self.saved_dir, 'samples', 'last')

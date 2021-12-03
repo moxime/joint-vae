@@ -652,8 +652,9 @@ def available_results(model, min_samples=1000,
     # print(available['json'])
 
     for w in ('recorders', 'compute'):
-        available['compute'] = {_: {s: clean_results({}, ['-'.join(_) for _ in methods[s]]) for s in sets}
-                                for _ in results}
+        available[w] = {_: {s: clean_results({}, ['-'.join(_) for _ in methods[s]])
+                            for s in sets}
+                        for _ in results}
 
     for epoch in results:
         rec_dir = os.path.join(sample_dir, sample_sub_dirs.get(epoch, 'false_dir'))
@@ -672,7 +673,7 @@ def available_results(model, min_samples=1000,
     for s in sets:
         for m in methods[s]:
             _a = dict(n=samples_available_by_compute, epoch=model.trained)
-            available['compute'][model.trained][s][m] = _a
+            available['compute'][model.trained][s]['-'.join(m)] = _a
     
     return available
 

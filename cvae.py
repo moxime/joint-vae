@@ -1764,7 +1764,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                                validation_split=validation,
                                                                validation_split_seed = seed
                                                                )
-
+        validationset.name = 'validation'
         logging.debug('Choosing device')
         device = choose_device(device)
         logging.debug(f'done {device}')

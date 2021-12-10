@@ -78,19 +78,19 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5
     return {'json': from_json, 'recorders': from_recorder, 'compute': from_compute}
 
 
-def worth_computing(model, from_which='recorder', **kw):
+def worth_computing(model, from_which='recorders', **kw):
 
-    from_which = make_list(from_which, ('recorder', 'compute')) 
+    from_which = make_list(from_which, ('recorders', 'compute', 'json')) 
     froms = testing_plan(model, **kw)
 
     resd = {}
-    for w in ('recorders', 'compute'):
+    for w in from_which:
         resd[w] = sum(1 if froms[w][k] else 0 for k in froms[w])
         if not list(froms[w])[0] and resd[w]:
             resd[w] += 1
         
     if len(froms) > 1:
-        return {f: resd[f] for f in froms}
+        return {f: resd[f] for f in from_which}
 
     return resd[from_which]
 

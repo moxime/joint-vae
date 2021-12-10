@@ -1246,6 +1246,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 torch.save(saved_dict, f)
 
                 f = os.path.join(d, f'record-{testset.name}.pth')
+                logging.debug(f'Saving recorder in {f}')
                 recorder.save(f)
 
         for m in predict_methods:

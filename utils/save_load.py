@@ -580,7 +580,7 @@ def needed_components(*methods):
 
 
 def available_results(model, min_samples=1000,
-                      samples_available_by_compute=10000,
+                      samples_available_by_compute=9000,
                       predict_methods='all',
                       misclass_methods='all',
                       ood_sets='all',
@@ -620,11 +620,13 @@ def available_results(model, min_samples=1000,
         test_results = {n: model.testing}
         ood_results = {n: model.ood_results}
         epochs.add(n)
+        model.testing = test_results
+        model.ood_results = ood_results
     else:
         test_results = model.testing 
         ood_results = model.ood_results
         epochs = set.union(epochs, ood_results, test_results)
-
+    
     epochs.add(model.trained)
     # print(test_results)
     epochs = sorted(set.union(epochs, set(test_results), set(ood_results)))
@@ -679,7 +681,7 @@ def available_results(model, min_samples=1000,
     return available
 
 
-def make_dict_from_model(model, directory, tpr=0.95, epoch='last', **kw):
+def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
 
     architecture = ObjFromDict(model.architecture, features=None)
     training = ObjFromDict(model.training_parameters,
@@ -700,28 +702,40 @@ def make_dict_from_model(model, directory, tpr=0.95, epoch='last', **kw):
     else:
         train_batch_size = batch_size
 
-    testing_results = clean_results(model.testing, model.predict_methods, accuracy=None)
-    accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
+    if wanted_epoch == 'last':
+        wanted_epoch = max(model.testing)
 
+    """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
+    if not all(isinstance(_, int) for _ in model.testing):
+        n = next(iter(model.testing.values()))['epochs']
+        test_results = {n: model.testing}
+        ood_results = {n: model.ood_results}
+        model.testing = test_results
+        model.ood_results = ood_results
+
+    testing_results = clean_results(model.testing[wanted_epoch], model.predict_methods, accuracy=None)
+    accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
+    ood_results = model.ood_results[wanted_epoch]
+    
     if model.testing and model.predict_methods:
         # print('*** model.testing', *model.testing.keys())
         # print('*** model.predict_methods', model.architecture['type'], *model.predict_methods)
         accuracies['first'] = accuracies[model.predict_methods[0]] 
-        best_accuracy = max(model.testing[m]['accuracy'] for m in model.testing)
-        epochs_tested = min(testing_results[m]['epochs'] for m in testing_results)
+        best_accuracy = max(testing_results[m]['accuracy'] for m in testing_results)
+        tested_epoch = min(testing_results[m]['epochs'] for m in testing_results)
         n_tested = min(testing_results[m]['n'] for m in testing_results)
     else:
         best_accuracy = accuracies['first'] = None
-        epochs_tested = n_tested = 0
+        tested_epoch = n_tested = 0
 
     training_set = model.training_parameters['set']
     parent_set, heldout = torchdl.get_heldout_classes_by_name(training_set)
 
     if heldout:
         # print('***', *heldout, '***', *model.ood_results)
-        matching_ood_sets = [k for k in model.ood_results if k.startswith(parent_set)]
+        matching_ood_sets = [k for k in ood_results if k.startswith(parent_set)]
         if matching_ood_sets:
-            model.ood_results[parent_set + '+?'] = model.ood_results.pop(matching_ood_sets[0])
+            ood_results[parent_set + '+?'] = ood_results.pop(matching_ood_sets[0])
         all_ood_sets = [parent_set + '+?']
 
     else:
@@ -729,11 +743,11 @@ def make_dict_from_model(model, directory, tpr=0.95, epoch='last', **kw):
 
     heldout = tuple(sorted(heldout))
     
-    average_ood = average_ood_results(model.ood_results)
+    average_ood = average_ood_results(ood_results)
     if average_ood:
-        model.ood_results['average'] = average_ood
+        ood_results['average'] = average_ood
     all_ood_sets.append('average')
-    tested_ood_sets = [s for s in model.ood_results if s in all_ood_sets]
+    tested_ood_sets = [s for s in ood_results if s in all_ood_sets]
 
     ood_fprs = {s: {} for s in all_ood_sets}
     ood_fpr = {s: None for s in all_ood_sets}
@@ -744,25 +758,25 @@ def make_dict_from_model(model, directory, tpr=0.95, epoch='last', **kw):
 
     for s in tested_ood_sets:
         res_by_set = {}
-        ood_results = clean_results(model.ood_results[s], model.ood_methods, fpr=[], tpr=[], auc=None)
+        ood_results_s = clean_results(ood_results[s], model.ood_methods, fpr=[], tpr=[], auc=None)
 
-        starred_methods = [m for m in ood_results if m.endswith('*')]
+        starred_methods = [m for m in ood_results_s if m.endswith('*')]
 
-        _r = model.ood_results[s]
+        _r = ood_results[s]
         for m in starred_methods:
             methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr)
                                    for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
             params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
             # print('***', *methods_to_be_maxed)
             if params_max_auc:
-                ood_results[m] = _r[params_max_auc]
+                ood_results_s[m] = _r[params_max_auc]
                 # print(model.job_number, s, params_max_auc, _r[params_max_auc]['auc'])
-            ood_results[m]['params'] = params_max_auc
+            ood_results_s[m]['params'] = params_max_auc
             
-        for m in ood_results:
-            fpr_ = ood_results[m]['fpr']
-            tpr_ = ood_results[m]['tpr']
-            auc = ood_results[m]['auc']
+        for m in ood_results_s:
+            fpr_ = ood_results_s[m]['fpr']
+            tpr_ = ood_results_s[m]['tpr']
+            auc = ood_results_s[m]['auc']
             if auc and (not best_auc[s] or auc > best_auc[s]):
                 best_auc[s] = auc
                 best_method[s] = m
@@ -774,8 +788,8 @@ def make_dict_from_model(model, directory, tpr=0.95, epoch='last', **kw):
         if best_method[s]:
             ood_fpr[s] = res_by_set[best_method[s]]
 
-        epochs_ood[s] = min(ood_results[m]['epochs'] for m in ood_results)
-        n_ood[s] = min(ood_results[m]['n'] for m in ood_results)
+        epochs_ood[s] = min(ood_results_s[m]['epochs'] for m in ood_results_s)
+        n_ood[s] = min(ood_results_s[m]['n'] for m in ood_results_s)
 
     history = model.train_history
     if history.get('test_measures', {}):
@@ -879,7 +893,7 @@ def make_dict_from_model(model, directory, tpr=0.95, epoch='last', **kw):
             'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
             'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
             'n_tested': n_tested,
-            'epochs_tested': epochs_tested,
+            'tested_epoch': tested_epoch,
             'accuracies': accuracies,
             'best_accuracy': best_accuracy,
             'n_ood': n_ood,

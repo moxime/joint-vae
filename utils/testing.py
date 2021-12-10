@@ -4,6 +4,7 @@ from utils.misc import make_list
 import logging
 import numpy as np
 
+
 def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5,
                  available_by_compute=10000,
                  predict_methods='all', ood_sets='all', ood_methods='all', misclass_methods='all'):
@@ -59,12 +60,12 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5
                         n = available[w][e][s][m]['n']
                         if n >= max_n[w]['n']:
                             max_n[w] = {'n': n, 'delta_epoch': e - wanted_epoch}
-                            max_n[w]['rec_sub_dir'] = available[w][e][s][m].get('rec_sub_dir')
                             # if w == 'recorders': print('***', e, w, n, max_n[w])
                 if max_n['recorders']['n'] > max_n['json']['n']:
                     # print('***', e, max_n['recorders']['n'], max_n['json']['n'])
                     if max_n['recorders']['n'] >= min_samples or max_n['compute'] < 2 * max_n['recorders']['n']:
                         from_recorder[s][m] = max_n['recorders']
+                        from_recorder[s]['rec_sub_dir'] = available['recorders'][e][s][m].get('rec_sub_dir')
                     else:
                         from_compute[s][m] = max_n['compute']
                 elif max_n['json']['n'] >= min_samples:

@@ -1079,29 +1079,29 @@ class ClassificationVariationalNetwork(nn.Module):
             num_batch = len(testset) // batch_size
             shuffle = False
 
+        if wanted_epoch == 'last':
+            wanted_epoch = self.trained
         if wygiwyu:
             froms = testing_plan(self, ood_sets=[],
                                  predict_methods=predict_methods,
                                  wanted_epoch=wanted_epoch,
-                                 misclass_methods=[])['recorders']
-
+                                 misclass_methods=[])
+            
+            from_r = froms['recorders']
             acc = {}
-            for m in [m for m predict_methods if m in froms['json'][testset_name]]:
-                acc[m] = self.testing[m]['accuracy']
-            if not froms['recorders'][testset_name]:
+            for m in [m for m in predict_methods if m in froms['json'][testset_name]]:
+                e = froms['json'][testset_name][m]['delta_epoch'] + wanted_epoch
+                acc[m] = self.testing[e][m]['accuracy']
+            if not from_r[testset_name]:
                 if only_one_method:
                     return acc[method]
                 else:
-                    return acc
-                
+                    return acc                
             else:
+                sub_dir = from_r[testset_name].pop('rec_sub_dir')
+                tested_epoch = int(sub_dir)
                 predict_methods = [m for m in from_r[testset_name] if from_r[testset_name][m]]
-
-                if wanted_epoch == 'last':
-                    sub_dir = 'last'
-                else:
-                    sub_dir = '{:04d}'.format(wanted_epoch)
-                rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
+                rec_dir = os.path.join(self.saved_dir, 'samples', sub_dir)
                 recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
                 num_batch = len(recorder)
                 batch_size = recorder.batch_size
@@ -1117,6 +1117,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if recording:
             logging.debug('Recording session loss for accruacy')
             recorder.reset()
+            tested_epoch = self.trained
             recorder.num_batch = num_batch
 
         n_err = dict()
@@ -1260,12 +1261,17 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorder.save(f)
 
         for m in predict_methods:
-
+            mresults = self.testing.get(tested_epoch)
+            n_already = 0
+            if mresults:
+                n_already = self.testing[tested_epoch].get(m, {'n': 0})['n']
+                
             update_self_testing_method = (update_self_testing and
-                                          (epoch > self.testing[m]['epochs']
-                                           or
-                                           n > self.testing[m]['n']))
+                                          n > n_already)
+            
             if update_self_testing_method:
+                if tested_epoch not in self.testing:
+                    self.testing[tested_epoch] = {}
                 if log:
                     logged = 'Updating accuracy %.3f%% for method %s (n=%s)'
                     logging.debug(logged,
@@ -1275,10 +1281,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                   # self.testing[m]['epochs'],
                                   # n, self.trained)
 
-                self.testing[m] = {'n': n,
-                                   'epochs': epoch,
-                                   'sampling': self.latent_samplings['eval'],
-                                   'accuracy': acc[m]}
+                self.testing[tested_epoch][m] = {'n': n,
+                                                 'epochs': tested_epoch,
+                                                 'sampling': self.latent_samplings['eval'],
+                                                 'accuracy': acc[m]}
 
             elif log:
 

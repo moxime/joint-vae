@@ -4,6 +4,7 @@ from utils.misc import make_list
 import logging
 import numpy as np
 
+
 def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5,
                  available_by_compute=10000,
                  predict_methods='all', ood_sets='all', ood_methods='all', misclass_methods='all'):
@@ -13,7 +14,9 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5
                                   predict_methods=predict_methods,
                                   misclass_methods=misclass_methods,
                                   ood_sets=ood_sets,
-                                  ood_methods=ood_methods)
+                                  ood_methods=ood_methods,
+                                  wanted_epoch=wanted_epoch, epoch_tolerance=epoch_tolerance,
+    )
     
     if isinstance(model, str):
         model = Model.load(model, load_state=False)
@@ -59,12 +62,12 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5
                         n = available[w][e][s][m]['n']
                         if n >= max_n[w]['n']:
                             max_n[w] = {'n': n, 'delta_epoch': e - wanted_epoch}
-                            max_n[w]['rec_sub_dir'] = available[w][e][s][m].get('rec_sub_dir')
                             # if w == 'recorders': print('***', e, w, n, max_n[w])
                 if max_n['recorders']['n'] > max_n['json']['n']:
                     # print('***', e, max_n['recorders']['n'], max_n['json']['n'])
                     if max_n['recorders']['n'] >= min_samples or max_n['compute'] < 2 * max_n['recorders']['n']:
                         from_recorder[s][m] = max_n['recorders']
+                        from_recorder['rec_sub_dir'] = available['recorders'][e][s][m].get('rec_sub_dir')
                     else:
                         from_compute[s][m] = max_n['compute']
                 elif max_n['json']['n'] >= min_samples:
@@ -75,19 +78,19 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5
     return {'json': from_json, 'recorders': from_recorder, 'compute': from_compute}
 
 
-def worth_computing(model, from_which='recorder', **kw):
+def worth_computing(model, from_which='recorders', **kw):
 
-    from_which = make_list(from_which, ('recorder', 'compute')) 
+    from_which = make_list(from_which, ('recorders', 'compute', 'json')) 
     froms = testing_plan(model, **kw)
 
     resd = {}
-    for w in ('recorders', 'compute'):
+    for w in from_which:
         resd[w] = sum(1 if froms[w][k] else 0 for k in froms[w])
         if not list(froms[w])[0] and resd[w]:
             resd[w] += 1
         
     if len(froms) > 1:
-        return {f: resd[f] for f in froms}
+        return {f: resd[f] for f in from_which}
 
     return resd[from_which]
 

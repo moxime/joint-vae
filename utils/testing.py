@@ -14,7 +14,9 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5
                                   predict_methods=predict_methods,
                                   misclass_methods=misclass_methods,
                                   ood_sets=ood_sets,
-                                  ood_methods=ood_methods)
+                                  ood_methods=ood_methods,
+                                  wanted_epoch=wanted_epoch, epoch_tolerance=epoch_tolerance,
+    )
     
     if isinstance(model, str):
         model = Model.load(model, load_state=False)
@@ -65,7 +67,7 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5
                     # print('***', e, max_n['recorders']['n'], max_n['json']['n'])
                     if max_n['recorders']['n'] >= min_samples or max_n['compute'] < 2 * max_n['recorders']['n']:
                         from_recorder[s][m] = max_n['recorders']
-                        from_recorder[s]['rec_sub_dir'] = available['recorders'][e][s][m].get('rec_sub_dir')
+                        from_recorder['rec_sub_dir'] = available['recorders'][e][s][m].get('rec_sub_dir')
                     else:
                         from_compute[s][m] = max_n['compute']
                 elif max_n['json']['n'] >= min_samples:

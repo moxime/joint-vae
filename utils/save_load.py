@@ -584,11 +584,17 @@ def available_results(model, min_samples=1000,
                       predict_methods='all',
                       misclass_methods='all',
                       ood_sets='all',
+                      wanted_epoch='last',
+                      epoch_tolerance=10,
                       ood_methods='all'):
 
     if isinstance(model, dict):
         model = model['net']
 
+    ood_results = model.ood_results
+    test_results = model.testing
+    if wanted_epoch == 'last':
+        wanted_epoch = model.trained
     predict_methods = make_list(predict_methods, model.predict_methods)
     ood_methods = make_list(ood_methods, model.ood_methods)
     misclass_methods = make_list(misclass_methods, model.misclass_methods)
@@ -613,37 +619,26 @@ def available_results(model, min_samples=1000,
     sample_sub_dirs = {int(_): _ for _ in os.listdir(sample_dir) if _.isnumeric()}
 
     epochs = set(sample_sub_dirs)
-
-    """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
-    if not all(isinstance(_, int) for _ in model.testing):
-        n = next(iter(model.testing.values()))['epochs']
-        test_results = {n: model.testing}
-        ood_results = {n: model.ood_results}
-        epochs.add(n)
-        model.testing = test_results
-        model.ood_results = ood_results
-    else:
-        test_results = model.testing 
-        ood_results = model.ood_results
-        epochs = set.union(epochs, ood_results, test_results)
     
     epochs.add(model.trained)
     # print(test_results)
     epochs = sorted(set.union(epochs, set(test_results), set(ood_results)))
 
+    if wanted_epoch:
+        epochs = [_ for _ in epochs if abs(_ - wanted_epoch) <= epoch_tolerance]
+    
     test_results = {_: clean_results(test_results.get(_, {}), predict_methods) for _ in epochs} 
 
     results = {}
-    
-    for e in sorted(epochs):
 
+    for e in sorted(epochs):
         pm_ = list(test_results[e].keys())
+        results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in ood_sets}
         for pm in pm_:
             misclass_results = clean_results(test_results[e][pm], misclass_methods)
             test_results[e].update({pm + '-' + m: misclass_results[m] for m in misclass_results})
-            results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in ood_sets}
-
             results[e][testset] = test_results[e]
+            # print(e, results[e])
     
     available['json'] = {e: {s: {m: {k: results[e][s][m][k]
                                      for k in ('n', 'epochs')}
@@ -673,10 +668,12 @@ def available_results(model, min_samples=1000,
                         available['recorders'][epoch][s]['-'.join(m)] = dict(n=n,
                                                                              epochs=epoch,
                                                                              rec_sub_dir=sample_sub_dirs[epoch])
-    for s in sets:
-        for m in methods[s]:
-            _a = dict(n=samples_available_by_compute, epoch=model.trained)
-            available['compute'][model.trained][s]['-'.join(m)] = _a
+
+    if wanted_epoch and abs(wanted_epoch - model.trained) <= epoch_tolerance:
+        for s in sets:
+            for m in methods[s]:
+                _a = dict(n=samples_available_by_compute, epoch=model.trained)
+                available['compute'][model.trained][s]['-'.join(m)] = _a
     
     return available
 
@@ -704,14 +701,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
 
     if wanted_epoch == 'last':
         wanted_epoch = max(model.testing)
-
-    """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
-    if not all(isinstance(_, int) for _ in model.testing):
-        n = next(iter(model.testing.values()))['epochs']
-        test_results = {n: model.testing}
-        ood_results = {n: model.ood_results}
-        model.testing = test_results
-        model.ood_results = ood_results
 
     testing_results = clean_results(model.testing[wanted_epoch], model.predict_methods, accuracy=None)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
@@ -893,7 +882,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
             'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
             'n_tested': n_tested,
-            'tested_epoch': tested_epoch,
+            'epoch': tested_epoch,
             'accuracies': accuracies,
             'best_accuracy': best_accuracy,
             'n_ood': n_ood,

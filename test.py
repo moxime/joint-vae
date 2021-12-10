@@ -338,7 +338,7 @@ if __name__ == '__main__':
             
             for k in to_be_computed:
                 if to_be_computed[k]:
-                    models_to_be_computed[k].append(n)
+                    models_to_be_computed[k].append(dict(model=n, epoch=wanted_epoch))
             is_a = to_be_computed['json']
             is_r = to_be_computed['recorders']
             is_c = to_be_computed['compute']
@@ -364,17 +364,17 @@ if __name__ == '__main__':
 
     logging.info('|     {:d} epochs to be computed'.format(n_epochs_to_be_computed))
     logging.info('{:d} models kept'.format(len(models_to_be_kept)))
-
-    models_to_be_kept.sort(key=lambda d: d.get('job',0))
+    
+    models_to_be_kept.sort(key=lambda d: d['model'].get('job',0))
     models_to_be_kept = models_to_be_kept[-args.last:]
 
     for s in archs:
-        archs[s] = {n['arch'] for n in models_to_be_kept if n['set'] == s}
+        archs[s] = {n['model']['arch'] for n in models_to_be_kept if n['model']['set'] == s}
     
     if args.compute:
         for m in models_to_be_computed['recorders']:
-            print('Computing rates of job {} of type {}'.format(m['job'], m['type'])) 
-            model = CVNet.load(m['dir'], load_state=False)
+            print('Computing rates of job {} of type {}'.format(m['model']['job'], m['model']['type'])) 
+            model = CVNet.load(m['model']['dir'], load_state=False)
             model.accuracy(wygiwyu=True, print_result='TFR')
             model.ood_detection_rates(wygiwyu=True, print_result='OFR')
             if not args.dry_run:

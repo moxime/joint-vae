@@ -14,7 +14,7 @@ import numpy as np
 from utils.parameters import get_args, set_log, gethostname
 from utils.save_load import collect_networks, test_results_df, LossRecorder, make_dict_from_model
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
-from utils.testing import worth_computing
+from utils.testing import worth_computing, early_stopping
 
 
 def test_accuracy_if(jvae=None,
@@ -255,6 +255,8 @@ if __name__ == '__main__':
     latex_formatting = args.latex
 
     sort = args.sort
+
+    early_stopping_method = tuple(args.early_stopping.split('-'))
     
     for k, v in vars(args).items():
         logging.debug('%s: %s', k, str(v))
@@ -296,7 +298,7 @@ if __name__ == '__main__':
     n_epochs_to_be_computed = 0
     
     models_to_be_kept = []
-    models_to_be_computed = {k: [] for k in ('recorders', 'compute')}
+    models_to_be_computed = {k: [] for k in ('json', 'recorders', 'compute')}
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
         to_be_kept = all(filter_results)
@@ -319,17 +321,29 @@ if __name__ == '__main__':
             if n['set'] in archs:
                 archs[n['set']].add(n['arch'])
             else:
-                archs[n['set']] = {n['arch']} 
-            to_be_computed = worth_computing(n, from_which='all', misclass_methods=[])
-            models_to_be_kept.append(n)
+                archs[n['set']] = {n['arch']}
+
+            if early_stopping_method:
+                _k = 'early-' + '-'.join(early_stopping_method)
+                if _k in n['net'].training_parameters:
+                    wanted_epoch = n['net'].training_parameters[_k]
+                else:
+                    wanted_epoch = early_stopping(n, strategy=early_stopping_method[0],
+                                                  which = early_stopping_method[1])
+            else:
+                wanted_epoch = 'last'
+            to_be_computed = worth_computing(n, from_which='all', misclass_methods=[], wanted_epoch=wanted_epoch)
+            
+            models_to_be_kept.append((n, wanted_epoch))
+            
             for k in to_be_computed:
                 if to_be_computed[k]:
                     models_to_be_computed[k].append(n)
+            is_a = to_be_computed['json']
             is_r = to_be_computed['recorders']
             is_c = to_be_computed['compute']
             n_epochs_to_be_computed += is_c
 
-            is_a = (is_c + is_r) == 0
             _a = '*' if is_a else '|'
             if is_r:
                 _r = 'x' if is_c else '*'

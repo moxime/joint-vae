@@ -668,8 +668,9 @@ def available_results(model, min_samples=1000,
                 for m in methods[s]:
                     all_components = all(c in r.keys() for c in needed_components(*m))
                     if all_components:
-                        available['recorders'][epoch][s]['-'.join(m)] = dict(n=n, epochs=epoch)
-
+                        available['recorders'][epoch][s]['-'.join(m)] = dict(n=n,
+                                                                             epochs=epoch,
+                                                                             rec_sub_dir=sample_sub_dirs[epoch])
     for s in sets:
         for m in methods[s]:
             _a = dict(n=samples_available_by_compute, epoch=model.trained)
@@ -678,7 +679,7 @@ def available_results(model, min_samples=1000,
     return available
 
 
-def make_dict_from_model(model, directory, tpr=0.95, **kw):
+def make_dict_from_model(model, directory, tpr=0.95, epoch='last', **kw):
 
     architecture = ObjFromDict(model.architecture, features=None)
     training = ObjFromDict(model.training_parameters,
@@ -790,6 +791,8 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
         loss_[s] = nans.copy()
         loss_[s].update(last_loss)
 
+    has_validation = 'validation_loss' in history
+    
     sigma = model.sigma
     beta = model.training_parameters['beta']
     if sigma.learned and not sigma.coded:
@@ -872,6 +875,7 @@ def make_dict_from_model(model, directory, tpr=0.95, **kw):
             'beta': beta,
             'done': model.train_history['epochs'],
             'epochs': model.training_parameters['epochs'],
+            'has_validation': has_validation,
             'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
             'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
             'n_tested': n_tested,

@@ -105,7 +105,7 @@ class ClassificationVariationalNetwork(nn.Module):
                            'jvae': [],
                            'vae': [],
                            'vib': ['odin*', 'baseline', 'logits']}
-    
+
     ODIN_TEMPS = [_ * 10 ** i for _ in (1, 2, 5) for i in (0, 1, 2)] + [1000]
     ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
     # ODIN_EPS = [_ / 40 * 0.008 for _ in range(41)]
@@ -1045,13 +1045,13 @@ class ClassificationVariationalNetwork(nn.Module):
                  sample_dirs=[],
                  recorder=None,
                  wygiwyu=False,
+                 wanted_epoch='last',
                  log=True):
 
         """return detection rate. 
         method can be a list of methods
 
         """
-
         MAX_SAMPLE_SAVE = 200
         
         device = next(self.parameters()).device
@@ -1080,17 +1080,27 @@ class ClassificationVariationalNetwork(nn.Module):
             shuffle = False
 
         if wygiwyu:
-            from_r = testing_plan(self, ood_sets=[],
-                                  predict_methods=predict_methods,
-                                  misclass_methods=[])['recorders']
-            if not from_r:
-                acc = {m: self.testing[m]['accuracy'] for m in predict_methods}
+            froms = testing_plan(self, ood_sets=[],
+                                 predict_methods=predict_methods,
+                                 wanted_epoch=wanted_epoch,
+                                 misclass_methods=[])['recorders']
+
+            acc = {}
+            for m in [m for m predict_methods if m in froms['json'][testset_name]]:
+                acc[m] = self.testing[m]['accuracy']
+            if not froms['recorders'][testset_name]:
                 if only_one_method:
                     return acc[method]
                 else:
                     return acc
+                
             else:
                 predict_methods = [m for m in from_r[testset_name] if from_r[testset_name][m]]
+
+                if wanted_epoch == 'last':
+                    sub_dir = 'last'
+                else:
+                    sub_dir = '{:04d}'.format(wanted_epoch)
                 rec_dir = os.path.join(self.saved_dir, 'samples', 'last')
                 recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
                 num_batch = len(recorder)

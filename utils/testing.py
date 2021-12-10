@@ -2,9 +2,9 @@ from utils.torch_load import get_same_size_by_name
 from utils.save_load import find_by_job_number, available_results
 from utils.misc import make_list
 import logging
+import numpy as np
 
-
-def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=10,
+def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5,
                  available_by_compute=10000,
                  predict_methods='all', ood_sets='all', ood_methods='all', misclass_methods='all'):
 
@@ -34,6 +34,7 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=1
     
     from_recorder = {s: {} for s in sets}
     from_compute = {s: {} for s in sets}
+    from_json = {s: {} for s in sets}
 
     methods = {testset: predict_methods}
     methods.update({s: ood_methods for s in ood_sets})
@@ -57,7 +58,8 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=1
                     for w in max_n:
                         n = available[w][e][s][m]['n']
                         if n >= max_n[w]['n']:
-                            max_n[w] = {'n': n, 'delta_epoch': e - wanted_epoch}                    
+                            max_n[w] = {'n': n, 'delta_epoch': e - wanted_epoch}
+                            max_n[w]['rec_sub_dir'] = available[w][e][s][m].get('rec_sub_dir')
                             # if w == 'recorders': print('***', e, w, n, max_n[w])
                 if max_n['recorders']['n'] > max_n['json']['n']:
                     # print('***', e, max_n['recorders']['n'], max_n['json']['n'])
@@ -65,10 +67,12 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=1
                         from_recorder[s][m] = max_n['recorders']
                     else:
                         from_compute[s][m] = max_n['compute']
+                elif max_n['json']['n'] >= min_samples:
+                        from_json[s][m] = max_n['json']
                 elif max_n['recorders']['n'] < min_samples and max_n['compute']['n'] >=  min_samples:
                     from_compute[s][m] = max_n['compute']
                 
-    return {'recorders': from_recorder, 'compute': from_compute}
+    return {'json': from_json, 'recorders': from_recorder, 'compute': from_compute}
 
 
 def worth_computing(model, from_which='recorder', **kw):
@@ -87,7 +91,40 @@ def worth_computing(model, from_which='recorder', **kw):
 
     return resd[from_which]
 
-            
+
+def early_stopping(model, strategy='min', which='loss', full_valid=10):
+    r""" Returns the epoch at which it should be stopped"""
+
+    if isinstance(model, dict):
+        model = model['net']
+    mtype = model.type
+    history = model.train_history
+    has_validation = 'validation_loss' in history
+
+    valid_k = 'validation'
+    if not has_validation:
+        logging.warning('No validation has been produced for {}'.format(model.job_number))
+        valid_k = 'test'
+        
+    measures = history[valid_k + '_measures']
+    losses = history[valid_k + '_loss']
+
+    metrics = {}
+    
+    kl = np.array([_['kl'] for _ in history[valid_k + '_loss']])
+    metrics['loss'] = np.array([_['total'] for _ in history[valid_k + '_loss']])
+    if mtype in ('cvae', 'vae'):
+        sigma = np.array([_['sigma'] for _ in history[valid_k + '_measures']])
+        metrics['mse'] = np.array([_['mse'] for _ in history[valid_k + '_measures']])
+
+    validation = metrics[which]
+    epoch = {} 
+
+    epoch['min'] = validation[::full_valid].argmin() * full_valid
+
+    return epoch[strategy]
+                        
+
 if __name__ == '__main__':
 
     j = 137540

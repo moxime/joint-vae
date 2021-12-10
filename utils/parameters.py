@@ -424,6 +424,8 @@ def get_filters_args(argv=None):
                         nargs='+',
                         action=FilterAction,
                         of_type=int,)
+
+    parser.add_argument('--early-stopping', nargs='?', const='min')
     
     parser.add_argument('--finished',
                         nargs='?',

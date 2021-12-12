@@ -579,7 +579,8 @@ def needed_components(*methods):
     return sum((ncd.get(m, ()) for m in methods), ())
 
 
-def available_results(model, min_samples=1000,
+def available_results(model,
+                      min_samples=2000,
                       samples_available_by_compute=9000,
                       predict_methods='all',
                       misclass_methods='all',
@@ -610,6 +611,7 @@ def available_results(model, min_samples=1000,
 
     methods = {testset: [(m,) for m in predict_methods]}
     methods[testset] += [(pm, mm) for mm in misclass_methods for pm in predict_methods]
+    methods[testset] += [(_,) for _ in ood_methods]
     methods.update({s: [(m,) for m in ood_methods] for s in ood_sets})
         
     available = {'json': {}, 'recorders': {}}
@@ -640,18 +642,17 @@ def available_results(model, min_samples=1000,
             results[e][testset] = test_results[e]
             # print(e, results[e])
     
-    available['json'] = {e: {s: {m: {k: results[e][s][m][k]
-                                     for k in ('n', 'epochs')}
-                                 for m in results[e][s]}
-                             for s in results[e]}
-                         for e in results}
-
+    available = {e: {'json': {s: {m: results[e][s][m]['n']
+                                  for m in results[e][s]}
+                              for s in results[e]}}
+                 for e in results}
+                 
     # print(available['json'])
 
-    for w in ('recorders', 'compute'):
-        available[w] = {_: {s: clean_results({}, ['-'.join(_) for _ in methods[s]])
-                            for s in sets}
-                        for _ in results}
+    for e in available:
+        for w in ('recorders', 'compute'):
+            available[e][w] = {s: clean_results({}, ['-'.join(_) for _ in methods[s]])
+                               for s in sets}
 
     for epoch in results:
         rec_dir = os.path.join(sample_dir, sample_sub_dirs.get(epoch, 'false_dir'))
@@ -665,16 +666,27 @@ def available_results(model, min_samples=1000,
                 for m in methods[s]:
                     all_components = all(c in r.keys() for c in needed_components(*m))
                     if all_components:
-                        available['recorders'][epoch][s]['-'.join(m)] = dict(n=n,
-                                                                             epochs=epoch,
-                                                                             rec_sub_dir=sample_sub_dirs[epoch])
-
+                        available[epoch]['recorders'][s]['-'.join(m)] = n
+                        available[epoch]['recorders']['rec_dir'] = rec_dir
     if wanted_epoch and abs(wanted_epoch - model.trained) <= epoch_tolerance:
         for s in sets:
             for m in methods[s]:
-                _a = dict(n=samples_available_by_compute, epoch=model.trained)
-                available['compute'][model.trained][s]['-'.join(m)] = _a
-    
+                available[model.trained]['compute'][s]['-'.join(m)] = samples_available_by_compute
+
+    # return available
+    for epoch in available:
+        
+        available[epoch]['where'] = {}
+        for dset in available[epoch]['json']:
+            a_ = {_: available[epoch][_][dset] for _ in ('json', 'recorders', 'compute')}
+            if min(a_['json'][_] for _ in a_['json']) >= min_samples:
+                available[epoch]['where'][dset] = 'json'
+            elif min(a_['recorders'][_] for _ in a_['json']) >= min_samples:
+                available[epoch]['where'][dset] = 'recorders'
+                available[epoch]['where']['rec_dir'] = available[epoch]['recorders']['rec_dir']
+            elif min(a_['compute'][_]['n'] for _ in a_['compute']) >= min_samples:
+                available[epoch]['where'][dset] = 'recorders'
+                
     return available
 
 

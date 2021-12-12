@@ -587,6 +587,7 @@ def available_results(model,
                       ood_sets='all',
                       wanted_epoch='last',
                       epoch_tolerance=10,
+                      only_json=False,
                       ood_methods='all'):
 
     if isinstance(model, dict):
@@ -651,8 +652,7 @@ def available_results(model,
 
     for e in available:
         for w in ('recorders', 'compute'):
-            available[e][w] = {s: clean_results({}, ['-'.join(_) for _ in methods[s]])
-                               for s in sets}
+            available[e][w] = {s: {'-'.join(m): 0 for m in methods[s]} for s in sets}
 
     for epoch in results:
         rec_dir = os.path.join(sample_dir, sample_sub_dirs.get(epoch, 'false_dir'))
@@ -674,20 +674,37 @@ def available_results(model,
                 available[model.trained]['compute'][s]['-'.join(m)] = samples_available_by_compute
 
     # return available
+
+    for epoch in available:
+        for w in available[epoch]:
+            for dset in available[epoch]['json']:
+                a = available[epoch]['json'][dset]
+                a['nmin'] = min(a.values())
+
+    # return available
     for epoch in available:
         
         available[epoch]['where'] = {}
         for dset in available[epoch]['json']:
-            a_ = {_: available[epoch][_][dset] for _ in ('json', 'recorders', 'compute')}
-            if min(a_['json'][_] for _ in a_['json']) >= min_samples:
+            n_min = {w: min(available[epoch][w][dset].values()) for w in ('json', 'recorders', 'compute')}
+            if n_min['json'] >= min_samples and (n_min['recorders'] <= n_min['json'] or only_json):
                 available[epoch]['where'][dset] = 'json'
-            elif min(a_['recorders'][_] for _ in a_['json']) >= min_samples:
+            elif n_min['recorders'] >= min_samples:
                 available[epoch]['where'][dset] = 'recorders'
                 available[epoch]['where']['rec_dir'] = available[epoch]['recorders']['rec_dir']
-            elif min(a_['compute'][_]['n'] for _ in a_['compute']) >= min_samples:
-                available[epoch]['where'][dset] = 'recorders'
-                
+            elif n_min['compute'] >= min_samples:
+                available[epoch]['where'][dset] = {'compute': n_min['compute']}
+            else:
+                available[epoch]['where'][dset] = None
+
+    wheres = ('json', 'recorders', 'compute')
+    epochs = list(available.keys())
+    for w in wheres:
+        available[w] = {e: sum([_ == w for _ in available[e]['where'].values()]) for e in epochs}
+
+    
     return available
+
 
 
 def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):

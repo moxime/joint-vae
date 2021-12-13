@@ -586,8 +586,8 @@ def available_results(model,
                       misclass_methods='all',
                       ood_sets='all',
                       wanted_epoch='last',
-                      epoch_tolerance=10,
-                      only_json=False,
+                      epoch_tolerance=5,
+                      where='all',
                       ood_methods='all'):
 
     if isinstance(model, dict):
@@ -601,13 +601,19 @@ def available_results(model,
     ood_methods = make_list(ood_methods, model.ood_methods)
     misclass_methods = make_list(misclass_methods, model.misclass_methods)
 
+    where = make_list(where, ('json', 'recorders', 'compute'))
+    
     for _l in (predict_methods, ood_methods, misclass_methods):
         develop_starred_methods(_l, model.methods_params)
 
     testset = model.training_parameters['set']
     all_ood_sets = get_same_size_by_name(testset)
-    ood_sets = make_list(ood_sets, all_ood_sets)
-    
+
+    if ood_methods:
+        ood_sets = make_list(ood_sets, all_ood_sets)
+    else:
+        ood_sets = []
+        
     sets = [testset] + ood_sets
 
     methods = {testset: [(m,) for m in predict_methods]}
@@ -615,8 +621,6 @@ def available_results(model,
     methods[testset] += [(_,) for _ in ood_methods]
     methods.update({s: [(m,) for m in ood_methods] for s in ood_sets})
         
-    available = {'json': {}, 'recorders': {}}
-
     sample_dir = os.path.join(model.saved_dir, 'samples')
 
     sample_sub_dirs = {int(_): _ for _ in os.listdir(sample_dir) if _.isnumeric()}
@@ -643,16 +647,17 @@ def available_results(model,
             results[e][testset] = test_results[e]
             # print(e, results[e])
     
-    available = {e: {'json': {s: {m: results[e][s][m]['n']
-                                  for m in results[e][s]}
-                              for s in results[e]}}
+    available = {e: {s: {'json': {m: results[e][s][m]['n']
+                                  for m in results[e][s]}}
+                     for s in results[e]}
                  for e in results}
                  
     # print(available['json'])
 
     for e in available:
-        for w in ('recorders', 'compute'):
-            available[e][w] = {s: {'-'.join(m): 0 for m in methods[s]} for s in sets}
+        for s in available[e]:
+            for w in ('recorders', 'compute'):
+                available[e][s][w] = {'-'.join(m): 0 for m in methods[s]} 
 
     for epoch in results:
         rec_dir = os.path.join(sample_dir, sample_sub_dirs.get(epoch, 'false_dir'))
@@ -666,34 +671,50 @@ def available_results(model,
                 for m in methods[s]:
                     all_components = all(c in r.keys() for c in needed_components(*m))
                     if all_components:
-                        available[epoch]['recorders'][s]['-'.join(m)] = n
-                        available[epoch]['recorders']['rec_dir'] = rec_dir
+                        available[epoch][s]['recorders']['-'.join(m)] = n
+                        available[epoch]['rec_dir'] = rec_dir
     if wanted_epoch and abs(wanted_epoch - model.trained) <= epoch_tolerance:
         for s in sets:
             for m in methods[s]:
-                available[model.trained]['compute'][s]['-'.join(m)] = samples_available_by_compute
+                available[model.trained][s]['compute']['-'.join(m)] = samples_available_by_compute
 
     # return available
 
+    wheres = [w for w in ['compute', 'recorders', 'json'] if w in where]
+    wheres.append('zeros')
     for epoch in available:
-        for w in available[epoch]:
-            for dset in available[epoch]['json']:
-                a = available[epoch]['json'][dset]
-                a['nmin'] = min(a.values())
+        for dset in sets:
+            a_ = available[epoch][dset]
+            a_['where'] = {}
+            a_['zeros'] = {m: 0 for m in a_['json']}
+            # print(epoch, dset) # a_['json'])
+            for i, w in enumerate(wheres[:-1]):
+                gain = {m: 0 for m in a_['json']}
+                others = {m: 0 for m in a_['json']}
+                for m in gain:
+                    others[m] = max(a_[_][m] for _ in wheres[i+1:])
+                    gain[m] = a_[w][m] - others[m]
+                    gain[m] *= (gain[m] > 0)
+                available[epoch][dset]['where'][w] = sum(gain.values())
+            a_.pop('zeros')
+    return available
 
-    # return available
+
     for epoch in available:
         
-        available[epoch]['where'] = {}
         for dset in available[epoch]['json']:
-            n_min = {w: min(available[epoch][w][dset].values()) for w in ('json', 'recorders', 'compute')}
-            if n_min['json'] >= min_samples and (n_min['recorders'] <= n_min['json'] or only_json):
-                available[epoch]['where'][dset] = 'json'
-            elif n_min['recorders'] >= min_samples:
-                available[epoch]['where'][dset] = 'recorders'
-                available[epoch]['where']['rec_dir'] = available[epoch]['recorders']['rec_dir']
-            elif n_min['compute'] >= min_samples:
-                available[epoch]['where'][dset] = {'compute': n_min['compute']}
+            available[epoch]['where'] = {}
+            methods = available[epoch]['json'][dset].keys()
+            for w in ('compute', 'recorders', 'json'):
+                if w in where:
+                    if all(available[epoch][w][dset][m] >= max(available[epoch][_][dset][m] for _ in where)
+                       for m in methods):
+                        available[epoch]['where'][dset] = w
+                        
+            n_min = {w: min(available[epoch][w][dset].values()) for w in where}
+            w_max = max(n_min, key=n_min.get)
+            if n_min[w_max] >= min_samples:
+                pass
             else:
                 available[epoch]['where'][dset] = None
 
@@ -701,10 +722,8 @@ def available_results(model,
     epochs = list(available.keys())
     for w in wheres:
         available[w] = {e: sum([_ == w for _ in available[e]['where'].values()]) for e in epochs}
-
-    
+    available['total'] = {e: sum(available[w][e] for w in wheres) for e in epochs}    
     return available
-
 
 
 def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):

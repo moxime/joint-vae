@@ -2,15 +2,12 @@ import logging
 import copy
 import torch
 import torch.utils.data
-from torch import nn, autograd
+from torch import nn
 from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, kl_loss, mse_loss
-
 from utils.save_load import LossRecorder, last_samples, available_results, develop_starred_methods
-
 from utils.misc import make_list
-
 from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import onehot_encoding
 
@@ -1044,8 +1041,9 @@ class ClassificationVariationalNetwork(nn.Module):
                  outputs=EpochOutput(),
                  sample_dirs=[],
                  recorder=None,
-                 wygiwyu=False,
                  wanted_epoch='last',
+                 where='compute',
+                 epoch_tolerance=0,
                  log=True):
 
         """return detection rate. 
@@ -1081,30 +1079,27 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if wanted_epoch == 'last':
             wanted_epoch = self.trained
-        if wygiwyu:
-            froms = testing_plan(self, ood_sets=[],
-                                 predict_methods=predict_methods,
-                                 wanted_epoch=wanted_epoch,
-                                 misclass_methods=[])
+
+        froms = available_results(self, ood_sets=[],
+                                  predict_methods=predict_methods,
+                                  wanted_epoch=wanted_epoch,
+                                  epoch_tolerance=0,
+                                  where=where,
+                                  misclass_methods=[])
+
+        tested_epoch = max(froms['total'], key=froms['total'].key())
+        acc = {}
+        for m in predict_methods:
+            if froms[tested_epoch]['json'][testset][m]:
+                acc[m] = self.testing[tested_epoch][m]['accuracy']
+        if not sum(froms[_][tested_epoch] for _ in ('recorders', 'compute')):
+            return acc
             
-            from_r = froms['recorders']
-            acc = {}
-            for m in [m for m in predict_methods if m in froms['json'][testset_name]]:
-                e = froms['json'][testset_name][m]['delta_epoch'] + wanted_epoch
-                acc[m] = self.testing[e][m]['accuracy']
-            if not from_r[testset_name]:
-                if only_one_method:
-                    return acc[method]
-                else:
-                    return acc                
-            else:
-                sub_dir = from_r.pop('rec_sub_dir')
-                tested_epoch = int(sub_dir)
-                predict_methods = [m for m in from_r[testset_name] if from_r[testset_name][m]]
-                rec_dir = os.path.join(self.saved_dir, 'samples', sub_dir)
-                recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
-                num_batch = len(recorder)
-                batch_size = recorder.batch_size
+        if froms[tested_epoch]['where'][testset] == 'recorders':
+            rec_dir = froms[tested_epoch]['recorders'].pop('rec_dir')
+            recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
+            num_batch = len(recorder)
+            batch_size = recorder.batch_size
                 
         recorded = recorder is not None and len(recorder) >= num_batch 
         recording = recorder is not None and len(recorder) < num_batch 

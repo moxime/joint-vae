@@ -610,7 +610,7 @@ def available_results(model,
     if testset == 'trained':    
         testset = model.training_parameters['set']
 
-    print('*** testset', testset)
+    # print('*** testset', testset)
     all_ood_sets = get_same_size_by_name(testset)
 
     if ood_methods:
@@ -677,7 +677,8 @@ def available_results(model,
                     if all_components:
                         available[epoch][s]['recorders']['-'.join(m)] = n
                         available[epoch]['rec_dir'] = rec_dir
-    if wanted_epoch and abs(wanted_epoch - model.trained) <= epoch_tolerance:
+
+    if abs(wanted_epoch - model.trained) <= epoch_tolerance:
         for s in sets:
             for m in methods[s]:
                 available[model.trained][s]['compute']['-'.join(m)] = samples_available_by_compute
@@ -705,32 +706,6 @@ def available_results(model,
     for epoch in available:
         available[epoch]['all_sets'] = {w: sum(available[epoch][s]['where'][w] for s in sets) for w in where}
         available[epoch]['all_sets']['anywhere'] = sum(available[epoch]['all_sets'][w] for w in where)
-    return available
-
-
-    for epoch in available:
-        
-        for dset in available[epoch]['json']:
-            available[epoch]['where'] = {}
-            methods = available[epoch]['json'][dset].keys()
-            for w in ('compute', 'recorders', 'json'):
-                if w in where:
-                    if all(available[epoch][w][dset][m] >= max(available[epoch][_][dset][m] for _ in where)
-                       for m in methods):
-                        available[epoch]['where'][dset] = w
-                        
-            n_min = {w: min(available[epoch][w][dset].values()) for w in where}
-            w_max = max(n_min, key=n_min.get)
-            if n_min[w_max] >= min_samples:
-                pass
-            else:
-                available[epoch]['where'][dset] = None
-
-    wheres = ('json', 'recorders', 'compute')
-    epochs = list(available.keys())
-    for w in wheres:
-        available[w] = {e: sum([_ == w for _ in available[e]['where'].values()]) for e in epochs}
-    available['total'] = {e: sum(available[w][e] for w in wheres) for e in epochs}    
     return available
 
 

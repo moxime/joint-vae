@@ -343,6 +343,8 @@ def get_shape_by_name(set_name, transform='default'):
 
 def get_same_size_by_name(set_name, rotated=False):
 
+    if set_name not in set_dict:
+        return []
     if set_name.endswith('90'):
         return get_same_size_by_name(set_name[:-2], rotated=True)
 

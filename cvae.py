@@ -1087,7 +1087,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                   epoch_tolerance=0,
                                   where=from_where,
                                   misclass_methods=[]).get(epoch)
-        print('***', froms)
+
         acc = {}
         if not froms:
             return acc
@@ -1767,7 +1767,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 set_name = trainset.name
             except(AttributeError):
                 set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
-            transformer=trainset.transformer
+            transformer = trainset.transformer
             
         if self.trained:
             logging.info(f'Network partially trained ({self.trained} epochs)')
@@ -1778,6 +1778,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['set'] = set_name
                 self.training_parameters['transformer'] = transformer
                 self.training_parameters['validation'] = validation
+                self.training_parameters['full_test_every'] = full_test_every
                 ss = trainset.data[0].shape
                 ns = self.input_shape
                 logging.debug(f'Shapes : {ss} / {ns}')
@@ -1797,6 +1798,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         set_name = self.training_parameters['set']
         data_augmentation = self.training_parameters['data_augmentation']
+        full_test_every = self.training_parameters.get('full_test_every', 10)
         
         logging.debug(f'Getting {set_name}')
 
@@ -1809,9 +1811,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                                transformer=transformer,
                                                                data_augmentation=data_augmentation,
                                                                validation_split=validation,
-                                                               validation_split_seed = seed
+                                                               validation_split_seed=seed
                                                                )
-
+        validationset.name = 'validation'
         logging.debug('Choosing device')
         device = choose_device(device)
         logging.debug(f'done {device}')
@@ -1867,10 +1869,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   num_workers=0)
 
         validationloader = torch.utils.data.DataLoader(validationset,
-                                                  batch_size=test_batch_size,
-                                                  # pin_memory=True,
-                                                  shuffle=True,
-                                                  num_workers=0)
+                                                       batch_size=test_batch_size,
+                                                       # pin_memory=True,
+                                                       shuffle=True,
+                                                       num_workers=0)
 
         logging.debug('...done')
         
@@ -1984,7 +1986,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     test_measures = self._measures.copy()
 
                 num_batch = 'all' if full_test else max(1, validation_sample_size // test_batch_size)
-                print('***', validationset.name)
+                # print('***', validationset.name)
                 validation_accuracy = self.accuracy(validationset,
                                                     batch_size=test_batch_size,
                                                     num_batch=num_batch,

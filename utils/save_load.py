@@ -730,14 +730,15 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     else:
         train_batch_size = batch_size
 
+    model.testing[-1] = {}
     if wanted_epoch == 'last':
         wanted_epoch = max(model.testing)
 
-    testing_results = clean_results(model.testing[wanted_epoch], model.predict_methods, accuracy=None)
+    testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
-    ood_results = model.ood_results[wanted_epoch]
+    ood_results = model.ood_results.get(wanted_epoch, {})
     
-    if model.testing and model.predict_methods:
+    if model.testing.get(wanted_epoch) and model.predict_methods:
         # print('*** model.testing', *model.testing.keys())
         # print('*** model.predict_methods', model.architecture['type'], *model.predict_methods)
         accuracies['first'] = accuracies[model.predict_methods[0]] 

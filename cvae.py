@@ -392,8 +392,8 @@ class ClassificationVariationalNetwork(nn.Module):
             'batch_size': None,
             'fine_tuning': [],}
 
-        self.testing = {m: {'n':0, 'epochs':0, 'accuracy':0}
-                        for m in self.predict_methods}
+        self.testing = {0: {m: {'n': 0, 'epochs': 0, 'accuracy': 0}
+                        for m in self.predict_methods}}
         # self.optimizer = optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
 
         self.ood_results = {}
@@ -1041,8 +1041,8 @@ class ClassificationVariationalNetwork(nn.Module):
                  outputs=EpochOutput(),
                  sample_dirs=[],
                  recorder=None,
-                 wanted_epoch='last',
-                 where='compute',
+                 epoch='last',
+                 from_where='all',
                  epoch_tolerance=0,
                  log=True):
 
@@ -1057,7 +1057,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if not testset:
             testset_name = self.training_parameters['set']
             _, testset = torchdl.get_dataset(testset_name)
-        
+        else:
+            testset_name = testset.name
+            
         if method == 'all':
             predict_methods = self.predict_methods
             only_one_method = False
@@ -1071,32 +1073,35 @@ class ClassificationVariationalNetwork(nn.Module):
 
         shuffle = True
 
-        epoch = self.trained
-        
         if num_batch == 'all':
             num_batch = len(testset) // batch_size
             shuffle = False
 
-        if wanted_epoch == 'last':
-            wanted_epoch = self.trained
+        if epoch == 'last':
+            epoch = self.trained
 
-        froms = available_results(self, ood_sets=[],
+        froms = available_results(self, testset=testset_name,
+                                  oodsets=[],
                                   predict_methods=predict_methods,
-                                  wanted_epoch=wanted_epoch,
+                                  wanted_epoch=epoch,
                                   epoch_tolerance=0,
-                                  where=where,
-                                  misclass_methods=[])
-
-        tested_epoch = max(froms['total'], key=froms['total'].key())
+                                  where=from_where,
+                                  misclass_methods=[]).get(epoch)
+        print('***', froms)
         acc = {}
-        for m in predict_methods:
-            if froms[tested_epoch]['json'][testset][m]:
-                acc[m] = self.testing[tested_epoch][m]['accuracy']
-        if not sum(froms[_][tested_epoch] for _ in ('recorders', 'compute')):
+        if not froms:
+            return acc
+
+        if froms[testset_name]['where']['json']:
+            for m in predict_methods:
+                if froms[testset_name]['json'][m]:
+                    acc[m] = self.testing[epoch][m]['accuracy']
+            
+        if not sum(froms[testset_name]['where'][_] for _ in ('recorders', 'compute')):
             return acc
             
-        if froms[tested_epoch]['where'][testset] == 'recorders':
-            rec_dir = froms[tested_epoch]['recorders'].pop('rec_dir')
+        if froms[testset_name]['where']['recorders']:
+            rec_dir = froms.pop('rec_dir')
             recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
             num_batch = len(recorder)
             batch_size = recorder.batch_size
@@ -1107,12 +1112,10 @@ class ClassificationVariationalNetwork(nn.Module):
         if recorded:
             logging.debug('Losses already recorded')
             num_batch = len(recorder)
-            epoch = last_samples(self)
 
         if recording:
             logging.debug('Recording session loss for accruacy')
             recorder.reset()
-            tested_epoch = self.trained
             recorder.num_batch = num_batch
 
         n_err = dict()
@@ -1256,17 +1259,16 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorder.save(f)
 
         for m in predict_methods:
-            mresults = self.testing.get(tested_epoch)
+            mresults = self.testing.get(epoch)
             n_already = 0
             if mresults:
-                n_already = self.testing[tested_epoch].get(m, {'n': 0})['n']
+                n_already = self.testing[epoch].get(m, {'n': 0})['n']
                 
             update_self_testing_method = (update_self_testing and
                                           n > n_already)
-            
             if update_self_testing_method:
-                if tested_epoch not in self.testing:
-                    self.testing[tested_epoch] = {}
+                if epoch not in self.testing:
+                    self.testing[epoch] = {}
                 if log:
                     logged = 'Updating accuracy %.3f%% for method %s (n=%s)'
                     logging.debug(logged,
@@ -1276,8 +1278,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                   # self.testing[m]['epochs'],
                                   # n, self.trained)
 
-                self.testing[tested_epoch][m] = {'n': n,
-                                                 'epochs': tested_epoch,
+                self.testing[epoch][m] = {'n': n,
+                                                 'epochs': epoch,
                                                  'sampling': self.latent_samplings['eval'],
                                                  'accuracy': acc[m]}
 
@@ -1294,15 +1296,15 @@ class ClassificationVariationalNetwork(nn.Module):
                             method='all',
                             print_result=False,
                             update_self_ood=True,
-                            wanted_epoch='last',
+                            epoch='last',
                             outputs=EpochOutput(),
                             recorders=None,
-                            wygiwyu=False,
+                            from_where='all',
                             sample_dirs=[],
                             log=True):
 
-        if wanted_epoch == 'last':
-            wanted_epoch = self.trained
+        if epoch == 'last':
+            epoch = self.trained
         
         if not testset:
             testset_name = self.training_parameters['set']
@@ -1322,8 +1324,9 @@ class ClassificationVariationalNetwork(nn.Module):
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 
-        all_set_names = [testset.name] + [o.name for o in oodsets] 
-
+        oodsets_names = [o.name for o in oodsets]
+        all_set_names = [testset.name] + oodsets_names
+        
         ood_methods_per_set = {s: ood_methods for s in all_set_names}
         all_ood_methods = ood_methods
         
@@ -1332,40 +1335,57 @@ class ClassificationVariationalNetwork(nn.Module):
 
         max_num_batch = num_batch
         num_batch = {testset.name: max(len(testset) // batch_size, 1)}
+        batch_size = {testset.name: batch_size}
         for o in oodsets:
-            num_batch[o.name] = max(len(o) // batch_size, 1)
-
+            num_batch[o.name] = max(len(o) // batch_size[testset.name], 1)
+            batch_size[o.name] = batch_size[testset.name]
+            
         shuffle = {s: False for s in all_set_names}
         recording = {}
         recorded = {}
-        tested_epochs = self.trained
 
-        if wygiwyu:
+        froms = available_results(self, oodsets=oodsets_names,
+                                  predict_methods=None,
+                                  ood_methods=ood_methods,
+                                  wanted_epoch=epoch,
+                                  epoch_tolerance=0,
+                                  where=from_where,
+                                  misclass_methods=[]).get(epoch)
+        
+        ood_results = {o.name: {} for o in oodsets}
 
-            froms = testing_plan(self,
-                                 ood_sets=[o.name for o in oodsets],
-                                 misclass_methods=None,
-                                 wanted_epoch=wanted_epoch,
-                                 ood_methods=ood_methods)
+        if not froms:
+            return ood_results
 
-            from_r = froms['recorders']
-            ood_results = {o.name: {} for o in oodsets}
-            sub_dir = from_r.pop('rec_sub_dir')
-            
-            if any(from_r.values()):
-                rec_dir = os.path.join(self.saved_dir, 'samples', sub_dir)
-                tested_epoch = int(sub_dir)
-                recorders = LossRecorder.loadall(rec_dir, *all_set_names)
-                num_batch = {s: len(recorders[s]) for s in recorders}
-                batch_size = recorders[testset.name].batch_size
-                ood_methods_per_set = {s: [m for m in ood_methods if from_r[s].get(m, {})] for s in from_r}
-                for s in from_r:  #
-                    if s in [o.name for o in oodsets] and from_r[s]:
-                        logging.debug('OOD methods for {}: '.format(s) + 
-                                      '-'.join(ood_methods_per_set[s]))
-                all_ood_methods = [m for m in ood_methods if any([m in from_r[s] for s in from_r])]
-                # print('*** ood methods', *ood_methods)
-                ood_methods_per_set[testset.name] = [m for m in ood_methods if m in all_ood_methods]
+        for dset in oodsets_names:
+            if froms[dset]['where']['json']:
+                ood_results[dset] = self.ood_results[epoch][dset]
+                
+        if froms['all_sets']['recorders']:
+            rec_dir = froms.pop('rec_dir')
+
+            loaded_recorders = LossRecorder.loadall(rec_dir, *all_set_names)
+
+            for dset in all_set_names:
+                if froms[dset]['where']['compute']:
+                    recorders[dset] = LossRecorder(batch_size[dset])
+                    logging.debug('{} will be computed'.format(dset))
+                elif froms[dset]['where']['recorders']:
+                    recorders[dset] = loaded_recorders[dset]
+                    num_batch[dset] = len(recorders[dset])
+                    batch_size[dset] = recorders[dset].batch_size
+                    logging.debug('{} recorder available'.format(dset))
+                    ood_methods_per_set[dset] = [m for m in ood_methods if froms[dset]['recorders'].get(m)]
+                else:
+                    recorders.pop(dset)
+                    logging.debug('{} will be discarded'.format(dset))
+                    
+                for s in recorders:  #
+                    logging.debug('OOD methods for {}: '.format(s) + 
+                                  '-'.join(ood_methods_per_set[s]))
+            all_ood_methods = [m for m in ood_methods if any([m in ood_methods_per_set[s] for s in recorders])]
+            # print('*** ood methods', *ood_methods)
+            ood_methods_per_set[testset.name] = [m for m in ood_methods if m in all_ood_methods]
                 
             oodsets = [o for o in oodsets if o.name in recorders]
             all_set_names = [s for s in all_set_names if s in recorders]
@@ -1405,7 +1425,7 @@ class ClassificationVariationalNetwork(nn.Module):
             loader = torch.utils.data.DataLoader(testset,
                                                  shuffle=shuffle[s],
                                                  num_workers=0,
-                                                 batch_size=batch_size)
+                                                 batch_size=batch_size[testset.name])
             
             t_0 = time.time()
 
@@ -1463,7 +1483,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                           for m in ood_methods_per_set[s]},
                                 acc_methods=ood_methods_per_set[s],
                                 time_per_i=t_per_i,
-                                batch_size=batch_size,
+                                batch_size=batch_size[s],
                                 preambule=testset.name)
 
             if recorders[s] is not None:
@@ -1488,7 +1508,7 @@ class ClassificationVariationalNetwork(nn.Module):
             s = oodset.name
             ood_n_batch = num_batch[s]
             
-            ood_results = {m: copy.deepcopy(no_result) for m in ood_methods_per_set[s]}
+            ood_results[s] = {m: copy.deepcopy(no_result) for m in ood_methods_per_set[s]}
             ood_measures = {m: np.ndarray(0) for m in ood_methods_per_set[s]}
 
             fpr_ = {}
@@ -1503,9 +1523,10 @@ class ClassificationVariationalNetwork(nn.Module):
             loader = torch.utils.data.DataLoader(oodset,
                                                  num_workers=0,
                                                  shuffle=shuffle[s],
-                                                 batch_size=batch_size)
+                                                 batch_size=batch_size[s])
 
-            logging.debug(f'Computing measures for set {oodset.name} with {ood_n_batch} batches')
+            _s = 'Computing for set {o} ({n}) with {b} batches of {k} images'
+            logging.debug(_s.format(o=oodset.name, b=ood_n_batch, k=batch_size[s], n=len(oodset)))
 
             t_0 = time.time()
             test_iterator = iter(loader)
@@ -1578,35 +1599,37 @@ class ClassificationVariationalNetwork(nn.Module):
                                 acc_methods=ood_methods_per_set[oodset.name],
                                 accuracies=r_,
                                 time_per_i=t_per_i,
-                                batch_size=batch_size,
+                                batch_size=batch_size[s],
                                 preambule=oodset.name)
 
             if recorders[s] is not None:
                 recorders[s].restore_seed()
 
-            if tested_epoch not in self.ood_results:
-                self.ood_results[tested_epoch] = {} 
+            if epoch not in self.ood_results:
+                self.ood_results[epoch] = {} 
                 
             for m in ood_methods_per_set[s]:
 
-                ood_results[m] = {'epochs': wanted_epoch,
-                                  'n': ood_n_batch * batch_size,
-                                  'auc': auc_[m],
-                                  'tpr': kept_tpr,
-                                  'fpr': list(fpr_[m]), 
-                                  'thresholds': list(thresholds_[m])}
+                ood_results[s][m] = {'epochs': epoch,
+                                     'n': ood_n_batch * batch_size[s],
+                                     'auc': auc_[m],
+                                     'tpr': kept_tpr,
+                                     'fpr': list(fpr_[m]), 
+                                     'thresholds': list(thresholds_[m])}
                 
                 if update_self_ood:
                     
-                    if oodset.name not in self.ood_results[tested_epoch]:
-                        self.ood_results[tested_epoch][oodset.name] = {}
-                    self.ood_results[tested_epoch][oodset.name][m] = ood_results[m]
+                    if oodset.name not in self.ood_results[epoch]:
+                        self.ood_results[epoch][oodset.name] = {}
+                    self.ood_results[epoch][s][m] = ood_results[s][m]
 
             if recording[s]:
                 for d in sample_dirs:
                     f = os.path.join(d, f'record-{s}.pth')
         
                     recorders[s].save(f.format(s=s))
+
+        return ood_results
 
     def misclassification_detection_rate(self,
                                          recorder=None,
@@ -1960,20 +1983,21 @@ class ClassificationVariationalNetwork(nn.Module):
                     test_loss = self.test_loss
                     test_measures = self._measures.copy()
 
-                num_batch = 'all' if full_test else max(1, validation_sample_size // test_batch_size) 
-                validation_accuracy =self.accuracy(validationset,
-                                                   batch_size=test_batch_size,
-                                                   num_batch=num_batch,
-                                                   # device=device,
-                                                   method=acc_methods,
-                                                   # log=False,
-                                                   outputs=outputs,
-                                                   sample_dirs=sample_dirs,
-                                                   update_self_testing=False,
-                                                   recorder=recorders['validation'],
-                                                   print_result='VALID'
-                                                   if full_test else
-                                                   'valid')
+                num_batch = 'all' if full_test else max(1, validation_sample_size // test_batch_size)
+                print('***', validationset.name)
+                validation_accuracy = self.accuracy(validationset,
+                                                    batch_size=test_batch_size,
+                                                    num_batch=num_batch,
+                                                    # device=device,
+                                                    method=acc_methods,
+                                                    # log=False,
+                                                    outputs=outputs,
+                                                    sample_dirs=sample_dirs,
+                                                    update_self_testing=False,
+                                                    recorder=recorders['validation'],
+                                                    print_result='VALID'
+                                                    if full_test else
+                                                    'valid')
                 validation_loss = self.test_loss
                 validation_measures = self._measures.copy()
                 

@@ -580,11 +580,12 @@ def needed_components(*methods):
 
 
 def available_results(model,
+                      testset='trained',
                       min_samples=2000,
                       samples_available_by_compute=9000,
                       predict_methods='all',
                       misclass_methods='all',
-                      ood_sets='all',
+                      oodsets='all',
                       wanted_epoch='last',
                       epoch_tolerance=5,
                       where='all',
@@ -606,20 +607,23 @@ def available_results(model,
     for _l in (predict_methods, ood_methods, misclass_methods):
         develop_starred_methods(_l, model.methods_params)
 
-    testset = model.training_parameters['set']
+    if testset == 'trained':    
+        testset = model.training_parameters['set']
+
+    print('*** testset', testset)
     all_ood_sets = get_same_size_by_name(testset)
 
     if ood_methods:
-        ood_sets = make_list(ood_sets, all_ood_sets)
+        oodsets = make_list(oodsets, all_ood_sets)
     else:
-        ood_sets = []
+        oodsets = []
         
-    sets = [testset] + ood_sets
+    sets = [testset] + oodsets
 
     methods = {testset: [(m,) for m in predict_methods]}
     methods[testset] += [(pm, mm) for mm in misclass_methods for pm in predict_methods]
     methods[testset] += [(_,) for _ in ood_methods]
-    methods.update({s: [(m,) for m in ood_methods] for s in ood_sets})
+    methods.update({s: [(m,) for m in ood_methods] for s in oodsets})
         
     sample_dir = os.path.join(model.saved_dir, 'samples')
 
@@ -628,7 +632,7 @@ def available_results(model,
     epochs = set(sample_sub_dirs)
     
     epochs.add(model.trained)
-    # print(test_results)
+    # print('****', *epochs, '/', *test_results, '/', *ood_results)
     epochs = sorted(set.union(epochs, set(test_results), set(ood_results)))
 
     if wanted_epoch:
@@ -640,12 +644,11 @@ def available_results(model,
 
     for e in sorted(epochs):
         pm_ = list(test_results[e].keys())
-        results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in ood_sets}
+        results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in oodsets}
         for pm in pm_:
             misclass_results = clean_results(test_results[e][pm], misclass_methods)
             test_results[e].update({pm + '-' + m: misclass_results[m] for m in misclass_results})
-            results[e][testset] = test_results[e]
-            # print(e, results[e])
+        results[e][testset] = test_results[e]
     
     available = {e: {s: {'json': {m: results[e][s][m]['n']
                                   for m in results[e][s]}}
@@ -665,6 +668,7 @@ def available_results(model,
             recorders = LossRecorder.loadall(rec_dir)
             # epoch = last_samples(model)
             for s, r in recorders.items():
+                # print('***', s)
                 if s not in sets:
                     continue
                 n = len(r) * r.batch_size
@@ -686,17 +690,21 @@ def available_results(model,
         for dset in sets:
             a_ = available[epoch][dset]
             a_['where'] = {}
-            a_['zeros'] = {m: 0 for m in a_['json']}
+            a_['zeros'] = {'-'.join(m): 0 for m in methods[dset]}
             # print(epoch, dset) # a_['json'])
             for i, w in enumerate(wheres[:-1]):
-                gain = {m: 0 for m in a_['json']}
-                others = {m: 0 for m in a_['json']}
+                gain = {'-'.join(m): 0 for m in methods[dset]}
+                others = {'-'.join(m): 0 for m in methods[dset]}
                 for m in gain:
-                    others[m] = max(a_[_][m] for _ in wheres[i+1:])
-                    gain[m] = a_[w][m] - others[m]
-                    gain[m] *= (gain[m] > 0)
+                    others[m] = max(a_[_].get(m, 0) for _ in wheres[i+1:])
+                    gain[m] += a_[w].get(m, 0) - others[m] > min_samples
+                    # gain[m] *= (gain[m] > 0)
                 available[epoch][dset]['where'][w] = sum(gain.values())
             a_.pop('zeros')
+
+    for epoch in available:
+        available[epoch]['all_sets'] = {w: sum(available[epoch][s]['where'][w] for s in sets) for w in where}
+        available[epoch]['all_sets']['anywhere'] = sum(available[epoch]['all_sets'][w] for w in where)
     return available
 
 

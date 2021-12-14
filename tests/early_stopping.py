@@ -8,7 +8,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 mdir = '/tmp/000033'
 
 print('Loading')
-model = M.load(mdir, load_state=False)
+model = M.load(mdir, load_state=True)
 
 print('Loaded')
 
@@ -18,22 +18,23 @@ acc = {_: model.accuracy(wygiwyu=True, wanted_epoch=_) for _ in (0, 10, 200, 'la
 
 print(acc)
 """
-model.trained = 2001
+model.trained = 2000
 
 model.testing[2000].pop('iws')
+model.ood_results.pop(2000)
 
 available = available_results(model,
-                              predict_methods='all',
-                              samples_available_by_compute=15000,
+                              predict_methods=[],
+                              samples_available_by_compute=10000,
                               ood_methods='all',
                               where=('json', 'recorders', 'compute'),
                               misclass_methods=[],
-                              wanted_epoch=2000)
+                              wanted_epoch=10, epoch_tolerance=0)
 
-
-recorders = LossRecorder.loadall(model.saved_dir + '/samples/last')
+# recorders = LossRecorder.loadall(model.saved_dir + '/samples/last')
 
 # plan = testing_plan(model, predict_methods=[], misclass_methods=[], wanted_epoch=30)
-model.ood_detection_rates(wanted_epoch=10, wygiwyu=True)
-model.accuracy(wanted_epoch=10, wygiwyu=True)
-mdict = make_dict_from_model(model, model.saved_dir, wanted_epoch=10)
+ood = model.ood_detection_rates(epoch=2000)
+    
+# acc = model.accuracy(epoch=1980, print_result=True, sample_dirs=['/tmp'])
+# mdict = make_dict_from_model(model, model.saved_dir, wanted_epoch=10)

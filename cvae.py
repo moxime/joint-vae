@@ -2403,10 +2403,21 @@ class ClassificationVariationalNetwork(nn.Module):
             ood_results = save_load.load_json(dir_name, 'ood.json', presumed_type=int)
             """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
             if ood_results and not any(isinstance(_, int) for _ in ood_results):
-                e = max(testing)
-                ood_results = {e: ood_results}
-                pass
-            loaded_ood = True
+                if testing:
+                    e = max(testing)
+                else:
+                    e = None
+                    for s in ood_results:
+                        for m in ood_results[s]:
+                            if 'epochs' in ood_results[s][m]:
+                                e = ood_results[s][m]['epochs']
+                if e:
+                    ood_results = {e: ood_results}
+                    loaded_ood = True
+                else:
+                    ood_results = {}
+                    logging.error('OOD not loaded \n%s', dir_name)
+                    
         except(FileNotFoundError):
             ood_results = {}
             pass

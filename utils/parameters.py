@@ -389,14 +389,17 @@ def get_args_for_test(argv=None):
     
     parser.add_argument('--latex', action='store_true')
 
-    parser.add_argument('--expand', '-e', action='count', default=0)
+    parser.add_argument('--expand', '-x', action='count', default=0)
 
-    parser.add_argument('--hide-measures', dest='show_measures', action='store_false')
+    parser.add_argument('-e', dest='show_measures', action='count', default=0)
 
     parser.add_argument('--tpr', nargs='*', default=[95], type=int)
     parser.add_argument('--tnr', action='store_true', help='Show TNR instead of FPR')
 
     parser.add_argument('--sort', nargs='+')
+
+    parser.add_argument('--hide-average', action='store_false', dest='average')
+    parser.add_argument('--only-average', action='store_true')
     
     parser.add_argument('--job-id', type=int, default=0)
 
@@ -428,6 +431,12 @@ def get_filters_args(argv=None):
     parser.add_argument('--early-stopping', nargs='?', const='min')
     
     parser.add_argument('--finished',
+                        nargs='?',
+                        const='true',
+                        action=FilterAction,
+                        of_type=str2bool)
+
+    parser.add_argument('--has-validation',
                         nargs='?',
                         const='true',
                         action=FilterAction,

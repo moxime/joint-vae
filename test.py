@@ -324,7 +324,7 @@ if __name__ == '__main__':
         d_count = gb.agg('count')
 
         if 'job' in d.index.names:
-            _s = '{{:{}d}}'.format(wj)
+            _s = '{{:{}d}}'.format(wj-1)
             d_count_s = d_count[d_count.columns[-1]].apply(_s.format)
             d_count_v = d_count_s.values
             # d_mean.reset_index(level='job', drop=True, inplace=True)
@@ -339,28 +339,37 @@ if __name__ == '__main__':
             d_agg = pd.concat(dict(mean=d_mean, std=d_std), axis=1)
             texify_test_results_df(d_agg, s, agg_tex_file, agg_tab_file)
 
-        if not args.show_measures:
-            d.drop(columns=[_ for _ in d.columns if _[0] == 'measures'], inplace=True)
-            d_mean.drop(columns=[_ for _ in d_mean.columns if _[0] == 'measures'], inplace=True)
+        col_show_levels = {_: 0 for _ in d.columns}
+        col_show_levels.update({_: 2 for _ in d.columns if _[0] == 'measures'})
+        col_show_levels.update({_: 1 for _ in [('measures', 'done'), ('measures', 'epoch')]})
+
+        drop_cols = [_ for _ in d.columns if col_show_levels[_] > args.show_measures]
+
+        if drop_cols:
+            d.drop(columns=drop_cols, inplace=True)
+            d_mean.drop(columns=drop_cols, inplace=True)
 
         d_str = d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
 
         width = len(d_str.split('\n')[0])
         print(f'{s.upper():=^{width}}')
-        print(d_str)
 
-        # d_mean.index = d_mean.index.format(formatter=_f)        
-        m_str = d_mean.to_string(na_rep='', float_format='{:.3g}'.format).split('\n')
-        width = len(m_str[0])
-        first_row = '{:=^{w}}'.format('AVERAGE', w=width)
-        header = d.columns.nlevels
-        second_row = m_str[header-1]
+        if not args.only_average:
+            print(d_str)
 
-        print()
-        print(first_row)
-        print()
-        print(second_row)
-        print('\n'.join(m_str[header+1:]))
+        if args.average:
+            # d_mean.index = d_mean.index.format(formatter=_f)        
+            m_str = d_mean.to_string(na_rep='', float_format='{:.3g}'.format).split('\n')
+            width = len(m_str[0])
+            first_row = '{:-^{w}}'.format('AVERAGE', w=width)
+            header = d.columns.nlevels
+            second_row = m_str[header-1]
+            if not args.only_average:
+                print()
+                print(first_row)
+                print()
+            print(second_row)
+            print('\n'.join(m_str[header+1:]))
         
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
@@ -368,5 +377,5 @@ if __name__ == '__main__':
         if print_sorting_keys:
             print('Possible sorting keys :', *d.index.names)
 
-        for _ in range(1):
+        for _ in range(0):
             print('=' * width)

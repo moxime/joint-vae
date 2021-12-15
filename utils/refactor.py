@@ -1,10 +1,54 @@
 import json
 import os
 from module.vae_layers import Sigma
-from utils.save_load import find_by_job_number
+from utils.save_load import find_by_job_number, load_json
 from shutil import copyfile
+import functools
 
 
+def iterate_over_subdirs(func):
+
+    @functools.wraps(func)
+    def iterated_func(*a, iterate=False, **kw):
+        directory = kw.get('directory')
+        # print('***', directory, iterate, *kw, '***')
+        if not iterate or not directory:
+            return func(*a, **kw)
+        func(*a, **kw)
+        directory = kw.pop('directory')
+        rel_paths = os.listdir(directory)
+        paths = [os.path.join(directory, p) for p in rel_paths]
+        dirs = [d for d in paths if os.path.isdir(d)]
+        for d in dirs:
+            iterated_func(*a, iterate=True, directory=d, **kw)
+    return iterated_func
+
+
+@iterate_over_subdirs
+def listdir(directory='.'):
+    if directory:
+        # print(directory, ':', ', '.join(os.listdir(directory)))
+         print(directory)    
+
+         
+@iterate_over_subdirs
+def verify_has_valid(directory='jobs/'):
+    try:
+        train = load_json(directory, 'train.json')
+        history = load_json(directory, 'history.json')
+        samples = os.path.join(directory, 'samples', 'last')
+    except FileNotFoundError:
+        return
+    if os.path.isdir(samples):
+        files = os.listdir(samples)
+        trainset = train['set']
+        has_valid = 'validation_loss' in history
+        if has_valid:
+            if not any('valid' in _ for _ in files) or not any(trainset in _ for _ in files):
+                print(directory.split('/')[-1])
+                # print(*files)
+
+                
 def refactor_from_log_file(json_file,
                            key,
                            ktype=int,

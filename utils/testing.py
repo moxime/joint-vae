@@ -18,8 +18,7 @@ def testing_plan(model, wanted_epoch='last', min_samples=1000, epoch_tolerance=5
                                   wanted_epoch=wanted_epoch, epoch_tolerance=epoch_tolerance,
     )
 
-
-
+    
 def worth_computing(model, from_which='recorders', **kw):
 
     from_which = make_list(from_which, ('recorders', 'compute', 'json')) 
@@ -50,7 +49,10 @@ def early_stopping(model, strategy='min', which='loss', full_valid=10):
     if not has_validation:
         logging.warning('No validation has been produced for {}'.format(model.job_number))
         valid_k = 'test'
-        
+
+    if valid_k + '_loss' not in history:
+        return None
+    
     measures = history[valid_k + '_measures']
     losses = history[valid_k + '_loss']
 
@@ -65,6 +67,9 @@ def early_stopping(model, strategy='min', which='loss', full_valid=10):
     validation = metrics[which]
     epoch = {} 
 
+    if not len(validation[::full_valid]):
+        return None
+    
     epoch['min'] = validation[::full_valid].argmin() * full_valid
 
     return epoch[strategy]

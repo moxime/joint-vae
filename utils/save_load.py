@@ -48,14 +48,22 @@ def save_json(d, dir_name, file_name, create_dir=True):
         json.dump(d, f)
 
 
-def load_json(dir_name, file_name):
+def load_json(dir_name, file_name, presumed_type=str):
 
     p = get_path(dir_name, file_name, create_dir=False)
 
     # logging.debug('*** %s', p)
     with open(p, 'rb') as f:
-        return json.load(f)
-    
+        d = json.load(f)
+    d_ = {}
+    for k in d:
+        try:
+            k_ = presumed_type(k)
+        except ValueError:
+            k_ = k
+        d_[k_] = d[k]
+
+    return d_
     
 def shorten_path(path, max_length=30):
 
@@ -602,7 +610,8 @@ def available_results(model,
     ood_methods = make_list(ood_methods, model.ood_methods)
     misclass_methods = make_list(misclass_methods, model.misclass_methods)
 
-    where = make_list(where, ('json', 'recorders', 'compute'))
+    anywhere = ('json', 'recorders', 'compute')
+    where = make_list(where, anywhere)
     
     for _l in (predict_methods, ood_methods, misclass_methods):
         develop_starred_methods(_l, model.methods_params)
@@ -627,8 +636,11 @@ def available_results(model,
         
     sample_dir = os.path.join(model.saved_dir, 'samples')
 
-    sample_sub_dirs = {int(_): _ for _ in os.listdir(sample_dir) if _.isnumeric()}
-
+    if os.path.isdir(sample_dir):
+        sample_sub_dirs = {int(_): _ for _ in os.listdir(sample_dir) if _.isnumeric()}
+    else:
+        sample_sub_dirs = {}
+        
     epochs = set(sample_sub_dirs)
     
     epochs.add(model.trained)
@@ -690,7 +702,7 @@ def available_results(model,
     for epoch in available:
         for dset in sets:
             a_ = available[epoch][dset]
-            a_['where'] = {}
+            a_['where'] = {w: 0 for w in anywhere}
             a_['zeros'] = {'-'.join(m): 0 for m in methods[dset]}
             # print(epoch, dset) # a_['json'])
             for i, w in enumerate(wheres[:-1]):
@@ -704,8 +716,8 @@ def available_results(model,
             a_.pop('zeros')
 
     for epoch in available:
-        available[epoch]['all_sets'] = {w: sum(available[epoch][s]['where'][w] for s in sets) for w in where}
-        available[epoch]['all_sets']['anywhere'] = sum(available[epoch]['all_sets'][w] for w in where)
+        available[epoch]['all_sets'] = {w: sum(available[epoch][s]['where'][w] for s in sets) for w in anywhere}
+        available[epoch]['all_sets']['anywhere'] = sum(available[epoch]['all_sets'][w] for w in anywhere)
     return available
 
 
@@ -1098,7 +1110,7 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
 
     acc_cols = ['accuracies']
     ood_cols = ['ood_fprs']
-    meas_cols = ['done'] if nets_to_show == 'all' else []
+    meas_cols = ['epoch', 'done'] if nets_to_show == 'all' else []
     meas_cols += ['dict_var', 'beta_sigma', 'rmse',
                  'train_loss', 'test_loss',
                  'train_zdist', 'test_zdist']

@@ -118,6 +118,7 @@ if __name__ == '__main__':
         where = ('json',)
     else:
         where = ('json', 'recorders')
+
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
         to_be_kept = all(filter_results)
@@ -142,51 +143,69 @@ if __name__ == '__main__':
             else:
                 archs[n['set']] = {n['arch']}
 
+            wanted_epoch = None
             if early_stopping_method:
                 _k = 'early-' + '-'.join(early_stopping_method)
                 if _k in n['net'].training_parameters:
                     wanted_epoch = n['net'].training_parameters[_k]
                 else:
                     wanted_epoch = early_stopping(n, strategy=early_stopping_method[0],
-                                                  which = early_stopping_method[1])
-            else:
+                                                  which=early_stopping_method[1])
+                    n['net'].training_parameters[_k] = wanted_epoch
+                # print('***', n['set'], wanted_epoch)
+            if not wanted_epoch:
                 wanted_epoch = 'last'
 
             available = available_results(n, misclass_methods=[], wanted_epoch=wanted_epoch,
                                           where=where, epoch_tolerance=5)
 
             total_available_by_epoch = {_: available[_]['all_sets']['anywhere'] for _ in available}
-            result_epoch = max(total_available_by_epoch, key=total_available_by_epoch.get)
-
-            a_ = available[result_epoch]['all_sets']
-            print(a_)
-            if total_available_by_epoch[result_epoch]:
-                models_to_be_kept.append(dict(model=n, epoch=result_epoch,
-                                              plan=a_))
-
-            a_everywhere = available_results(n, misclass_methods=[], wanted_epoch=result_epoch,
-                                             epoch_tolerance=0)[result_epoch]['all_sets']
-
-            is_a = a_['json']
-            is_r = a_['recorders']
-            is_c = a_['compute']
-            n_epochs_to_be_computed += is_c
-
-            if is_a == a_everywhere['anywhere']:
-                _a = '*'
-            elif is_a:
-                _a = 'x'
+            if total_available_by_epoch:
+                result_epoch = max(total_available_by_epoch, key=total_available_by_epoch.get)
+                a_ = available[result_epoch]['all_sets']
+                if total_available_by_epoch[result_epoch]:
+                    models_to_be_kept.append(dict(model=make_dict_from_model(n['net'],
+                                                                             directory=n['dir'],
+                                                                             wanted_epoch=result_epoch),
+                                                  epoch=result_epoch,
+                                                  plan=a_))
+                else:
+                    to_be_kept = False
             else:
-                _a = '|'
-            if a_everywhere['compute']:
-                _r = 'x' if is_r else 'o'
-                _c = '*' if is_c else 'o'
-            else:
-                _r = '*' if is_r else '|'
-                _c = '|'
+                to_be_kept = False
 
-            logging.info('* {} {} {} {:6d} {:8} {:5} {:80.80}'. format(_a, _r,
-                                                             _c, n['job'], n['set'], n['type'], n['arch']))
+            if to_be_kept:
+                a_everywhere = available_results(n, misclass_methods=[], wanted_epoch=result_epoch,
+                                                 epoch_tolerance=0)[result_epoch]['all_sets']
+
+                is_a = a_.get('json', 0)
+                is_r = a_.get('recorders', 0)
+                is_c = a_.get('compute', 0)
+
+                n_epochs_to_be_computed += is_c
+
+                if not is_a:
+                    _a = '|'
+                elif is_a == a_everywhere['anywhere']:
+                    _a = '*'
+                else:
+                    _a = 'x'
+
+                if a_everywhere['compute']:
+                    _r = 'x' if is_r else 'o'
+                    _c = '*' if is_c else 'o'
+                else:
+                    _r = '*' if is_r else '|'
+                    _c = '|'
+
+            else:
+                _a = _r = _c = '|'
+                
+            logging.info('{} {} {} {} {:6d} {:8} {:5} {:80.80}'. format('*' if to_be_kept else '|',
+                                                                        _a, _r,
+                                                                        _c, n['job'],
+                                                                        n['set'],
+                                                                        n['type'], n['arch']))
 
             # for d in filters:
             #   print(d, n[d])
@@ -205,13 +224,13 @@ if __name__ == '__main__':
     for s in archs:
         archs[s] = {n['model']['arch'] for n in models_to_be_kept if n['model']['set'] == s}
     
-    for m_ in models_to_be_computed['recorders']:
+    for m_ in models_to_be_kept:
         m = m_['model']
         epoch = m_['epoch']
-        plan = m['plan']
+        plan = m_['plan']
 
         if plan['recorders'] or plan['compute']:
-            print('Computing rates of job {} of type {}'.format(m['job'], m['type'])) 
+            print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
             model = CVNet.load(m['dir'], load_state=plan['compute'])
             model.ood_detection_rates(epoch=epoch,
                                       from_where=where,
@@ -227,6 +246,7 @@ if __name__ == '__main__':
                 model.save(m['dir'])
             m.update(make_dict_from_model(model, m['dir'], wanted_epoch=epoch))                
 
+    models_to_be_kept = [_['model'] for _ in models_to_be_kept]
     for n in models_to_be_kept:
         tex_architecture(n)
         export_losses(n, which='all')
@@ -348,5 +368,5 @@ if __name__ == '__main__':
         if print_sorting_keys:
             print('Possible sorting keys :', *d.index.names)
 
-        for _ in range(2):
+        for _ in range(1):
             print('=' * width)

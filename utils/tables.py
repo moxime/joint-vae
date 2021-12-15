@@ -28,6 +28,7 @@ def create_printout(file_id=None, std=True, end='\n'):
 def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdout=False,):
 
     net = net_dict['net']
+    epoch = net_dict['epoch']
     f = create_file(net.job_number, directory, filename) if filename else None
     printout = create_printout(file_id=f, std=stdout)
     arch = net.architecture
@@ -48,9 +49,9 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
         dataset=trainset,
         numclasses=arch['labels'],
         classes=','.join(classes),
-        oodsets=','.join(net.ood_results.keys()),
-        noodsets=len(net.ood_results),
-        texoodsets=', '.join(['\\' + o.rstrip(string.digits) for o in net.ood_results.keys()]),
+        oodsets=','.join(net.ood_results[epoch].keys()),
+        noodsets=len(net.ood_results[epoch]),
+        texoodsets=', '.join(['\\' + o.rstrip(string.digits) for o in net.ood_results[epoch].keys()]),
         epochs=net.train_history['epochs'],
         arch=net.print_architecture(excludes='type', sigma=True, sampling=True),
         archcode=net_dict['arch_code'],
@@ -275,7 +276,6 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
         
     large_df = pd.concat(df_dict.values(), axis=1)
 
-
     return large_df.reorder_levels(['metrics', 'type', 'method'], axis=1)
 
     
@@ -476,7 +476,7 @@ def digest_table(*jobs,
         m = models[j]
         testset = m['set']
         mtype = m['type']
-        test_results = m['net'].testing
+        test_results = m['net'].testing[m['epoch']]
         ood_results = m['ood_fprs']
         oodsets = method_and_set_dict[testset]
         methods = method_and_set_dict.get(mtype, [None, None])

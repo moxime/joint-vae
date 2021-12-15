@@ -155,7 +155,6 @@ if __name__ == '__main__':
 
         results_df = agg_results(agg_df, kept_cols=kept_cols)
 
-
         best_values = {}
         results_df.rename(columns={0.95: 'fpr'}, inplace=True)
         cols = results_df.columns

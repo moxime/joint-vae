@@ -2388,15 +2388,24 @@ class ClassificationVariationalNetwork(nn.Module):
         
         loaded_test = False
         try:
-            testing = save_load.load_json(dir_name, 'test.json')
+            testing = save_load.load_json(dir_name, 'test.json', presumed_type=int)
             loaded_test = load_test
-            logging.debug('Results loaded')
+            """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
+            if testing and not any(isinstance(_, int) for _ in testing):
+                e = next(iter(testing.values()))['epochs']
+                testing = {e: testing}
+
         except(FileNotFoundError):
             pass
 
         loaded_ood = False
         try:
-            ood_results = save_load.load_json(dir_name, 'ood.json')
+            ood_results = save_load.load_json(dir_name, 'ood.json', presumed_type=int)
+            """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
+            if ood_results and not any(isinstance(_, int) for _ in ood_results):
+                e = max(testing)
+                ood_results = {e: ood_results}
+                pass
             loaded_ood = True
         except(FileNotFoundError):
             ood_results = {}
@@ -2488,6 +2497,7 @@ class ClassificationVariationalNetwork(nn.Module):
         vae.is_resumed = is_resumed
         vae.training_parameters = train_params
         if loaded_test:
+            # logging.debug('Updating test_results ({}) with {}'.format('--'.join()))
             vae.testing.update(testing)
 
         if load_test:
@@ -2527,14 +2537,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.warning('Optimizer state file not found') 
             vae.optimizer.update_scheduler_from_epoch(vae.trained)
 
-        """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
-        if not all(isinstance(_, int) for _ in vae.testing):
-            n = next(iter(vae.testing.values()))['epochs']
-            test_results = {n: vae.testing}
-            ood_results = {n: vae.ood_results}
-            vae.testing = test_results
-            vae.ood_results = ood_results
-            
             logging.debug('Loaded')
         return vae
 

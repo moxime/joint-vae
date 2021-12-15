@@ -44,14 +44,15 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
     parent_set, heldout = torchdl.get_heldout_classes_by_name(trainset)
     parent_classes = torchdl.set_dict[parent_set]['classes']
     classes = [c for (i, c) in enumerate(parent_classes) if i not in heldout]
+    ood_results = ood_results.get(epoch, {})
     exported_values = dict(
         oftype=oftype,
         dataset=trainset,
         numclasses=arch['labels'],
         classes=','.join(classes),
-        oodsets=','.join(net.ood_results[epoch].keys()),
-        noodsets=len(net.ood_results[epoch]),
-        texoodsets=', '.join(['\\' + o.rstrip(string.digits) for o in net.ood_results[epoch].keys()]),
+        oodsets=','.join(ood_results.keys()),
+        noodsets=len(ood_results),
+        texoodsets=', '.join(['\\' + o.rstrip(string.digits) for o in ood_results.keys()]),
         epochs=net.train_history['epochs'],
         arch=net.print_architecture(excludes='type', sigma=True, sampling=True),
         archcode=net_dict['arch_code'],

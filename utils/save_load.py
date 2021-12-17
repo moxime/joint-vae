@@ -10,7 +10,7 @@ import torch
 from module.optimizers import Optimizer
 import re
 from utils.misc import make_list
-from utils.torch_load import get_same_size_by_name
+from utils.torch_load import get_same_size_by_name, get_shape_by_name
 from utils.roc_curves import fpr_at_tpr
 from contextlib import contextmanager
 
@@ -68,7 +68,8 @@ def load_json(dir_name, file_name, presumed_type=str):
         d_[k_] = d[k]
 
     return d_
-    
+
+
 def shorten_path(path, max_length=30):
 
     if len(path) > max_length:
@@ -593,7 +594,7 @@ def needed_components(*methods):
 
 def available_results(model,
                       testset='trained',
-                      min_samples=2000,
+                      min_samples_by_class=200,
                       samples_available_by_compute=9000,
                       predict_methods='all',
                       misclass_methods='all',
@@ -630,9 +631,14 @@ def available_results(model,
         oodsets = make_list(oodsets, all_ood_sets)
     else:
         oodsets = []
-        
+
     sets = [testset] + oodsets
 
+    min_samples = {}
+
+    for s in sets:
+        min_samples[s] = get_shape_by_name(s)[-1] * min_samples_by_class
+        
     methods = {testset: [(m,) for m in predict_methods]}
     methods[testset] += [(pm, mm) for mm in misclass_methods for pm in predict_methods]
     methods[testset] += [(m, ) for m in ood_methods]
@@ -714,7 +720,7 @@ def available_results(model,
                 others = {'-'.join(m): 0 for m in methods[dset]}
                 for m in gain:
                     others[m] = max(a_[_].get(m, 0) for _ in wheres[i+1:])
-                    gain[m] += a_[w].get(m, 0) - others[m] > min_samples
+                    gain[m] += a_[w].get(m, 0) - others[m] > min_samples[dset]
                     # gain[m] *= (gain[m] > 0)
                 available[epoch][dset]['where'][w] = sum(gain.values())
             a_.pop('zeros')

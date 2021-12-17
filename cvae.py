@@ -1478,6 +1478,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
                     if update_self_ood:
                         # print('***', s)
+                        if epoch not in self.ood_results:
+                            self.ood_results[epoch] = {}
                         if s not in self.ood_results[epoch]:
                             self.ood_results[epoch][s] = {}
                             self.ood_results[epoch][s][m] = {'n': len(ind_measures), 'epochs': epoch}

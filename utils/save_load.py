@@ -54,7 +54,11 @@ def load_json(dir_name, file_name, presumed_type=str):
 
     # logging.debug('*** %s', p)
     with open(p, 'rb') as f:
-        d = json.load(f)
+        try:
+            d = json.load(f)
+        except json.JSONDecodeError:
+            logging.error('Corrupted file\n%s', p)
+            return {}
     d_ = {}
     for k in d:
         try:
@@ -513,7 +517,7 @@ def last_samples(model):
 def average_ood_results(ood_results):
 
     ood = [s for s in ood_results if not s.endswith('90')]
-
+    
     mean_keys = {'auc': 'val', 'fpr': 'list'}
     min_keys = {'epochs': 'val', 'n': 'val'}
     same_keys = {'tpr', 'thresholds'}
@@ -631,9 +635,9 @@ def available_results(model,
 
     methods = {testset: [(m,) for m in predict_methods]}
     methods[testset] += [(pm, mm) for mm in misclass_methods for pm in predict_methods]
-    methods[testset] += [(_,) for _ in ood_methods]
+    methods[testset] += [(m, ) for m in ood_methods]
     methods.update({s: [(m,) for m in ood_methods] for s in oodsets})
-        
+
     sample_dir = os.path.join(model.saved_dir, 'samples')
 
     if os.path.isdir(sample_dir):
@@ -656,11 +660,11 @@ def available_results(model,
 
     for e in sorted(epochs):
         pm_ = list(test_results[e].keys())
-        results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in oodsets}
+        results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in sets}
         for pm in pm_:
             misclass_results = clean_results(test_results[e][pm], misclass_methods)
             test_results[e].update({pm + '-' + m: misclass_results[m] for m in misclass_results})
-        results[e][testset] = test_results[e]
+        results[e][testset].update({m: test_results[e][m] for m in test_results[e]})
     
     available = {e: {s: {'json': {m: results[e][s][m]['n']
                                   for m in results[e][s]}}
@@ -749,6 +753,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
     ood_results = model.ood_results.get(wanted_epoch, {})
+    training_set = model.training_parameters['set']
+
+    if training_set in ood_results:
+        ood_results.pop(training_set)
     
     if model.testing.get(wanted_epoch) and model.predict_methods:
         # print('*** model.testing', *model.testing.keys())
@@ -761,7 +769,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         best_accuracy = accuracies['first'] = None
         tested_epoch = n_tested = 0
 
-    training_set = model.training_parameters['set']
+    
     parent_set, heldout = torchdl.get_heldout_classes_by_name(training_set)
 
     if heldout:
@@ -1219,7 +1227,7 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
             logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
             logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
 
-    if sorting_keys:
+    if sorting_index:
         df = df.sort_values(sorting_index)
 
     # index_rename = {t: '-'.join(str(_) for _ in t) for t in df.index.get_level_values('heldout')}

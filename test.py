@@ -25,7 +25,8 @@ if __name__ == '__main__':
     debug = args.debug
     verbose = args.verbose
 
-    log = set_log(verbose, debug, 'jobs/log', name='test', job_number=args.job_id)
+    log_dir = os.path.join(args.job_dir, 'log')
+    log = set_log(verbose, debug, log_dir, name='test', job_number=args.job_id)
     logging.debug('$ ' + ' '.join(sys.argv))
     if not args.force_cpu:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -99,7 +100,7 @@ if __name__ == '__main__':
     log.info('| | can (*: all, x: partially) be extracted from recorders')
     log.info('| | | have to be computed')
     log.info('| | | | job #')
-    log.info('| | | | |     # trained epochs')
+    log.info('| | | | |                     epoch #')
     # log.info('|||')
 
     n_trained = 0
@@ -116,9 +117,13 @@ if __name__ == '__main__':
 
     if not args.compute:
         where = ('json',)
-    else:
+    elif args.compute == 'recorder':
         where = ('json', 'recorders')
-
+    elif args.compute == 're':
+        where = ('recorders',)
+    else:
+        where = ('json',)
+        
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
         to_be_kept = all(filter_results)
@@ -200,12 +205,12 @@ if __name__ == '__main__':
 
             else:
                 _a = _r = _c = '|'
-                
-            logging.info('{} {} {} {} {:6d} {:8} {:5} {:80.80}'. format('*' if to_be_kept else '|',
-                                                                        _a, _r,
-                                                                        _c, n['job'],
-                                                                        n['set'],
-                                                                        n['type'], n['arch']))
+
+            _s = '{x} {a} {r} {c} {j:6d} {s:8} {t:5} {e:4d}/{d:4d} {arch:80.80}'
+            logging.info(_s.format(x='*' if to_be_kept else '|',
+                                   a=_a, r=_r, c=_c, j=n['job'],
+                                   s=n['set'], t=n['type'], arch=n['arch'],
+                                   e=n['epoch'], d=n['done']))
 
             # for d in filters:
             #   print(d, n[d])

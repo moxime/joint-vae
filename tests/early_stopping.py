@@ -7,6 +7,8 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 mdir = '/tmp/000033'
 mdir = '/tmp/000186'
+mdir = '/tmp/151320'
+mdir = '/tmp/151024'
 
 print('Loading')
 model = M.load(mdir, load_state=True)

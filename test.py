@@ -100,7 +100,7 @@ if __name__ == '__main__':
     log.info('| | can (*: all, x: partially) be extracted from recorders')
     log.info('| | | have to be computed')
     log.info('| | | | job #')
-    log.info('| | | | |                     epoch #')
+    log.info('| | | | |                      epoch #')
     # log.info('|||')
 
     n_trained = 0
@@ -123,7 +123,9 @@ if __name__ == '__main__':
         where = ('recorders',)
     else:
         where = ('json',)
-        
+
+    # print('***', args.compute, *where)
+    
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
         to_be_kept = all(filter_results)
@@ -161,6 +163,7 @@ if __name__ == '__main__':
             if not wanted_epoch:
                 wanted_epoch = 'last'
 
+            # print('***', n['set'], n['dir'], wanted_epoch)
             available = available_results(n, misclass_methods=[], wanted_epoch=wanted_epoch,
                                           where=where, epoch_tolerance=5)
 
@@ -187,6 +190,7 @@ if __name__ == '__main__':
                 is_r = a_.get('recorders', 0)
                 is_c = a_.get('compute', 0)
 
+                # print('***', is_a, is_r, is_c, '***', a_everywhere)
                 n_epochs_to_be_computed += is_c
 
                 if not is_a:
@@ -210,7 +214,7 @@ if __name__ == '__main__':
             logging.info(_s.format(x='*' if to_be_kept else '|',
                                    a=_a, r=_r, c=_c, j=n['job'],
                                    s=n['set'], t=n['type'], arch=n['arch'],
-                                   e=n['epoch'], d=n['done']))
+                                   e=result_epoch, d=n['done']))
 
             # for d in filters:
             #   print(d, n[d])
@@ -234,6 +238,7 @@ if __name__ == '__main__':
         epoch = m_['epoch']
         plan = m_['plan']
 
+        # print('***', plan)
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
             model = CVNet.load(m['dir'], load_state=plan['compute'])

@@ -9,7 +9,8 @@ mdir = '/tmp/000033'
 mdir = '/tmp/000186'
 mdir = '/tmp/151320'
 mdir = '/tmp/151024'
-
+mdir = '/tmp/151409'
+    
 print('Loading')
 model = M.load(mdir, load_state=True)
 
@@ -30,11 +31,11 @@ print(acc)
 
 available = available_results(model,
                               predict_methods='all',
-                              samples_available_by_compute=10000,
+                              samples_available_by_class=900,
                               ood_methods='all',
-                              where=('json', 'recorders',),
+                              where=('json', 'recorders', 'compute'),
                               misclass_methods=[],
-                              wanted_epoch=70, epoch_tolerance=0)
+                              wanted_epoch='last', epoch_tolerance=5)
 
 # recorders = LossRecorder.loadall(model.saved_dir + '/samples/last')
 

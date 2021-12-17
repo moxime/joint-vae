@@ -595,7 +595,7 @@ def needed_components(*methods):
 def available_results(model,
                       testset='trained',
                       min_samples_by_class=200,
-                      samples_available_by_compute=9000,
+                      samples_available_by_class=800,
                       predict_methods='all',
                       misclass_methods='all',
                       oodsets='all',
@@ -617,13 +617,13 @@ def available_results(model,
 
     anywhere = ('json', 'recorders', 'compute')
     where = make_list(where, anywhere)
-    
+
     for _l in (predict_methods, ood_methods, misclass_methods):
         develop_starred_methods(_l, model.methods_params)
 
     if testset == 'trained':    
         testset = model.training_parameters['set']
-
+    # print('***', testset)
     # print('*** testset', testset)
     all_ood_sets = get_same_size_by_name(testset)
 
@@ -635,9 +635,14 @@ def available_results(model,
     sets = [testset] + oodsets
 
     min_samples = {}
-
+    samples_available_by_compute = {}
+    
     for s in sets:
         min_samples[s] = get_shape_by_name(s)[-1] * min_samples_by_class
+        samples_available_by_compute[s] = get_shape_by_name(s)[-1] * samples_available_by_class
+
+    # print(*min_samples.values())
+    # print(*samples_available_by_compute.values())
         
     methods = {testset: [(m,) for m in predict_methods]}
     methods[testset] += [(pm, mm) for mm in misclass_methods for pm in predict_methods]
@@ -703,7 +708,7 @@ def available_results(model,
     if abs(wanted_epoch - model.trained) <= epoch_tolerance:
         for s in sets:
             for m in methods[s]:
-                available[model.trained][s]['compute']['-'.join(m)] = samples_available_by_compute
+                available[model.trained][s]['compute']['-'.join(m)] = samples_available_by_compute[s]
 
     # return available
 

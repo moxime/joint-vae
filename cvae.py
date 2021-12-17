@@ -1482,7 +1482,8 @@ class ClassificationVariationalNetwork(nn.Module):
                             self.ood_results[epoch] = {}
                         if s not in self.ood_results[epoch]:
                             self.ood_results[epoch][s] = {}
-                            self.ood_results[epoch][s][m] = {'n': len(ind_measures), 'epochs': epoch}
+
+                        self.ood_results[epoch][s][m] = {'n': len(ind_measures[m]), 'epochs': epoch}
 
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)

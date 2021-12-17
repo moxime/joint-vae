@@ -330,6 +330,11 @@ def get_shape(dataset):
 
 def get_shape_by_name(set_name, transform='default'):
 
+    if set_name.endswith('90'):
+        shape, labels = get_shape_by_name(set_name[:-2])
+        shape = (shape[0], shape[2], shape[1])
+        return shape, labels
+        
     set_name, heldout = get_heldout_classes_by_name(set_name)
     
     shape = set_dict[set_name]['shape']

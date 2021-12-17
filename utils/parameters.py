@@ -33,13 +33,19 @@ def in_list_with_starred(k, list_with_starred):
     return False
 
 
-def set_log(verbose, debug, log_dir, name='train', job_number=0):
+def set_log(verbose, debug, log_dir, name='train', job_number=0, tmp_dir='/tmp'):
     
     log = logging.getLogger('')
     log.setLevel(0)
     if (log.hasHandlers()):
         log.handlers.clear()
 
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    if not os.path.isdir(log_dir):
+        log_dir = '/tmp'
+        
     h_formatter = logging.Formatter('%(asctime)s [%(levelname).1s] %(message)s')
     formatter = logging.Formatter('[%(levelname).1s] %(message)s')
     stream_handler = logging.StreamHandler()
@@ -77,6 +83,9 @@ def set_log(verbose, debug, log_dir, name='train', job_number=0):
     dump_file_handler.setFormatter(h_formatter)
     dump_file_handler.setLevel(logging.DEBUG)
     log.addHandler(dump_file_handler)
+
+    if log_dir == tmp_dir:
+        logging.warning('will log in %s',  tmp_dir)
 
     def dump_filter(record):
         r = record.getMessage().startswith('DUMPED')
@@ -353,6 +362,8 @@ def get_args_for_test(argv=None):
     parser.add_argument('load_dir',
                         nargs='?', default=None)
 
+    parser.add_argument('-J', '--job-dir', default='./jobs')
+    
     parser.add_argument('-M', '--batch-size', type=int, metavar='M')
 
     help = 'Num of samples to compute test accuracy'
@@ -422,7 +433,7 @@ def get_filters_args(argv=None):
 
     parser = argparse.ArgumentParser()  # (add_help=False)
 
-    parser.add_argument('--epochs',
+    parser.add_argument('--done',
                         dest='done',
                         nargs='+',
                         action=FilterAction,

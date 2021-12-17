@@ -25,7 +25,8 @@ if __name__ == '__main__':
     debug = args.debug
     verbose = args.verbose
 
-    log = set_log(verbose, debug, 'jobs/log', name='test', job_number=args.job_id)
+    log_dir = os.path.join(args.job_dir, 'log')
+    log = set_log(verbose, debug, log_dir, name='test', job_number=args.job_id)
     logging.debug('$ ' + ' '.join(sys.argv))
     if not args.force_cpu:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -99,7 +100,7 @@ if __name__ == '__main__':
     log.info('| | can (*: all, x: partially) be extracted from recorders')
     log.info('| | | have to be computed')
     log.info('| | | | job #')
-    log.info('| | | | |     # trained epochs')
+    log.info('| | | | |                      epoch #')
     # log.info('|||')
 
     n_trained = 0
@@ -116,9 +117,15 @@ if __name__ == '__main__':
 
     if not args.compute:
         where = ('json',)
-    else:
+    elif args.compute == 'recorder':
         where = ('json', 'recorders')
+    elif args.compute == 're':
+        where = ('recorders',)
+    else:
+        where = ('json',)
 
+    # print('***', args.compute, *where)
+    
     for n in sum(list_of_networks, []):
         filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
         to_be_kept = all(filter_results)
@@ -156,6 +163,7 @@ if __name__ == '__main__':
             if not wanted_epoch:
                 wanted_epoch = 'last'
 
+            # print('***', n['set'], n['dir'], wanted_epoch)
             available = available_results(n, misclass_methods=[], wanted_epoch=wanted_epoch,
                                           where=where, epoch_tolerance=5)
 
@@ -182,6 +190,7 @@ if __name__ == '__main__':
                 is_r = a_.get('recorders', 0)
                 is_c = a_.get('compute', 0)
 
+                # print('***', is_a, is_r, is_c, '***', a_everywhere)
                 n_epochs_to_be_computed += is_c
 
                 if not is_a:
@@ -200,12 +209,12 @@ if __name__ == '__main__':
 
             else:
                 _a = _r = _c = '|'
-                
-            logging.info('{} {} {} {} {:6d} {:8} {:5} {:80.80}'. format('*' if to_be_kept else '|',
-                                                                        _a, _r,
-                                                                        _c, n['job'],
-                                                                        n['set'],
-                                                                        n['type'], n['arch']))
+
+            _s = '{x} {a} {r} {c} {j:6d} {s:8} {t:5} {e:4d}/{d:4d} {arch:80.80}'
+            logging.info(_s.format(x='*' if to_be_kept else '|',
+                                   a=_a, r=_r, c=_c, j=n['job'],
+                                   s=n['set'], t=n['type'], arch=n['arch'],
+                                   e=result_epoch, d=n['done']))
 
             # for d in filters:
             #   print(d, n[d])
@@ -229,6 +238,7 @@ if __name__ == '__main__':
         epoch = m_['epoch']
         plan = m_['plan']
 
+        # print('***', plan)
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
             model = CVNet.load(m['dir'], load_state=plan['compute'])

@@ -10,7 +10,7 @@ import torch
 from module.optimizers import Optimizer
 import re
 from utils.misc import make_list
-from utils.torch_load import get_same_size_by_name
+from utils.torch_load import get_same_size_by_name, get_shape_by_name
 from utils.roc_curves import fpr_at_tpr
 from contextlib import contextmanager
 
@@ -54,7 +54,11 @@ def load_json(dir_name, file_name, presumed_type=str):
 
     # logging.debug('*** %s', p)
     with open(p, 'rb') as f:
-        d = json.load(f)
+        try:
+            d = json.load(f)
+        except json.JSONDecodeError:
+            logging.error('Corrupted file\n%s', p)
+            return {}
     d_ = {}
     for k in d:
         try:
@@ -64,7 +68,8 @@ def load_json(dir_name, file_name, presumed_type=str):
         d_[k_] = d[k]
 
     return d_
-    
+
+
 def shorten_path(path, max_length=30):
 
     if len(path) > max_length:
@@ -513,7 +518,7 @@ def last_samples(model):
 def average_ood_results(ood_results):
 
     ood = [s for s in ood_results if not s.endswith('90')]
-
+    
     mean_keys = {'auc': 'val', 'fpr': 'list'}
     min_keys = {'epochs': 'val', 'n': 'val'}
     same_keys = {'tpr', 'thresholds'}
@@ -589,8 +594,8 @@ def needed_components(*methods):
 
 def available_results(model,
                       testset='trained',
-                      min_samples=2000,
-                      samples_available_by_compute=9000,
+                      min_samples_by_class=200,
+                      samples_available_by_class=800,
                       predict_methods='all',
                       misclass_methods='all',
                       oodsets='all',
@@ -612,13 +617,13 @@ def available_results(model,
 
     anywhere = ('json', 'recorders', 'compute')
     where = make_list(where, anywhere)
-    
+
     for _l in (predict_methods, ood_methods, misclass_methods):
         develop_starred_methods(_l, model.methods_params)
 
     if testset == 'trained':    
         testset = model.training_parameters['set']
-
+    # print('***', testset)
     # print('*** testset', testset)
     all_ood_sets = get_same_size_by_name(testset)
 
@@ -626,14 +631,24 @@ def available_results(model,
         oodsets = make_list(oodsets, all_ood_sets)
     else:
         oodsets = []
-        
+
     sets = [testset] + oodsets
 
+    min_samples = {}
+    samples_available_by_compute = {}
+    
+    for s in sets:
+        min_samples[s] = get_shape_by_name(s)[-1] * min_samples_by_class
+        samples_available_by_compute[s] = get_shape_by_name(s)[-1] * samples_available_by_class
+
+    # print(*min_samples.values())
+    # print(*samples_available_by_compute.values())
+        
     methods = {testset: [(m,) for m in predict_methods]}
     methods[testset] += [(pm, mm) for mm in misclass_methods for pm in predict_methods]
-    methods[testset] += [(_,) for _ in ood_methods]
+    methods[testset] += [(m, ) for m in ood_methods]
     methods.update({s: [(m,) for m in ood_methods] for s in oodsets})
-        
+
     sample_dir = os.path.join(model.saved_dir, 'samples')
 
     if os.path.isdir(sample_dir):
@@ -656,11 +671,11 @@ def available_results(model,
 
     for e in sorted(epochs):
         pm_ = list(test_results[e].keys())
-        results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in oodsets}
+        results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in sets}
         for pm in pm_:
             misclass_results = clean_results(test_results[e][pm], misclass_methods)
             test_results[e].update({pm + '-' + m: misclass_results[m] for m in misclass_results})
-        results[e][testset] = test_results[e]
+        results[e][testset].update({m: test_results[e][m] for m in test_results[e]})
     
     available = {e: {s: {'json': {m: results[e][s][m]['n']
                                   for m in results[e][s]}}
@@ -693,7 +708,7 @@ def available_results(model,
     if abs(wanted_epoch - model.trained) <= epoch_tolerance:
         for s in sets:
             for m in methods[s]:
-                available[model.trained][s]['compute']['-'.join(m)] = samples_available_by_compute
+                available[model.trained][s]['compute']['-'.join(m)] = samples_available_by_compute[s]
 
     # return available
 
@@ -710,7 +725,7 @@ def available_results(model,
                 others = {'-'.join(m): 0 for m in methods[dset]}
                 for m in gain:
                     others[m] = max(a_[_].get(m, 0) for _ in wheres[i+1:])
-                    gain[m] += a_[w].get(m, 0) - others[m] > min_samples
+                    gain[m] += a_[w].get(m, 0) - others[m] > min_samples[dset]
                     # gain[m] *= (gain[m] > 0)
                 available[epoch][dset]['where'][w] = sum(gain.values())
             a_.pop('zeros')
@@ -749,6 +764,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
     ood_results = model.ood_results.get(wanted_epoch, {})
+    training_set = model.training_parameters['set']
+
+    if training_set in ood_results:
+        ood_results.pop(training_set)
     
     if model.testing.get(wanted_epoch) and model.predict_methods:
         # print('*** model.testing', *model.testing.keys())
@@ -761,7 +780,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         best_accuracy = accuracies['first'] = None
         tested_epoch = n_tested = 0
 
-    training_set = model.training_parameters['set']
+    
     parent_set, heldout = torchdl.get_heldout_classes_by_name(training_set)
 
     if heldout:
@@ -1219,7 +1238,7 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
             logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
             logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
 
-    if sorting_keys:
+    if sorting_index:
         df = df.sort_values(sorting_index)
 
     # index_rename = {t: '-'.join(str(_) for _ in t) for t in df.index.get_level_values('heldout')}

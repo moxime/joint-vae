@@ -1418,6 +1418,7 @@ class ClassificationVariationalNetwork(nn.Module):
             ind_measures = {m: np.ndarray(0)
                             for m in ood_methods}
 
+            # print('***', ind_measures.keys())
             s = testset.name
             if recorders[s] is not None:
                 recorders[s].init_seed_for_dataloader()
@@ -1474,6 +1475,16 @@ class ClassificationVariationalNetwork(nn.Module):
                     
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])
+
+                    if update_self_ood:
+                        # print('***', s)
+                        if epoch not in self.ood_results:
+                            self.ood_results[epoch] = {}
+                        if s not in self.ood_results[epoch]:
+                            self.ood_results[epoch][s] = {}
+
+                        self.ood_results[epoch][s][m] = {'n': len(ind_measures[m]), 'epochs': epoch}
+
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
                                    
@@ -1494,6 +1505,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     f = os.path.join(d, f'record-{s}.pth')
         
                     recorders[s].save(f.format(s=s))
+
                 
         kept_tpr = [pc / 100 for pc in range(90, 100)]
         no_result = {'epochs': 0,

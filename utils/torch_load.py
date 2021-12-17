@@ -343,13 +343,11 @@ def get_shape_by_name(set_name, transform='default'):
 
 def get_same_size_by_name(set_name, rotated=False):
 
-    if set_name not in set_dict:
-        return []
-    if set_name.endswith('90'):
-        return get_same_size_by_name(set_name[:-2], rotated=True)
-
     if set_name.endswith('-?'):
         return [set_name[:-2] + '+?']
+
+    if set_name.endswith('90'):
+        return get_same_size_by_name(set_name[:-2], rotated=True)
 
     parent_set, heldout = get_heldout_classes_by_name(set_name)
     if heldout:
@@ -357,6 +355,9 @@ def get_same_size_by_name(set_name, rotated=False):
         new_heldout = [_ for _ in range(C) if _ not in heldout]
         return [get_name_by_heldout_classes(parent_set, *new_heldout)]
         
+    if set_name not in set_dict:
+        return []
+
     shape, _ = get_shape_by_name(set_name)
     same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
     if not rotated:

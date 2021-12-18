@@ -5,7 +5,7 @@ import argparse, configparser
 import sys, os
 import logging
 import pandas as pd
-from utils.save_load import LossRecorder, collect_networks, test_results_df
+from utils.save_load import LossRecorder, collect_networks, test_results_df, make_dict_from_model
 from utils import torch_load as tl
 from utils.sample import zsample, sample
 from utils.inspection import loss_comparisons
@@ -120,6 +120,12 @@ if __name__ == '__main__':
                 derailed = os.path.join(d, 'derailed')
                 to_be_kept = to_be_kept and not os.path.exists(derailed) and not n['is_resumed']
                 if to_be_kept:
+                    epoch_to_fetch = config[k].get('epoch', 'last')
+                    if epoch_to_fetch == 'min-loss':
+                        epoch_to_fetch = 'early-min-loss'
+                    epoch = n['net'].training_parameters.get(epoch_to_fetch, 'last')
+                    logging.debug('Epoch for %s: %s = %s', n['job'], epoch_to_fetch, epoch)
+                    n = make_dict_from_model(n['net'], n['dir'], wanted_epoch=epoch)
                     models[k].append(n)
 
         agg_df = {}

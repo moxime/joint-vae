@@ -12,7 +12,8 @@ import pandas as pd
 import numpy as np
 
 from utils.parameters import get_args, set_log, gethostname
-from utils.save_load import collect_networks, test_results_df, LossRecorder, make_dict_from_model, available_results
+from utils.save_load import collect_networks, test_results_df, LossRecorder
+from utils.save_load import make_dict_from_model, available_results, save_json
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
 from utils.testing import early_stopping
 
@@ -158,7 +159,10 @@ if __name__ == '__main__':
                 else:
                     wanted_epoch = early_stopping(n, strategy=early_stopping_method[0],
                                                   which=early_stopping_method[1])
-                    n['net'].training_parameters[_k] = wanted_epoch
+                    n['net'].training_parameters[_k] = int(wanted_epoch)
+                    if not args.dry_run:
+                        save_json(n['net'].training_parameters, n['dir'], 'train.json')
+
                 # print('***', n['set'], wanted_epoch)
             if not wanted_epoch:
                 wanted_epoch = 'last'

@@ -272,7 +272,7 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
                                                 
             df = df.reorder_levels(level_names).sort_index(0)
             # df.columns = df.columns.reorder_levels([2, 0, 1])
-        print(df)
+        # print(df)
         
         if df.index.nlevels > 1:
             removed_index = [i for i, l in enumerate(df.index.levels) if len(l) < 2 and l.name not in kept_levels]

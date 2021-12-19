@@ -638,8 +638,11 @@ def available_results(model,
     samples_available_by_compute = {}
     
     for s in sets:
-        min_samples[s] = get_shape_by_name(s)[-1] * min_samples_by_class
-        samples_available_by_compute[s] = get_shape_by_name(s)[-1] * samples_available_by_class
+        C = get_shape_by_name(s)[-1]
+        if not C:
+            C = model.num_labels
+        min_samples[s] = C * min_samples_by_class
+        samples_available_by_compute[s] = C * samples_available_by_class
 
     # print(*min_samples.values())
     # print(*samples_available_by_compute.values())

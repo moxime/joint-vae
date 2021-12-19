@@ -122,6 +122,8 @@ if __name__ == '__main__':
         where = ('json', 'recorders')
     elif args.compute == 're':
         where = ('recorders',)
+    elif args.compute == 'hard':
+        where = ('json', 'recorders', 'compute')
     else:
         where = ('json',)
 
@@ -246,15 +248,17 @@ if __name__ == '__main__':
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
             model = CVNet.load(m['dir'], load_state=plan['compute'])
-            model.ood_detection_rates(epoch=epoch,
-                                      from_where=where,
-                                      sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
-                                      print_result='OFR' if not plan['compute'] else 'OFM')
 
-            model.accuracy(epoch=epoch,
-                           from_where=where,
-                           sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
-                           print_result='TFR' if not plan['compute'] else 'TFM')
+            with torch.no_grad():
+                model.ood_detection_rates(epoch=epoch,
+                                          from_where=where,
+                                          sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
+                                          print_result='OFR' if not plan['compute'] else 'OFM')
+
+                model.accuracy(epoch=epoch,
+                               from_where=where,
+                               sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
+                               print_result='TFR' if not plan['compute'] else 'TFM')
 
             if not args.dry_run:
                 model.save(m['dir'])

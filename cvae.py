@@ -2162,14 +2162,21 @@ class ClassificationVariationalNetwork(nn.Module):
                     os.makedirs(d)
 
         if oodsets and not signal_handler.sig > 1:
-                            
-            self.ood_detection_rates(oodsets=oodsets, testset=testset,
-                                     batch_size=test_batch_size,
-                                     num_batch=len(testset) // test_batch_size,
-                                     outputs=outputs,
-                                     recorders=recorders,
-                                     sample_dirs=sample_dirs,
-                                     print_result='*')
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                logging.debug('Clearing cuda cache')
+
+            with torch.no_grad():
+                self.ood_detection_rates(oodsets=oodsets, testset=testset,
+                                         batch_size=test_batch_size,
+                                         num_batch=len(testset) // test_batch_size,
+                                         outputs=outputs,
+                                         recorders=recorders,
+                                         sample_dirs=sample_dirs,
+                                         print_result='*')
+
+        if testset and not signal_handler.sig > 1:
 
             outputs.results(0, 0, -2, epochs,
                             metrics=self.metrics,
@@ -2179,8 +2186,6 @@ class ClassificationVariationalNetwork(nn.Module):
                             metrics=self.metrics,
                             loss_components=self.loss_components,
                             acc_methods=acc_methods)
-
-        if testset and not signal_handler.sig > 1:
 
             recorder = recorders[set_name]
             # print(num_batch, sample_size)

@@ -10,7 +10,8 @@ mdir = '/tmp/000186'
 mdir = '/tmp/151320'
 mdir = '/tmp/151024'
 mdir = '/tmp/151409'
-    
+mdir = '/tmp/148722'
+
 print('Loading')
 model = M.load(mdir, load_state=True)
 
@@ -29,13 +30,15 @@ print(acc)
 # model.testing[2000].pop('iws')
 # model.ood_results.pop(2000)
 
+where = ('json', 'recorders')
 available = available_results(model,
                               predict_methods='all',
                               samples_available_by_class=900,
+                              min_samples_by_class=800,
                               ood_methods='all',
-                              where=('json', 'recorders', 'compute'),
+                              where=where,
                               misclass_methods=[],
-                              wanted_epoch='last', epoch_tolerance=5)
+                              wanted_epoch=200, epoch_tolerance=5)
 
 # recorders = LossRecorder.loadall(model.saved_dir + '/samples/last')
 

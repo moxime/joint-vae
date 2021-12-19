@@ -336,7 +336,10 @@ def get_shape_by_name(set_name, transform='default'):
         return shape, labels
         
     set_name, heldout = get_heldout_classes_by_name(set_name)
-    
+
+    if set_name not in set_dict:
+        return None, None
+        
     shape = set_dict[set_name]['shape']
     num_labels = set_dict[set_name]['labels'] - len(heldout)
     if transform != 'pad':

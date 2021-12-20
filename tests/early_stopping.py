@@ -11,11 +11,12 @@ mdir = '/tmp/151320'
 mdir = '/tmp/151024'
 mdir = '/tmp/151409'
 mdir = '/tmp/148722'
+mdir = '/tmp/151020'
 
 print('Loading')
-model = M.load(mdir, load_state=True)
+model = M.load(mdir, load_state=False)
 
-new = M((3, 32, 32), 10, type_of_net='cvae')
+new = M((3, 32, 32), 10, type_of_net='vib')
 
 print('Loaded')
 
@@ -46,4 +47,4 @@ available = available_results(model,
 # ood = model.ood_detection_rates(epoch=2000)
     
 # acc = model.accuracy(epoch=1980, print_result=True, sample_dirs=['/tmp'])
-# mdict = make_dict_from_model(model, model.saved_dir, wanted_epoch=10)
+mdict = make_dict_from_model(model, model.saved_dir, wanted_epoch=240)

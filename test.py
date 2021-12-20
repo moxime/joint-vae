@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 
 from utils.parameters import get_args, set_log, gethostname
+from utils.print_log import EpochOutput
 from utils.save_load import collect_networks, test_results_df, LossRecorder
 from utils.save_load import make_dict_from_model, available_results, save_json
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
@@ -177,23 +178,25 @@ if __name__ == '__main__':
                 wanted_epoch = 'last'
 
             # print('***', n['set'], n['dir'], wanted_epoch)
-            available = available_results(n, misclass_methods=[], wanted_epoch=wanted_epoch,
-                                          where=where, epoch_tolerance=5)
 
-            total_available_by_epoch = {_: available[_]['all_sets']['anywhere'] for _ in available}
-            if total_available_by_epoch:
-                result_epoch = max(total_available_by_epoch, key=total_available_by_epoch.get)
-                a_ = available[result_epoch]['all_sets']
-                if total_available_by_epoch[result_epoch]:
-                    models_to_be_kept.append(dict(model=make_dict_from_model(n['net'],
-                                                                             directory=n['dir'],
-                                                                             wanted_epoch=result_epoch),
-                                                  epoch=result_epoch,
-                                                  plan=a_))
-                else:
-                    to_be_kept = False
-            else:
-                to_be_kept = False
+            to_be_kept = False
+            epoch_tolerance = 0
+            while not to_be_kept and epoch_tolerance <= 10:
+                epoch_tolerance += 5
+                available = available_results(n, misclass_methods=[], wanted_epoch=wanted_epoch,
+                                              where=where, epoch_tolerance=epoch_tolerance)
+
+                total_available_by_epoch = {_: available[_]['all_sets']['anywhere'] for _ in available}
+                if total_available_by_epoch:
+                    result_epoch = max(total_available_by_epoch, key=total_available_by_epoch.get)
+                    a_ = available[result_epoch]['all_sets']
+                    if total_available_by_epoch[result_epoch]:
+                        models_to_be_kept.append(dict(model=make_dict_from_model(n['net'],
+                                                                                 directory=n['dir'],
+                                                                                 wanted_epoch=result_epoch),
+                                                    epoch=result_epoch,
+                                                      plan=a_))
+                        to_be_kept = True
 
             if to_be_kept:
                 a_everywhere = available_results(n, misclass_methods=[], wanted_epoch=result_epoch,

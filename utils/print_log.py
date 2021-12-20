@@ -5,7 +5,7 @@ import torch
 import pandas as pd
 import sys
 import re
-
+import functools
 
 class EpochOutput:
 
@@ -341,6 +341,34 @@ def text_dataviz(start, end, *marks, N=100, min_val=None, max_val=None, default=
     return ''.join([chars[_] for _ in range(N)])
         
         
-    
+def debugmethod(func):
+    """ Debug a method and return it back"""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return_value = func(*args, **kwargs)
+
+        logging.debug(f'Calling : {func.__name__}')
+        logging.debug(f'args, kwargs: {args, kwargs}')
+        logging.debug(f'{func.__name__} returned {return_value}')
+
+        return return_value
+
+    return wrapper
+
+def timerun(func):
+    """ Calculate the execution time of a method and return it back"""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        duration = time.time() - start
+
+        logger.debug(f"Duration of {func.__name__} function was {duration}.")
+        return result
+    return wrapper
+
+
 if __name__ == '__main__':
     pass

@@ -170,9 +170,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.loss_components = self.loss_components_per_type[self.type]
  
         self.metrics = self.metrics_per_type[self.type]
-        self.predict_methods = self.predict_methods_per_type[self.type]
-        self.ood_methods = self.ood_methods_per_type[self.type]
-        self.misclass_methods = self.misclass_methods_per_type[self.type]
+        self.predict_methods = self.predict_methods_per_type[self.type].copy()
+        self.ood_methods = self.ood_methods_per_type[self.type].copy()
+        self.misclass_methods = self.misclass_methods_per_type[self.type].copy()
         
         self.is_jvae = type_of_net == 'jvae'
         self.is_vib = type_of_net == 'vib'

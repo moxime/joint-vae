@@ -13,7 +13,7 @@ from utils.misc import make_list
 from utils.torch_load import get_same_size_by_name, get_shape_by_name
 from utils.roc_curves import fpr_at_tpr
 from contextlib import contextmanager
-
+from utils.print_log import debugmethod
 
 def get_path(dir_name, file_name, create_dir=True):
 
@@ -559,8 +559,9 @@ def clean_results(results, methods, **zeros):
     return completed
 
 
+@debugmethod
 def develop_starred_methods(methods, methods_params, inplace=True):
-
+    
     if not inplace:
         methods = methods.copy()
     starred_methods = []
@@ -571,7 +572,8 @@ def develop_starred_methods(methods, methods_params, inplace=True):
 
     for m in starred_methods:
         methods.remove(m)
-
+        pass
+        
     return methods
 
 
@@ -822,10 +824,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr)
                                    for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
             params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
-            # print('***', *methods_to_be_maxed)
             if params_max_auc:
                 ood_results_s[m] = _r[params_max_auc]
-                # print(model.job_number, s, params_max_auc, _r[params_max_auc]['auc'])
             ood_results_s[m]['params'] = params_max_auc
             
         for m in ood_results_s:

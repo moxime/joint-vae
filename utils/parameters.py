@@ -424,16 +424,17 @@ def get_args_for_test(argv=None):
     parser.add_argument('--ood-methods', action=NewEntryDictofLists, nargs='+', default={})
     parser.add_argument('--remove-index', nargs='*')
 
-    filter_args, remaining_args = get_filters_args(argv)
+    add_filters_args_to_parser(parser)
     
-    args = parser.parse_args(args=remaining_args, namespace=filter_args)
-    
+    args = parser.parse_args(argv)
+
+    if not hasattr(args, 'filters'):
+        args.filters = {}
+
     return args
 
 
-def get_filters_args(argv=None):
-
-    parser = argparse.ArgumentParser()  # (add_help=False)
+def add_filters_args_to_parser(parser):
 
     parser.add_argument('--done',
                         dest='done',
@@ -544,12 +545,6 @@ def get_filters_args(argv=None):
                         nargs='+',
                         action=FilterAction)
 
-    args, remaining_args = parser.parse_known_args(argv)
-
-    if not hasattr(args, 'filters'):
-        args.filters = {}
-    
-    return args, remaining_args
 
     
 class FilterAction(argparse.Action):

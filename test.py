@@ -37,8 +37,15 @@ if __name__ == '__main__':
         log.info(f'Used device: {device}')
         log.debug('CPU asked by user')
 
-    batch_size = args.batch_size
     job_dir = args.job_dir
+
+    output_file = os.path.join(job_dir, f'test-{args.job_id:06d}.out')
+
+    log.debug(f'Outputs registered in {output_file}')
+    outputs = EpochOutput()
+    outputs.add_file(output_file)
+
+    batch_size = args.batch_size
     load_dir = args.load_dir
     dry_run = args.compute
     flash = args.flash
@@ -253,11 +260,13 @@ if __name__ == '__main__':
                 model.ood_detection_rates(epoch=epoch,
                                           from_where=where,
                                           sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
+                                          outputs=outputs,
                                           print_result='OFR' if not plan['compute'] else 'OFM')
 
                 model.accuracy(epoch=epoch,
                                from_where=where,
                                sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
+                               outputs=outputs,
                                print_result='TFR' if not plan['compute'] else 'TFM')
 
             if not args.dry_run:

@@ -171,7 +171,9 @@ def get_args_for_train(argv=None):
         p = defaults.get(k, '')
         defaults[k] = list_of_alphanums(p)
 
-    parser = argparse.ArgumentParser(parents=[conf_parser])
+    parser = argparse.ArgumentParser(parents=[conf_parser],
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
     # description=__doc__)
 
     parser.set_defaults(**defaults)
@@ -400,7 +402,7 @@ def get_args_for_test(argv=None):
     
     parser.add_argument('--latex', action='store_true')
 
-    parser.add_argument('--expand', '-x', action='count', default=0)
+    parser.add_argument('--expand', '-x', action='count', default=1)
 
     parser.add_argument('-e', dest='show_measures', action='count', default=0)
 

@@ -7,6 +7,24 @@ import sys
 import re
 import functools
 
+def debug(*a):
+    if debug.level:
+        print(debug.pre, *a)
+
+debug.level=0
+
+def printdebug(d=True):
+    def wrapper(func):
+        @functools.wraps(func)
+        def wrapped(*a, **kw):
+            debug.level = d
+            debug.pre = '*** ' + func.__name__ + ' ***'
+            out = func(*a, **kw)
+            debug.level=False
+            return out
+        return wrapped
+    return wrapper
+
 class EpochOutput:
 
     EVERY_BATCH = 20
@@ -340,21 +358,6 @@ def text_dataviz(start, end, *marks, N=100, min_val=None, max_val=None, default=
 
     return ''.join([chars[_] for _ in range(N)])
         
-        
-def debugmethod(func):
-    """ Debug a method and return it back"""
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return_value = func(*args, **kwargs)
-
-        logging.debug(f'Calling : {func.__name__}')
-        logging.debug(f'args, kwargs: {args, kwargs}')
-        logging.debug(f'{func.__name__} returned {return_value}')
-
-        return return_value
-
-    return wrapper
 
 def timerun(func):
     """ Calculate the execution time of a method and return it back"""

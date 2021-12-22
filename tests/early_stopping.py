@@ -10,8 +10,8 @@ mdir = '/tmp/000186'
 mdir = '/tmp/151320'
 mdir = '/tmp/151024'
 mdir = '/tmp/151409'
-mdir = '/tmp/148722'
 mdir = '/tmp/151020'
+mdir = '/tmp/148722'
 
 print('Loading')
 model = M.load(mdir, load_state=False)

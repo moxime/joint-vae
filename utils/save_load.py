@@ -13,7 +13,7 @@ from utils.misc import make_list
 from utils.torch_load import get_same_size_by_name, get_shape_by_name
 from utils.roc_curves import fpr_at_tpr
 from contextlib import contextmanager
-from utils.print_log import debugmethod
+
 
 def get_path(dir_name, file_name, create_dir=True):
 
@@ -559,7 +559,6 @@ def clean_results(results, methods, **zeros):
     return completed
 
 
-@debugmethod
 def develop_starred_methods(methods, methods_params, inplace=True):
     
     if not inplace:

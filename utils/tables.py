@@ -3,7 +3,7 @@ from datetime import datetime
 import string
 import functools
 from utils.save_load import create_file_for_job as create_file, find_by_job_number
-from utils.print_log import texify
+from utils.print_log import texify, debug, printdebug
 from module.optimizers import Optimizer
 import torch
 import numpy as np
@@ -232,6 +232,7 @@ def texify_test_results(net,
     printout('\\end{tabular}')
 
 
+@printdebug(False)
 def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replacement_dict={}):
     """ 
     df_dict : dict of dataframe
@@ -246,42 +247,51 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
         kept_cols = {k: kept_cols for k in df_dict}
 
     for k, df in df_dict.items():
-        df.drop(columns=[_ for _ in df.columns if _[0] == 'measures'], inplace=True)
 
-        df.index = pd.MultiIndex.from_frame(df.index.to_frame().fillna('NaN'))
-
-        removed_index = [i for i, l in enumerate(df.index.levels) if len(l) < 2 and l.name not in kept_levels]
-        df = df.droplevel(removed_index)
+        debug('\n*** index:', '\ndf:\n', df[df.columns[0:6]], '\n***')
+        
+        df = df.groupby(kept_levels).agg('mean')
+        
+        debug('\n*** index:', *df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
 
         kc = kept_cols[k]
-        # print('*** 250')
-        # print(df)
+
         if hasattr(kc, '__call__'):
             kc = [_  for _ in df.columns if kc(_)]            
 
         df = df[kc]
-        level = df.index.nlevels - 1
-        df = df.stack(level=0).unstack(level=level)
 
-        # print('***259')
-        # print(df)
-        # print(df.index.names)
+        debug('\n*** kept cols', *df.columns, '\n', df)
+
+
+        level = df.index.nlevels - 1
+        # debug('***\n', df)
+        df = df.stack(level=0)
+        debug('*** stack:\n', df)
+
+        df = df.unstack(level=0)
+        debug('*** unstack:\n', df)
+
         if level:
             level_names = df.index.names
             level_names_ = [level_names[-1]] + level_names[:-1]
-                                                
-            df = df.reorder_levels(level_names).sort_index(0)
-            # df.columns = df.columns.reorder_levels([2, 0, 1])
-        # print(df)
-        
-        if df.index.nlevels > 1:
-            removed_index = [i for i, l in enumerate(df.index.levels) if len(l) < 2 and l.name not in kept_levels]
-            df = df.droplevel(removed_index)
+
+            debug('*** df\n', df)
+            df = df.reorder_levels(level_names_)
+            debug('*** reorder\n', df)
+
         
         df_dict[k] = df
-        
+
     large_df = pd.concat(df_dict.values(), axis=1)
 
+    if level:
+        removed_index = [i for i, l in enumerate(large_df.index.levels) if len(l) < 2]
+
+        debug('index', *large_df.index.names)
+        large_df = large_df.droplevel(removed_index)
+        debug('removed index', *large_df.index.names)
+    
     return large_df.reorder_levels(['metrics', 'type', 'method'], axis=1)
 
     
@@ -387,11 +397,12 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
                 f.write(r'}')
                 f.write('\n')
 
-            unique_sigmas = sorted(tab_df['sigma'].unique(), key=lambda x: (str(type(x)), x))
-            f.write(r'\def\tabsigmas{')
-            f.write(','.join(str(a) for a in unique_sigmas))
-            f.write(r'}')
-            f.write('\n')
+            if 'sigma' in tab_df: 
+                unique_sigmas = sorted(tab_df['sigma'].unique(), key=lambda x: (str(type(x)), x))
+                f.write(r'\def\tabsigmas{')
+                f.write(','.join(str(a) for a in unique_sigmas))
+                f.write(r'}')
+                f.write('\n')
 
             f.write(f'\\pgfplotstableread{{{tab_file}}}{{\\testtab}}')
             f.write('\n')

@@ -1,6 +1,6 @@
 from functools import partial
 from cvae import ClassificationVariationalNetwork as Net
-from utils.parameters import get_filters_args, set_log, get_args_for_test
+from utils.parameters import set_log, add_filters_args_to_parser
 import argparse, configparser
 import sys, os
 import logging
@@ -53,7 +53,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(parents=[conf_parser])
     parser.add_argument('--tpr', default=95, type=int)
     
-    conf_args, remaining_args = conf_parser.parse_known_args(None if sys.argv[0] else args_from_file)
+    conf_args, other_args = conf_parser.parse_known_args(None if sys.argv[0] else args_from_file)
+
+    root = conf_args.results_dir
+    
+    add_filters_args_to_parser(parser)
     
     if conf_args.verbose > 0:
         logging.getLogger().setLevel(logging.WARNING)
@@ -93,10 +97,11 @@ if __name__ == '__main__':
         logging.info('Keys in config file: %s', ' '.join(which))
 
         for k in which:
+
             logging.info('*** %s: ***', k)
             # logging.info(' '.join(['{}: {}'.format(_, config[k][_]) for _ in config[k]]))
             argv = sum([['--' + _.replace('_', '-'), v] for _, v in config[k].items()], [])
-            a, ra = get_filters_args(argv)
+            a, ra = parser.parse_known_args(argv)
             filters[k] = a.filters
             for _ in a.filters:
                 logging.info(f'{_:16}: ' + ','.join(str(__) for __ in a.filters[_])) 
@@ -156,28 +161,52 @@ if __name__ == '__main__':
         kept_cols = {}
         for k in models:
             kept_ood = config[k]['ood'].split() 
-            kept_methods = config[k]['ood_methods'].split() 
+            kept_methods = config[k]['ood_methods'].split()
+            kept_index = ['type'] + config[k].get('kept_index', '').split()
             kept_cols[k] = kc_(kept_ood, kept_methods)
 
-        results_df = agg_results(agg_df, kept_cols=kept_cols)
+        results_df = agg_results(agg_df, kept_cols=kept_cols, kept_levels=kept_index)
 
         best_values = {}
-        results_df.rename(columns={0.95: 'fpr'}, inplace=True)
+        for tpr in [_ / 100 for _ in range(100)]:
+            results_df.rename(columns={tpr: 'fpr'}, inplace=True)
+
         cols = results_df.columns
 
+        cols = []
+
+        for w in ('fpr', 'auc'):
+            for k in models:
+                for m in config[k]['ood_methods'].split():
+                    cols.append((w, k, m))
+        
         fpr_cols = [_ for _ in cols if 'fpr' in _]
         auc_cols = [_ for _ in cols if 'auc' in _]
 
-        results_df = pd.concat([results_df[fpr_cols], results_df[auc_cols]], axis=1)
+        # results_df = pd.concat([results_df[fpr_cols], results_df[auc_cols]], axis=1)
+        # print('*** cols', *cols)
+
+        # print('*** results cols:', results_df.columns)
+        # print('*** new cols:', cols)
+        
+        results_df = results_df[cols]
 
         cols = results_df.columns
 
+        print(dataset)
+        print(results_df.to_string())
+        multi_index = results_df.index.nlevels > 1
+        # print('*** index:\n', results_df.index)
+        if 'set' in results_df.index.names:
+            results_df = results_df.reindex(kept_ood, level='set' if multi_index else None) 
+        # print('*** index:\n', results_df.index)
         best_values['fpr'] = results_df[fpr_cols].min(axis=1)
         best_values['auc'] = results_df[auc_cols].max(axis=1)
 
         n_index = results_df.index.nlevels
         n_methods = len(cols) // 2
-        column_format = '@{}' + 'l' * n_index + '%\n' + '@{/}'.join(['S[table-format=2.1]%\n'] * n_methods) * 2 + '@{}'
+        column_format = ('@{}' + 'l' * n_index + '%\n'
+                         + '@{/}'.join(['S[table-format=2.1]%\n'] * n_methods) * 2 + '@{}')
 
         cols = cols.droplevel('type')
 
@@ -197,14 +226,17 @@ if __name__ == '__main__':
                                  fpr='\\text{\\acron{fpr}@' + default_config['tpr'] + '}',
                                  auc='\\text{\\acron{auroc}}')
         tex_header += '\\midrule'
-        tex_header += '\gls{{ood}}&\\multicolumn{{{n}}}c{{{methods}}} \\\\'.format(n=n_methods*2, methods= '/'.join(methods))
+        tex_header += '\gls{{ood}}&\\multicolumn{{{n}}}c{{{methods}}} \\\\'.format(n=n_methods*2,
+                                                                                   methods= '/'.join(methods))
         header = True
 
         cols = results_df.columns
 
         f_ = open(tab_file, 'w')
         for i, r in results_df.iterrows():
+
             f_.write('%%%%%%% {}\n'.format(i))
+            
             formatters = {c: partial(bold_best_values,
                                      value=best_values['fpr' if 'fpr' in c[0] else 'auc'][i]) for c in cols}
 
@@ -225,8 +257,11 @@ if __name__ == '__main__':
                 f_.write('\\toprule\n')
                 f_.write(tex_header + '\n')
             f_.write('\\midrule\n')
-            i_ = texify['datasets'].get(i, i)
-            tex_code = '\n'.join(['{} & '.format(i) + r for r in tex_code_[i0:i1]])
+
+            if n_index == 1:
+                i = (i,)
+                
+            tex_code = '\n'.join([('{} & ' * n_index).format(*i) + r for r in tex_code_[i0:i1]])
             f_.write(tex_code)
             last_lines = '\n'.join(tex_code_[i1:])
             column_format = None

@@ -339,7 +339,15 @@ if __name__ == '__main__':
         if args.remove_index is not None:
             removable_index = ['sigma_train', 'sigma', 'beta', 'gamma']
             removed_index = [i for i, l in enumerate(d.index.levels) if len(l) < 2 and l.name in removable_index]
-            removed_index += args.remove_index
+            unremoved_index = []
+            for i in args.remove_index:
+                if i.replace('-', '_') in d.index.names:
+                    removed_index.append(i.replace('-', '_'))
+                else:
+                    unremoved_index.append(i)
+            if unremoved_index:
+                logging.error('{} are not removed. Possible removable index: {}'.format(', '.join(unremoved_index),
+                                                                                        ', '.join(d.index.names)))
             d = d.droplevel(removed_index)
 
         idx = list(d.index.names)

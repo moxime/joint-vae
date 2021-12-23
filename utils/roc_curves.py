@@ -35,7 +35,7 @@ def tpr_at_fpr(fpr, tpr, a):
     return as_tpr[i_fpr].max()
 
 
-def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1000, debug=False):
+def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=False):
 
     if debug:
         logging.debug('Computing fprs with a {}-sided test with data of lengths {} / {}'.format(
@@ -47,20 +47,31 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
     ins_n_valid = validation if two_sided else 0
 
     permute_ins = np.random.permutation(len(ins))
-    val_ins_idx = permute_ins[:ins_n_valid]
+    val_ins_idx = np.sort(permute_ins[:ins_n_valid])
     test_ins_idx = permute_ins[ins_n_valid:]
     
-    ins_validation = np.asarray(ins)[val_ins_idx]
+    ins_validation = np.sort(np.asarray(ins)[val_ins_idx])
+    sorted_outs = np.sort(outs)
+    sorted_ins = np.sort(ins[test_ins_idx])
 
-    if two_sided:
-        if around == 'mean':
-            center = ins_validation.mean()
-        all_thresholds = np.concatenate([[-np.inf], np.sort(abs(ins[test_ins_idx] - center))])
-        sorted_outs = np.sort(abs(outs - center))
+    all_thresholds = {}
+    
+    if two_sided == 'around-mean':
+        center = ins_validation.mean()
+        delta_thresholds = np.concatenate([[0], np.sort(abs(ins[test_ins_idx] - center)), [np.inf]])
+        all_thresholds['low'] = - delta_thresholds[::-1] + center
+        all_thresholds['up'] = delta_thresholds + center
+
+        
+    elif isinstance(two_sided, tuple):
+        
+        for f, k in zip(two_sided, ('low', 'up')): 
+            all_thresholds[k] = np.concatenate([[-np.inf], ins_validation[::f], [np.inf]])
             
     else:
-        all_thresholds = np.concatenate([[-np.inf], np.sort(-ins[test_ins_idx])])
-        sorted_outs = np.sort(-outs)
+        
+        all_thresholds['low'] = np.concatenate([[-np.inf], np.sort(ins[test_ins_idx])])
+        all_thresholds['up'] = np.ones_like(all_thresholds['low']) * np.inf
 
     relevant_thresholds = []
     relevant_fpr = []
@@ -71,96 +82,97 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, around='mean', validation=1
 
     kept_tpr = np.sort(kept_tpr)
     kept_fpr = np.zeros_like(kept_tpr)
-    kept_thresholds = np.zeros_like(kept_tpr)
+    kept_thresholds = {'low': np.zeros_like(kept_tpr), 'up': np.zeros_like(kept_tpr)}
     kept_precisions = np.zeros_like(kept_tpr)
-    kept_tpr_i = 0
-
-    n_ins = len(all_thresholds) - 1
-    n_outs = len(outs)
         
     if debug == 'time':
         t0 = time()
-        print('*** Going through thresholds')
+        if debug: print('*** Going through thresholds')
 
-    outs_idx = 0
+    n = {'in': len(sorted_ins),
+         'out': len(sorted_outs)}
+
+    scores = {'in': sorted_ins, 'out': sorted_outs}
+    
+    idx = {'in': {'low': 0, 'up': -1},
+           'out': {'low': 0, 'up': -1},
+           'thr': {'low': 0, 'up': -1}}
+
+    t = {_: all_thresholds[_][idx['thr'][_]] for _ in ('low', 'up')}
+
+    last_fpr = -1.
+    kept_tpr_i = -1
+
+    num_print = 50
+    every_print = max(len(all_thresholds['low']) // num_print, 1)
+
+    it = 0
+    nt = min(len(all_thresholds[_]) for _ in ('up', 'low'))
+    
+    while t['low'] < t['up'] and it < nt - 1:
+
+        for w in ('out', 'in'):
+            while idx[w]['low'] < n[w] - 1 and scores[w][idx[w]['low']] < t['low']:
+                idx[w]['low'] += 1
+            while idx[w]['up'] > -n[w] and scores[w][idx[w]['up']] > t['up']:
+                idx[w]['up'] -= 1
+
+        neg = {w: max(0, idx[w]['low'] - 1) - idx[w]['up'] - 1 for w in ('out', 'in')}
+
+        tpr = 1 - neg['in'] / n['in']
+        fpr = 1 - neg['out'] / n['out']
+
+        _s = ' <= '.join(['{:-11.6f}'] * 4)
+
+        if not it % every_print:
+
+            if debug:
+                for w in ('in', 'out'):
+                    print('{:3}:'.format(w), end=' ')
+                    print(_s.format(t['low'],
+                                    scores[w][idx[w]['low']],
+                                    scores[w][idx[w]['up']],
+                                    t['up']),
+                          end=' | ')
+                    print(idx[w]['low'], idx[w]['up'])
+                
+                print('|_FPR={:6.2%} TPR={:6.2%}'.format(fpr, tpr))
         
-    for ins_idx, t in enumerate(all_thresholds):
+        it += 1
+        idx['thr']['low'] +=1
+        idx['thr']['up'] -=1
 
-        while outs_idx < n_outs and sorted_outs[outs_idx] <= t:
-            outs_idx += 1
-
-        # print('***', outs_idx, '/', n_outs)
-        tpr = (ins_idx) / n_ins 
-        fpr = (outs_idx) / n_outs
-        prec = ins_idx / (ins_idx + outs_idx) if ins_idx + outs_idx else 1.
-
-        if not two_sided:
-            t = -t
-        if debug == 'hard':
-            if two_sided:
-                tpr_ = (abs(ins[test_ins_idx] - center) <= t).sum() / n_ins
-                fpr_ = (abs(outs - center) <= t).sum() / n_outs
-            else:
-                tpr_ = (ins[test_ins_idx] >= t).sum() / n_ins
-                fpr_ = (outs >= t).sum() / n_outs
-
-            print('   {:7.4f} -- {:7.4f}'.format(100 * fpr, 100 * tpr))
-            print('___{:7.4f} -- {:7.4f}'.format(100 * fpr_, 100 * tpr_), end=' ')
+        t = {_: all_thresholds[_][idx['thr'][_]] for _ in ('low', 'up')}
             
-        if fpr >= last_fpr:
-            relevant_thresholds.append(t)
+        if fpr >= last_fpr or True:
+            relevant_thresholds.append((t['low'], t['up']))
             relevant_tpr.append(tpr)
             relevant_fpr.append(fpr)
             last_fpr = fpr
-            if debug == 'hard':
-                print('*___')
 
-        elif debug == 'hard':
-            print('___')
-
-        if kept_tpr_i < len(kept_tpr) and tpr >= kept_tpr[kept_tpr_i]:
+        if kept_tpr_i >= -len(kept_tpr) and tpr <= kept_tpr[kept_tpr_i]:
 
             kept_fpr[kept_tpr_i] = fpr
             kept_tpr[kept_tpr_i] = tpr
-            kept_thresholds[kept_tpr_i] = t
-            kept_precisions[kept_tpr_i] = t
-            kept_tpr_i += 1
+            for _ in t:
+                kept_thresholds[_][kept_tpr_i] = t[_]
+            kept_tpr_i -= 1
 
-            if debug in ('medium', 'hard'):
+    if debug:
+        for w in ('in', 'out'):
+            print('{:3}:'.format(w), end=' ')
+            print(_s.format(t['low'],
+                            scores[w][idx[w]['low']],
+                            scores[w][idx[w]['up']], t['up']), end=' | ')
+            print(idx[w]['low'], idx[w]['up'])
+                
+            print('FPR={:6.2%} TPR={:6.2%}'.format(fpr, tpr))
 
-                for what, data in zip(('TPR', 'FPR'), (ins, outs)):
-
-                    n = len(data)
-                    if two_sided:
-
-                        t1 = center - t
-                        t2 = center + t
-                        bt = (data <= center - t).sum() / n * 100
-                        at = (data > center + t).sum() / n * 100
-                        pr = 100 - at - bt
-                        _s = f'{what}: {bt:5.2f} ({t1:+.2e}) {pr:5.2f} ({t2:+.2e}) {at:5.2f}'
-
-                    else:
-                        bt = (data < t).sum() / n * 100
-                        pr = (data >= t).sum() / n * 100
-                        _s = f'{what}: {bt:5.2f} ({t:+.2e}) {pr:5.2f}'
-                    
-                    logging.debug(_s)
-
-                logging.debug('--')
-
-    relevant_fpr.append(1.0)
-    relevant_tpr.append(1.0)
+            
+    relevant_fpr.append(0.0)
+    relevant_tpr.append(0.0)
     
-    if debug == 'time':
-        print(f'Thresholding ins done in {time() - t0:3f}s')
-        t0 = time()
     auroc = auc(relevant_fpr, relevant_tpr)
-    if debug == 'time':
-        print(f'AUC computed in {time() - t0:3f}s')
-
-    if two_sided:
-        kept_thresholds = np.concatenate([np.array([center]), kept_thresholds])
         
     return auroc, kept_fpr, kept_tpr, kept_thresholds
     

@@ -175,7 +175,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=Fals
     
     auroc = auc(relevant_fpr, relevant_tpr)
 
-    print('*** rc', len(ins), len(outs), time() - t0)
+    # print('*** rc', len(ins), len(outs), time() - t0)
     
     
     return auroc, kept_fpr, kept_tpr, kept_thresholds

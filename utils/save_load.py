@@ -364,9 +364,11 @@ class LossRecorder:
         torch.save(self.__dict__, file_path)
 
     @classmethod
-    def load(cls, file_path, device=None):
+    def load(cls, file_path, device=None, **kw):
 
-        dict_of_params = torch.load(file_path)
+        if 'map_location' not in kw and not torch.cuda.is_available():
+            kw['map_location'] = torch.device('cpu')
+        dict_of_params = torch.load(file_path, **kw)
         num_batch = dict_of_params['_num_batch']
         batch_size = dict_of_params['batch_size']
         tensors = dict_of_params['_tensors']

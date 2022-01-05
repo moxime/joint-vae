@@ -169,7 +169,8 @@ if __name__ == '__main__':
                 else:
                     wanted_epoch = early_stopping(n, strategy=early_stopping_method[0],
                                                   which=early_stopping_method[1])
-                    n['net'].training_parameters[_k] = int(wanted_epoch)
+                    if wanted_epoch:
+                        n['net'].training_parameters[_k] = int(wanted_epoch)
                     if not args.dry_run:
                         save_json(n['net'].training_parameters, n['dir'], 'train.json')
 

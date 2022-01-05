@@ -1594,10 +1594,14 @@ class ClassificationVariationalNetwork(nn.Module):
                 for m in ood_methods_per_set[s]:
                     logging.debug(f'Computing roc curves for with metrics {m}')
                     _debug = 'medium' if i == ood_n_batch - 1 else 'soft'
+                    _debug = False
+                    two_sided = False
+                    if m.endswith('-2s'):
+                        two_sided = 'around-mean'
                     auc_[m], fpr_[m], tpr_[m], thresholds_[m] = roc_curve(ind_measures[m], ood_measures[m],
                                                                           *kept_tpr,
                                                                           debug=_debug,
-                                                                          two_sided=m.endswith('-2s'))
+                                                                          two_sided=two_sided)
                     r_[m] = fpr_at_tpr(fpr_[m],
                                        tpr_[m],
                                        0.95,

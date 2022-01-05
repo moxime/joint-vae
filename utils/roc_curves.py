@@ -2,7 +2,7 @@ from time import time
 import numpy as np
 from sklearn.metrics import auc, roc_curve as fast_roc_curve
 import logging
-
+from scipy.interpolate import UnivariateSpline
 
 def fpr_at_tpr(fpr, tpr, a, thresholds=None,
                return_threshold=False):
@@ -35,7 +35,7 @@ def tpr_at_fpr(fpr, tpr, a):
     return as_tpr[i_fpr].max()
 
 
-def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=False):
+def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False):
 
     t0 = time()
     if debug:
@@ -46,8 +46,12 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=Fals
         validation = int(validation * len(ins)) 
         
     ins_n_valid = validation if two_sided else 0
+    # print('***', len(ins), len(outs), ins_n_valid)
 
+    _s = np.random.get_state()
+    np.random.seed()
     permute_ins = np.random.permutation(len(ins))
+    np.random.set_state(_s)
     val_ins_idx = np.sort(permute_ins[:ins_n_valid])
     test_ins_idx = permute_ins[ins_n_valid:]
     
@@ -66,8 +70,14 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=Fals
         
     elif isinstance(two_sided, tuple):
         
-        for f, k in zip(two_sided, ('low', 'up')): 
-            all_thresholds[k] = np.concatenate([[-np.inf], ins_validation[::f], [np.inf]])
+        old_indices = np.arange(0, len(ins_validation))
+        new_length = len(ins)
+        new_indices = np.linspace(0, len(ins_validation) - 1, new_length)
+        spl = UnivariateSpline(old_indices, ins_validation, k = 3, s = 0)
+        interpolated_ins_validation = spl(new_indices)
+        for f, k in zip(two_sided, ('low', 'up')):
+            t = ins_validation[::f]
+            all_thresholds[k] = np.concatenate([[-np.inf], interpolated_ins_validation[::f], [np.inf]])
             
     else:
         
@@ -82,6 +92,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=Fals
     last_fpr = -.01
 
     kept_tpr = np.sort(kept_tpr)
+    original_kept_tpr = kept_tpr.copy()
     kept_fpr = np.zeros_like(kept_tpr)
     kept_thresholds = {'low': np.zeros_like(kept_tpr), 'up': np.zeros_like(kept_tpr)}
     kept_precisions = np.zeros_like(kept_tpr)
@@ -151,14 +162,17 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=Fals
             relevant_fpr.append(fpr)
             last_fpr = fpr
 
-        if kept_tpr_i >= -len(kept_tpr) and tpr <= kept_tpr[kept_tpr_i]:
-
-            kept_fpr[kept_tpr_i] = fpr
-            kept_tpr[kept_tpr_i] = tpr
-            for _ in t:
-                kept_thresholds[_][kept_tpr_i] = t[_]
-            kept_tpr_i -= 1
-
+        if kept_tpr_i >= - len(kept_tpr):
+            if tpr < original_kept_tpr[kept_tpr_i]:
+                # print('* {:6.2%} {:6.2%}< {:6.2%} ({:6.2%})'.format(fpr, tpr, original_kept_tpr[kept_tpr_i], kept_fpr[kept_tpr_i]))
+                kept_tpr_i -= 1
+            else:
+                # print('  {:6.2%} {:6.2%}>={:6.2%}'.format(fpr, tpr, original_kept_tpr[kept_tpr_i]))
+                kept_fpr[kept_tpr_i] = fpr
+                kept_tpr[kept_tpr_i] = tpr
+                for _ in t:
+                    kept_thresholds[_][kept_tpr_i] = t[_]
+    # print('*** iterations:', it)
     if debug:
         for w in ('in', 'out'):
             print('{:3}:'.format(w), end=' ')
@@ -176,8 +190,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=Fals
     auroc = auc(relevant_fpr, relevant_tpr)
 
     # print('*** rc', len(ins), len(outs), time() - t0)
-    
-    
+        
     return auroc, kept_fpr, kept_tpr, kept_thresholds
     
 

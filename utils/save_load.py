@@ -592,7 +592,15 @@ def needed_components(*methods):
     for k in total:
         ncd[k] = ('total',)
 
-    return sum((ncd.get(m, ()) for m in methods), ())
+    methods_ = []
+    for m in methods:
+        if m.endswith('-2s'):
+            methods_.append(m[:-3])
+        elif '-a-' in m:
+            methods_.append(m.split('-')[0])
+        else:
+            methods_.append(m)
+    return sum((ncd.get(m, ()) for m in methods_), ())
 
 
 def available_results(model,

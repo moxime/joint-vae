@@ -91,7 +91,8 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ['std', 'snr', 'sigma'],
                         'vib': ['sigma',]}
 
-    ood_methods_per_type = {'cvae': ['iws-2s', 'iws', 'kl', 'mse', 'max', 'soft'],
+    ood_methods_per_type = {'cvae': ['iws-2s', 'iws-a-1-1', 'iws-a-1-4', 'iws-a-4-1',
+                                     'iws', 'kl', 'mse', 'max', 'soft'],
                             'xvae': ['max', 'mean', 'std'],  # , 'mag', 'IYx'],
                             'jvae': ['max', 'sum',  'std'],  # 'mag'],
                             'vae': ['iws-2s', 'iws', 'logpx'],
@@ -895,9 +896,13 @@ class ClassificationVariationalNetwork(nn.Module):
             
         for m in methods:
 
-            two_sided = m.endswith('-2s')
-            if two_sided:
+            m_ = m
+            if m.endswith('-2s'):
                 m = m[:-3]
+
+            if '-a-' in m:
+                m = m.split('-')[0]
+                
             if m == 'logpx':
                 assert not self.losses_might_be_computed_for_each_class
                 measures = logp
@@ -960,7 +965,7 @@ class ClassificationVariationalNetwork(nn.Module):
             else:
                 raise ValueError(f'{m} is an unknown ood method')
 
-            dist_measures[m + ('-2s' if two_sided else '')] = measures.cpu() if to_cpu else measures
+            dist_measures[m_] = measures.cpu() if to_cpu else measures
 
         return dist_measures
 
@@ -1329,7 +1334,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         ood_methods_per_set = {s: ood_methods for s in all_set_names}
         all_ood_methods = ood_methods
-        
+
         if not recorders:
             recorders = {n: None for n in all_set_names}
 
@@ -1352,18 +1357,21 @@ class ClassificationVariationalNetwork(nn.Module):
                                   where=from_where,
                                   misclass_methods=[]).get(epoch)
 
-        print('*** cvae:1355\n' + '\n'.join('{:10}: {}'.format(_, froms[_]['where']) for _ in all_set_names))
-        print('all_sets  :', froms['all_sets'])
+        # print('*** cvae:1355\n' + '\n'.join('{:10}: {}'.format(_, froms[_]['where']) for _ in all_set_names))
+        # print('all_sets  :', froms['all_sets'])
         
         ood_results = {o.name: {} for o in oodsets}
 
         if not froms:
             return ood_results
 
+        oodsets_already_computed = []
         for dset in oodsets_names:
             if froms[dset]['where']['json']:
                 ood_results[dset] = self.ood_results[epoch][dset]
-                
+                oodsets_already_computed.append(dset)
+
+        oodsets = [o for o in oodsets if o.name not in oodsets_already_computed]
         if froms['all_sets']['recorders']:
             rec_dir = froms.pop('rec_dir')
 
@@ -1462,7 +1470,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                 out_probs = (odin_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
                                 odin_softmax['odin-{:.0f}-{:.4f}'.format(T, eps)] = out_probs
                 else:
-                    components = [k for k in recorders[s].keys() if k in self.loss_components or k.startswith('odin')]
+                    components = [k for k in recorders[s].keys()
+                                  if k in self.loss_components or k.startswith('odin')]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     odin_softmax = {}
@@ -1594,32 +1603,40 @@ class ClassificationVariationalNetwork(nn.Module):
                                    for m in ood_methods_per_set[s]}
 
                 t0 = time.time()
-                for m in ood_methods_per_set[s]:
-                    logging.debug(f'Computing roc curves for with metrics {m}')
-                    _debug = 'medium' if i == ood_n_batch - 1 else 'soft'
-                    _debug = False
-                    two_sided = False
-                    if m.endswith('-2s'):
-                        two_sided = 'around-mean'
-                    auc_[m], fpr_[m], tpr_[m], thresholds_[m] = roc_curve(ind_measures[m], ood_measures[m],
-                                                                          *kept_tpr,
-                                                                          debug=_debug,
-                                                                          two_sided=two_sided)
-                    r_[m] = fpr_at_tpr(fpr_[m],
-                                       tpr_[m],
-                                       0.95,
-                                       thresholds_[m])
 
-                # print('*** cvae:1522 *** {} {:.0f}ms / method'.format(s, 1e3 * (time.time() - t0) / len(r_)))
+                if not recorded[s] or i == ood_n_batch - 1:
+                    for m in ood_methods_per_set[s]:
+                        logging.debug(f'Computing roc curves for with metrics {m}')
+                        _debug = 'medium' if i == ood_n_batch - 1 else 'soft'
+                        _debug = False
+                        two_sided = False
+                        if m.endswith('-2s'):
+                            two_sided = 'around-mean'
+                        if '-a-' in m:
+                            two_sided = tuple(int(_) for _ in m.split('-')[-2:])
 
-                outputs.results(i, ood_n_batch, 0, 1,
-                                metrics=ood_methods_per_set[oodset.name],
-                                measures=meaned_measures,
-                                acc_methods=ood_methods_per_set[oodset.name],
-                                accuracies=r_,
-                                time_per_i=t_per_i,
-                                batch_size=batch_size[s],
-                                preambule=oodset.name)
+                        # print('***',s, m, two_sided)
+                        auc_[m], fpr_[m], tpr_[m], thresholds_[m] = roc_curve(ind_measures[m], ood_measures[m],
+                                                                              *kept_tpr,
+                                                                              debug=_debug,
+                                                                              two_sided=two_sided)
+                        # print('*** fpr at tpr', s, m)
+                        for _, __ in zip(fpr_[m], tpr_[m]):
+                            pass
+                            # print('{:.2%} : {:.2%}'.format(_, __))
+                        r_[m] = fpr_at_tpr(fpr_[m],
+                                           tpr_[m],
+                                           0.95,
+                                           thresholds_[m])
+
+                    outputs.results(i, ood_n_batch, 0, 1,
+                                    metrics=ood_methods_per_set[oodset.name],
+                                    measures=meaned_measures,
+                                    acc_methods=ood_methods_per_set[oodset.name],
+                                    accuracies=r_,
+                                    time_per_i=t_per_i,
+                                    batch_size=batch_size[s],
+                                    preambule=oodset.name)
 
             if recorders[s] is not None:
                 recorders[s].restore_seed()

@@ -1351,7 +1351,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                   epoch_tolerance=0,
                                   where=from_where,
                                   misclass_methods=[]).get(epoch)
-        
+
+        print('*** cvae:1355', froms)
         ood_results = {o.name: {} for o in oodsets}
 
         if not froms:

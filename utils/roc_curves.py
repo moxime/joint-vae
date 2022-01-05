@@ -37,6 +37,7 @@ def tpr_at_fpr(fpr, tpr, a):
 
 def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=False):
 
+    t0 = time()
     if debug:
         logging.debug('Computing fprs with a {}-sided test with data of lengths {} / {}'.format(
             'two' if two_sided else 'one', len(ins), len(outs)))
@@ -55,7 +56,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=Fals
     sorted_ins = np.sort(ins[test_ins_idx])
 
     all_thresholds = {}
-    
+
     if two_sided == 'around-mean':
         center = ins_validation.mean()
         delta_thresholds = np.concatenate([[0], np.sort(abs(ins[test_ins_idx] - center)), [np.inf]])
@@ -173,7 +174,10 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=1000, debug=Fals
     relevant_tpr.append(0.0)
     
     auroc = auc(relevant_fpr, relevant_tpr)
-        
+
+    print('*** rc', len(ins), len(outs), time() - t0)
+    
+    
     return auroc, kept_fpr, kept_tpr, kept_thresholds
     
 

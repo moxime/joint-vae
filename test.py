@@ -255,7 +255,7 @@ if __name__ == '__main__':
         epoch = m_['epoch']
         plan = m_['plan']
 
-        # print('***', plan)
+        print('*** test:258', plan)
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
             model = CVNet.load(m['dir'], load_state=plan['compute'])

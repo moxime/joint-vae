@@ -1423,8 +1423,6 @@ class ClassificationVariationalNetwork(nn.Module):
             outputs.results(0, 0, -1, 0, metrics=all_ood_methods,
                             acc_methods=all_ood_methods)
 
-        if oodsets:
-
             logging.debug(f'Computing measures for set {testset.name}')
             ind_measures = {m: np.ndarray(0)
                             for m in ood_methods}

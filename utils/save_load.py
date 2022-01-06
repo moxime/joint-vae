@@ -777,7 +777,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
 
     testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
-    ood_results = model.ood_results.get(wanted_epoch, {})
+    ood_results = model.ood_results.get(wanted_epoch, {}).copy()
     training_set = model.training_parameters['set']
 
     if training_set in ood_results:

@@ -92,7 +92,7 @@ if __name__ == '__main__':
                                         tpr_for_max=args.tpr[0] / 100,
                                         load_net=False,
                                         load_state=False)
-        
+
     total = sum(map(len, list_of_networks))
     log.debug(f'{total} networks in {len(list_of_networks)} lists collected:')
 
@@ -190,7 +190,9 @@ if __name__ == '__main__':
                 total_available_by_epoch = {_: available[_]['all_sets']['anywhere'] for _ in available}
                 if total_available_by_epoch:
                     result_epoch = max(total_available_by_epoch, key=total_available_by_epoch.get)
-                    a_ = available[result_epoch]['all_sets']
+                    a__ = available[result_epoch]
+                    a_ = a__['all_sets']
+
                     if total_available_by_epoch[result_epoch]:
                         models_to_be_kept.append(dict(model=make_dict_from_model(n['net'],
                                                                                  directory=n['dir'],

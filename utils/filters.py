@@ -1,7 +1,8 @@
+import argparse, configparser
 import re
 import numpy as np
 import logging
-
+from pydoc import locate
 
 class ParamFilter():
 
@@ -96,14 +97,92 @@ class ParamFilter():
         the_value = self.arg_type(self.arg_str)
         in_ = value == the_value
         return not in_ if neg else in_
+
+
+class ListOfParamFilters(list):
+
+    @property
+    def arg_type(self):
+        if not self:
+            return None
+        return self[0].arg_type
     
+    def append(self, a):
 
-def match_filters(filters, model):
+        assert not self.arg_type or a.arg_type == self.arg_type
+        super().append(a)
+        
+    def filter(self, value):
 
-    for k in filters:
-        for f in filters[k]:
-            if not f.filter(model):
+        return all(_.filter(value) for _ in self)
+
+    
+class DictOfListsOfParamFilters(dict):
+
+    def add(self, key, filter):
+
+        if key not in self:
+            self[key] = ListOfParamFilters()
+        self[key].append(filter)
+
+    def filter(self, d):
+
+        for k in self:
+            if k in d and not self[k].filter(d[k]):
                 return False
 
-    return True
-            
+        return True
+
+    
+class FilterAction(argparse.Action):
+
+    def __init__(self, option_strings, dest, of_type=str, neg=False, **kwargs):
+        super(FilterAction, self).__init__(option_strings, dest, **kwargs)
+
+        # print('FilterAction init', option_strings)
+        self._type=of_type
+        self.default=ParamFilter()
+
+    def __call__(self, parser, namespace, values, option_string=None):
+
+        # print('FilterAction called', option_string, values)
+
+        if not values:
+            values = []
+        if type(values) is not list:
+            values = [values]
+
+        neg = False
+
+        if values and values[0].lower() == 'not':
+            neg = True
+            values.pop(0)
+
+        arg_str = ' '.join(str(v) for v in values)
+
+        filter = ParamFilter(arg_str,
+                             arg_type=self._type,
+                             neg=neg)
+        # print(filter)
+        if not hasattr(namespace, 'filters'):
+            setattr(namespace, 'filters', DictOfListsOfParamFilters())
+        if self.dest not in namespace.filters:
+            namespace.filters[self.dest] = ListOfParamFilters()
+        namespace.filters[self.dest].append(filter)
+
+        
+if __name__ == '__main__':
+
+    
+    parser = argparse.ArgumentParser(add_help=False)
+
+    parser.add_argument('--bogus')
+    a, ra = parser.parse_known_args()
+
+    filter_parser = parse_filters(parents=[parser], add_help=True)
+    
+    filters = filter_parser.parse_args(ra).filters
+
+    for k in filters:
+        print(k, *filters[k])
+

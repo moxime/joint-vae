@@ -1,11 +1,12 @@
 import argparse
 import configparser
 import logging
+from pydoc import locate
 from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 import re, numpy as np
 from socket import gethostname as getrawhostname
-from utils.filters import ParamFilter, match_filters
+from utils.filters import ParamFilter, FilterAction, DictOfListsOfParamFilters
 import os
 
 
@@ -346,7 +347,7 @@ def get_args_for_train(argv=None):
 
 def get_args_for_test(argv=None):
 
-    parser = argparse.ArgumentParser()  # (add_help=False)
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--verbose', '-v', action='count', default=0)
 
@@ -361,8 +362,8 @@ def get_args_for_test(argv=None):
     for k in defaults:
         logging.debug(k, defaults[k])
 
-    parser.add_argument('load_dir',
-                        nargs='?', default=None)
+    parser.add_argument('--load_dir',
+                        default=None)
 
     parser.add_argument('-J', '--job-dir', default='./jobs')
     
@@ -387,6 +388,8 @@ def get_args_for_test(argv=None):
 
     parser.add_argument('--cautious', action='store_true')
 
+    parser.add_argument('--early-stopping')
+    
     parser.add_argument('--force-cpu', action='store_true')
     parser.add_argument('--compute',
                         nargs='?',
@@ -398,6 +401,7 @@ def get_args_for_test(argv=None):
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 
+    
     parser.add_argument('--show', action='store_true')
     
     parser.add_argument('--latex', action='store_true')
@@ -424,161 +428,62 @@ def get_args_for_test(argv=None):
     parser.add_argument('--ood-methods', action=NewEntryDictofLists, nargs='+', default={})
     parser.add_argument('--remove-index', nargs='*')
 
-    add_filters_args_to_parser(parser)
-    
-    args = parser.parse_args(argv)
+    args, ra = parser.parse_known_args(argv)
 
-    if not hasattr(args, 'filters'):
-        args.filters = {}
+    args.filters = DictOfListsOfParamFilters()
+    
+    filter_parser = parse_filters(parents=[parser])
+    filter_args = filter_parser.parse_args(ra)
+
+    if hasattr(filter_args, 'filters'):
+        args.filters.update(filter_args.filters)
 
     return args
 
 
-def add_filters_args_to_parser(parser):
+def parse_filters(default_ini_file='utils/filters.ini', **kw):
 
-    parser.add_argument('--done',
-                        dest='done',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=int,)
-
-    parser.add_argument('--early-stopping', nargs='?', const='min')
+    parser = argparse.ArgumentParser(**kw)
     
-    parser.add_argument('--finished',
-                        nargs='?',
-                        const='true',
-                        action=FilterAction,
-                        of_type=str2bool)
+    config = configparser.ConfigParser()
 
-    parser.add_argument('--has-validation',
-                        nargs='?',
-                        const='true',
-                        action=FilterAction,
-                        of_type=str2bool)
+    config.read(default_ini_file)
 
-    parser.add_argument('--train-batch-size',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=int)
+    types = config['type']
 
-    parser.add_argument('--best-accuracy',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=float)
+    dests = config['dest']
 
-    parser.add_argument('--optimizer',
-                        dest='optim',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=str)
-    
-    parser.add_argument('--type',
-                        action=FilterAction,
-                        nargs='+')
+    abbrs = config['abbr']
 
-    parser.add_argument('--features',
-                        action=FilterAction,
-                        nargs='+')
+    metavars = config['metavar']
 
-    parser.add_argument('--arch-code',
-                        action=FilterAction,
-                        nargs='+')
+    argnames = {}
+    for k in types:
 
-    parser.add_argument('-s', '--sigma',
-                        dest='beta_sigma',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=float,
-                        metavar='S')
+        argname = ['--' + k.replace('_', '-')]
+        if k in abbrs:
+            argname.append('-' + abbrs[k])
+        argnames[k] = argname
 
-    parser.add_argument('--sigma-train',
-                        action=FilterAction,
-                        nargs='+')
-                        
-    parser.add_argument('--gamma', action=FilterAction, of_type=float,
-                        nargs='+')
+    for k in types:
 
-    parser.add_argument('--beta', action=FilterAction, of_type=float,
-                        nargs='+')
+        # print(*argnames[k], types.get(k, 'str'))
+        if not types.get(k):
+            argtype = str
+        else:
+            argtype = locate(types[k])
+        nargs = '*'
+        metavar = None
+        if argtype is bool:
+            metavar = 'not'
+            nargs = '?'
+        if k in metavars:
+            metavar = metavars[k]
+        parser.add_argument(*argnames[k], dest=dests.get(k),
+                            of_type=argtype, nargs=nargs,
+                            metavar=metavar, action=FilterAction)
 
-    parser.add_argument('--coder-dict', action=FilterAction, 
-                        nargs='+')
-
-    parser.add_argument('-K', '--latent-dim', metavar='K',
-                        dest='K',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=int)
-
-    parser.add_argument('-L', '--latent-sampling', metavar='L',
-                        dest='L',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=int)
-
-    parser.add_argument('--warmup',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=int)
-
-    parser.add_argument('--depth',
-                        nargs='+',
-                        action=FilterAction,
-                        of_type=int)
-    
-    parser.add_argument('--dataset',
-                        dest='set',
-                        nargs='+',
-                        action=FilterAction)
-
-    parser.add_argument('--data-augmentation',
-                        nargs='+',
-                        action=FilterAction)
-
-    parser.add_argument('--batch-norm',
-                        nargs='+',
-                        action=FilterAction)
-
-    parser.add_argument('--job-number',
-                        dest='job',
-                        of_type=int,
-                        nargs='+',
-                        action=FilterAction)
-
-
-    
-class FilterAction(argparse.Action):
-
-    def __init__(self, option_strings, dest, of_type=str, neg=False, **kwargs):
-        super(FilterAction, self).__init__(option_strings, dest, **kwargs)
-
-        # print('FilterAction init', option_strings)
-        self._type=of_type
-        self.default=ParamFilter()
-
-    def __call__(self, parser, namespace, values, option_string=None):
-
-        # print('FilterAction called', option_string, values)
-        
-        if type(values) is not list:
-            values = [values]
-
-        neg = False
-        if values and values[0].lower() == 'not':
-            neg = True
-            values.pop(0)
-
-        arg_str = ' '.join(str(v) for v in values)
-
-        filter = ParamFilter(arg_str,
-                             arg_type=self._type,
-                             neg=neg)
-        # print(filter)
-        if not hasattr(namespace, 'filters'):
-            setattr(namespace, 'filters', {})
-        if self.dest not in namespace.filters:
-            namespace.filters[self.dest] = []
-        namespace.filters[self.dest].append(filter)
+    return parser
 
 
 class NewEntryDictofLists(argparse.Action):
@@ -600,10 +505,8 @@ class NewEntryDictofLists(argparse.Action):
 if __name__ == '__main__':
 
     arg = get_args_for_test()
-
-    print(arg.classification_methods)
-
-    print(arg.sets)
+    for k in arg.filters:
+        print(k, *arg.filters[k])
 
     # m = {'done': 4, 'job': 45, 'batch_norm': ['decoder', 'encoder'], 'type': 'cvae'}
     

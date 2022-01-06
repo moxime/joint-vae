@@ -138,8 +138,10 @@ if __name__ == '__main__':
     # print('***', args.compute, *where)
     
     for n in sum(list_of_networks, []):
-        filter_results = sum([[f.filter(n[d]) for f in filters[d]] for d in filters], [])
-        to_be_kept = all(filter_results)
+        to_be_kept = filters.filter(n)
+        if to_be_kept:
+            for k in filters:
+                print('***', k, n.get(k), 'in', *filters[k])
         if to_be_kept:
             d = n['dir']
             derailed = os.path.join(d, 'derailed')

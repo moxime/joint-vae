@@ -7,13 +7,52 @@ import functools
 from utils.save_load import iterable_over_subdirs
 
 
-@iterable_over_subdirs(0)
-def printdir(directory='.'):
-    if directory:
-        # print(directory, ':', ', '.join(os.listdir(directory)))
-        print(directory)    
-        pass
-         
+@iterable_over_subdirs(0, iterate_over_subdirs=list)
+def modify_train_file_coder(directory, write_json=False):
+
+    name = os.path.join(directory, 'train.json')
+    # print(directory)
+    
+    if not os.path.exists(name):
+        return
+
+    #        print(name)
+    with open(name, 'rb') as f:
+        try:
+            t = json.load(f)
+        except json.JSONDecodeError:
+            print('error with', name)
+            t = dict()
+            return
+
+    if t['learned_coder']:
+        t['coder_means'] = 'learned'
+    else:
+        t['coder_means'] = 'random'
+
+    if t.get('dictionary_min_dist', 0) and t['coder_capacity_regularization']:
+        t['coder_regularization'] = t['dictionary_min_dist']
+    else:
+        t['coder_regularization'] = None
+
+        if t.get('dictionary_min_dist'):
+            print('{} -- l:{}, d:{}, r:{} -> m:{:6} r:{}'.format(
+                directory[-7:],
+                t['learned_coder'],
+                t['dictionary_min_dist'],
+                t['coder_capacity_regularization'],
+                t['coder_means'],
+                t['coder_regularization']
+            ))
+
+    if write_json:
+        copyfile(name, name + '.bak')
+        print('w', name, '\n', t)
+        with open(name, 'w') as f:
+            print('write')
+            json.dump(t, f)
+
+
 @iterable_over_subdirs('directory')
 def verify_has_valid(directory='jobs/'):
     try:

@@ -136,6 +136,8 @@ if __name__ == '__main__':
         # if to_be_kept:
             # for k in filters:
             #     logging.debug(k, n.get(k), 'in', ' and '.join(filters[k]))
+        if not isinstance(n['job'], int):
+            print('****', n['job'], n['dir'][-10:])
         if to_be_kept:
             d = n['dir']
             derailed = os.path.join(d, 'derailed')
@@ -151,7 +153,7 @@ if __name__ == '__main__':
                     open(derailed, 'a').close()
                     log.debug(f'Net in {d} has been marked as derailed')
             to_be_kept = not n['is_resumed']
-        if to_be_kept:
+            
             if n['set'] in archs:
                 archs[n['set']].add(n['arch'])
             else:

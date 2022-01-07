@@ -1031,6 +1031,9 @@ def collect_networks(directory,
                      load_state=True, tpr_for_max=0.95, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
+
+    if 'dump' in directory:
+        return
     
     try:
         logging.debug(f'Loading net in: {directory}')

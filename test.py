@@ -136,8 +136,6 @@ if __name__ == '__main__':
         # if to_be_kept:
             # for k in filters:
             #     logging.debug(k, n.get(k), 'in', ' and '.join(filters[k]))
-        if not isinstance(n['job'], int):
-            print('****', n['job'], n['dir'][-10:])
         if to_be_kept:
             d = n['dir']
             derailed = os.path.join(d, 'derailed')

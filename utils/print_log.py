@@ -6,6 +6,8 @@ import pandas as pd
 import sys
 import re
 import functools
+from contextlib import contextmanager
+import os
 
 def harddebug(*a):
     if harddebug.level:
@@ -24,6 +26,21 @@ def printdebug(d=True):
             return out
         return wrapped
     return wrapper
+
+
+@contextmanager
+def turnoff_debug(logger=None, type_of_stream=os.sys.stderr):
+    logger = logger or logging.getLogger()
+    handlers = logger.handlers
+    logging_levels = {_: _.level for _ in handlers}
+    for h in handlers:
+        if h.stream == type_of_stream or not type_of_stream:
+            h.setLevel(logging.ERROR)
+    try:
+        yield
+    finally:
+        for h in handlers:
+            h.setLevel(logging_levels[h])
 
 
 class EpochOutput:

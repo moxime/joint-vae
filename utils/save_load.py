@@ -13,6 +13,51 @@ from utils.misc import make_list
 from utils.torch_load import get_same_size_by_name, get_shape_by_name
 from utils.roc_curves import fpr_at_tpr
 from contextlib import contextmanager
+import functools
+
+
+def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False):
+    def iterate_over_subdirs_wrapper(func):
+        def iterated_func(*a, keep_none=keep_none, **kw):
+            if isinstance(arg, str):
+                directory = kw.get(arg)
+            else:
+                directory = a[arg]
+            # print('***', directory[-10:], 'a:', *a, 'k:', *kw, '***')  
+            out = func(*a, **kw)
+        
+            if out is not None or keep_none:
+                yield out
+            try:
+                rel_paths = os.listdir(directory)
+                paths = [os.path.join(directory, p) for p in rel_paths]
+                dirs = [d for d in paths if os.path.isdir(d)]
+            except PermissionError:
+                dirs = []
+                
+            for d in dirs:
+                if isinstance(arg, str):
+                    kw[arg] = d
+                else:
+                    a = list(a)
+                    a[arg] = d
+                yield from iterated_func(*a, **kw)
+
+        @functools.wraps(func)
+        def wrapped_func(*a, iterate_over_subdirs=iterate_over_subdirs, **kw):
+
+            if not iterate_over_subdirs:
+                try:
+                    return next(iter(iterated_func(*a, keep_none=True, **kw)))
+                except StopIteration:
+                    return
+            if iterate_over_subdirs == True:
+                return iterated_func(*a, **kw)
+            else:
+                return iterate_over_subdirs(iterated_func(*a, **kw))
+        return wrapped_func
+
+    return iterate_over_subdirs_wrapper
 
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -86,9 +131,8 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_paths) if os.path.isdir(d)]
     print(f'<enter>: choose {dir_path}', end='')
     if count_nets:
-        lists_of_nets = []
-        collect_networks(dir_path, lists_of_nets, only_trained=False)
-        num_of_nets = len(sum(lists_of_nets, []))
+        list_of_nets = collect_networks(dir_path, load_net=False)
+        num_of_nets = len(list_of_nets)
         print(f' ({num_of_nets} networks)')
     else:
         print()
@@ -96,10 +140,8 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     for i, d in enumerate(sub_dirs_rel_paths):
         print(f'{i+1:2d}: enter {d}', end='')
         if count_nets:
-            lists_of_nets = []
-            collect_networks(os.path.join(dir_path, d),
-                             lists_of_nets, only_trained=False)
-            num_of_nets = len(sum(lists_of_nets, []))
+            list_of_nets = collect_networks(os.path.join(dir_path, d), load_net=False)
+            num_of_nets = len(list_of_nets)
             print(f' ({num_of_nets} networks)')
         else:
             print()
@@ -984,62 +1026,26 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'lr': empty_optimizer.init_lr,
     }
 
-
-def collect_networks(directory, list_of_vae_by_architectures=None,
+@iterable_over_subdirs(0, iterate_over_subdirs=list)
+def collect_networks(directory, 
                      load_state=True, tpr_for_max=0.95, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
     
-    if list_of_vae_by_architectures is None:
-        l = []
-        collect_networks(directory, l, load_state, **default_load_paramaters)
-        return l
-    
-    def append_by_architecture(net_dict, list_of_lists):
-        
-        arch = net_dict['arch']
-        
-        added = False
-        for list_of_nets in list_of_lists:
-            if not added:
-                if arch == list_of_nets[0]['arch']:
-                    list_of_nets.append(net_dict)
-                    added = True
-        if not added:
-            list_of_lists.append([net_dict])
-            added = True
-
-        return added
-
     try:
         logging.debug(f'Loading net in: {directory}')
         model = ClassificationVariationalNetwork.load(directory,
                                                       load_state=load_state,
                                                       **default_load_paramaters)
 
-        model_dict = make_dict_from_model(model, directory, tpr=tpr_for_max) 
-        append_by_architecture(model_dict, list_of_vae_by_architectures)
+        return make_dict_from_model(model, directory, tpr=tpr_for_max) 
 
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
         logging.debug(f'Load error: {e}')
     
-    except FileNotFoundError as e:    
+    except (FileNotFoundError, PermissionError):    
         pass  # print(e)
-    list_dir = [os.path.join(directory, d) for d in os.listdir(directory) if not d.startswith('dump')]
-    sub_dirs = [e for e in list_dir if os.path.isdir(e)]
-    
-    for d in sub_dirs:
-        collect_networks(d,
-                         list_of_vae_by_architectures,
-                         load_state=load_state,
-                         **default_load_paramaters)
-
-    num_of_archs = len(list_of_vae_by_architectures)
-    num_of_nets = len(sum(list_of_vae_by_architectures, []))
-
-    logging.debug(f'{num_of_nets} nets in {num_of_archs} different architectures'
-                  f'found in {shorten_path(directory)}')
 
 
 def is_derailed(model, load_model_for_check=False):
@@ -1070,19 +1076,27 @@ def is_derailed(model, load_model_for_check=False):
     return False            
 
 
-def find_by_job_number(*job_numbers, dir='jobs', tpr_for_max=0.95, load_net=True, force_dict=False, **kw):
+def find_by_job_number(*job_numbers, job_dir='jobs', tpr_for_max=0.95, load_net=True, force_dict=False, **kw):
 
     from cvae import ClassificationVariationalNetwork
     d = {}
 
-    v_ = sum(collect_networks(dir, tpr_for_max=tpr_for_max,load_net=False, **kw), [])
-    for number in job_numbers:
-        for v in v_:
-            if v['job'] == number:
-                d[number] = v
-                if load_net:
-                    d[number]['net'] = ClassificationVariationalNetwork.load(v['dir'], **kw)
-
+    job_numbers_list = list(job_numbers)
+    models = collect_networks(job_dir,
+                              tpr_for_max=tpr_for_max,
+                              load_net=False,
+                              iterate_over_subdirs=True,
+                              **kw)
+    for m in models:
+        n = m['job']
+        if n in job_numbers_list:
+            d[n] = m
+            job_numbers_list.remove(n)
+            if load_net:
+                d[n]['net'] = ClassificationVariationalNetwork.load(m['dir'], **kw)
+        if not job_numbers_list:
+            break
+        
     return d if len(job_numbers) > 1 or force_dict else d[job_numbers[0]]
 
 

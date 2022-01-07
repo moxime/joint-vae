@@ -4,34 +4,17 @@ from module.vae_layers import Sigma
 from utils.save_load import find_by_job_number, load_json
 from shutil import copyfile
 import functools
+from utils.save_load import iterable_over_subdirs
 
 
-def iterate_over_subdirs(func):
-
-    @functools.wraps(func)
-    def iterated_func(*a, iterate=False, **kw):
-        directory = kw.get('directory')
-        # print('***', directory, iterate, *kw, '***')
-        if not iterate or not directory:
-            return func(*a, **kw)
-        func(*a, **kw)
-        directory = kw.pop('directory')
-        rel_paths = os.listdir(directory)
-        paths = [os.path.join(directory, p) for p in rel_paths]
-        dirs = [d for d in paths if os.path.isdir(d)]
-        for d in dirs:
-            iterated_func(*a, iterate=True, directory=d, **kw)
-    return iterated_func
-
-
-@iterate_over_subdirs
-def listdir(directory='.'):
+@iterable_over_subdirs(0)
+def printdir(directory='.'):
     if directory:
         # print(directory, ':', ', '.join(os.listdir(directory)))
-         print(directory)    
-
+        print(directory)    
+        pass
          
-@iterate_over_subdirs
+@iterable_over_subdirs('directory')
 def verify_has_valid(directory='jobs/'):
     try:
         train = load_json(directory, 'train.json')

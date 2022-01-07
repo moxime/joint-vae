@@ -14,6 +14,7 @@ from utils.filters import DictOfListsOfParamFilters, ParamFilter
 from utils.tables import agg_results
 from pydoc import locate
 import re
+from utils.print_log import turnoff_debug
 
 def expand_row(row_format, *a, col_sep=' & '):
 
@@ -69,8 +70,9 @@ if __name__ == '__main__':
             
     else:
         texify = {}
-        
-    all_models = sum(collect_networks(args.job_dir, load_net=False), [])
+
+    with turnoff_debug():
+        all_models = collect_networks(args.job_dir, load_net=False)
 
     filter_conf = configparser.ConfigParser()
     filter_conf.read(args.filters)

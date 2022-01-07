@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 
 from utils.parameters import get_args, set_log, gethostname
-from utils.print_log import EpochOutput
+from utils.print_log import EpochOutput, turnoff_debug
 from utils.save_load import collect_networks, test_results_df, LossRecorder
 from utils.save_load import make_dict_from_model, available_results, save_json
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
@@ -88,21 +88,15 @@ if __name__ == '__main__':
     search_dir = load_dir if load_dir else job_dir
 
     logging.debug('Collecting networks')
-    list_of_networks = collect_networks(search_dir,
-                                        tpr_for_max=args.tpr[0] / 100,
-                                        load_net=False,
-                                        load_state=False)
+    with turnoff_debug():
+        list_of_networks = collect_networks(search_dir,
+                                            tpr_for_max=args.tpr[0] / 100,
+                                            load_net=False,
+                                            load_state=False)
 
-    total = sum(map(len, list_of_networks))
-    log.debug(f'{total} networks in {len(list_of_networks)} lists collected:')
+    total = len(list_of_networks)
 
-    for (i, l) in enumerate(list_of_networks):
-        a = l[0]['arch']  # ['net'].print_architecture(sampling=True)
-        w = 'networks' if len(l) > 1 else 'network '
-        log.debug('|')
-        log.debug(f'|_{len(l)} {w} of type {a}')
-
-    log.debug('{} models found'.format(sum([len(l) for l in list_of_networks])))
+    log.debug('{} models found'.format(total))
     log.info('Is kept')
     log.info('| Results')
     log.info('| are fully available')
@@ -137,7 +131,7 @@ if __name__ == '__main__':
 
     # print('***', args.compute, *where)
     
-    for n in sum(list_of_networks, []):
+    for n in list_of_networks:
         to_be_kept = filters.filter(n)
         # if to_be_kept:
             # for k in filters:

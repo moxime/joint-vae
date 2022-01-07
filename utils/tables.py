@@ -3,7 +3,7 @@ from datetime import datetime
 import string
 import functools
 from utils.save_load import create_file_for_job as create_file, find_by_job_number
-from utils.print_log import texify, debug, printdebug
+from utils.print_log import texify, harddebug, printdebug
 from module.optimizers import Optimizer
 import torch
 import numpy as np
@@ -248,11 +248,11 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
 
     for k, df in df_dict.items():
 
-        debug('\n*** index:', '\ndf:\n', df[df.columns[0:6]], '\n***')
+        harddebug('\n*** index:', '\ndf:\n', df[df.columns[0:6]], '\n***')
         
         df = df.groupby(kept_levels).agg('mean')
         
-        debug('\n*** index:', *df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
+        harddebug('\n*** index:', *df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
 
         kc = kept_cols[k]
 
@@ -261,24 +261,24 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
 
         df = df[kc]
 
-        debug('\n*** kept cols', *df.columns, '\n', df)
+        harddebug('\n*** kept cols', *df.columns, '\n', df)
 
 
         level = df.index.nlevels - 1
         # debug('***\n', df)
         df = df.stack(level=0)
-        debug('*** stack:\n', df)
+        harddebug('*** stack:\n', df)
 
         df = df.unstack(level=0)
-        debug('*** unstack:\n', df)
+        harddebug('*** unstack:\n', df)
 
         if level:
             level_names = df.index.names
             level_names_ = [level_names[-1]] + level_names[:-1]
 
-            debug('*** df\n', df)
+            harddebug('*** df\n', df)
             df = df.reorder_levels(level_names_)
-            debug('*** reorder\n', df)
+            harddebug('*** reorder\n', df)
 
         
         df_dict[k] = df
@@ -288,9 +288,9 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
     if level:
         removed_index = [i for i, l in enumerate(large_df.index.levels) if len(l) < 2]
 
-        debug('index', *large_df.index.names)
+        harddebug('index', *large_df.index.names)
         large_df = large_df.droplevel(removed_index)
-        debug('removed index', *large_df.index.names)
+        harddebug('removed index', *large_df.index.names)
     
     return large_df.reorder_levels(['metrics', 'type', 'method'], axis=1)
 

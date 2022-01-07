@@ -1,6 +1,6 @@
 from functools import partial
 from cvae import ClassificationVariationalNetwork as Net
-from utils.parameters import set_log, add_filters_args_to_parser
+from utils.parameters import set_log
 import argparse, configparser
 import sys, os
 import logging
@@ -10,9 +10,9 @@ from utils import torch_load as tl
 from utils.sample import zsample, sample
 from utils.inspection import loss_comparisons
 import matplotlib.pyplot as plt
-from utils.filters import match_filters
+from utils.filters import DictOfListsOfParamFilters, ParamFilter
 from utils.tables import agg_results
-
+from pydoc import locate
 import re
 
 def expand_row(row_format, *a, col_sep=' & '):
@@ -41,86 +41,88 @@ tex_output = sys.stdout
 
 if __name__ == '__main__':
 
-    conf_parser = argparse.ArgumentParser(add_help=False)
-    conf_parser.add_argument('--debug', action='store_true')
-    conf_parser.add_argument('--verbose', '-v', action='count', default=0)
-    conf_parser.add_argument('--config-files', nargs='+', default=[file_ini])
-    conf_parser.add_argument('--which', '-c', nargs='*', default=['all'])
-    conf_parser.add_argument('--job_dir', default=job_dir)
-    conf_parser.add_argument('--results_dir', default=root)
-    conf_parser.add_argument('--texify', default='utils/texify.ini')
-    
-    parser = argparse.ArgumentParser(parents=[conf_parser])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--verbose', '-v', action='count', default=0)
+    parser.add_argument('--config-files', nargs='+', default=[file_ini])
+    parser.add_argument('--which', '-c', nargs='*', default=['all'])
+    parser.add_argument('--job_dir', default=job_dir)
+    parser.add_argument('--results_dir', default=root)
+    parser.add_argument('--texify', default='utils/texify.ini')
+    parser.add_argument('--filters', default='utils/filters.ini')
     parser.add_argument('--tpr', default=95, type=int)
     
-    conf_args, other_args = conf_parser.parse_known_args(None if sys.argv[0] else args_from_file)
+    args = parser.parse_args(None if sys.argv[0] else args_from_file)
 
-    root = conf_args.results_dir
-    
-    add_filters_args_to_parser(parser)
-    
-    if conf_args.verbose > 0:
+    root = args.results_dir
+
+    if args.verbose > 0:
         logging.getLogger().setLevel(logging.WARNING)
-    if conf_args.verbose > 1:
+    if args.verbose > 1:
         logging.getLogger().setLevel(logging.INFO)
-    if conf_args.debug:
+    if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    if conf_args.texify:
+    if args.texify:
         texify = configparser.ConfigParser()
-        texify.read(conf_args.texify)
+        texify.read(args.texify)
             
     else:
         texify = {}
         
-    all_models = sum(collect_networks(conf_args.job_dir, load_net=False), [])
-    for config_file in conf_args.config_files:
+    all_models = sum(collect_networks(args.job_dir, load_net=False), [])
+
+    filter_conf = configparser.ConfigParser()
+    filter_conf.read(args.filters)
+    filter_types = filter_conf['type']
+    filter_dests = filter_conf['dest']
+    
+    for config_file in args.config_files:
         config = configparser.ConfigParser()
         config.read(config_file)
-        which = conf_args.which
+        which = args.which
         if 'all' in which:
             which = list(config.keys())
             if 'DEFAULT' in which:
                 which.remove('DEFAULT')
         else:
-            which = [w for w  in which if w in config]
+            which = [w for w in which if w in config]
 
         default_config = config['DEFAULT']
         dataset = default_config.get('dataset')
-        tab_file = default_config.get('file', dataset + '-ood-tab.tex')
+        tab_file = default_config.get('file', config_file.strip('.ini') + '-ood-tab.tex')
         tab_file = os.path.join(root, tab_file)
         
         logging.info('Tab for {} will be saved in file {}'.format(dataset, tab_file))
         
         filters = {}
-        args = {}
+
         logging.info('Keys in config file: %s', ' '.join(which))
 
         for k in which:
 
-            logging.info('*** %s: ***', k)
+            logging.info('| key %s:', k)
             # logging.info(' '.join(['{}: {}'.format(_, config[k][_]) for _ in config[k]]))
-            argv = sum([['--' + _.replace('_', '-'), v] for _, v in config[k].items()], [])
-            a, ra = parser.parse_known_args(argv)
-            filters[k] = a.filters
-            for _ in a.filters:
-                logging.info(f'{_:16}: ' + ','.join(str(__) for __ in a.filters[_])) 
-            logging.info('Remaining args: %s', ' '.join(ra))
-            args[k], ra = parser.parse_known_args(ra)
+            filters[k] = DictOfListsOfParamFilters()
+
+            for _ in config[k]:
+                if _ in filter_types:
+
+                    filters[k].add(filter_dests.get(_, _),
+                                   ParamFilter(config[k][_],
+                                               arg_type=locate(filter_types[_] or 'str')))
 
         for k in filters:
-            logging.debug(k)
+            logging.debug('| filters for %s', k)
             f = filters[k]
             for _ in f:
-                logging.debug('%s: %s', _, ' '.join(str(__) for __ in f[_]))
-
+                logging.debug('| | %s: %s', _, ' '.join(str(__) for __ in f[_]))
 
         models = {k: [] for k in filters}
 
         for n in all_models:
-            for k, f_ in filters.items():
-                filter_results = sum([[f.filter(n[d]) for f in f_[d]] for d in f_], [])
-                to_be_kept = all(filter_results)
+            for k, filter in filters.items():
+                to_be_kept = filter.filter(n)
                 d = n['dir']
                 derailed = os.path.join(d, 'derailed')
                 to_be_kept = to_be_kept and not os.path.exists(derailed) and not n['is_resumed']
@@ -141,7 +143,7 @@ if __name__ == '__main__':
                                   ood={},
                                   show_measures=False,  # True,
                                   tnr=False,
-                                  tpr=[args[k].tpr / 100],
+                                  tpr=[float(default_config['tpr']) / 100],
                                   sorting_keys=[])
             df = next(iter(df_.values()))
             df.index = pd.MultiIndex.from_frame(df.index.to_frame().fillna('NaN'))

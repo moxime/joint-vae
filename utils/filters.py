@@ -3,6 +3,8 @@ import re
 import numpy as np
 import logging
 from pydoc import locate
+from utils.print_log import harddebug, printdebug
+
 
 class ParamFilter():
 
@@ -54,9 +56,11 @@ class ParamFilter():
 
         else:
             return pre + (self.arg_str if self.arg_str else 'any')
-        
+
+    @printdebug(False)
     def filter(self, value):
 
+        harddebug(self, value)
         if type(value) is list:
             if self.neg:
                 return np.all([self.filter(v) for v in value])
@@ -125,8 +129,9 @@ class DictOfListsOfParamFilters(dict):
             self[key] = ListOfParamFilters()
         self[key].append(filter)
 
+    @printdebug(False)
     def filter(self, d):
-
+        harddebug(d)
         for k in self:
             if k in d and not self[k].filter(d[k]):
                 return False

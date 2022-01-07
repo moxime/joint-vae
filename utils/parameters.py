@@ -479,6 +479,7 @@ def parse_filters(default_ini_file='utils/filters.ini', **kw):
             nargs = '?'
         if k in metavars:
             metavar = metavars[k]
+
         parser.add_argument(*argnames[k], dest=dests.get(k),
                             of_type=argtype, nargs=nargs,
                             metavar=metavar, action=FilterAction)

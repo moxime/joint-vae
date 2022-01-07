@@ -7,23 +7,24 @@ import sys
 import re
 import functools
 
-def debug(*a):
-    if debug.level:
-        print(debug.pre, *a)
+def harddebug(*a):
+    if harddebug.level:
+        print(harddebug.pre, *a)
 
-debug.level=0
+harddebug.level=0
 
 def printdebug(d=True):
     def wrapper(func):
         @functools.wraps(func)
         def wrapped(*a, **kw):
-            debug.level = d
-            debug.pre = '*** ' + func.__name__ + ' ***'
+            harddebug.level = d
+            harddebug.pre = '*** ' + func.__name__ + ' ***'
             out = func(*a, **kw)
-            debug.level=False
+            harddebug.level=False
             return out
         return wrapped
     return wrapper
+
 
 class EpochOutput:
 

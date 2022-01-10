@@ -112,7 +112,9 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
 
     t = {_: all_thresholds[_][idx['thr'][_]] for _ in ('low', 'up')}
 
-    last_fpr = -1.
+    last_fpr = 1.1
+    last_tpr = 1.1
+    
     kept_tpr_i = -1
 
     num_print = 50
@@ -156,16 +158,16 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
 
         t = {_: all_thresholds[_][idx['thr'][_]] for _ in ('low', 'up')}
             
-        if fpr >= last_fpr or True:
+        if fpr < last_fpr or tpr < last_tpr and True:
             relevant_thresholds.append((t['low'], t['up']))
             relevant_tpr.append(tpr)
             relevant_fpr.append(fpr)
             last_fpr = fpr
+            last_tpr = tpr
 
         if kept_tpr_i >= - len(kept_tpr):
             if tpr < original_kept_tpr[kept_tpr_i]:
-                # print('* {:6.2%} {:6.2%}< {:6.2%} ({:6.2%})'.format(fpr, tpr, original_kept_tpr[kept_tpr_i], kept_fpr[kept_tpr_i]))
-                kept_tpr_i -= 1
+                 kept_tpr_i -= 1
             else:
                 # print('  {:6.2%} {:6.2%}>={:6.2%}'.format(fpr, tpr, original_kept_tpr[kept_tpr_i]))
                 kept_fpr[kept_tpr_i] = fpr
@@ -189,6 +191,8 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
     
     auroc = auc(relevant_fpr, relevant_tpr)
 
+
+    # return relevant_fpr, relevant_tpr
     # print('*** rc', len(ins), len(outs), time() - t0)
         
     return auroc, kept_fpr, kept_tpr, kept_thresholds

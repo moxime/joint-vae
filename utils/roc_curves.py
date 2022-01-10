@@ -131,8 +131,9 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
             while idx[w]['up'] > -n[w] and scores[w][idx[w]['up']] > t['up']:
                 idx[w]['up'] -= 1
 
-        neg = {w: max(0, idx[w]['low'] - 1) - idx[w]['up'] - 1 for w in ('out', 'in')}
-
+        # neg = {w: max(0, idx[w]['low'] - 1) - idx[w]['up'] - 1 for w in ('out', 'in')}
+        neg = {w: idx[w]['low'] - (idx[w]['up'] + 1) for w in ('out', 'in')}
+        
         tpr = 1 - neg['in'] / n['in']
         fpr = 1 - neg['out'] / n['out']
 
@@ -158,7 +159,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
 
         t = {_: all_thresholds[_][idx['thr'][_]] for _ in ('low', 'up')}
             
-        if fpr <= last_fpr: # or tpr < last_tpr and True:
+        if fpr <= last_fpr or True: # or tpr < last_tpr and True:
             relevant_thresholds.append((t['low'], t['up']))
             relevant_tpr.append(tpr)
             relevant_fpr.append(fpr)

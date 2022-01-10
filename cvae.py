@@ -138,18 +138,12 @@ class ClassificationVariationalNetwork(nn.Module):
                  latent_prior_variance=1,
                  beta=1.,
                  gamma=0.,
-                 rho=0.,
-                 rho_temp=np.inf,
                  dictionary_variance=1,
-                 learned_coder=False,
-                 dictionary_min_dist=None,
-                 init_coder=True,
-                 coder_capacity_regularization=False,
+                 coder_means='random',
                  decoder_layer_sizes=[36],
                  upsampler_channels=None,
                  pretrained_upsampler=None,
                  classifier_layer_sizes=[36],
-                 force_cross_y=0.,
                  name='joint-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
@@ -199,8 +193,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self._measures = {}
         
-        self.force_cross_y = force_cross_y
-        if not self.y_is_decoded and not force_cross_y:
+        if not self.y_is_decoded:
             classifier_layer_sizes = []
         if not self.x_is_generated:
             decoder_layer_sizes = []
@@ -271,12 +264,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.beta = beta
 
-        if not rho and (rho_temp is not None) and np.isfinite(rho_temp):
-            rho = 1
-        self.rho = rho if self.coder_has_dict else None
         self.gamma = gamma if self.y_is_decoded else None
-        self.rho_temp = rho_temp if self.coder_has_dict else None
-        
         logging.debug(f'Gamma: {self.gamma}')
         
         self.latent_prior_variance = latent_prior_variance
@@ -287,15 +275,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                sigma_output_dim=self.sigma.output_dim if self.sigma.coded else 0,
                                forced_variance = encoder_forced_variance,
                                sampling_size=latent_sampling,
+                               coder_means=coder_means,
                                dictionary_variance=dictionary_variance,
-                               learned_dictionary=learned_coder,
-                               dictionary_min_dist=dictionary_min_dist,
                                activation=activation, sampling=sampling)
-
-        if init_coder:
-            self.encoder.init_dict()
         
-        self.coder_capacity_regularization = coder_capacity_regularization
         activation_layer = activation_layers[activation]()
 
         if self.x_is_generated:
@@ -378,13 +361,8 @@ class ClassificationVariationalNetwork(nn.Module):
             'sigma': self.sigma.params,
             'beta': self.beta,
             'gamma': self.gamma,
-            'rho': self.rho,
-            'rho_temp': self.rho_temp,
             'dictionary_variance': dictionary_variance,
-            'learned_coder': learned_coder,
-            'dictionary_min_dist': self.encoder.dictionary_dist_lb,
-            'coder_capacity_regularization': coder_capacity_regularization,
-            'force_cross_y': force_cross_y,
+            'coder_means': coder_means,
             'latent_sampling': latent_sampling,
             'set': None,
             'data_augmentation': [],
@@ -779,7 +757,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_losses['iws'] = iws_
             # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
             
-        if self.y_is_decoded or self.force_cross_y:
+        if self.y_is_decoded:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',
                   'y', *batch_losses['cross_y'].shape,
@@ -2100,19 +2078,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 if self.coder_capacity_regularization and self.encoder.dictionary_dist_lb:
                     L += self.encoder.dist_barrier()
 
-                if self.force_cross_y and not self.y_is_decoded:
-                    L += self.force_cross_y * batch_losses['cross_y'].mean()
-
-                if self.rho:
-                    dict_var = self.encoder.latent_dictionary.pow(2).mean()
-                    
-                    log10 = np.log(10)
-                    r_ = self.rho * torch.exp(-dict_var / self.rho_temp * log10)
-
-                    L += r_ * (batch_losses['zdist'] - batch_losses['dzdist']).mean()
-                    if not i:
-                        logging.debug('rho_=%e', r_.item())
-                    
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         print('GRAD NAN')
@@ -2382,16 +2347,14 @@ class ClassificationVariationalNetwork(nn.Module):
         
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
-                        'coder': None,
+                        'coder_means': None,
                         'beta': 1.,
                         'warmup': 0,
                         'gamma': 0.,
-                        'dictionary_min_dist': None,
                         'dictionary_variance': 1,
                         'data_augmentation': [],
                         'fine_tuning': [],
                         'optim': {},
-                        'force_cross_y': 0.
         }
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
@@ -2527,12 +2490,8 @@ class ClassificationVariationalNetwork(nn.Module):
                       sigma=train_params['sigma'],
                       beta=train_params['beta'],
                       gamma=train_params['gamma'],
-                      rho=train_params['rho'],
-                      rho_temp=train_params['rho_temp'],
                       dictionary_variance=train_params['dictionary_variance'],
-                      learned_coder=train_params['learned_coder'],
-                      dictionary_min_dist=train_params['dictionary_min_dist'],
-                      init_coder=False,
+                      coder_means=train_params['coder_means'],
                       optimizer=train_params['optim'],
                       upsampler_channels=params['upsampler'],
                       output_activation=params['output'],

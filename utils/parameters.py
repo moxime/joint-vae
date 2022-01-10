@@ -244,19 +244,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--gamma', type=float,
                         default=0.)
     
-    parser.add_argument('--rho', type=float,
-                        default=0.)
-    
-    parser.add_argument('--rho-temp', type=float,
-                        default=np.inf)
-    
-    parser.add_argument('--learned-coder',
-                        action='store_true')
-
-    parser.add_argument('--dict-min-distance', type=float)
-
-    parser.add_argument('--no-dict-distance-regularization', action='store_false',
-                        dest='dict_distance_regularization')
+    parser.add_argument('--coder-means', default="random')
     
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)

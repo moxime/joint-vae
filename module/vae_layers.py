@@ -326,7 +326,7 @@ class Encoder(nn.Module):
                  sigma_output_dim=0,
                  forced_variance=False,
                  dictionary_variance=1,
-                 learned_dictionary=False,
+                 coder_means=None,
                  dictionary_min_dist=None,
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
@@ -364,13 +364,22 @@ class Encoder(nn.Module):
             
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
-        centroids = np.sqrt(dictionary_variance) * torch.randn(num_labels, latent_dim)
-        
-        self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
+        if coder_means in (None, 'random', 'learned'):
+            centroids = np.sqrt(dictionary_variance) * torch.randn(num_labels, latent_dim)
 
+        elif coder_means == 'onehot':
+            centroids = torch.zeros(num_labels, latent_dim)
+            for k in range(num_labels):
+                centroids(k, k) = 1.
+
+        else:
+            logging.error('%s unknown', coder_means)    
+            
+        learned_dictionary = coder_means == 'learned'
+            
+        self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
+            
         self.dictionary_is_learned = learned_dictionary
-        
-        self.dictionary_dist_lb = dictionary_min_dist
         
     @property
     def sampling_size(self):
@@ -396,25 +405,6 @@ class Encoder(nn.Module):
 
         return I
 
-    def capacity_barrier(self, barrier=None):
-
-        if barrier is None:
-            barrier=self.capacity_log_barrier
-        C = self.num_labels
-        return -torch.log(barrier - np.log(C) + self.capacity())
-
-    def dist_barrier(self, barrier=None):
-        
-        if barrier is None:
-            barrier = self.dictionary_dist_lb
-        C = self.num_labels
-        dictionary = self.latent_dictionary
-        diag = 1e10 * barrier * torch.eye(C, device=dictionary.device)
-        
-        dist = torch.cdist(dictionary, dictionary) + diag
-
-        return - (dist - barrier).log().sum()
-
     def dict_min_distance(self):
 
         C = self.num_labels
@@ -432,34 +422,6 @@ class Encoder(nn.Module):
         return torch.cdist(self.latent_dictionary,
                            self.latent_dictionary)
     
-    def init_dict(self):
-
-        if not self.dictionary_dist_lb:
-            logging.debug('No initialization of dictionary')
-            return
-        logging.debug('Initialization of dictionary')
-        dictionary = self.latent_dictionary
-        learned = dictionary.requires_grad
-
-        dictionary.requires_grad_(False)
-        while self.dict_min_distance() < 2 * self.dictionary_dist_lb:
-            dictionary *= 2
-        
-        dictionary.requires_grad_(True)
-        for _ in range(1000):
-            L = dictionary.pow(2).sum()
-            (L +  self.dist_barrier()).backward()
-            with torch.no_grad():
-                dictionary -= 0.01 * dictionary.grad
-                dictionary.grad.zero_()
-
-        dictionary.requires_grad_(learned)
-
-        logging.debug('Dictionary initialized with min distance '
-                      + f'{self.dict_min_distance():.2f} '
-                      + f'and norm {L:.2f}')
-                
-        return self.dict_min_distance() >= self.dictionary_dist_lb 
             
     def forward(self, x, y=None):
         """ 

@@ -36,14 +36,10 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
     else:
         t['coder_means'] = 'random'
 
-    if t.get('dictionary_min_dist', 0) and t['coder_capacity_regularization']:
-        t['coder_regularization'] = 'min-dist' if t['learned_coder'] else None
-        t['coder_min_dist'] = t['dictionary_min_dist']
-    else:
-        t['coder_regularization'] = None
-        t['coder_min_dist'] = 0
-
     delete = False
+
+    if t.get('dictionary_min_dist', 0) and t['coder_capacity_regularization']:
+        delete=True
 
     if t.get('rho'):
         delete = True
@@ -55,7 +51,7 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
     if t.get('rho') or True: # and t.get('rho_temp') < np.inf:
         print('{pre} {dir} -- learned: {l} min dist:{d:4g} reg:{r}'
               ' rho:{rho:6g}, {rho_temp:4g}'
-              '-> means:{m_:7} reg:{r_:8} min dist:{d_:4g}'.format(
+              '-> means:{m_:7} {pre}'.format(
                   pre=pre,
                   dir=directory[-6:],
                   rho=t.get('rho') or 0,
@@ -64,11 +60,9 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
                   d=t.get('dictionary_min_dist', 0) or 0,
                   r='yes' if t.get('coder_capacity_regularization') else 'no ',
                   m_=t['coder_means'],
-                  r_=str(t['coder_regularization']),
-                  d_=t['coder_min_dist']
               ))
 
-    for _ in ('learned_coder', 'coder_capacity_regularization', 'dictionary_min_dist'):
+    for _ in ('learned_coder', 'coder_capacity_regularization', 'dictionary_min_dist', 'rho', 'rho_temp'):
         if _ in t:
             t.pop(_)
         
@@ -78,9 +72,9 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
         print('w', name[-250:])
         for k in sorted(t):
             print('|_{:30}: {}'.format(k, t[k]))
-        # with open(name, 'w') as f:
-        #     print('write')
-        #    json.dump(t, f)
+        with open(name, 'w') as f:
+             print('write')
+             json.dump(t, f)
 
 
 @iterable_over_subdirs('directory')

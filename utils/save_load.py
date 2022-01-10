@@ -300,20 +300,10 @@ def option_vector(o, empty=' ', space=' '):
     else:
         w += 2 * empty
     v_.append(w)
-        
+
     if arch.type == 'cvae':
         w = 'c:'
-        if training.learned_coder:
-            w += 'l'
-        else:
-            w += 'r'
-        _md = training.dictionary_min_dist
-        if _md:
-            w += f'>{_md:.1f}'
-        else:
-            _dv = training.dictionary_variance
-            w += f'={_dv:5.2f}'
-
+        w += {'random': 'r', 'learned':'l', 'onehot':'1'}[training.coder_means]
         v_.append(w)
 
     return space.join(v_)
@@ -941,15 +931,14 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     sigma_size = 'S' if sigma.sdim == 1 else 'M' 
         
     if architecture.type == 'cvae':
-        if model.training_parameters['learned_coder']:
-            coder_dict = 'learned'
+        coder_dict = model.training_parameters['coder_means']
+        if coder_dict == 'learned':
             if history['train_measures']:
                 # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
                 dict_var = history['train_measures'][-1]['ld-norm']
             else:
                 dict_var = model.training_parameters['dictionary_variance']
         else:
-            coder_dict = 'constant'
             dict_var = model.training_parameters['dictionary_variance']
     else:
         coder_dict = None
@@ -986,7 +975,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'dict_var': dict_var,
             'coder_dict': coder_dict,
             'gamma': model.training_parameters['gamma'],
-            'rho': model.training_parameters['rho'],
             'arch_code': arch_code,
             'features': architecture.features['name'] if architecture.features else 'none',
             'dir': directory,

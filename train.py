@@ -26,7 +26,7 @@ if __name__ == '__main__':
     job_dir = args.job_dir
     job_number = args.job_number
 
-    log_dir = os.path.join(job_dir, 'log')
+    log_dir = os.path.join(args.output_dir, 'log')
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     log = set_log(verbose, debug, log_dir, job_number=job_number)

@@ -72,8 +72,12 @@ class ParamFilter():
             return False if neg else True
         
         if not self.arg_str:
-            return not value if neg else value
-        
+            try:
+                self.arg_type(value)
+                return not neg
+            except TypeError:
+                return neg
+
         # if not value:
         #    return True
         

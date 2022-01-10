@@ -79,14 +79,14 @@ class ParamFilter():
         
         if self.is_interval:
             if value is None:
-                return False
+                return neg
 
             try:
                 a, b = self.interval
                 in_ =  a <= value <= b
                 return not in_ if neg else in_
             except TypeError as e:
-                return False
+                return neg
                 logging.error('Wrong type filter:', a, type(a),
                               b, type(b),
                               value, type(value),

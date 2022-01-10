@@ -31,19 +31,22 @@ def modify_train_file_coder(directory, write_json=False):
         t['coder_means'] = 'random'
 
     if t.get('dictionary_min_dist', 0) and t['coder_capacity_regularization']:
-        t['coder_regularization'] = t['dictionary_min_dist']
+        t['coder_regularization'] = 'min-dist'
+        t['coder_min_dist'] = t['dictionary_min_dist']
     else:
         t['coder_regularization'] = None
+        t['coder_min_dist'] = 0
 
-        if t.get('dictionary_min_dist'):
-            print('{} -- l:{}, d:{}, r:{} -> m:{:6} r:{}'.format(
-                directory[-7:],
-                t['learned_coder'],
-                t['dictionary_min_dist'],
-                t['coder_capacity_regularization'],
-                t['coder_means'],
-                t['coder_regularization']
-            ))
+    if t.get('dictionary_min_dist') and t['coder_means'] == 'random' and True:
+        print('{dir} -- l:{l} d:{d:4g} r:{r} -> m:{m:7} r:{r_:8} {d_:4g}'.format(
+            dir=directory[-6:],
+            l='yes' if t['learned_coder'] else 'no ',
+            d=t.get('dictionary_min_dist', 0) or 0,
+            r='yes' if t.get('coder_capacity_regularization') else 'no ',
+            m=t['coder_means'],
+            r_=str(t['coder_regularization']),
+            d_=t['coder_min_dist']
+        ))
 
     if write_json:
         copyfile(name, name + '.bak')

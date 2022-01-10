@@ -244,7 +244,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--gamma', type=float,
                         default=0.)
     
-    parser.add_argument('--coder-means', default="random')
+    parser.add_argument('--coder-means', default='random')
     
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)
@@ -350,7 +350,7 @@ def get_args_for_test(argv=None):
     for k in defaults:
         logging.debug(k, defaults[k])
 
-    parser.add_argument('--load_dir',
+    parser.add_argument('--load-dir',
                         default=None)
 
     parser.add_argument('-J', '--job-dir', default='./jobs')

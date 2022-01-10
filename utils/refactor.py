@@ -31,6 +31,8 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
             t = dict()
             return
 
+    if 'learned_coder' not in t:
+        return 
     if t.get('learned_coder'):
         t['coder_means'] = 'learned'
     else:

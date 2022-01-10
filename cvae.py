@@ -2075,8 +2075,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 batch_loss = batch_losses['total'].mean()
 
                 L = batch_loss
-                if self.coder_capacity_regularization and self.encoder.dictionary_dist_lb:
-                    L += self.encoder.dist_barrier()
 
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():

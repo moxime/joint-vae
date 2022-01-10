@@ -370,7 +370,7 @@ class Encoder(nn.Module):
         elif coder_means == 'onehot':
             centroids = torch.zeros(num_labels, latent_dim)
             for k in range(num_labels):
-                centroids(k, k) = 1.
+                centroids[k, k] = 1.
 
         else:
             logging.error('%s unknown', coder_means)    

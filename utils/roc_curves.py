@@ -158,7 +158,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
 
         t = {_: all_thresholds[_][idx['thr'][_]] for _ in ('low', 'up')}
             
-        if fpr < last_fpr or tpr < last_tpr and True:
+        if fpr <= last_fpr: # or tpr < last_tpr and True:
             relevant_thresholds.append((t['low'], t['up']))
             relevant_tpr.append(tpr)
             relevant_fpr.append(fpr)

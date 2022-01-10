@@ -7,6 +7,7 @@ from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, kl_loss, mse_loss
 from utils.save_load import LossRecorder, last_samples, available_results, develop_starred_methods
+from utils.save_load import DeletedModelError, NoModelError
 from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import onehot_encoding
@@ -2362,6 +2363,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
 
+        if not os.path.exists(os.path.join(dir_name, 'params.json')):
+            raise NoModelError(dir_name)
+
+        if os.path.exists(os.path.join(dir_name, 'deleted')):
+            raise DeletedModelError(dir_name)
+        
         if not load_net:
             load_state = False
             
@@ -2375,12 +2382,10 @@ class ClassificationVariationalNetwork(nn.Module):
         
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
-                        'learned_coder': False,
+                        'coder': None,
                         'beta': 1.,
                         'warmup': 0,
                         'gamma': 0.,
-                        'rho': 0.,
-                        'rho_temp':np.inf,
                         'dictionary_min_dist': None,
                         'dictionary_variance': 1,
                         'data_augmentation': [],

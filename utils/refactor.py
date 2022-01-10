@@ -5,10 +5,16 @@ from utils.save_load import find_by_job_number, load_json
 from shutil import copyfile
 import functools
 from utils.save_load import iterable_over_subdirs
+import numpy as np
+from datetime import date
 
+def delete_job(directory, msg=''):
+    deleted_file = os.path.join(directory, 'deleted')
+    with open(deleted_file, 'a') as f:
+        f.write(str(msg) + '\n')
 
 @iterable_over_subdirs(0, iterate_over_subdirs=list)
-def modify_train_file_coder(directory, write_json=False):
+def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
 
     name = os.path.join(directory, 'train.json')
     # print(directory)
@@ -25,35 +31,56 @@ def modify_train_file_coder(directory, write_json=False):
             t = dict()
             return
 
-    if t['learned_coder']:
+    if t.get('learned_coder'):
         t['coder_means'] = 'learned'
     else:
         t['coder_means'] = 'random'
 
     if t.get('dictionary_min_dist', 0) and t['coder_capacity_regularization']:
-        t['coder_regularization'] = 'min-dist'
+        t['coder_regularization'] = 'min-dist' if t['learned_coder'] else None
         t['coder_min_dist'] = t['dictionary_min_dist']
     else:
         t['coder_regularization'] = None
         t['coder_min_dist'] = 0
 
-    if t.get('dictionary_min_dist') and t['coder_means'] == 'random' and True:
-        print('{dir} -- l:{l} d:{d:4g} r:{r} -> m:{m:7} r:{r_:8} {d_:4g}'.format(
-            dir=directory[-6:],
-            l='yes' if t['learned_coder'] else 'no ',
-            d=t.get('dictionary_min_dist', 0) or 0,
-            r='yes' if t.get('coder_capacity_regularization') else 'no ',
-            m=t['coder_means'],
-            r_=str(t['coder_regularization']),
-            d_=t['coder_min_dist']
-        ))
+    delete = False
 
+    if t.get('rho'):
+        delete = True
+
+    if delete and write_json:
+        delete_job(directory, msg=date.today().strftime('%Y-%m-%d'))
+
+    pre = 'D' if delete else ' '
+    if t.get('rho') or True: # and t.get('rho_temp') < np.inf:
+        print('{pre} {dir} -- learned: {l} min dist:{d:4g} reg:{r}'
+              ' rho:{rho:6g}, {rho_temp:4g}'
+              '-> means:{m_:7} reg:{r_:8} min dist:{d_:4g}'.format(
+                  pre=pre,
+                  dir=directory[-6:],
+                  rho=t.get('rho') or 0,
+                  rho_temp=t.get('rho_temp', np.inf) or  np.inf,
+                  l='yes' if t['learned_coder'] else 'no ',
+                  d=t.get('dictionary_min_dist', 0) or 0,
+                  r='yes' if t.get('coder_capacity_regularization') else 'no ',
+                  m_=t['coder_means'],
+                  r_=str(t['coder_regularization']),
+                  d_=t['coder_min_dist']
+              ))
+
+    for _ in ('learned_coder', 'coder_capacity_regularization', 'dictionary_min_dist'):
+        if _ in t:
+            t.pop(_)
+        
     if write_json:
-        copyfile(name, name + '.bak')
-        print('w', name, '\n', t)
-        with open(name, 'w') as f:
-            print('write')
-            json.dump(t, f)
+
+        copyfile(name, name + '.' + old_suffix)
+        print('w', name[-250:])
+        for k in sorted(t):
+            print('|_{:30}: {}'.format(k, t[k]))
+        # with open(name, 'w') as f:
+        #     print('write')
+        #    json.dump(t, f)
 
 
 @iterable_over_subdirs('directory')
@@ -339,4 +366,15 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
 
 if __name__ == '__main__':
 
-    beta_to_dict('jobs', write_json=True)
+
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('job_dir', default='jobs')
+    parser.add_argument('--write', action='store_true')
+
+    args = parser.parse_args()
+
+    print('Working on', args.job_dir)
+    modify_train_file_coder(args.job_dir, write_json=args.write, old_suffix='before-reg')
+    
+    

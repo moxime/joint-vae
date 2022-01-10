@@ -16,8 +16,14 @@ from contextlib import contextmanager
 import functools
 
 
-def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False):
+class NoModelError(Exception):
+    pass
+class DeletedModelError(NoModelError):
+    pass
+
+def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False, iterate_over_subdirs_if_found=False):
     def iterate_over_subdirs_wrapper(func):
+        @functools.wraps(func)
         def iterated_func(*a, keep_none=keep_none, **kw):
             if isinstance(arg, str):
                 directory = kw.get(arg)
@@ -34,14 +40,15 @@ def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False):
                 dirs = [d for d in paths if os.path.isdir(d)]
             except PermissionError:
                 dirs = []
-                
-            for d in dirs:
-                if isinstance(arg, str):
-                    kw[arg] = d
-                else:
-                    a = list(a)
-                    a[arg] = d
-                yield from iterated_func(*a, **kw)
+
+            if out is None or iterate_over_subdirs_if_found:
+                for d in dirs:
+                    if isinstance(arg, str):
+                        kw[arg] = d
+                    else:
+                        a = list(a)
+                        a[arg] = d
+                    yield from iterated_func(*a, **kw)
 
         @functools.wraps(func)
         def wrapped_func(*a, iterate_over_subdirs=iterate_over_subdirs, **kw):
@@ -1043,13 +1050,14 @@ def collect_networks(directory,
 
         return make_dict_from_model(model, directory, tpr=tpr_for_max) 
 
+    except (FileNotFoundError, PermissionError, NoModelError) as e:    
+        pass
+        # print(e)
+
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
         logging.debug(f'Load error: {e}')
     
-    except (FileNotFoundError, PermissionError):    
-        pass  # print(e)
-
 
 def is_derailed(model, load_model_for_check=False):
     from cvae import ClassificationVariationalNetwork

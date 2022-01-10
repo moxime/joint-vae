@@ -127,7 +127,7 @@ if __name__ == '__main__':
                 to_be_kept = filter.filter(n)
                 d = n['dir']
                 derailed = os.path.join(d, 'derailed')
-                to_be_kept = to_be_kept and not os.path.exists(derailed) and not n['is_resumed']
+                to_be_kept = not os.path.exists(derailed)
                 if to_be_kept:
                     epoch_to_fetch = config[k].get('epoch', 'last')
                     if epoch_to_fetch == 'min-loss':

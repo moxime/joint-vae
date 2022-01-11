@@ -47,8 +47,8 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument('--config-files', nargs='+', default=[file_ini])
     parser.add_argument('--which', '-c', nargs='*', default=['all'])
-    parser.add_argument('--job_dir', default=job_dir)
-    parser.add_argument('--results_dir', default=root)
+    parser.add_argument('--job-dir', default=job_dir)
+    parser.add_argument('--results-dir', default=root)
     parser.add_argument('--texify', default='utils/texify.ini')
     parser.add_argument('--filters', default='utils/filters.ini')
     parser.add_argument('--tpr', default=95, type=int)
@@ -92,7 +92,8 @@ if __name__ == '__main__':
 
         default_config = config['DEFAULT']
         dataset = default_config.get('dataset')
-        tab_file = default_config.get('file', config_file.strip('.ini') + '-ood-tab.tex')
+        ini_file_name = os.path.splitext(os.path.split(config_file)[-1])[0]
+        tab_file = default_config.get('file', ini_file_name + '-ood-tab.tex')
         tab_file = os.path.join(root, tab_file)
         
         logging.info('Tab for {} will be saved in file {}'.format(dataset, tab_file))
@@ -101,7 +102,10 @@ if __name__ == '__main__':
 
         logging.info('Keys in config file: %s', ' '.join(which))
 
-        for k in which:
+        which_from_filters = [k for k in which if not config[k].get('from_csv')]
+        which_from_csv = [k for k in which if config[k].get('from_csv')]
+
+        for k in which_from_filters:
 
             logging.info('| key %s:', k)
             # logging.info(' '.join(['{}: {}'.format(_, config[k][_]) for _ in config[k]]))
@@ -120,27 +124,28 @@ if __name__ == '__main__':
             for _ in f:
                 logging.debug('| | %s: %s', _, ' '.join(str(__) for __ in f[_]))
 
-        models = {k: [] for k in filters}
+        models_by_type = {k: [] for k in filters}
 
         for n in all_models:
             for k, filter in filters.items():
                 to_be_kept = filter.filter(n)
                 d = n['dir']
                 derailed = os.path.join(d, 'derailed')
-                to_be_kept = not os.path.exists(derailed)
+                to_be_kept = to_be_kept and not os.path.exists(derailed)
                 if to_be_kept:
                     epoch_to_fetch = config[k].get('epoch', 'last')
                     if epoch_to_fetch == 'min-loss':
                         epoch_to_fetch = 'early-min-loss'
                     epoch = n['net'].training_parameters.get(epoch_to_fetch, 'last')
-                    logging.debug('Epoch for %s: %s = %s', n['job'], epoch_to_fetch, epoch)
-                    n = make_dict_from_model(n['net'], n['dir'], wanted_epoch=epoch)
-                    models[k].append(n)
+                    # logging.debug('Epoch for %s: %s = %s', n['job'], epoch_to_fetch, epoch)
+                    with turnoff_debug():
+                        n = make_dict_from_model(n['net'], n['dir'], wanted_epoch=epoch)
+                    models_by_type[k].append(n)
 
         agg_df = {}
-        for k in models:
-            logging.info('{} models for {}'.format(len(models[k]), k))
-            df_ = test_results_df(models[k], nets_to_show='all',
+        for k in which_from_filters:
+            logging.info('{} models for {}'.format(len(models_by_type[k]), k))
+            df_ = test_results_df(models_by_type[k], nets_to_show='all',
                                   first_method=False,
                                   ood={},
                                   show_measures=False,  # True,
@@ -156,6 +161,18 @@ if __name__ == '__main__':
             agg_df[k] = df.groupby(level=idx).agg('mean')
             agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
 
+        for k in which_from_csv:
+            csv_file = config[k]['from_csv']
+            logging.info('results for {} from csv file {}'.format(k, csv_file))
+            index_col = [int(_) for _ in config[k]['index_col'].split()]
+            header = [int(_) for _ in config[k]['header'].split()]
+            df = pd.read_csv(csv_file, index_col=index_col, header=header)
+            if df.index.nlevels > 1:
+                df.index = df.index.set_levels([_.astype(str) for _ in df.index.levels])
+            # print("***", k, '\n', df.to_string())
+            agg_df[k] = df.groupby(level=df.index.names).agg('mean')
+            agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
+
         def kc_(o, m):
             def kc(c):
                 return c[0] in o and c[1] in m 
@@ -163,24 +180,36 @@ if __name__ == '__main__':
 
 
         kept_cols = {}
-        for k in models:
-            kept_ood = config[k]['ood'].split() 
+        kept_oods = []
+        for k in which:
+            kept_ood = config[k]['ood'].split()
+            for o in kept_ood:
+                if o not in kept_oods:
+                    kept_oods.append(o)
             kept_methods = config[k]['ood_methods'].split()
             kept_index = ['type'] + config[k].get('kept_index', '').split()
             kept_cols[k] = kc_(kept_ood, kept_methods)
+            # print('***', k)
+            # print(kept_ood, kept_methods)
+            # for _ in agg_df[k].columns:
+            #     print(_, kept_cols[k](_))
+        # for k in agg_df:
+        #     print('****', k, '****')
+        #     print(agg_df[k].columns)
+        #     print(agg_df[k].index.names)
+        #     print(agg_df[k][agg_df[k].columns[:4]].to_string())
 
         results_df = agg_results(agg_df, kept_cols=kept_cols, kept_levels=kept_index)
 
         best_values = {}
         for tpr in [_ / 100 for _ in range(100)]:
             results_df.rename(columns={tpr: 'fpr'}, inplace=True)
-
-        cols = results_df.columns
-
+            results_df.rename(columns={str(tpr): 'fpr'}, inplace=True)
+            
         cols = []
 
         for w in ('fpr', 'auc'):
-            for k in models:
+            for k in which:
                 for m in config[k]['ood_methods'].split():
                     cols.append((w, k, m))
         
@@ -196,13 +225,14 @@ if __name__ == '__main__':
         results_df = results_df[cols]
 
         cols = results_df.columns
-
+        
         print(dataset)
         print(results_df.to_string())
         multi_index = results_df.index.nlevels > 1
         # print('*** index:\n', results_df.index)
+        # print('***', *kept_oods)
         if 'set' in results_df.index.names:
-            results_df = results_df.reindex(kept_ood, level='set' if multi_index else None) 
+            results_df = results_df.reindex(kept_oods, level='set' if multi_index else None) 
         # print('*** index:\n', results_df.index)
         best_values['fpr'] = results_df[fpr_cols].min(axis=1)
         best_values['auc'] = results_df[auc_cols].max(axis=1)
@@ -249,6 +279,7 @@ if __name__ == '__main__':
                                                     escape=False,
                                                     index=False,
                                                     multicolumn=False,
+                                                    na_rep='\\text{--}',
                                                     column_format=None)
             i0 = 2
             i1 = -3

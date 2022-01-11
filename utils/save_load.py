@@ -1040,7 +1040,7 @@ def collect_networks(directory,
 
     except (FileNotFoundError, PermissionError, NoModelError) as e:    
         pass
-        # print(e)
+        # print('***', e)
 
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')

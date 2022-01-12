@@ -291,7 +291,7 @@ if __name__ == '__main__':
     
     logging.info('Will work in %s', root)
 
-    list_of_networks = sum(collect_networks(args.job_dir, load_net=False, load_state=False), [])
+    list_of_networks = sum(collect_models(args.job_dir, load_net=False, load_state=False), [])
 
     networks_to_be_studied = []
     for n in list_of_networks:

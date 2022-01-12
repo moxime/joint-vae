@@ -138,7 +138,7 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_paths) if os.path.isdir(d)]
     print(f'<enter>: choose {dir_path}', end='')
     if count_nets:
-        list_of_nets = collect_networks(dir_path, load_net=False)
+        list_of_nets = collect_models(dir_path, load_net=False)
         num_of_nets = len(list_of_nets)
         print(f' ({num_of_nets} networks)')
     else:
@@ -147,7 +147,7 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     for i, d in enumerate(sub_dirs_rel_paths):
         print(f'{i+1:2d}: enter {d}', end='')
         if count_nets:
-            list_of_nets = collect_networks(os.path.join(dir_path, d), load_net=False)
+            list_of_nets = collect_models(os.path.join(dir_path, d), load_net=False)
             num_of_nets = len(list_of_nets)
             print(f' ({num_of_nets} networks)')
         else:
@@ -811,9 +811,16 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         train_batch_size = batch_size
 
     model.testing[-1] = {}
+    if wanted_epoch == 'min-loss':
+        if 'early-min-loss' in model.training_parameters:
+            wanted_epoch = model.training_parameters['early-min-loss']
+        else:
+            logging.warning('Min loss epoch had not been computed for %s. Will fecth last', model.job)
+            wanted_epoch = 'last'
+
     if wanted_epoch == 'last':
         wanted_epoch = max(model.testing)
-
+            
     testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
     ood_results = model.ood_results.get(wanted_epoch, {}).copy()
@@ -1021,14 +1028,38 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'lr': empty_optimizer.init_lr,
     }
 
+
+def register_models(models, *keys):
+    d = {}
+    for m in models:
+        d[m['dir']] = {_: m[_] for _ in keys}
+
+    return d
+          
+def fast_collect_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='last', **kw):
+
+    from cvae import ClassificationVariationalNetwork
+
+    mlist = []
+    for _ in mdict:
+        if filter.filter(mdict[_]):
+            m = ClassificationVariationalNetwork.load(_, **kw)
+            mlist.append(make_dict_from_model(m, _, tpr=tpr_for_max, wanted_epoch=wanted_epoch))
+
+    return mlist
+
+                         
 @iterable_over_subdirs(0, iterate_over_subdirs=list)
-def collect_networks(directory, 
+def collect_models(directory,
+                     wanted_epoch='last',
                      load_state=True, tpr_for_max=0.95, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
 
     if 'dump' in directory:
         return
+
+    assert wanted_epoch == 'last' or not load_state
     
     try:
         logging.debug(f'Loading net in: {directory}')
@@ -1036,7 +1067,7 @@ def collect_networks(directory,
                                                       load_state=load_state,
                                                       **default_load_paramaters)
 
-        return make_dict_from_model(model, directory, tpr=tpr_for_max) 
+        return make_dict_from_model(model, directory, tpr=tpr_for_max, wanted_epoch=wanted_epoch) 
 
     except (FileNotFoundError, PermissionError, NoModelError) as e:    
         pass
@@ -1081,7 +1112,7 @@ def find_by_job_number(*job_numbers, job_dir='jobs', tpr_for_max=0.95, load_net=
     d = {}
 
     job_numbers_list = list(job_numbers)
-    models = collect_networks(job_dir,
+    models = collect_models(job_dir,
                               tpr_for_max=tpr_for_max,
                               load_net=False,
                               iterate_over_subdirs=True,

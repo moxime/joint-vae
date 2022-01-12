@@ -122,6 +122,14 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
 
     it = 0
     nt = min(len(all_thresholds[_]) for _ in ('up', 'low'))
+
+    if debug :
+        if two_sided == 'around-mean':
+            print('mean: {:.6g} ({}) real: {:.6g} ({:.5g})'.format(center,
+                                                                   len(ins_validation),
+                                                                   ins.mean(),
+                                                                   ins.std()
+                                                                   ))
     
     while t['low'] < t['up'] and it < nt - 1:
 
@@ -137,7 +145,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
         tpr = 1 - neg['in'] / n['in']
         fpr = 1 - neg['out'] / n['out']
 
-        _s = ' <= '.join(['{:-11.6f}'] * 4)
+        _s = ' <= '.join(['{:-13.7g}'] * 4)
 
         if not it % every_print:
 

@@ -1,5 +1,5 @@
 import argparse, configparser
-import re
+import re, os
 import numpy as np
 import logging
 from pydoc import locate
@@ -178,6 +178,17 @@ class FilterAction(argparse.Action):
         if self.dest not in namespace.filters:
             namespace.filters[self.dest] = ListOfParamFilters()
         namespace.filters[self.dest].append(filter)
+
+
+def get_filter_keys(from_file=os.path.join('utils', 'filters.ini')):
+
+    filters = configparser.ConfigParser()
+    filters.read(from_file)
+
+    types = dict(filters['type'])
+    dest = dict(filters['dest'])
+
+    return [dest.get(_, _) for _ in types]
 
         
 if __name__ == '__main__':

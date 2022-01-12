@@ -10,7 +10,7 @@ import sys
 import argparse
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
-from utils.save_load import collect_networks
+from utils.save_load import collect_models
 from utils.print_log import EpochOutput
 from utils.signaling import SIGHandler
 

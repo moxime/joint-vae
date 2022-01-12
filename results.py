@@ -5,7 +5,7 @@ import argparse, configparser
 import sys, os
 import logging
 import pandas as pd
-from utils.save_load import LossRecorder, collect_networks, test_results_df, make_dict_from_model
+from utils.save_load import LossRecorder, collect_models, test_results_df, make_dict_from_model
 from utils import torch_load as tl
 from utils.sample import zsample, sample
 from utils.inspection import loss_comparisons
@@ -72,7 +72,7 @@ if __name__ == '__main__':
         texify = {}
 
     with turnoff_debug():
-        all_models = collect_networks(args.job_dir, load_net=False)
+        all_models = collect_models(args.job_dir, load_net=False)
 
     filter_conf = configparser.ConfigParser()
     filter_conf.read(args.filters)
@@ -137,7 +137,7 @@ if __name__ == '__main__':
                     if epoch_to_fetch == 'min-loss':
                         epoch_to_fetch = 'early-min-loss'
                     epoch = n['net'].training_parameters.get(epoch_to_fetch, 'last')
-                    # logging.debug('Epoch for %s: %s = %s', n['job'], epoch_to_fetch, epoch)
+                    logging.debug('Epoch for %s: %s = %s', n['job'], epoch_to_fetch, epoch)
                     with turnoff_debug():
                         n = make_dict_from_model(n['net'], n['dir'], wanted_epoch=epoch)
                     models_by_type[k].append(n)
@@ -160,7 +160,7 @@ if __name__ == '__main__':
                 idx.remove('job')
             agg_df[k] = df.groupby(level=idx).agg('mean')
             agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
-
+            
         for k in which_from_csv:
             csv_file = config[k]['from_csv']
             logging.info('results for {} from csv file {}'.format(k, csv_file))
@@ -221,7 +221,9 @@ if __name__ == '__main__':
 
         # print('*** results cols:', results_df.columns)
         # print('*** new cols:', cols)
-        
+
+        # print(*cols)
+        # print(*results_df.columns)
         results_df = results_df[cols]
 
         cols = results_df.columns

@@ -1130,7 +1130,10 @@ def find_by_job_number(*job_numbers, job_dir='jobs', tpr_for_max=0.95, load_net=
     return d if len(job_numbers) > 1 or force_dict else d[job_numbers[0]]
 
 
-def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
+def test_results_df(nets,
+                    predict_methods='first',
+                    ood_methods='first',
+                    ood={},
                     dataset=None, show_measures=True,
                     tpr=[0.95], tnr=False, sorting_keys=[]):
     """
@@ -1149,14 +1152,19 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
     n['optim_str'] : optimizer
     """
 
+    if ood_methods is None:
+        ood_methods = 'first'
+    
     if not dataset:
         testsets = {n['set'] for n in nets}
         return {s: test_results_df(nets,
-                                   nets_to_show, first_method, ood.get(s, []),
-                                   s,
-                                   show_measures,
-                                   tpr, tnr,
-                                   sorting_keys) for s in testsets}
+                                   predict_methods=predict_methods,
+                                   ood_methods=ood_methods,
+                                   ood=ood.get(s),
+                                   dataset=s,
+                                   show_measures=show_measures,
+                                   tpr=tpr, tnr=tnr,
+                                   sorting_keys=sorting_keys) for s in testsets}
 
     arch_index = ['h/o']  if dataset.endswith('-?') else []
     arch_index += ['type',
@@ -1176,7 +1184,7 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
         # 'beta_sigma',
         'beta',
         'gamma',
-    ] + (['job'] if nets_to_show == 'all' else [])
+        'job']
 
     indices = arch_index + train_index
 
@@ -1185,11 +1193,14 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
 
     acc_cols = ['accuracies']
     ood_cols = ['ood_fprs']
-    meas_cols = ['epoch', 'done'] if nets_to_show == 'all' else []
-    meas_cols += ['dict_var', 'beta_sigma', 'rmse',
-                 'train_loss', 'test_loss',
-                 'train_zdist', 'test_zdist']
-    
+
+    meas_cols = ['epoch', 'done']
+
+    if show_measures > 1:
+        meas_cols += ['dict_var', 'beta_sigma', 'rmse',
+                      'train_loss', 'test_loss',
+                      'train_zdist', 'test_zdist']
+
     columns = indices + acc_cols + ood_cols + meas_cols
     df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
                                    columns=columns)
@@ -1208,7 +1219,7 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
     d_ = {dataset: acc_df}
 
     # print('*** ood_df:', *ood_df, 'ood', ood)
-    if ood:
+    if ood is not None:
         ood_df = {s: ood_df[s] for s in ood}
     for s in ood_df:
         d_s = pd.DataFrame(ood_df[s].values.tolist(), index=df.index)
@@ -1232,24 +1243,34 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
 
         #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
 
-    # if show_measures:
-    d_['measures'] = meas_df
+    for s in d_:
+        show = predict_methods if s == dataset else ood_methods
+        cols = d_[s].columns
+        kept_columns = cols.isin(tpr + ['rate', 'auc'] + [str(_) for _ in tpr], level=1)
+        first_method_columns = cols.isin(['first'], level=0)
+        # print('*** 1st', *first_method_columns)
+
+        if show == 'first':
+            shown_columns = first_method_columns
+        elif show == 'all':
+            shown_columns = ~first_method_columns
+        else:
+            print(show)
+            if isinstance(show, str):
+                show = [show]
+            shown_columns = cols.isin(show, level=0)
+
+        # print('*** kept', s, *shown_columns, '\n', *d_[s].columns)
+        d_[s] = d_[s][cols[shown_columns * kept_columns]]
+            
+    if show_measures:
+        d_['measures'] = meas_df
+
     df = pd.concat(d_, axis=1)
     
     cols = df.columns
-    # print('*** save_load:379', [type(c[-1]) for c in cols])
-    keeped_columns = cols.isin(tpr + ['rate', 'auc'] + [str(_) for _ in tpr], level=2)
-    # tpr_columns = True
-    method_columns = cols.isin(['first'], level=1)
-    if not first_method: method_columns = ~method_columns
 
-    # print(cols)
-    measures_columns = cols.isin(meas_cols, level=2)
-    # print(measures_columns)
-
-    df = df[cols[(keeped_columns * method_columns) + measures_columns]]
-
-    if first_method:
+    if False:
         df.columns = df.columns.droplevel(1)
 
     def _f(x, type='pc'):
@@ -1297,68 +1318,8 @@ def test_results_df(nets, nets_to_show='best', first_method=True, ood={},
     if sorting_index:
         df = df.sort_values(sorting_index)
 
-    # index_rename = {t: '-'.join(str(_) for _ in t) for t in df.index.get_level_values('heldout')}
-    # print(*index_rename, *index_rename.values())
-    # df.rename(index=index_rename)
-    # print('df index', df.index.get_level_values('heldout'))  
     return df.apply(col_format)
         
-    if not best_method:
-        
-        df = df.drop('accuracies', axis=1).join(pd.DataFrame(df.accuracies.values.tolist()))
-        # print('\n\n**** 341 *** dict of accuracies \n', df.head(), '\n***************')
-    return df.fillna(np.nan)
-
-    if ood:
-        # if best_method:
-        ood_df = pd.DataFrame(df.ood_fpr.values.tolist())
-        oodsets = ood_df.columns
-        print(*oodsets)
-
-        ood_df_ = []
-        for s in oodsets:
-            l = ood_df[s].tolist()
-            l_ = []
-            for fpr in l:
-                try:
-                    l_.append(fpr[tpr])
-                except TypeError:
-                    l_.append(fpr)
-            ood_df_.append(pd.DataFrame(l_))
-        df = df.drop('ood_fpr', axis=1)
-        df = df.join(ood_df_[1])
-        return df
-        for d in ood_df_:
-            df = df.join(d)
-        return df
-        
-    df.set_index(arch_index + train_index, inplace=True)
-    print('\n\n**** 343 *** Index set\n', df.head(), '\n***************')
-
-    
-    # for pre in 'pretrained_features', 'pretrained_upsampler':
-    #     for i, l in enumerate(df.index.names):
-    #         if l==pre:
-    #             level=i
-    #     idx = df.index
-    #     levels=idx.levels[level] #.astype(str)
-    #     print(levels)
-    #     idx.set_levels(level=level, levels=levels, inplace=True)
-
-    if best_net:
-        df = df.groupby(level=arch_index + train_index)[df.columns].max()
-        print('\n\n**** 359 *** groupby\n', df.head(), '\n***************')
-        df = df.stack()
-        print('\n\n**** 361 *** stack\n', df.head(), '\n***************')
-        
-        df.index.rename('method', level=-1, inplace=True)
-        print('\n\n**** 364 *** rename\n', df.head(), '\n***************')
-        df = df.unstack(level=('sigma', 'method'))
-        print('\n\n**** 366 *** unstack\n', df.head(), '\n***************')
-    # return df
-    
-    return df.reindex(sorted(df.columns), axis=1).fillna(np.nan)
-
 
 if __name__ == '__main__':
 

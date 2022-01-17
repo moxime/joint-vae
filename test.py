@@ -298,7 +298,6 @@ if __name__ == '__main__':
         texify_test_results(n)
         
     first_method = args.expand < 2
-    nets_to_show = 'all' if args.expand >= 1 else 'mean' 
 
     tpr = [t/100 for t in args.tpr]
 
@@ -306,10 +305,12 @@ if __name__ == '__main__':
     if sort and 'print' in sort:
         sort.remove('print')
         print_sorting_keys = True
-    df = test_results_df(models_to_be_kept, nets_to_show=nets_to_show,
-                         first_method=first_method,
+        
+    df = test_results_df(models_to_be_kept, 
+                         ood_methods=args.ood_methods,
+                         predict_methods='first',
                          ood=oodsets,
-                         show_measures=args.show_measures,
+                         show_measures=10,
                          tnr=args.tnr,
                          tpr=tpr,
                          sorting_keys=sort)
@@ -394,7 +395,7 @@ if __name__ == '__main__':
 
         col_show_levels = {_: 0 for _ in d.columns}
         col_show_levels.update({_: 2 for _ in d.columns if _[0] == 'measures'})
-        col_show_levels.update({_: 1 for _ in [('measures', 'done'), ('measures', 'epoch')]})
+        col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['done', 'epoch']})
 
         drop_cols = [_ for _ in d.columns if col_show_levels[_] > args.show_measures]
 

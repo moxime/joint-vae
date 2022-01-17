@@ -447,6 +447,8 @@ def parse_filters(default_ini_file='utils/filters.ini', **kw):
 
     metavars = config['metavar']
 
+    defaults = config['default']
+
     argnames = {}
     for k in types:
 
@@ -471,6 +473,7 @@ def parse_filters(default_ini_file='utils/filters.ini', **kw):
             metavar = metavars[k]
 
         parser.add_argument(*argnames[k], dest=dests.get(k),
+                            default=defaults.get(k),
                             of_type=argtype, nargs=nargs,
                             metavar=metavar, action=FilterAction)
 

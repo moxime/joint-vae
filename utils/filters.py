@@ -12,7 +12,7 @@ class ParamFilter():
                  arg_type=int,
                  neg=False,
                  always_true=False):
-
+        
         self.arg_str = arg_str
         self.arg_type = arg_type
         self.always_true = always_true
@@ -123,7 +123,7 @@ class ListOfParamFilters(list):
     def filter(self, value):
 
         return all(_.filter(value) for _ in self)
-
+    
     
 class DictOfListsOfParamFilters(dict):
 
@@ -142,19 +142,22 @@ class DictOfListsOfParamFilters(dict):
 
         return True
 
+
+    def __str__(self):
+
+        return '\n'.join('{k}: {f}'.format(k=k, f=', '.join(str(_) for _ in self[k])) for k in self)
+    
     
 class FilterAction(argparse.Action):
 
     def __init__(self, option_strings, dest, of_type=str, neg=False, **kwargs):
         super(FilterAction, self).__init__(option_strings, dest, **kwargs)
-
-        # print('FilterAction init', option_strings)
+        print('**** TBR', self.default, type(self.default))
         self._type=of_type
-        self.default=ParamFilter()
+        # self.default=ParamFilter(arg_type=of_type)
+        print('FilterAction init', option_strings, 'filter', self.default, 'for', of_type)
 
     def __call__(self, parser, namespace, values, option_string=None):
-
-        # print('FilterAction called', option_string, values)
 
         if not values:
             values = []

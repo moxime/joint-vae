@@ -57,8 +57,7 @@ if __name__ == '__main__':
     min_test_sample_size = args.min_test_sample_size
     
     filters = args.filters
-    _comma = ','
-    filter_str = '--'.join(f'{d}:{_comma.join([str(_) for _ in f])}' for d, f in filters.items())
+    filter_str = '--'.join(f'{d}:{f}' for d, f in filters.items() if not f.always_true)
 
     logging.debug('Filters: %s', filter_str)
 

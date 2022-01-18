@@ -1,17 +1,22 @@
 #!/bin/bash
 force=
+directory="$(dirname "$0")"/jobs
 while :; do
     case $1 in
 	-f )
 	    force=True ;;
+	-d )
+	    shift
+	    directory=$1
+	    ;;
 	* )
 	    break ;;
     esac
     shift
 done
 echo Force delete: $force
-echo Working on "$(dirname "$0")"/jobs
-cd "$(dirname "$0")"/jobs
+echo Working on $directory
+cd "$directory"
 
 for job in "$@"
 do

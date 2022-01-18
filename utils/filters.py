@@ -40,7 +40,7 @@ class ParamFilter():
             
         elif always_true:
             self.always_true = True
-            self.arg_str = 'true'
+            self.arg_str = 'always true'
             
         else:
             raise ValueError('Nothin given for filtering')
@@ -111,15 +111,15 @@ class ParamFilter():
     def filter(self, value):
 
         harddebug(self, value)
+        if self.always_true:
+            return not self.neg
+        
         if type(value) is list:
             if self.neg:
                 return np.all([self.filter(v) for v in value])
             else:
                 return np.any([self.filter(v) for v in value])
                               
-        if self.always_true:
-            return not self.neg
-        
         if self.any_value:
 
             return isinstance(value, self.type) ^ self.neg

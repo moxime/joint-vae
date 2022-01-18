@@ -93,8 +93,9 @@ if __name__ == '__main__':
         logging.debug('Flash collecting networks')
         try:
             rmodels = load_json(search_dir, registered_models_file)
-            list_of_networks = fast_collect_models(rmodels, filters, tpr_for_max=args.tpr[0] / 100,
-                                                   load_net=False, load_state=False)
+            with turnoff_debug():
+                list_of_networks = fast_collect_models(rmodels, filters, tpr_for_max=args.tpr[0] / 100,
+                                                       load_net=False, load_state=False)
         except FileNotFoundError as e:
             logging.warning('%s, will recollect networks', e)
             flash = False

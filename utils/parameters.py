@@ -335,7 +335,7 @@ def get_args_for_train(argv=None):
 
 def get_args_for_test(argv=None):
 
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = argparse.ArgumentParser(add_help=True)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--verbose', '-v', action='count', default=0)
 
@@ -422,11 +422,12 @@ def get_args_for_test(argv=None):
 
     args.filters = DictOfListsOfParamFilters()
     
-    filter_parser = parse_filters(parents=[parser])
+    filter_parser = parse_filters()
+
     filter_args = filter_parser.parse_args(ra)
 
-    if hasattr(filter_args, 'filters'):
-        args.filters.update(filter_args.filters)
+    for _ in filter_args.__dict__:
+        args.filters.add(_, filter_args.__dict__[_])
 
     return args
 
@@ -447,6 +448,8 @@ def parse_filters(default_ini_file='utils/filters.ini', **kw):
 
     metavars = config['metavar']
 
+    defaults = config['default']
+
     argnames = {}
     for k in types:
 
@@ -457,21 +460,21 @@ def parse_filters(default_ini_file='utils/filters.ini', **kw):
 
     for k in types:
 
-        # print(*argnames[k], types.get(k, 'str'))
         if not types.get(k):
             argtype = str
         else:
             argtype = locate(types[k])
         nargs = '*'
         metavar = None
-        if argtype is bool:
-            metavar = 'not'
-            nargs = '?'
+        # if argtype is bool:
+        #     metavar = 'not'
+        #     nargs = '?'
         if k in metavars:
             metavar = metavars[k]
 
         parser.add_argument(*argnames[k], dest=dests.get(k),
-                            of_type=argtype, nargs=nargs,
+                            default=defaults.get(k),
+                            type=argtype, nargs=nargs,
                             metavar=metavar, action=FilterAction)
 
     return parser
@@ -497,7 +500,8 @@ if __name__ == '__main__':
 
     arg = get_args_for_test()
     for k in arg.filters:
-        print(k, *arg.filters[k])
+        # if not arg.filters[k].always_true:
+        print('{:20} {} of type {}'.format(k, arg.filters[k], arg.filters[k].type.__name__))
 
     # m = {'done': 4, 'job': 45, 'batch_norm': ['decoder', 'encoder'], 'type': 'cvae'}
     

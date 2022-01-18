@@ -87,13 +87,13 @@ if __name__ == '__main__':
         logging.debug('%s: %s', k, str(v))
     
     search_dir = load_dir if load_dir else job_dir
-
+    
     filter_keys = get_filter_keys()
     registered_models_file = 'models-' + gethostname() + '.json'
     if flash:
         logging.debug('Flash collecting networks')
         try:
-            rmodels = load_json(job_dir, registered_models_file)
+            rmodels = load_json(search_dir, registered_models_file)
             list_of_networks = fast_collect_models(rmodels, filters, tpr_for_max=args.tpr[0] / 100,
                                                    load_net=False, load_state=False)
         except FileNotFoundError as e:
@@ -108,7 +108,7 @@ if __name__ == '__main__':
                                               load_net=False,
                                               load_state=False)
             rmodels = register_models(list_of_networks, *filter_keys)
-            save_json(rmodels, job_dir, registered_models_file)
+            save_json(rmodels, search_dir, registered_models_file)
 
     total = len(list_of_networks)
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 force=
 directory="$(dirname "$0")"/jobs
+light=
 while :; do
     case $1 in
 	-f )
@@ -9,12 +10,16 @@ while :; do
 	    shift
 	    directory=$1
 	    ;;
+	-l )
+	    light=True
+	    ;;
 	* )
 	    break ;;
     esac
     shift
 done
 echo Force delete: $force
+echo Light delete: $light
 echo Working on $directory
 cd "$directory"
 
@@ -36,7 +41,12 @@ do
 	echo "$dir" 'will be deleted'
 	rm log/train.log.$job 2> /dev/null && echo Log file deleted || echo No log file found
 	rm out/train-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
-	rm -r "$dir"
+	if [ "$light" ]
+	then
+	    touch "$dir"/deleted
+	else
+	    rm -r "$dir"
+	fi
     else
 	echo "$job" 'not found'
     fi

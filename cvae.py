@@ -1939,8 +1939,15 @@ class ClassificationVariationalNetwork(nn.Module):
 
         train_measures = {}
         logging.debug(f'Starting training loop with {signal_handler}')
+
+        last_was_full_test = False
         for epoch in range(done_epochs, epochs):
 
+            if signal_handler.sig > 2 or last_was_full_test and signal_handler.sig > 1:
+                logging.warning(f'Breaking training loop bc of signal {signal_handler}'
+                                f' after {epoch} epochs.')
+                break
+            
             for s in recorders:
                 recorders[s].reset()
                 
@@ -1952,6 +1959,8 @@ class ClassificationVariationalNetwork(nn.Module):
                          epoch % full_test_every == 0)
             ood_detection = ((epoch - done_epochs) and
                              epoch % ood_detection_every == 0)
+
+            last_was_full_test = full_test
             if (full_test or not epoch or ood_detection) and save_dir:
                 sample_dirs = [os.path.join(save_dir, 'samples', d)
                                for d in ('last', f'{epoch:04d}')]
@@ -2016,9 +2025,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 validation_loss = self.test_loss
                 validation_measures = self._measures.copy()
 
-                print('*** sig', signal_handler.sig)
-                if signal_handler.sig > 2:
-                    logging.warning(f'Breaking training loop bc of {signal_handler}')
+                if signal_handler.sig > 3:
+                    logging.warning(f'Abruptly breaking training loop bc of {signal_handler}')
                     break
                 if save_dir: self.save(save_dir)
             # train
@@ -2039,8 +2047,8 @@ class ClassificationVariationalNetwork(nn.Module):
             train_mean_loss = {k: 0. for k in self.loss_components}
             train_total_loss = train_mean_loss.copy()
                                
-            if signal_handler.sig > 2:
-                logging.warning(f'Breaking training loop bc of {signal_handler}')
+            if signal_handler.sig > 3:
+                logging.warning(f'Abruptly breaking training loop bc of {signal_handler}')
                 break
 
             if save_dir:
@@ -2124,20 +2132,14 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['fine_tuning'].append(epoch)
 
             optimizer.update_lr()
-
-            print('*** sig', signal_handler.sig)
-            if signal_handler.sig > 2:
-                logging.warning(f'Breaking training loop bc of {signal_handler}')
+        
+            if signal_handler.sig > 3:
+                logging.warning(f'Abruptly breaking training loop bc of {signal_handler}')
                 break
 
             if save_dir:
                 self.save(save_dir)
     
-            if full_test and signal_handler.sig > 1:
-                logging.warning(f'Gently stopping training loop bc of {signal_handler}'
-                                f'after {epoch} epochs')
-                break
-            
         for s in recorders:
             recorders[s].reset()
         if save_dir:
@@ -2148,7 +2150,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if not os.path.exists(d):
                     os.makedirs(d)
 
-        if oodsets and not signal_handler.sig > 2:
+        if oodsets and not signal_handler.sig > 1:
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -2163,7 +2165,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                          sample_dirs=sample_dirs,
                                          print_result='*')
 
-        if testset and not signal_handler.sig > 2:
+        if testset and not signal_handler.sig > 1:
 
             outputs.results(0, 0, -2, epochs,
                             metrics=self.metrics,
@@ -2188,7 +2190,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                               outputs=outputs,
                                               print_result='TEST')
 
-        if signal_handler.sig > 2:
+        if signal_handler.sig > 3:
             logging.warning(f'Skipping saving because of {signal_handler}')
         elif save_dir:
             self.save(save_dir)

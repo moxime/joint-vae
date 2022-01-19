@@ -40,7 +40,6 @@ def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False, iter
                 dirs = [d for d in paths if os.path.isdir(d)]
             except PermissionError:
                 dirs = []
-
             if out is None or iterate_over_subdirs_if_found:
                 for d in dirs:
                     if isinstance(arg, str):
@@ -826,6 +825,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     ood_results = model.ood_results.get(wanted_epoch, {}).copy()
     training_set = model.training_parameters['set']
 
+    forced_var = architecture.encoder_forced_variance
+    
     if training_set in ood_results:
         ood_results.pop(training_set)
     
@@ -981,6 +982,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'arch': arch,
             'dict_var': dict_var,
             'coder_dict': coder_dict,
+            'forced_var': forced_var,
             'gamma': model.training_parameters['gamma'],
             'arch_code': arch_code,
             'features': architecture.features['name'] if architecture.features else 'none',
@@ -1071,7 +1073,6 @@ def collect_models(directory,
 
     except (FileNotFoundError, PermissionError, NoModelError) as e:    
         pass
-        # print('***', e)
 
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
@@ -1154,6 +1155,9 @@ def test_results_df(nets,
 
     if ood_methods is None:
         ood_methods = 'first'
+
+    if predict_methods is None:
+        predict_methods = 'first'
     
     if not dataset:
         testsets = {n['set'] for n in nets}
@@ -1178,6 +1182,7 @@ def test_results_df(nets,
     train_index = [
         'options',
         'optim_str',
+        'forced_var',
         'L',
         'sigma_train',
         'sigma',
@@ -1205,6 +1210,7 @@ def test_results_df(nets,
     df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
                                    columns=columns)
 
+    # df.rename(columns={'encoder_forced_variance': 'force_var'}, inplace=True)
     df.set_index(indices, inplace=True)
     
     acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
@@ -1255,7 +1261,7 @@ def test_results_df(nets,
         elif show == 'all':
             shown_columns = ~first_method_columns
         else:
-            print(show)
+            # print(show)
             if isinstance(show, str):
                 show = [show]
             shown_columns = cols.isin(show, level=0)

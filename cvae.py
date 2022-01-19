@@ -1767,7 +1767,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     train_accuracy=False,
                     save_dir=None,
                     outputs=EpochOutput(),
-                    signal_handler=SIGHandler()):
+                    signal_handler=SIGHandler(2, 3)):
         """
 
         """
@@ -2015,8 +2015,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                     'valid')
                 validation_loss = self.test_loss
                 validation_measures = self._measures.copy()
-                
-                if signal_handler.sig > 1:
+
+                print('*** sig', signal_handler.sig)
+                if signal_handler.sig > 2:
                     logging.warning(f'Breaking training loop bc of {signal_handler}')
                     break
                 if save_dir: self.save(save_dir)
@@ -2038,7 +2039,7 @@ class ClassificationVariationalNetwork(nn.Module):
             train_mean_loss = {k: 0. for k in self.loss_components}
             train_total_loss = train_mean_loss.copy()
                                
-            if signal_handler.sig > 1:
+            if signal_handler.sig > 2:
                 logging.warning(f'Breaking training loop bc of {signal_handler}')
                 break
 
@@ -2124,17 +2125,17 @@ class ClassificationVariationalNetwork(nn.Module):
 
             optimizer.update_lr()
 
-            
-            if signal_handler.sig > 1:
+            print('*** sig', signal_handler.sig)
+            if signal_handler.sig > 2:
                 logging.warning(f'Breaking training loop bc of {signal_handler}')
                 break
 
             if save_dir:
                 self.save(save_dir)
     
-            if full_test and signal_handler.sig:
+            if full_test and signal_handler.sig > 1:
                 logging.warning(f'Gently stopping training loop bc of {signal_handler}'
-                                'after {epoch} epochs')
+                                f'after {epoch} epochs')
                 break
             
         for s in recorders:
@@ -2147,7 +2148,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if not os.path.exists(d):
                     os.makedirs(d)
 
-        if oodsets and not signal_handler.sig > 1:
+        if oodsets and not signal_handler.sig > 2:
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -2162,7 +2163,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                          sample_dirs=sample_dirs,
                                          print_result='*')
 
-        if testset and not signal_handler.sig > 1:
+        if testset and not signal_handler.sig > 2:
 
             outputs.results(0, 0, -2, epochs,
                             metrics=self.metrics,
@@ -2187,7 +2188,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                               outputs=outputs,
                                               print_result='TEST')
 
-        if signal_handler.sig > 1:
+        if signal_handler.sig > 2:
             logging.warning(f'Skipping saving because of {signal_handler}')
         elif save_dir:
             self.save(save_dir)

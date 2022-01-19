@@ -249,7 +249,7 @@ if __name__ == '__main__':
                              validation_sample_size=test_sample_size,  # 10000,
                              save_dir=save_dir,
                              outputs=outputs,
-                             signal_handler=SIGHandler(1, 15))
+                             signal_handler=SIGHandler(2, 3))
 
             log.info('Done training')
         else:

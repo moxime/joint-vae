@@ -1943,11 +1943,6 @@ class ClassificationVariationalNetwork(nn.Module):
         last_was_full_test = False
         for epoch in range(done_epochs, epochs):
 
-            if signal_handler.sig > 2 or last_was_full_test and signal_handler.sig > 1:
-                logging.warning(f'Breaking training loop bc of signal {signal_handler}'
-                                f' after {epoch} epochs.')
-                break
-            
             for s in recorders:
                 recorders[s].reset()
                 
@@ -2055,6 +2050,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.save(save_dir)
 
             current_measures = {}
+
+            if signal_handler.sig > 2 or full_test and signal_handler.sig > 1:
+                logging.warning(f'Breaking training loop bc of signal {signal_handler}'
+                                f' after {epoch} epochs.')
+                break
             
             self.train()
 

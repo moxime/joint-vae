@@ -9,6 +9,7 @@ while :; do
 	-d )
 	    shift
 	    directory=$1
+	    echo $directory
 	    ;;
 	-l )
 	    light=True

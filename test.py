@@ -344,7 +344,7 @@ if __name__ == '__main__':
         # d.index = d.index.droplevel(('sigma_train', 'sigma', 'features'))
         # d.index = d.index.droplevel(('sigma', 'features'))
         d.index = d.index.droplevel(('features'))
-        d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('NaN'))
+        d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('--'))
         
         if tex_file:
             with open(tex_file, 'a') as f:

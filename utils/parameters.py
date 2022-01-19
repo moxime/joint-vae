@@ -177,8 +177,6 @@ def get_args_for_train(argv=None):
 
     # description=__doc__)
 
-    parser.set_defaults(**defaults)
-
     logging.debug('Defaults:')
     for k in defaults:
         # print('****', k, defaults[k])
@@ -319,6 +317,9 @@ def get_args_for_train(argv=None):
     
     parser.add_argument('--where', action='store_true',
                         help='Print saving dir and exit')
+
+    parser.set_defaults(**defaults)
+
     
     args = parser.parse_args(remaining_args)
         
@@ -339,9 +340,9 @@ def get_args_for_test(argv=None):
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--verbose', '-v', action='count', default=0)
 
-    defaults = {'batch_size': 100,
+    defaults = {'batch_size': 128,
                 'epochs': 0,
-                'test_sample_size': 10000,
+                'test_sample_size': 1024,
                 'job_dir': './jobs'}
 
     parser.set_defaults(**defaults)
@@ -500,10 +501,13 @@ class NewEntryDictofLists(argparse.Action):
             
 if __name__ == '__main__':
 
-    arg = get_args_for_test()
-    for k in arg.filters:
+    arg = get_args_for_train()
+
+    print(arg.latent_sampling, arg.test_batch_size)
+    # arg = get_args_for_test()
+    # for k in arg.filters:
         # if not arg.filters[k].always_true:
-        print('{:20} {} of type {}'.format(k, arg.filters[k], arg.filters[k].type.__name__))
+        # print('{:20} {} of type {}'.format(k, arg.filters[k], arg.filters[k].type.__name__))
 
     # m = {'done': 4, 'job': 45, 'batch_norm': ['decoder', 'encoder'], 'type': 'cvae'}
     

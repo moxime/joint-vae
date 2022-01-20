@@ -545,7 +545,39 @@ def digest_table(*jobs,
         printout(' & '.join(list_of_fpr))
         printout('\n')
             
-              
+
+def format_df_index(df, float_format='{:.3g}', int_format='{}',
+                    na_rep='-', na_reps=['NaN'],
+                    inplace=False,
+                    ):
+
+    if not inplace:
+        df_ = df.copy()
+    else:
+        df_ = df
+    def return_as_type(x):
+        if isinstance(x, str):
+            if x in na_reps:
+                return na_rep
+            return x
+        if isinstance(x, int):
+            return int_format.format(x)
+        if x is None:
+            return na_rep
+        if isinstance(x, float):
+            return float_format.format(x)
+
+    index_df = df.index.to_frame().applymap(return_as_type)
+    
+    # df.reset_index(inplace=True)
+    # df_.index = index_.set_levels([idx.format(formatter=return_as_type) for idx in index_.levels])
+    df_.index = pd.MultiIndex.from_frame(index_df)
+
+    
+    if not inplace:
+        return df_
+
+        
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()

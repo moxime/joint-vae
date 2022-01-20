@@ -17,6 +17,7 @@ from utils.save_load import collect_models, test_results_df, LossRecorder
 from utils.save_load import make_dict_from_model, available_results, save_json, load_json
 from utils.save_load import fast_collect_models, register_models
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
+from utils.tables import format_df_index
 from utils.testing import early_stopping
 from utils.filters import get_filter_keys
 
@@ -343,8 +344,8 @@ if __name__ == '__main__':
         # d.index = d.index.droplevel(('sigma_train', 'beta_sigma', 'features'))
         # d.index = d.index.droplevel(('sigma_train', 'sigma', 'features'))
         # d.index = d.index.droplevel(('sigma', 'features'))
-        d.index = d.index.droplevel(('features'))
-        d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('--'))
+        # d.index = d.index.droplevel(('features'))
+        d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('NaN'))
         
         if tex_file:
             with open(tex_file, 'a') as f:
@@ -354,7 +355,12 @@ if __name__ == '__main__':
 
         if args.remove_index is not None:
             removable_index = ['sigma_train', 'sigma', 'beta', 'gamma']
-            removed_index = [i for i, l in enumerate(d.index.levels) if len(l) < 2 and l.name in removable_index]
+            if 'auto' in args.remove_index:
+                args.remove_index.remove('auto')
+                removed_index = [i for i, l in enumerate(d.index.levels)
+                                 if len(l) < 2 and l.name in removable_index]
+            else:
+                removed_index = []
             unremoved_index = []
             for i in args.remove_index:
                 if i.replace('-', '_') in d.index.names:
@@ -403,6 +409,9 @@ if __name__ == '__main__':
             d.drop(columns=drop_cols, inplace=True)
             d_mean.drop(columns=drop_cols, inplace=True)
 
+        format_df_index(d, inplace=True)
+        format_df_index(d_mean, inplace=True)
+        
         d_str = d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
 
         width = len(d_str.split('\n')[0])

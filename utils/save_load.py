@@ -826,6 +826,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     training_set = model.training_parameters['set']
 
     forced_var = architecture.encoder_forced_variance
+    if not forced_var:
+        forced_var = None
     
     if training_set in ood_results:
         ood_results.pop(training_set)
@@ -1182,6 +1184,7 @@ def test_results_df(nets,
     train_index = [
         'options',
         'optim_str',
+        'coder_dict',
         'forced_var',
         'L',
         'sigma_train',

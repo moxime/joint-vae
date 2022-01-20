@@ -151,12 +151,18 @@ def get_args_for_train(argv=None):
     conf_parser.add_argument('--config', '-c', default='DEFAULT')
     
     conf_args, remaining_args = conf_parser.parse_known_args(argv)
+
     config = configparser.ConfigParser()
     config.read(conf_args.config_file)
 
     config_params = config[conf_args.config]
 
-    defaults = {'batch_size': 100,
+    defaults = {'batch_size': 128,
+                'test_batch_size': 512,
+                'test_sample_size': 1024,
+                'validation': 8192,
+                'features': 'none',
+                'validation': 4096,
                 'epochs':100, 
                 'job_dir': './jobs'}
     
@@ -188,48 +194,52 @@ def get_args_for_train(argv=None):
     parser.add_argument('-M', '--batch-size', type=int, metavar='m')
     parser.add_argument('-m', '--test-batch-size', type=int, metavar='M', default=1024)
 
-    help = 'Num of samples to compute test accuracy'
+    help = 'Num of samples to compute test accuracy at each epoch'
     parser.add_argument('-t', '--test-sample-size', type=int,
                         metavar='N',
                         help=help)
 
-    parser.add_argument('-V', '--validation', type=int, default=4096)
+    parser.add_argument('-V', '--validation', type=int, default=4096,
+                        help='Number of validation samples taken away from the training set')
+    
     parser.add_argument('--force-cpu', action='store_true')
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 
     parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae', 'xvae'])
     
-    parser.add_argument('-s', '--sigma',
-                        type = float,
-                        # type=alphanum,
-                        metavar='S') #,
+    parser.add_argument('--sigma', '-s',
+                        # type = float,
+                        type=alphanum,
+                        metavar='S',
+                        help='Value of sigma (float) or in [\'learned\', \'rmse\', \'coded\']'
+                        ) #,
                         # nargs='*',
                         # help='several values can be provided for several trainings')
 
-    parser.add_argument('--sigma-reach',
-                        type=float,
-                        nargs='?',
-                        default=1.,
-                        const=4)
+    # parser.add_argument('--sigma-reach',
+    #                     type=float,
+    #                     nargs='?',
+    #                     default=1.,
+    #                     const=4)
 
-    parser.add_argument('--sigma-decay',
-                        type=float,
-                        default=0.)
+    # parser.add_argument('--sigma-decay',
+    #                     type=float,
+    #                     default=0.)
 
-    parser.add_argument('--sigma-max-step',
-                        type=float,
-                        default=None)
+    # parser.add_argument('--sigma-max-step',
+    #                     type=float,
+    #                     default=None)
     
-    parser.add_argument('--sigma-learned',
-                        action='store_true',)
+    # parser.add_argument('--sigma-learned',
+    #                     action='store_true',)
 
-    parser.add_argument('--sigma-is-rmse',
-                        action='store_true',)
+    # parser.add_argument('--sigma-is-rmse',
+    #                     action='store_true',)
 
     parser.add_argument('--sigma-per-dim', action='store_true')
 
-    parser.add_argument('--sigma-coded', action='store_true')
+    # parser.add_argument('--sigma-coded', action='store_true')
     
     parser.add_argument('--beta', type=float, default=1.0,
                         help='Beta-(C)VAE',
@@ -501,7 +511,8 @@ class NewEntryDictofLists(argparse.Action):
             
 if __name__ == '__main__':
 
-    arg = get_args_for_train()
+    cli = '--data-augmentation flip crop'.split()
+    arg = get_args_for_train(cli)
 
     print(arg.latent_sampling, arg.test_batch_size)
     # arg = get_args_for_test()

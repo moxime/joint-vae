@@ -13,8 +13,13 @@ from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, get
 from utils.save_load import collect_models
 from utils.print_log import EpochOutput
 from utils.signaling import SIGHandler
+import setproctitle
 
 if __name__ == '__main__':
+
+    # sys.argv[0] = 'training'
+    # setproctitle.setproctitle(' '.join(sys.argv))
+    setproctitle.setproctitle('training')
     
     hostname = gethostname()
     
@@ -99,15 +104,21 @@ if __name__ == '__main__':
                  _shape, args.dataset, args.transformer)
 
         sdim = input_shape if args.sigma_per_dim else 1
-                
-        sigma = Sigma(args.sigma,
+
+        sigma_is_learned = args.sigma == 'learned'
+        sigma_is_coded = args.sigma == 'coded'
+        sigma_is_rmse = args.sigma == 'rmse'
+        sigma_value = args.sigma if isinstance(args.sigma, (float, int)) else 1.
+
+        
+        sigma = Sigma(sigma_value,
                       sdim=sdim,
-                      input_dim=input_shape if args.sigma_coded else False,
-                      reach=args.sigma_reach,
-                      decay=args.sigma_decay,
-                      max_step=args.sigma_max_step,
-                      learned=args.sigma_learned,
-                      is_rmse=args.sigma_is_rmse)
+                      input_dim=input_shape if sigma_is_coded else False,
+                      reach=False,  # args.sigma_reach,
+                      decay=False,  # args.sigma_decay,
+                      max_step=None,  # args.sigma_max_step,
+                      learned=sigma_is_learned,  # args.sigma_learned,
+                      is_rmse=sigma_is_rmse)
 
         jvae = CVNet(input_shape, num_labels,
                      type_of_net=args.type,
@@ -159,7 +170,8 @@ if __name__ == '__main__':
 
 
     log.debug(f'{trainset.name} dataset loaded')
-        
+
+    print('***', data_augmentation)
     if not data_augmentation:
         _augment = ''
     else:

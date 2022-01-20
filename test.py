@@ -323,11 +323,13 @@ if __name__ == '__main__':
 
     tab_file, tex_file, agg_tab_file, agg_tex_file = None, None, None, None
 
+    results_file_name = args.results_file or tex_filter_str
+    
     if len(df) == 1:
-        tab_file = os.path.join('results', tex_filter_str + '.tab') 
-        tex_file = os.path.join('results', tex_filter_str + '.tex')
-        agg_tab_file = os.path.join('results', tex_filter_str + '-agg.tab') 
-        agg_tex_file = os.path.join('results', tex_filter_str + '-agg.tex') 
+        tab_file = os.path.join(args.results_directory, results_file_name + '.tab') 
+        tex_file = os.path.join(args.results_directory, results_file_name + '.tex')
+        agg_tab_file = os.path.join(args.results_directory, results_file_name + '-agg.tab') 
+        agg_tex_file = os.path.join(args.results_directory, results_file_name + '-agg.tex') 
 
     log.info('')
     log.info('')

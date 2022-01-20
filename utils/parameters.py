@@ -402,6 +402,8 @@ def get_args_for_test(argv=None):
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')
 
+    parser.add_argument('--results-file')
+    parser.add_argument('--results-directory', default='results')
     
     parser.add_argument('--show', action='store_true')
     

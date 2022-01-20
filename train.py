@@ -110,6 +110,7 @@ if __name__ == '__main__':
         sigma_is_rmse = args.sigma == 'rmse'
         sigma_value = args.sigma if isinstance(args.sigma, (float, int)) else 1.
 
+        batch_norm = args.batch_norm if args.batch_norm != 'none' else None
         
         sigma = Sigma(sigma_value,
                       sdim=sdim,

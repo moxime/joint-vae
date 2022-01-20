@@ -298,7 +298,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--force-cross-y', type=float, nargs='?', const=1.0, default=0.)
     
     parser.add_argument('--batch-norm',
-                        choices=['encoder', 'both'],
+                        choices=['encoder', 'both', 'none'],
                         nargs='?',
                         const='encoder')
 

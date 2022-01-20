@@ -169,6 +169,7 @@ def get_args_for_train(argv=None):
     defaults.update(config_params)
 
     alphanum_keys = ('encoder',
+                     'data_augmentation',
                      'features_channels',
                      'decoder',
                      'upsampler',
@@ -291,6 +292,7 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--data-augmentation',
                         choices=['flip', 'crop'],
+                        type=str,
                         nargs='*')
 
     parser.add_argument('--force-cross-y', type=float, nargs='?', const=1.0, default=0.)
@@ -511,10 +513,10 @@ class NewEntryDictofLists(argparse.Action):
             
 if __name__ == '__main__':
 
-    cli = '--data-augmentation flip crop'.split()
+    cli = '--config cifar10'.split()
     arg = get_args_for_train(cli)
 
-    print(arg.latent_sampling, arg.test_batch_size)
+    print(arg.latent_sampling, arg.test_batch_size, *arg.upsampler, arg.data_augmentation, len(arg.data_augmentation))
     # arg = get_args_for_test()
     # for k in arg.filters:
         # if not arg.filters[k].always_true:

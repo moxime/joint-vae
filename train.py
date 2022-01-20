@@ -171,7 +171,6 @@ if __name__ == '__main__':
 
     log.debug(f'{trainset.name} dataset loaded')
 
-    print('***', data_augmentation)
     if not data_augmentation:
         _augment = ''
     else:

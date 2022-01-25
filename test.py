@@ -298,7 +298,7 @@ if __name__ == '__main__':
         export_losses(n, which='all')
         texify_test_results(n)
         
-    first_method = args.expand < 2
+    all_methods = 'all' if args.expand > 1 else None
 
     tpr = [t/100 for t in args.tpr]
 
@@ -308,8 +308,8 @@ if __name__ == '__main__':
         print_sorting_keys = True
         
     df = test_results_df(models_to_be_kept, 
-                         ood_methods=args.ood_methods,
-                         predict_methods=args.predict_methods,
+                         ood_methods=args.ood_methods or all_methods,
+                         predict_methods=args.predict_methods or all_methods,
                          ood=oodsets,
                          show_measures=10,
                          tnr=args.tnr,
@@ -324,6 +324,9 @@ if __name__ == '__main__':
     tab_file, tex_file, agg_tab_file, agg_tex_file = None, None, None, None
 
     results_file_name = args.results_file or tex_filter_str
+    early_stopping_str = args.early_stopping or 'last'
+    tab_code = hashlib.sha1(bytes(tex_filter_str + early_stopping_str, 'utf-8')).hexdigest()[:6]
+
     
     if len(df) == 1:
         tab_file = os.path.join(args.results_directory, results_file_name + '.tab') 
@@ -340,7 +343,7 @@ if __name__ == '__main__':
     for s, d in df.items():
 
         # print('**********', d.reset_index().columns)  # 
-        texify_test_results_df(d, s, tex_file, tab_file)
+        texify_test_results_df(d, s, tex_file, tab_file, tab_code=tab_code)
 
         
         # d.index = d.index.droplevel(('sigma_train', 'beta_sigma', 'features'))
@@ -356,7 +359,7 @@ if __name__ == '__main__':
                 f.write('}\n')
 
         if args.remove_index is not None:
-            removable_index = ['sigma_train', 'sigma', 'beta', 'gamma']
+            removable_index = ['L', 'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var']
             if 'auto' in args.remove_index:
                 args.remove_index.remove('auto')
                 removed_index = [i for i, l in enumerate(d.index.levels)
@@ -399,7 +402,7 @@ if __name__ == '__main__':
             # std_last_names = [_ + 'std' for _ in last_names]
             # d_mean.columns = d_mean.columns.set_level(mean_last_names, level=-1)
             d_agg = pd.concat(dict(mean=d_mean, std=d_std), axis=1)
-            texify_test_results_df(d_agg, s, agg_tex_file, agg_tab_file)
+            texify_test_results_df(d_agg, s, agg_tex_file, agg_tab_file, tab_code=tab_code)
 
         col_show_levels = {_: 0 for _ in d.columns}
         col_show_levels.update({_: 2 for _ in d.columns if _[0] == 'measures'})

@@ -1183,6 +1183,7 @@ def test_results_df(nets,
 
     train_index = [
         'options',
+        'batch_norm',
         'optim_str',
         'coder_dict',
         'forced_var',
@@ -1195,6 +1196,8 @@ def test_results_df(nets,
         'job']
 
     indices = arch_index + train_index
+
+    indices_replacement = {'batch_norm': 'bn'}
 
     # acc_cols = ['best_accuracy', 'accuracies']
     # ood_cols = ['ood_fpr', 'ood_fprs']
@@ -1213,7 +1216,11 @@ def test_results_df(nets,
     df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
                                    columns=columns)
 
-    # df.rename(columns={'encoder_forced_variance': 'force_var'}, inplace=True)
+    df['batch_norm'] = df['batch_norm'].apply(lambda x: x[0] if x else x)
+    df.rename(columns=indices_replacement, inplace=True)
+
+    indices = [indices_replacement.get(_, _) for _ in indices]
+    
     df.set_index(indices, inplace=True)
     
     acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)

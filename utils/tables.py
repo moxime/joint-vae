@@ -295,7 +295,7 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
     return large_df.reorder_levels(['metrics', 'type', 'method'], axis=1)
 
     
-def texify_test_results_df(df, dataset, tex_file, tab_file):
+def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
 
     datasets = torchdl.get_same_size_by_name(dataset)
     datasets.append(dataset)
@@ -383,7 +383,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file):
                 f.write(r'}')
                 f.write('\n')
 
-            file_code = hashlib.sha1(bytes(tab_file, 'utf-8')).hexdigest()[:6]
+            file_code = tab_code or hashlib.sha1(bytes(tab_file, 'utf-8')).hexdigest()[:6]
             f.write(r'\def\tabcode{')
             f.write(f'{file_code}')
             f.write(r'}')

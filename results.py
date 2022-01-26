@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--texify', default='utils/texify.ini')
     parser.add_argument('--filters', default='utils/filters.ini')
     parser.add_argument('--tpr', default=95, type=int)
+    parser.add_argument('--flash', action='store_true')
     
     args = parser.parse_args(None if sys.argv[0] else args_from_file)
 
@@ -71,6 +72,8 @@ if __name__ == '__main__':
     else:
         texify = {}
 
+    flash = args.flash
+    
     with turnoff_debug():
         all_models = collect_models(args.job_dir, load_net=False)
 
@@ -115,8 +118,8 @@ if __name__ == '__main__':
                 if _ in filter_types:
 
                     filters[k].add(filter_dests.get(_, _),
-                                   ParamFilter(config[k][_],
-                                               arg_type=locate(filter_types[_] or 'str')))
+                                   ParamFilter.from_string(arg_str=config[k][_],
+                                               type=locate(filter_types[_] or 'str')))
 
         for k in filters:
             logging.debug('| filters for %s', k)
@@ -145,13 +148,10 @@ if __name__ == '__main__':
         agg_df = {}
         for k in which_from_filters:
             logging.info('{} models for {}'.format(len(models_by_type[k]), k))
-            df_ = test_results_df(models_by_type[k], nets_to_show='all',
-                                  first_method=False,
-                                  ood={},
-                                  show_measures=False,  # True,
-                                  tnr=False,
-                                  tpr=[float(default_config['tpr']) / 100],
-                                  sorting_keys=[])
+            df_ = test_results_df(models_by_type[k],
+                                  predict_methods='all',
+                                  ood_methods='all',
+                                  tpr=[float(default_config['tpr']) / 100])
             df = next(iter(df_.values()))
             df.index = pd.MultiIndex.from_frame(df.index.to_frame().fillna('NaN'))
 
@@ -177,7 +177,6 @@ if __name__ == '__main__':
             def kc(c):
                 return c[0] in o and c[1] in m 
             return kc
-
 
         kept_cols = {}
         kept_oods = []

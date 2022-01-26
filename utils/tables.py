@@ -248,11 +248,11 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
 
     for k, df in df_dict.items():
 
-        harddebug('\n*** index:', '\ndf:\n', df[df.columns[0:6]], '\n***')
+        harddebug('*** index:', df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
         
         df = df.groupby(kept_levels).agg('mean')
         
-        harddebug('\n*** index:', *df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
+        harddebug('*** index:', *df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
 
         kc = kept_cols[k]
 
@@ -261,11 +261,11 @@ def agg_results(df_dict, kept_cols, kept_levels=['type'], tex_file=None, replace
 
         df = df[kc]
 
-        harddebug('\n*** kept cols', *df.columns, '\n', df)
-
+        # harddebug('*** kept cols', *df.columns, '\n', df)
+        harddebug('*** kept cols', *kc)
 
         level = df.index.nlevels - 1
-        # debug('***\n', df)
+        harddebug('*** before stack\n', df)
         df = df.stack(level=0)
         harddebug('*** stack:\n', df)
 

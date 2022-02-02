@@ -5,7 +5,7 @@ import argparse, configparser
 import sys, os
 import logging
 import pandas as pd
-from utils.save_load import LossRecorder, collect_models, test_results_df, make_dict_from_model
+from utils.save_load import LossRecorder, fetch_models, test_results_df, make_dict_from_model
 from utils import torch_load as tl
 from utils.sample import zsample, sample
 from utils.inspection import loss_comparisons
@@ -15,6 +15,7 @@ from utils.tables import agg_results
 from pydoc import locate
 import re
 from utils.print_log import turnoff_debug
+from utils.parameters import gethostname
 
 def expand_row(row_format, *a, col_sep=' & '):
 
@@ -73,9 +74,10 @@ if __name__ == '__main__':
         texify = {}
 
     flash = args.flash
-    
-    with turnoff_debug():
-        all_models = collect_models(args.job_dir, load_net=False)
+
+    registered_models_file = 'models-' + gethostname() + '.json'
+
+    all_models = fetch_models(args.job_dir, registered_models_file, load_net=False, flash=flash)
 
     filter_conf = configparser.ConfigParser()
     filter_conf.read(args.filters)
@@ -158,6 +160,7 @@ if __name__ == '__main__':
             idx = list(df.index.names)
             if 'job' in idx:
                 idx.remove('job')
+            # print("***", k, '\n', df[df.columns[:3]].to_string())
             agg_df[k] = df.groupby(level=idx).agg('mean')
             agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
             
@@ -166,9 +169,11 @@ if __name__ == '__main__':
             logging.info('results for {} from csv file {}'.format(k, csv_file))
             index_col = [int(_) for _ in config[k]['index_col'].split()]
             header = [int(_) for _ in config[k]['header'].split()]
+
             df = pd.read_csv(csv_file, index_col=index_col, header=header)
             if df.index.nlevels > 1:
                 df.index = df.index.set_levels([_.astype(str) for _ in df.index.levels])
+
             # print("***", k, '\n', df.to_string())
             agg_df[k] = df.groupby(level=df.index.names).agg('mean')
             agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
@@ -180,6 +185,7 @@ if __name__ == '__main__':
 
         kept_cols = {}
         kept_oods = []
+
         for k in which:
             kept_ood = config[k]['ood'].split()
             for o in kept_ood:
@@ -187,6 +193,7 @@ if __name__ == '__main__':
                     kept_oods.append(o)
             kept_methods = config[k]['ood_methods'].split()
             kept_index = ['type'] + config[k].get('kept_index', '').split()
+
             kept_cols[k] = kc_(kept_ood, kept_methods)
             # print('***', k)
             # print(kept_ood, kept_methods)

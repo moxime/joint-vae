@@ -8,10 +8,9 @@ colors = ['black', 'red']
 
 habitats = ['city', 'country']
 
-N = 10
-
+N = 40
 animals = []
-for i in range(3):
+for i in range(N // 2):
 
     animals.append({'specy': choose(species),
                     'color': choose(colors),

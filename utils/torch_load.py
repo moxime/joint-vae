@@ -8,6 +8,7 @@ import os
 import logging
 import string
 import numpy as np
+from torchvision.utils import save_image
 
 class LoggerAsfile(object):
 
@@ -446,8 +447,38 @@ def show_images(imageset, shuffle=True, num=4, **kw):
     a.set_title(legend)
     f.show()
 
-    
+
+def export_png(imageset, directory, by_class=False):
+
+    loader = torch.utils.data.DataLoader(imageset)
+
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+
+    classes = imageset.classes
+        
+    if by_class:
+        for c in classes:
+            try:
+                os.makedirs(os.path.join(directory, c))
+            except FileExistsError:
+                pass
+                
+    i = 0
+    for x, y in loader:
+        
+        for image_tensor, c in zip(x, y):
+            image_dir = os.path.join(directory, classes[c]) if by_class else directory
+            if not os.path.isdir(image_dir):
+                os.makedirs
+            filename = os.path.join(image_dir, f'{i:05}.png')
+            print(i, c, *image_tensor.shape)
+            save_image(image_tensor, filename)
+            i += 1
+            
 if __name__ == '__main__':
 
-    pass
-    
+    for s in ('lsunc', 'lsunr', 'cifar10'):
+        _, test = get_dataset(s)
+        export_png(test, os.path.join('/tmp', s, 'test'))
+        

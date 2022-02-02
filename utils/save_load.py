@@ -14,7 +14,8 @@ from utils.torch_load import get_same_size_by_name, get_shape_by_name
 from utils.roc_curves import fpr_at_tpr
 from contextlib import contextmanager
 import functools
-
+from utils.print_log import turnoff_debug
+from utils.filters import get_filter_keys
 
 class NoModelError(Exception):
     pass
@@ -1039,14 +1040,41 @@ def register_models(models, *keys):
         d[m['dir']] = {_: m[_] for _ in keys}
 
     return d
-          
-def fast_collect_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='last', **kw):
+
+
+def fetch_models(search_dir, registered_models_file, filter=None, flash=True, load_net=False, **kw):
+
+    if flash:
+        logging.debug('Flash collecting networks')
+        try:
+            rmodels = load_json(search_dir, registered_models_file)
+            with turnoff_debug():
+                return gather_registered_models(rmodels, filter, load_net=load_net, **kw)
+                
+        except (FileNotFoundError, NoModelError) as e:
+            logging.warning('%s not found, will recollect networks', e)
+            flash = False
+            
+    if not flash:    
+        logging.debug('Collecting networks')
+        with turnoff_debug():
+            list_of_networks = collect_models(search_dir,
+                                              load_net=False,
+                                              **kw)
+        filter_keys = get_filter_keys()
+        rmodels = register_models(list_of_networks, *filter_keys)
+        save_json(rmodels, search_dir, registered_models_file)
+        return fetch_models(search_dir, registered_models_file, filter=filter, flash=True,
+                             load_net=load_net, **kw)
+
+
+def gather_registered_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='last', **kw):
 
     from cvae import ClassificationVariationalNetwork
 
     mlist = []
     for _ in mdict:
-        if filter.filter(mdict[_]):
+        if filter is None or filter.filter(mdict[_]):
             m = ClassificationVariationalNetwork.load(_, **kw)
             mlist.append(make_dict_from_model(m, _, tpr=tpr_for_max, wanted_epoch=wanted_epoch))
 

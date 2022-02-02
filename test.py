@@ -15,7 +15,7 @@ from utils.parameters import get_args, set_log, gethostname
 from utils.print_log import EpochOutput, turnoff_debug
 from utils.save_load import collect_models, test_results_df, LossRecorder
 from utils.save_load import make_dict_from_model, available_results, save_json, load_json
-from utils.save_load import fast_collect_models, register_models
+from utils.save_load import fetch_models
 from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
 from utils.tables import format_df_index
 from utils.testing import early_stopping
@@ -88,29 +88,14 @@ if __name__ == '__main__':
     
     search_dir = load_dir if load_dir else job_dir
     
-    filter_keys = get_filter_keys()
     registered_models_file = 'models-' + gethostname() + '.json'
-    if flash:
-        logging.debug('Flash collecting networks')
-        try:
-            rmodels = load_json(search_dir, registered_models_file)
-            with turnoff_debug():
-                list_of_networks = fast_collect_models(rmodels, filters, tpr_for_max=args.tpr[0] / 100,
-                                                       load_net=False, load_state=False)
-        except FileNotFoundError as e:
-            logging.warning('%s, will recollect networks', e)
-            flash = False
-            
-    if not flash:    
-        logging.debug('Collecting networks')
-        with turnoff_debug():
-            list_of_networks = collect_models(search_dir,
-                                              tpr_for_max=args.tpr[0] / 100,
-                                              load_net=False,
-                                              load_state=False)
-            rmodels = register_models(list_of_networks, *filter_keys)
-            save_json(rmodels, search_dir, registered_models_file)
 
+    list_of_networks = fetch_models(search_dir, registered_models_file, filter=filters,
+                                     flash=flash,
+                                     tpr_for_max=args.tpr[0] / 100,
+                                     load_net=False,
+                                     load_state=False)
+                                     
     total = len(list_of_networks)
 
     log.debug('{} models found'.format(total))

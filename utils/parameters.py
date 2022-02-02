@@ -397,7 +397,7 @@ def get_args_for_test(argv=None):
                         default=False,
                         const='recorder')
 
-    parser.add_argument('--flash', action='store_true')
+    parser.add_argument('--register', dest='flash', action='store_false')
 
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')

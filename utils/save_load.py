@@ -815,7 +815,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         if 'early-min-loss' in model.training_parameters:
             wanted_epoch = model.training_parameters['early-min-loss']
         else:
-            logging.warning('Min loss epoch had not been computed for %s. Will fecth last', model.job)
+            logging.warning('Min loss epoch had not been computed for %s. Will fecth last', model.trained)
             wanted_epoch = 'last'
 
     if wanted_epoch == 'last':
@@ -1311,6 +1311,8 @@ def test_results_df(nets,
         d_['measures'] = meas_df
 
     df = pd.concat(d_, axis=1)
+
+    df.columns.rename(['set', 'method', 'metrics'], inplace=True)
     
     cols = df.columns
 

@@ -16,7 +16,8 @@ from utils.print_log import EpochOutput, turnoff_debug
 from utils.save_load import collect_models, test_results_df, LossRecorder
 from utils.save_load import make_dict_from_model, available_results, save_json, load_json
 from utils.save_load import fetch_models
-from utils.tables import export_losses, tex_architecture, texify_test_results, texify_test_results_df
+from utils.tables import export_losses
+from utils.texify import tex_architecture, texify_test_results, texify_test_results_df
 from utils.tables import format_df_index
 from utils.testing import early_stopping
 from utils.filters import get_filter_keys

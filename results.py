@@ -10,7 +10,7 @@ from utils import torch_load as tl
 from utils.sample import zsample, sample
 from utils.inspection import loss_comparisons
 import matplotlib.pyplot as plt
-from utils.filters import DictOfListsOfParamFilters, ParamFilter
+from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
 from utils.tables import agg_results
 from pydoc import locate
 import re
@@ -79,10 +79,7 @@ if __name__ == '__main__':
 
     all_models = fetch_models(args.job_dir, registered_models_file, load_net=False, flash=flash)
 
-    filter_conf = configparser.ConfigParser()
-    filter_conf.read(args.filters)
-    filter_types = filter_conf['type']
-    filter_dests = filter_conf['dest']
+    filter_keys = get_filter_keys(args.filters)
     
     for config_file in args.config_files:
         config = configparser.ConfigParser()
@@ -117,11 +114,11 @@ if __name__ == '__main__':
             filters[k] = DictOfListsOfParamFilters()
 
             for _ in config[k]:
-                if _ in filter_types:
+                if _ in filter_keys:
 
-                    filters[k].add(filter_dests.get(_, _),
+                    filters[k].add(filter_keys[_]['dest'],
                                    ParamFilter.from_string(arg_str=config[k][_],
-                                               type=locate(filter_types[_] or 'str')))
+                                               type=locate(filter_keys[_]['type'] or 'str')))
 
         for k in filters:
             logging.debug('| filters for %s', k)
@@ -192,7 +189,7 @@ if __name__ == '__main__':
                 if o not in kept_oods:
                     kept_oods.append(o)
             kept_methods = config[k]['ood_methods'].split()
-            kept_index = ['type'] + config[k].get('kept_index', '').split()
+            kept_index = config[k].get('kept_index', '').split()
 
             kept_cols[k] = kc_(kept_ood, kept_methods)
             # print('***', k)
@@ -250,7 +247,7 @@ if __name__ == '__main__':
         column_format = ('@{}' + 'l' * n_index + '%\n'
                          + '@{/}'.join(['S[table-format=2.1]%\n'] * n_methods) * 2 + '@{}')
 
-        cols = cols.droplevel('type')
+        cols = cols.droplevel('which')
 
         renames = dict(**texify['datasets'], **texify['methods'], **texify['metrics'])
         results_df.rename(renames, inplace=True)

@@ -2,7 +2,7 @@ from torch import optim
 from torch import nn
 import torch
 import logging
-from utils.print_log import texify
+from utils.print_log import texify_str
 
 default_lr = {'sgd': 0.01,
               'adam': 0.001}
@@ -67,7 +67,7 @@ class Optimizer:
     def __format__(self, format_spec):
 
         if format_spec.endswith('x'):
-            return texify(self.__format__(format_spec[:-1]), num=True)
+            return texify_str(self.__format__(format_spec[:-1]), num=True)
         try:
             level = int(format_spec)
         except ValueError:

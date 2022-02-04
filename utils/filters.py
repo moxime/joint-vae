@@ -220,6 +220,7 @@ class FilterAction(argparse.Action):
         filter = ParamFilter.from_string(type=self._of_type, arg_str=' '.join(values))
         getattr(namespace, self.dest).append(filter)
 
+        
 def get_filter_keys(from_file=os.path.join('utils', 'filters.ini')):
 
     filters = configparser.ConfigParser()
@@ -228,7 +229,7 @@ def get_filter_keys(from_file=os.path.join('utils', 'filters.ini')):
     types = dict(filters['type'])
     dest = dict(filters['dest'])
 
-    return [dest.get(_, _) for _ in types]
+    return {_: {'type': types[_], 'dest': dest.get(_, _)} for _ in types}
 
         
 if __name__ == '__main__':

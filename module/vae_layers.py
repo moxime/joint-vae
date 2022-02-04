@@ -3,7 +3,7 @@ from torch import Tensor
 from torch import nn
 import numpy as np
 from torch.nn import functional as F, Parameter
-from utils.print_log import texify
+from utils.print_log import texify_str
 import logging
 
 
@@ -131,7 +131,7 @@ class Sigma(Parameter):
         if spec.endswith(('f', 'g', 'e')):
             return self.value.__format__(spec)
         if spec.endswith('x'):
-            return texify(str(self), num=True)
+            return texify_str(str(self), num=True)
         if spec.endswith('i'):
             if self.is_rmse:
                 return 'e'

@@ -259,7 +259,7 @@ class EpochOutput:
             self.write(line + '\n', when=self.END_OF_EPOCH) 
 
 
-def texify(s, num=False, space=None, underscore=None, verbatim=False):
+def texify_str(s, num=False, space=None, underscore=None, verbatim=False):
     if type(s) != str:
         return s
     try:

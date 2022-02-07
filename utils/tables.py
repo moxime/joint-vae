@@ -1,5 +1,4 @@
 import sys
-from datetime import datetime
 import functools
 from utils.save_load import create_file_for_job as create_file, find_by_job_number
 from utils.print_log import harddebug, printdebug
@@ -97,15 +96,10 @@ def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_d
 
         harddebug('*** index:', df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
 
-        kc = kept_cols[k]
-
-        if hasattr(kc, '__call__'):
-            kc = [_  for _ in df.columns if kc(_)]            
-
-        df = df[kc]
+        df = df[kept_cols[k]]
 
         # harddebug('*** kept cols', *df.columns, '\n', df)
-        harddebug('*** kept cols', *kc)
+        # harddebug('*** kept cols', kept_cols[k])
 
         harddebug('*** before stack\n', df)
         df = df.stack('set')
@@ -119,9 +113,10 @@ def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_d
 
     large_df.columns.rename({None: 'which'}, inplace=True)
 
-    large_df = large_df.stack('which')
+    # large_df = large_df.stack('which')
 
-    large_df = large_df.groupby(['which', 'set'] + kept_levels).agg('mean')
+    # large_df = large_df.groupby(['which', 'set'] + kept_levels).agg('mean')
+    large_df = large_df.groupby(['set'] + kept_levels).agg('mean')
     
     level = large_df.index.nlevels - 1
 
@@ -139,7 +134,7 @@ def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_d
         large_df = large_df.droplevel(removed_index)
         harddebug('removed index', *large_df.index.names)
     
-    return large_df.unstack('which').reorder_levels(['metrics', 'which', 'method'], axis=1)
+    return large_df.reorder_levels(['metrics', 'which', 'method'], axis=1)
 
     
 def digest_table(*jobs, 

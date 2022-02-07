@@ -221,15 +221,21 @@ class FilterAction(argparse.Action):
         getattr(namespace, self.dest).append(filter)
 
         
-def get_filter_keys(from_file=os.path.join('utils', 'filters.ini')):
+def get_filter_keys(from_file=os.path.join('utils', 'filters.ini'), by='dest'):
 
     filters = configparser.ConfigParser()
     filters.read(from_file)
 
     types = dict(filters['type'])
-    dest = dict(filters['dest'])
+    dests = dict(filters['dest'])
+    abbrvs = dict(filters['abbr'])
 
-    return {_: {'type': types[_], 'dest': dest.get(_, _)} for _ in types}
+    if by == 'dest':
+        return {dests.get(_, _): {'type':types[_],
+                                  'key': [_]} 
+                for _ in types}
+    else:
+        return {_: {'dest': dests.get(_, _), 'type': types[_]} for _ in types}
 
         
 if __name__ == '__main__':

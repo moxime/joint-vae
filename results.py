@@ -53,7 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--texify', default='utils/texify.ini')
     parser.add_argument('--filters', default='utils/filters.ini')
     parser.add_argument('--tpr', default=95, type=int)
-    parser.add_argument('--flash', action='store_true')
+    parser.add_argument('--register', dest='flash', action='store_false')
     
     args = parser.parse_args(None if sys.argv[0] else args_from_file)
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     all_models = fetch_models(args.job_dir, registered_models_file, load_net=False, flash=flash)
 
-    filter_keys = get_filter_keys(args.filters)
+    filter_keys = get_filter_keys(args.filters, by='key')
     
     for config_file in args.config_files:
         config = configparser.ConfigParser()
@@ -115,10 +115,10 @@ if __name__ == '__main__':
 
             for _ in config[k]:
                 if _ in filter_keys:
-
-                    filters[k].add(filter_keys[_]['dest'],
-                                   ParamFilter.from_string(arg_str=config[k][_],
-                                               type=locate(filter_keys[_]['type'] or 'str')))
+                    dest = filter_keys[_]['dest']
+                    ftype = filter_keys[_]['type']
+                    filters[k].add(dest, ParamFilter.from_string(arg_str=config[k][_],
+                                                              type=locate(ftype or 'str')))
 
         for k in filters:
             logging.debug('| filters for %s', k)
@@ -171,14 +171,9 @@ if __name__ == '__main__':
             if df.index.nlevels > 1:
                 df.index = df.index.set_levels([_.astype(str) for _ in df.index.levels])
 
-            # print("***", k, '\n', df.to_string())
             agg_df[k] = df.groupby(level=df.index.names).agg('mean')
             agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
 
-        def kc_(o, m):
-            def kc(c):
-                return c[0] in o and c[1] in m 
-            return kc
 
         kept_cols = {}
         kept_oods = []
@@ -188,19 +183,20 @@ if __name__ == '__main__':
             for o in kept_ood:
                 if o not in kept_oods:
                     kept_oods.append(o)
-            kept_methods = config[k]['ood_methods'].split()
+            kept_methods_to_be_splited = config[k]['ood_methods'].split()
+
+            kept_methods = {_.split(':')[0].strip(): _.split(':')[-1].strip()
+                            for _ in kept_methods_to_be_splited}
+
+            agg_df[k].rename(columns=kept_methods, level='method', inplace=True)
+            
             kept_index = config[k].get('kept_index', '').split()
 
-            kept_cols[k] = kc_(kept_ood, kept_methods)
-            # print('***', k)
-            # print(kept_ood, kept_methods)
-            # for _ in agg_df[k].columns:
-            #     print(_, kept_cols[k](_))
-        # for k in agg_df:
-        #     print('****', k, '****')
-        #     print(agg_df[k].columns)
-        #     print(agg_df[k].index.names)
-        #     print(agg_df[k][agg_df[k].columns[:4]].to_string())
+            cols = agg_df[k].columns
+
+            kept_cols[k] = cols[cols.isin(kept_ood, level='set') &
+                                cols.isin(kept_methods.values(), level='method')]
+            # print('*** cols', k, ':', *kept_cols[k])
 
         results_df = agg_results(agg_df, kept_cols=kept_cols, kept_levels=kept_index)
 
@@ -208,13 +204,13 @@ if __name__ == '__main__':
         for tpr in [_ / 100 for _ in range(100)]:
             results_df.rename(columns={tpr: 'fpr'}, inplace=True)
             results_df.rename(columns={str(tpr): 'fpr'}, inplace=True)
-            
+
         cols = []
 
         for w in ('fpr', 'auc'):
             for k in which:
                 for m in config[k]['ood_methods'].split():
-                    cols.append((w, k, m))
+                    cols.append((w, k, m.split(':')[-1].strip()))
         
         fpr_cols = [_ for _ in cols if 'fpr' in _]
         auc_cols = [_ for _ in cols if 'auc' in _]
@@ -226,7 +222,7 @@ if __name__ == '__main__':
         # print('*** new cols:', cols)
 
         # print(*cols)
-        # print(*results_df.columns)
+        # print('*** results_df cols', *results_df.columns)  # 
         results_df = results_df[cols]
 
         cols = results_df.columns

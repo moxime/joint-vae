@@ -174,7 +174,8 @@ if __name__ == '__main__':
             agg_df[k] = df.groupby(level=df.index.names).agg('mean')
             agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
 
-
+        average = default_config.get('average')
+                    
         kept_cols = {}
         kept_oods = []
 
@@ -198,7 +199,7 @@ if __name__ == '__main__':
                                 cols.isin(kept_methods.values(), level='method')]
             # print('*** cols', k, ':', *kept_cols[k])
 
-        results_df = agg_results(agg_df, kept_cols=kept_cols, kept_levels=kept_index)
+        results_df = agg_results(agg_df, kept_cols=kept_cols, kept_levels=kept_index, average=average)
 
         best_values = {}
         for tpr in [_ / 100 for _ in range(100)]:

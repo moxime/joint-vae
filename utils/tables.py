@@ -79,7 +79,7 @@ def export_losses(net_dict, which='loss',
 
 
 @printdebug(False)
-def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_dict={}):
+def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
     """ 
     df_dict : dict of dataframe
     kept_cols: either a list or a dict (with the same keys as df_dict
@@ -133,7 +133,9 @@ def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_d
         harddebug('index', *large_df.index.names)
         large_df = large_df.droplevel(removed_index)
         harddebug('removed index', *large_df.index.names)
-    
+
+    if average:
+        large_df.loc[average] = large_df.mean()
     return large_df.reorder_levels(['metrics', 'which', 'method'], axis=1)
 
     

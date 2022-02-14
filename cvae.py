@@ -997,7 +997,7 @@ class ClassificationVariationalNetwork(nn.Module):
                               which, batch_size)
                 self.eval()
                 return batch_size // 2
-            except RuntimeError as e:
+            except Exception as e:
                 logging.debug('Batch size of %s too much for %s.',
                               batch_size,
                               which)

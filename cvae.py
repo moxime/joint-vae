@@ -9,7 +9,7 @@ from module.losses import x_loss, kl_loss, mse_loss
 from utils.save_load import LossRecorder, last_samples, available_results, develop_starred_methods
 from utils.save_load import DeletedModelError, NoModelError
 from utils.misc import make_list
-from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma
+from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma, ResOrDenseNetFeatures
 from module.vae_layers import onehot_encoding
 
 import utils.torch_load as torchdl
@@ -226,6 +226,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                             channels=features_channels,
                                             batch_norm=batch_norm_encoder,
                                             pretrained=feat_dict)
+                features_arch = self.features.architecture
+
+            elif features.startswith('resnet') or features.startswith('densenet'):
+                self.features = ResOrDenseNetFeatures(features, input_shape)
                 features_arch = self.features.architecture
                 
             elif features == 'conv':

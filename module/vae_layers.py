@@ -5,7 +5,7 @@ import numpy as np
 from torch.nn import functional as F, Parameter
 from utils.print_log import texify_str
 import logging
-
+from torchvision import models
 
 def onehot_encoding(y, C):
 
@@ -254,6 +254,34 @@ class VGGFeatures(nn.Sequential):
         return layers
 
 
+class ResOrDenseNetFeatures(nn.Sequential):
+
+    def __init__(self, model_name='resnet152', input_shape=(3, 32, 32), pretrained=True):
+
+        assert input_shape[0] == 3
+        
+        model = getattr(models, model_name)(pretrained=pretrained)
+        modules = list(model.children())
+        
+        super(ResOrDenseNetFeatures, self).__init__(*modules[:-1])
+
+        self.architecture = {'features': model_name}
+
+        self.pretrained = pretrained
+
+        self.name = model_name
+
+        _, w, h = input_shape
+
+        if model_name.startswith('resnet'):
+            w, h = 1, 1
+        elif model_name.startswith('densenet'):
+            w //= 32
+            h //= 32
+        
+        self.output_shape = (modules[-1].in_features, w, h) 
+
+
 class ConvFeatures(nn.Sequential):
 
     def __init__(self, input_shape, channels,
@@ -268,7 +296,6 @@ class ConvFeatures(nn.Sequential):
                                    input_shape,
                                    activation, batch_norm)
         super(ConvFeatures, self).__init__(*layers)
-
         
         self.name = 'conv-' + f'p{padding}-'
         self.name += '-'.join([str(c) for c in channels])
@@ -541,7 +568,7 @@ class ConvDecoder(nn.Module):
         
         return layers
 
-
+        
 class Decoder(nn.Module):           #
     """
     - input: N1 x N2 x ... Ng x K

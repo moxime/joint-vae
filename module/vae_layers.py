@@ -1,11 +1,11 @@
 import torch
-from torch import Tensor
 from torch import nn
 import numpy as np
 from torch.nn import functional as F, Parameter
 from utils.print_log import texify_str
 import logging
 from torchvision import models
+
 
 def onehot_encoding(y, C):
 
@@ -27,8 +27,8 @@ def _no_activation(a):
 
 
 activation_layers = {'linear': nn.Identity,
-                     'sigmoid': nn.Sigmoid, 
-                     'relu': nn.ReLU} 
+                     'sigmoid': nn.Sigmoid,
+                     'relu': nn.ReLU}
 
 
 class Sigma(Parameter):
@@ -43,11 +43,11 @@ class Sigma(Parameter):
             learned = True
         if learned:
             is_log = True
-        if is_log:    
+        if is_log:   
             value = np.log(value)
 
         return super().__new__(cls, torch.zeros(sdim).fill_(value), requires_grad=learned)
-    
+   
     def __init__(self, value=None, learned=False,  is_rmse=False,
                  sdim=1,
                  input_dim=False,
@@ -72,6 +72,7 @@ class Sigma(Parameter):
             self._output_dim = input_dim if self.per_dim else (1,) * len(input_dim)
         else:
             self._output_dim = None
+
     @property
     def value(self):
 
@@ -101,20 +102,20 @@ class Sigma(Parameter):
             d.pop(k)
         d['value'] = self.value
         return d
-        
+
     def update(self, rmse=None, v=None):
 
         assert (rmse is None) or (v is None)
 
         if v is not None:
             mean_dims = tuple(range(v.dim() - self.dim()))
-            
+
             v_ = v.mean(mean_dims) if mean_dims else v
 
             assert v_.dim() == self.dim()
             self.data = v_
             return
-            
+
         if rmse is None:
             return
 
@@ -125,7 +126,7 @@ class Sigma(Parameter):
         if self.max_step and abs(delta) > self.max_step:
             delta = self.max_step if delta > 0 else -self.max_step
         self.data += delta
-        
+
     def __format__(self, spec):
 
         if spec.endswith(('f', 'g', 'e')):

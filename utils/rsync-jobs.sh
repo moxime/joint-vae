@@ -1,18 +1,18 @@
 #!/bin/bash
 remote=lab-ia
 push=
-target=$(dirname $0)
-opt=( --exclude '*.pth' -u )
+target=$(dirname $0)/../jobs
+opt=( --exclude '*.pth' -uvP )
 while :; do
     case $1 in
 	--push )
 	    push=True
 	    ;;
 	--flash )
-	    opt=( --exclude '*.pth' -u )
+	    opt=( --exclude '*.pth' -uvP )
 	    ;;	    
 	--light )
-	    opt=( --include 'record-*.pth' --exclude '*.pth' -u )
+	    opt=( --include 'record-*.pth' --exclude '*.pth' -uvP )
 	    ;;
 	--full )
 	    opt=( --exclude '*/optimizer.pth' -uvP )
@@ -51,7 +51,7 @@ fi
    
 echo rsync  "${opt[@]}" $@ $from $to
 
-exit 0
+# exit 0
 SECONDS=0
 # rsync -vaP lab-ia:/mnt/beegfs/home/ossonce/joint-vae/jobs/ jobs/
 # ssh lab-ia '. mirror-jobs.sh'

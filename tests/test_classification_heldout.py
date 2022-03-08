@@ -7,6 +7,7 @@ from cvae import ClassificationVariationalNetwork as M
 from utils.filters import DictOfListsOfParamFilters, ParamFilter
 import matplotlib.pyplot as plt
 import logging
+from utils.torch_load import get_classes_by_name
 
 logging.getLogger().setLevel(logging.WARNING)
 
@@ -33,9 +34,11 @@ if __name__ == '__main__':
             model = rmodels[mdir]
             ho = model['h/o']
             model['heldout'] = int(ho)
-            ood_rec_file = 'record-' + tset.replace('-?', '+' + ho + '.pth')
-            ind_rec_file = 'record-' + tset.replace('-?', '-' + ho + '.pth')
-            rec_files = [os.path.join(mdir, 'samples', 'last', _) for _ in (ood_rec_file, ind_rec_file)]
+            model['ind'] = tset.replace('-?', '-' + ho) 
+            model['oods'] = [tset.replace('-?', '+' + ho)]
+            ood_rec_files = ['record-' + _ + '.pth' for _ in model['oods']]
+            ind_rec_file = 'record-' + model['ind'] + '.pth'
+            rec_files = [os.path.join(mdir, 'samples', 'last', _) for _ in ood_rec_files + [ind_rec_file]]
             append = True
             for rec_file in rec_files:
                 if not os.path.exists(rec_file):
@@ -45,7 +48,7 @@ if __name__ == '__main__':
             if append:
                 loaded_files.append(mdir)
 
-    print(len(loaded_files))
+    print(len(loaded_files), 'complete models')
     if not loaded_files:
         logging.warning('Exiting, load files')
         sys.exit()
@@ -56,21 +59,51 @@ if __name__ == '__main__':
     for mdir in loaded_files:
 
         model = M.load(mdir, load_net=False)
-        fpr_ = make_dict_from_model(model, mdir, wanted_epoch='min-loss')['ood_fpr'][tset.replace('-', '+')]
-        if fpr_ is not None and 0.95 in fpr_:
-            fpr = fpr_[0.95]
-        else:
-            logging.info('Pb with %s', mdir)
-            continue
 
         record_dir = os.path.join(mdir, 'samples', 'last')
+        recorders = LossRecorder.loadall(record_dir)
+
+        is_testset = True
+
+        confusion_matrix = {}
+        for set in [rmodels[mdir]['ind']] + rmodels[mdir]['oods']:
+
+            classes = get_classes_by_name(set)
+            confusion_matrix = {c: {c_: 0. for c_ in classes} for c in classes}
+            rec = recorders[set]
+
+            y_true = rec._tensors['y_true'].cpu()
+            y_pred = rec._tensors['cross_y'].argmin(axis=0).cpu()
+
+            for y, y_ in zip(y_true, y_pred):
+                c = classes[y]
+                c_ = classes[y_]
+                confusion_matrix[set][c][c_] += 1. / len(y_true)
+
+            print(confusion_matrix)
+        is_testset = False
+        sys.exit(0)
+        for oodset in model['oods']:
+            if '+' in oodset:
+                oodset_name = get_classes_by_name(oodset)[0]
+                oodset_ref = oodset.split('+')[0] + '+?'
+            else:
+                oodset_name = oodset
+                oodser_ref = oodset
+            fpr_ = make_dict_from_model(model, mdir, wanted_epoch='min-loss')['ood_fpr'][oodset_ref]
+            if fpr_ is not None and 0.95 in fpr_:
+                fpr = fpr_[0.95]
+            else:
+                logging.info('Pb with %s', mdir)
+                continue
+
         parent_set = rmodels[mdir]['set'].strip('-?')
 
         ho = rmodels[mdir]['heldout']
         parent_classes = set_dict[parent_set]['classes']
         ho_class = parent_classes[ho]
 
-        hi_classes = [i for i, _ in enumerate(parent_classes) if mdir != ho_class]
+        hi_classes = [i for i, _ in enumerate(parent_classes) if _ != ho_class]
 
         hi_classes = {i: parent_classes[_] for i, _ in enumerate(hi_classes)}
 
@@ -80,7 +113,6 @@ if __name__ == '__main__':
 
         y_ood = recorders[ood_rec]._tensors['cross_y'].argmin(axis=0)
 
-        
         y_pred_dist = {_: 0 for _ in hi_classes.values()}
 
         for y in y_ood:

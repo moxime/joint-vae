@@ -376,6 +376,15 @@ def get_same_size_by_name(set_name, rotated=False):
     return same_size
 
 
+def get_classes_by_name(dataset):
+
+    parent_set, ho = get_heldout_classes_by_name(dataset)
+
+    parent_classes = set_dict[parent_set]['classes']
+
+    return [_ for i, _ in enumerate(parent_classes) if i not in ho]
+
+
 def get_heldout_classes_by_name(dataset):
 
     if '-' in dataset:

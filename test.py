@@ -248,6 +248,12 @@ if __name__ == '__main__':
     models_to_be_kept.sort(key=lambda d: d['model'].get('job', 0))
     models_to_be_kept = models_to_be_kept[-args.last:]
 
+    if args.list_jobs_and_quit:
+        for m in models_to_be_kept:
+            print(m['model'].get('job', 0))
+
+        sys.exit(0)
+            
     for s in archs:
         archs[s] = {n['model']['arch'] for n in models_to_be_kept if n['model']['set'] == s}
     

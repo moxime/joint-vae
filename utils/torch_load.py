@@ -10,6 +10,7 @@ import string
 import numpy as np
 from torchvision.utils import save_image
 
+
 class LoggerAsfile(object):
 
     def write(self, s):
@@ -378,9 +379,11 @@ def get_same_size_by_name(set_name, rotated=False):
 
 def get_classes_by_name(dataset):
 
+    if dataset.endswith('90'):
+        return [_ + '90' for _ in get_classes_by_name(dataset[:-2])]
     parent_set, ho = get_heldout_classes_by_name(dataset)
 
-    parent_classes = set_dict[parent_set]['classes']
+    parent_classes = set_dict[parent_set].get('classes', [dataset.upper()])
 
     return [_ for i, _ in enumerate(parent_classes) if i not in ho]
 

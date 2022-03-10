@@ -17,6 +17,7 @@ import re
 from utils.print_log import turnoff_debug
 from utils.parameters import gethostname
 
+
 def expand_row(row_format, *a, col_sep=' & '):
 
     reg = '{%(.*?)}'

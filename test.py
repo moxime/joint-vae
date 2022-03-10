@@ -252,6 +252,7 @@ if __name__ == '__main__':
         for m in models_to_be_kept:
             print(m['model'].get('job', 0))
 
+        logging.info('%d mdoels', len(models_to_be_kept))
         sys.exit(0)
             
     for s in archs:

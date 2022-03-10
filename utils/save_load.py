@@ -1365,8 +1365,57 @@ def test_results_df(nets,
         df = df.sort_values(sorting_index)
 
     return df.apply(col_format)
-        
 
+
+def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
+    r""" list missing recorders to be fetched on a remote
+
+    -- mdirs: list of directories
+
+    -- epoch: last or min-loss or int
+
+    -- which_rec: either 'none' 'ind' or 'all'
+
+    -- state: wehter to include state.pth
+
+    returns generator of needed files paths
+
+    """
+
+    assert not state or epoch == 'last'
+    
+    from cvae import ClassificationVariationalNetwork as M
+
+    for d in mdirs:
+
+        m = M.load(d, load_net=False)
+        if epoch == 'min-loss':
+            epoch = m.training_parameters.get('early-min-loss', 'last')
+
+        if isinstance(epoch, int):
+            epoch = '{:04d}'.format(epoch)
+
+        testset = m.training_parameters['set']
+
+        sets = []
+        
+        if which_rec in ('all', 'ind'):
+            sets.append(testset)
+            if which_rec == 'all':
+                sets += get_same_size_by_name(testset)
+
+        for s in sets:
+            sdir = os.path.join(d, 'samples', epoch, 'record-{}.pth'.format(s))
+            if not os.path.exists(sdir):
+                yield sdir
+
+        if state:
+            sdir = os.path.join(d, 'state.pth')
+            if not os.path.exists(sdir):
+                yield sdir
+
+        
+    
 if __name__ == '__main__':
 
     dim = {'A': (10,), 'B': (1,), 'I': (3, 32, 32)}

@@ -165,12 +165,12 @@ if __name__ == '__main__':
                 i_y = y_true == y
                 c_ = classes_[y_]
 
-                for c, i_y in zip((classes[y], 'set'), (y_true == y, torch.ones_like(y, dtype=bool))):
-                    print(c, i_y.sum().item())
+                for c, i_y in zip((classes[y], 'set'), (y_true == y, torch.ones_like(y_true, dtype=bool))):
+
                     # Classfication, misclassification rates 
                     confusion_matrix[dset][c][c_][True] += 1. / i_y.sum()
                     if m:
-                        # Detected as misclassified
+                            # Detected as misclassified
                         confusion_matrix[dset][c][c_][False] += 1. / (i_y & (y_pred == y_)).sum()
                     if y_ == y:
                         # Accuracy

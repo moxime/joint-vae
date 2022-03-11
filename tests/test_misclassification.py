@@ -161,10 +161,10 @@ if __name__ == '__main__':
             
             for y, y_, o, m in zip(y_true, y_pred, as_ood, as_misclass):
                 c = classes[y]
-                c_ = classes_[y_]
                 i_y = y_true == y
+                c_ = classes_[y_]
 
-                for c, i_y in zip((classes[y], 'set'), (y_true == y, np.ones_like(y)):
+                for c, i_y in zip((classes[y], 'set'), (y_true == y, np.ones_like(y))):
                     # Classfication, misclassification rates 
                     confusion_matrix[dset][c][c_][True] += 1. / i_y.sum()
                     if m:
@@ -187,7 +187,6 @@ if __name__ == '__main__':
                             # TNR = 1 - FPR
                             confusion_matrix[dset][c]['missed'][False] += 1. / (i_y & missed).sum()
 
-
             for c in classes:
                 prefix = ' ' if is_testset else '*'
                 line = confusion_matrix[dset][c]
@@ -196,5 +195,3 @@ if __name__ == '__main__':
                                for _ in classes_))
 
             is_testset = False
-    pass
-

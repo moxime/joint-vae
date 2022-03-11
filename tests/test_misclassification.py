@@ -122,18 +122,17 @@ if __name__ == '__main__':
 
             if direction_of_ind[metrics_for_mis] == 'low':
                 sign = -1
-                which_threshold = 0
+                which_threshold = 1
             else:
                 sign = 1
-                which_threshold = 1
+                which_threshold = 0
 
             metrics_tensor = rec._tensors[metrics_for_mis]
 
             if args.soft:
                 metrics_tensor = torch.nn.functional.softmax(-sign * metrics_tensor, dim=0)
-
                 sign = 1
-                which_threshold = 1
+                which_threshold = 0
 
             classification_metrics = sign * (sign * metrics_tensor).max(axis=0)[0].cpu()
                 
@@ -144,7 +143,7 @@ if __name__ == '__main__':
 
                 n_correct = len(correct_metrics)
                 
-                if direction_of_ind[metrics_for_mis] == 'low':
+                if which_threshold == 1:
                     thresholds = -np.inf, correct_metrics[int(n_correct * tpr)]
                 else:
                     thresholds = correct_metrics[-int(n_correct * tpr)], np.inf

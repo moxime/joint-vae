@@ -104,8 +104,12 @@ if __name__ == '__main__':
         classes_.append(prec_rec)
         confusion_matrix = {}
 
-        print(' ', f'{" ":{str_col_width}}', ' '.join(f'{_:{str_col_width}}' for _ in classes_))
-
+        if args.by_classes:
+            print(' ', f'{" ":{str_col_width}}', ' '.join(f'{_:{str_col_width}}' for _ in classes_))
+        else:
+            _c = ('correct', 'missed', prec_rec)
+            print(' ', f'{" ":{str_col_width}}', ' '.join(f'{_:{str_col_width}}' for _ in _c))
+            
         thresholds = (-np.inf, np.inf)
         for dset in [testset] + oodsets:
 

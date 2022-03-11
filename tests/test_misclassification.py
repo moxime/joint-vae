@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--last', default=0, type=int)
 parser.add_argument('--metrics', default='zdist')
 parser.add_argument('--soft', action='store_true')
-
+parser.add_argument('--by-classes', action='store_true')
 
 logging.getLogger().setLevel(logging.WARNING)
 
@@ -199,6 +199,9 @@ if __name__ == '__main__':
                             # TNR = 1 - FPR
                             confusion_matrix[dset][c]['missed'][False] += 1. / (i_y & missed).sum()
 
+            if not args.by_classes:
+                classes = ['set']
+                classes_ = ['correct', 'missed', prec_rec]
             for c in classes:
                 prefix = ' ' if is_testset else '*'
                 line = confusion_matrix[dset][c]

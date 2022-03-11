@@ -159,33 +159,33 @@ if __name__ == '__main__':
             missed = y_pred != y_true
             is_ood = not is_testset
             
-            for y, y_, o, m in zip((y_true, y_pred), (as_ood, as_misclass)):
+            for y, y_, o, m in zip(y_true, y_pred, as_ood, as_misclass):
                 c = classes[y]
                 c_ = classes_[y_]
                 i_y = y_true == y
 
                 for c, i_y in zip((classes[y], 'set'), (y_true == y, np.ones_like(y)):
-                # Classfication, misclassification rates 
-                    confusion_matrix[dset][c][c_][True] += 1. / i_y.sum()
-                    if m:
-                        # Detected as misclassified
-                        confusion_matrix[dset][c][c_][False] += 1. / (i_y & (y_pred == y_)).sum()
-                    if y_ == y:
-                        # Accuracy
-                        confusion_matrix[dset][c]['correct'][True] += 1. / (i_y).sum()
+                    # Classfication, misclassification rates 
+                        confusion_matrix[dset][c][c_][True] += 1. / i_y.sum()
                         if m:
-                            # 1 - TPR
-                            confusion_matrix[dset][c]['correct'][False] += 1. / (i_y & correct).sum()
+                            # Detected as misclassified
+                            confusion_matrix[dset][c][c_][False] += 1. / (i_y & (y_pred == y_)).sum()
+                        if y_ == y:
+                            # Accuracy
+                            confusion_matrix[dset][c]['correct'][True] += 1. / (i_y).sum()
+                            if m:
+                                # 1 - TPR
+                                confusion_matrix[dset][c]['correct'][False] += 1. / (i_y & correct).sum()
+                            else:
+                                # Precision = tp / (tp + fp)
+                                confusion_matrix[dset][c][prec_rec][True] += 1. / (~as_misclass & i_y).sum()
+                                # Recall = tp / (tp + fn)
+                                confusion_matrix[dset][c][prec_rec][False] += 1. / (correct & i_y).sum()
                         else:
-                            # Precision = tp / (tp + fp)
-                            confusion_matrix[dset][c][prec_rec][True] += 1. / (~as_misclass & i_y).sum()
-                            # Recall = tp / (tp + fn)
-                            confusion_matrix[dset][c][prec_rec][False] += 1. / (correct & i_y).sum()
-                    else:
-                        confusion_matrix[dset][c]['missed'][True] += 1. / (i_y).sum()
-                        if m:
-                            # TNR = 1 - FPR
-                            confusion_matrix[dset][c]['missed'][False] += 1. / (i_y & missed).sum()
+                            confusion_matrix[dset][c]['missed'][True] += 1. / (i_y).sum()
+                            if m:
+                                # TNR = 1 - FPR
+                                confusion_matrix[dset][c]['missed'][False] += 1. / (i_y & missed).sum()
 
 
             for c in classes:

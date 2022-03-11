@@ -1389,11 +1389,11 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
     for d in mdirs:
 
         m = M.load(d, load_net=False)
-        if epoch == 'min-loss':
-            epoch = m.training_parameters.get('early-min-loss', 'last')
-
-        if isinstance(epoch, int):
-            epoch = '{:04d}'.format(epoch)
+        epoch_ = epoch
+        if epoch_ == 'min-loss':
+            epoch_ = m.training_parameters.get('early-min-loss', 'last')
+        if isinstance(epoch_, int):
+            epoch_ = '{:04d}'.format(epoch_)
 
         testset = m.training_parameters['set']
 
@@ -1405,14 +1405,14 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
                 sets += get_same_size_by_name(testset)
 
         for s in sets:
-            sdir = os.path.join(d, 'samples', epoch, 'record-{}.pth'.format(s))
+            sdir = os.path.join(d, 'samples', epoch_, 'record-{}.pth'.format(s))
             if not os.path.exists(sdir):
-                yield sdir
+                yield d, sdir
 
         if state:
             sdir = os.path.join(d, 'state.pth')
             if not os.path.exists(sdir):
-                yield sdir
+                yield d, sdir
 
         
     

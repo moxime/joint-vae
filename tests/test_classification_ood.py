@@ -36,6 +36,7 @@ if __name__ == '__main__':
                       '--gamma 500 '
                       '--sigma-train coded '
                       '--coder-dict learned '
+                      '--job-num 149127'
                       ).split()
 
     args, ra = parser.parse_known_args(None if sys.argv[0] else args_from_file)

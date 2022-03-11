@@ -1771,7 +1771,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     train_accuracy=False,
                     save_dir=None,
                     outputs=EpochOutput(),
-                    signal_handler=SIGHandler(2, 3)):
+                    signal_handler=SIGHandler()):
         """
 
         """

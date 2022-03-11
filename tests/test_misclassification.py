@@ -16,6 +16,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--last', default=0, type=int)
 parser.add_argument('--metrics', default='zdist')
+parser.add_argument('--soft', action='store_true')
+
 
 logging.getLogger().setLevel(logging.WARNING)
 
@@ -124,8 +126,16 @@ if __name__ == '__main__':
             else:
                 sign = 1
                 which_threshold = 1
-            classification_metrics = sign * (sign * rec._tensors[metrics_for_mis]).max(axis=0)[0].cpu()
 
+            metrics_tensor = rec._tensors[metrics_for_mis]
+
+            if args.soft:
+                metrics_tensor = torch.nn.functional.softmax(-sign * metrics_tensor, axis=0)
+                sign = 1
+                which_threshold = 1
+
+            classification_metrics = sign * (sign * rec._tensors[metrics_for_mis]).max(axis=0)[0].cpu()
+                
             if is_testset:
 
                 y_correct = y_true == y_pred

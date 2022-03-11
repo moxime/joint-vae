@@ -158,7 +158,7 @@ if __name__ == '__main__':
             correct = y_pred == y_true
             missed = y_pred != y_true
             is_ood = not is_testset
-
+            
             for y, y_, o, m in zip((y_true, y_pred), (as_ood, as_misclass)):
                 c = classes[y]
                 c_ = classes_[y_]

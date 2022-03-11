@@ -159,10 +159,11 @@ if __name__ == '__main__':
             as_ood = (iws < ood_thresholds[0]) | (iws > ood_thresholds[1])
             as_misclass = (classification_metrics < thresholds[0]) | (classification_metrics > thresholds[1])
 
-            print('{:.3g} ({:.3g} +-{:.3g}) {:.3g}'.format(thresholds[0], classification_metrics.mean(),
-                                                   classification_metrics.std(),
-                                                   thresholds[1]
-                                                   ))
+            if False:
+                print('{:.3g} ({:.3g} +-{:.3g}) {:.3g}'.format(thresholds[0], classification_metrics.mean(),
+                                                               classification_metrics.std(),
+                                                               thresholds[1]
+                                                               ))
             # if not is_testset: print('FPR {:.2f}'.format(100 - 100 * as_ood.sum().item() / len(as_ood)))
             # y_pred[as_ood] = -1
 

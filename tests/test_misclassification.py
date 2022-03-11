@@ -28,7 +28,7 @@ flt_col_width = '5.1f'
 wanted_ood_methods = ['iws-a-4-1', 'iws-2s', 'iws']
 
 # direction : where normal are supposed to be ('low', 'center', 'high')
-direction_of_ind = {'zdist': 'low', 'kl': 'low'}
+direction_of_ind = {'zdist': 'low', 'kl': 'low', 'iws': 'high'}
 
 tpr = 0.95
 

@@ -131,7 +131,7 @@ if __name__ == '__main__':
 
             if args.soft:
                 metrics_tensor = torch.nn.functional.softmax(-sign * metrics_tensor, dim=0)
-                print('***', *metrics_tensor.shape, metrics_tensor.device)
+
                 sign = 1
                 which_threshold = 1
 

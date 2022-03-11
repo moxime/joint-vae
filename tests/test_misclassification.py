@@ -130,12 +130,12 @@ if __name__ == '__main__':
             metrics_tensor = rec._tensors[metrics_for_mis]
 
             if args.soft:
-                print('***', *metrics_tensor.shape, metrics_tensor.device)
                 metrics_tensor = torch.nn.functional.softmax(-sign * metrics_tensor, dim=0)
+                print('***', *metrics_tensor.shape, metrics_tensor.device)
                 sign = 1
                 which_threshold = 1
 
-            classification_metrics = sign * (sign * rec._tensors[metrics_for_mis]).max(axis=0)[0].cpu()
+            classification_metrics = sign * (sign * metrics_tensor).max(axis=0)[0].cpu()
                 
             if is_testset:
 

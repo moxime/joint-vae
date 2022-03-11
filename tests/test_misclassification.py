@@ -130,6 +130,7 @@ if __name__ == '__main__':
             metrics_tensor = rec._tensors[metrics_for_mis]
 
             if args.soft:
+                print('***', *metrics_tensor.shape, metrics_tensor.device)
                 metrics_tensor = torch.nn.functional.softmax(-sign * metrics_tensor, dim=0)
                 sign = 1
                 which_threshold = 1

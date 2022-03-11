@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import torch
 from utils.save_load import LossRecorder, load_json, needed_remote_files
 from utils.torch_load import get_same_size_by_name, get_classes_by_name
 from utils.parameters import parse_filters
@@ -164,7 +165,7 @@ if __name__ == '__main__':
                 i_y = y_true == y
                 c_ = classes_[y_]
 
-                for c, i_y in zip((classes[y], 'set'), (y_true == y, np.ones_like(y))):
+                for c, i_y in zip((classes[y], 'set'), (y_true == y, torch.ones_like(y))):
                     # Classfication, misclassification rates 
                     confusion_matrix[dset][c][c_][True] += 1. / i_y.sum()
                     if m:

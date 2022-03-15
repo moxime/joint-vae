@@ -1,9 +1,12 @@
+from cvae import ClassificationVariationalNetwork as M
 import sys
+import os
 import argparse
 import logging
 from utils.parameters import parse_filters
 from utils.filters import DictOfListsOfParamFilters
-from utils.save_load import load_json, needed_remote_files
+from utils.save_load import load_json, needed_remote_files, LossRecorder
+from utils.torch_load import get_classes_by_name
 
 rmodels = load_json('jobs', 'models-home.json')
 
@@ -51,3 +54,25 @@ if __name__ == '__main__':
         logging.warning('Exiting, load files')
         logging.warning('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
 
+    for mdir in mdirs:
+
+        model = M.load(mdir, load_state=True)
+        testset = model.training_parameters['set']
+
+        oodsets = []
+        
+        epoch = 'last'
+
+        epoch_str = '{:0>4}'.format(epoch)
+        
+        print('__', model.job_number, testset,
+              '@',  model.training_parameters.get('early-min-loss'))
+
+        record_dir = os.path.join(mdir, 'samples', epoch_str)
+        recorders = LossRecorder.loadall(record_dir)
+
+        is_testset = True
+
+        classes_ = get_classes_by_name(testset)  # + ['OOD']
+
+        

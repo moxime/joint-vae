@@ -18,9 +18,7 @@ parser.add_argument('--last', default=0, type=int)
 parser.add_argument('--metrics', default='zdist')
 parser.add_argument('--soft', action='store_true')
 parser.add_argument('--by-classes', action='store_true')
-
-logging.getLogger().setLevel(logging.WARNING)
-logging.getLogger().setLevel(logging.DEBUG)
+parser.add_argument('-v', actoin='count')
 
 rmodels = load_json('jobs', 'models-home.json')
 
@@ -55,6 +53,8 @@ if __name__ == '__main__':
 
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
 
+    logging.getLogger().setLevel(40 - 10 * args.v)
+    
     metrics_for_mis = args.metrics
 
     filter_parser = parse_filters()

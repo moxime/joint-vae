@@ -20,7 +20,7 @@ parser.add_argument('--soft', action='store_true')
 parser.add_argument('--by-classes', action='store_true')
 
 logging.getLogger().setLevel(logging.WARNING)
-# logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.DEBUG)
 
 rmodels = load_json('jobs', 'models-home.json')
 

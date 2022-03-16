@@ -81,7 +81,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
 
-    masked_loss_compnents = ('z_logdet', 'z_mahala', 'z_tr_inv_cov')
+    masked_loss_components = ('z_logdet', 'z_mahala', 'z_tr_inv_cov')
     
     predict_methods_per_type = {'jvae': ['loss', 'esty'],
                                 # 'cvae': ('closest', 'iws'),

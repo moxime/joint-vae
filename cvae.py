@@ -2344,7 +2344,7 @@ class ClassificationVariationalNetwork(nn.Module):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
-
+        print('***', load_state)
         if not os.path.exists(os.path.join(dir_name, 'params.json')):
             raise NoModelError(dir_name)
 
@@ -2353,7 +2353,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         if not load_net:
             load_state = False
-            
+
         # default
         default_params = {'type': 'jvae',
                           'batch_norm': False,
@@ -2533,7 +2533,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if load_test:
             vae.ood_results = ood_results
-            
+
+        print('***', load_state)
+
         if load_state:  # and vae.trained:
             logging.debug('Loading state')
             w_p = save_load.get_path(dir_name, 'state.pth')

@@ -684,6 +684,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         batch_losses['kl'] = batch_kl_losses['kl']
 
+        batch_losses['fisher_rao'] = batch_kl_losses['fisher_rao']
+
         batch_losses['zdist'] = batch_kl_losses['dist']
         batch_losses['var_kl'] = batch_kl_losses['var']
 
@@ -1026,7 +1028,7 @@ class ClassificationVariationalNetwork(nn.Module):
         assert 'train' in v
         assert 'test' in v
         self.training_parameters['max_batch_sizes'] = v
-    
+
     def accuracy(self, testset=None,
                  batch_size=100,
                  num_batch='all',
@@ -1046,15 +1048,17 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         MAX_SAMPLE_SAVE = 200
-        
+
         device = next(self.parameters()).device
-        
+
         if not testset:
             testset_name = self.training_parameters['set']
-            _, testset = torchdl.get_dataset(testset_name)
+            transformer = self.training_parameters['transformer']
+            _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
+
         else:
             testset_name = testset.name
-            
+
         if method == 'all':
             predict_methods = self.predict_methods
             only_one_method = False
@@ -1186,7 +1190,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 elif k in ('cross_x', 'var_kl', 'dzdist'):
                     shape = 'N'
                 else:
-                    logging.warning(f'{k} shape has not been anticipated: {_s}')
+                    logging.info(f'{k} shape has not been anticipated: {_s}')
 
                 if not i:
                     logging.debug(f'Predicted shape for {k}: {shape}. Actual: {_s}') 

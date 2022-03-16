@@ -104,7 +104,7 @@ if __name__ == '__main__':
         record_dir = os.path.join(sample_dir, epoch_str)
         recorders = LossRecorder.loadall(record_dir)
 
-        if args.metrics not in recrorders[testset].keys():
+        if args.metrics not in recorders[testset].keys():
             model = M.load(mdir, load_state=True)
             logging.warning('We will train the model')
             i = 0

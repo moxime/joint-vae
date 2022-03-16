@@ -2535,6 +2535,7 @@ class ClassificationVariationalNetwork(nn.Module):
             vae.ood_results = ood_results
             
         if load_state:  # and vae.trained:
+            logging.debug('Loading state')
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:
                 state_dict = torch.load(w_p)

@@ -106,6 +106,7 @@ if __name__ == '__main__':
 
         if args.metrics not in recorders[testset].keys():
             model = M.load(mdir, load_state=True)
+            model.to('cuda')
             logging.warning('We will train the model')
             i = 0
             while os.path.exists(os.path.join(sample_dir, f'{epoch_str}.{i}')):

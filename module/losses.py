@@ -3,6 +3,7 @@ from torch.nn import functional as F
 import time, logging
 import numpy as np
 
+
 def compare_dims(small_dim, large_dim):
     """compare dims of tensor sizes
 
@@ -29,6 +30,32 @@ def compare_dims(small_dim, large_dim):
 
     f, t, ok = compare_dims(small_dim, large_dim[1:])
     return f + 1, t, ok
+
+
+def fisher_rao(mu1, var1, mu2, var2):
+    """Computes fisher_rao beteen normal distributions
+
+    -- mui, vari: (..., K) tensors with last dimension being the dim
+       of the distribution, the others being the batch dims.
+
+    """
+
+    def dist(m1, s1, m2, s2):
+
+        return ((m1 - m2) ** 2 + (s1 - s2) ** 2).sqrt()
+
+    sq2 = np.sqrt(2)
+
+    mu1_, mu2_ = mu1 / sq2, mu2 / sq2
+
+    s1, s2 = var1.sqrt(), var2.sqrt()
+
+    d = dist(mu1_, s1, mu2_, -s2)
+    d_ = dist(mu1_, s1, mu2_, s2)
+
+    comp_wise_fr = sq2 * ((d + d_) / (d - d_)).log()
+
+    return comp_wise_fr.norm(dim=-1)
 
 
 def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
@@ -59,40 +86,44 @@ def kl_loss(mu_z, log_var_z,
             latent_dictionary=None,
             prior_variance=1.,
             var_weighting=1.,
-            batch_mean=True,
-            out=['kl']):
+            batch_mean=True):
 
-    # logging.debug('TBR l:64 Computing KL')
+    losses = {}
+
     assert y is None or latent_dictionary is not None
 
-    if z is None:
-        assert 'sdist' not in out
-    
     var_loss = -(1 + log_var_z - np.log(prior_variance) - log_var_z.exp() / prior_variance).sum(-1)
-    # print('*** losses:59', 'warm', var_weighting, 'var_loss', loss.mean().detach().cpu().item())
     loss = 0.5 * var_weighting * var_loss
-    
-    _ = y.shape if y is not None else ('*',) 
-    # print('*** losses:59', 'mu', *mu_z.shape, 'lv', *log_var_z.shape, 'y', *_)
-    # logging.debug('TBR l:72 Computing KL')
+
+    losses['var'] = var_loss
+    losses['sdistances'] = torch.zeros(1, device=log_var_z.device)
+    losses['mahala'] = mahala = torch.zeros(1, device=log_var_z.device)
+    losses['kl_rec'] = torch.zeros(1, device=log_var_z.device)
+
     if y is None:
         distances = mu_z.pow(2).sum(-1) / prior_variance
         loss += 0.5 * distances
-        sdistances = z.pow(2).sum(-1) / prior_variance
-        
+        losses['sdist'] = z.pow(2).sum(-1) / prior_variance
+        centroids = 0.
+
     else:
 
         K = mu_z.shape[-1]
         centroids_shape = y.shape + (K,)
 
         centroids = latent_dictionary.index_select(0, y.view(-1)).view(centroids_shape)
-        # print('*** losses:74', 'mu_', *mu_z.shape, 'centroids', *centroids.shape)
         distances = (mu_z - centroids).pow(2).sum(-1) / prior_variance
-        # print('*** z:', *z.shape, 'centroid:', *centroids.shape) 
-        sdistances = (z.unsqueeze(1) - centroids.unsqueeze(0)).pow(2).sum(-1) / prior_variance
-        # print('*** losses:76', 'loss', *loss.shape, 'dist', *distances.shape)
+        if z is not None:
+            losses['sdist'] = (z.unsqueeze(1) - centroids.unsqueeze(0)).pow(2).sum(-1) / prior_variance
+
         loss = loss + 0.5 * distances
-        
+
+    losses['kl'] = loss
+    losses['mahala'] = ((-log_var_z).exp() * (mu_z - centroids).pow(2)).sum(-1)
+
+    losses['kl_rec'] = 0.5 * (losses['mahala'] + (log_var_z - 1).sum(-1) + (-log_var_z).exp().sum(-1))
+    losses['fisher_rao'] = fisher_rao(mu_z, log_var_z.exp(), centroids, torch.ones_like(log_var_z))
+
     if torch.isnan(loss).any():
         logging.error('NAN found in KL')
         for l in log_var_z:
@@ -102,12 +133,7 @@ def kl_loss(mu_z, log_var_z,
         for l in loss:
             logging.error('loss %s', l.item())
 
-    output_dict = {'kl': loss.mean() if batch_mean else loss,
-                   'dist': distances.mean() if batch_mean else distances,
-                   'var': var_loss.mean() if batch_mean else var_loss,
-                   'sdist': sdistances.mean() if batch_mean else sdistances}
-
-    return tuple(output_dict[_] for _ in out)
+    return {_: losses[_].mean() if batch_mean else losses[_] for _ in losses}
 
 
 def x_loss(y_target, logits, batch_mean=True):

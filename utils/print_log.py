@@ -93,6 +93,7 @@ class EpochOutput:
 
     def results(self, i, per_epoch, epoch, epochs,
                 loss_components=None,
+                masked_loss_components=['z_logdet', 'z_mahala', 'z_tr_inv_cov'],
                 losses={},
                 acc_methods=(),
                 accuracies={},
@@ -103,6 +104,8 @@ class EpochOutput:
                 preambule='',
                 end_of_epoch='\n'):
 
+        if loss_components:
+            loss_components = [_ for _ in loss_components if _ not in masked_loss_components]
         if preambule == 'train':
             preambule = '%I' + preambule
             end_of_format = '%i'

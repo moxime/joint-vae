@@ -80,8 +80,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'xvae': ('cross_x', 'kl', 'total', 'zdist', 'iws'),
                                 'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
-
-    masked_loss_components = ('z_logdet', 'z_mahala', 'z_tr_inv_cov')
     
     predict_methods_per_type = {'jvae': ['loss', 'esty'],
                                 # 'cvae': ('closest', 'iws'),
@@ -168,7 +166,6 @@ class ClassificationVariationalNetwork(nn.Module):
         self.type = type_of_net
 
         self.loss_components = self.loss_components_per_type[self.type]
-        self.printed_loss_components = [_ for _ in self.loss_components if _ not in self.masked_loss_components]
         
         self.metrics = self.metrics_per_type[self.type]
 

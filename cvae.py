@@ -1175,6 +1175,7 @@ class ClassificationVariationalNetwork(nn.Module):
             ind = y_test.unsqueeze(0)
             # print('*** 1156 y:', min(y_test), max(y_test)) 
             for k in batch_losses:
+                shape = '?'
                 _s = 'x'.join([str(_) for _ in batch_losses[k].shape])
                 if k in ('total', 'iws'):
                     shape = 'CxN' if self.losses_might_be_computed_for_each_class else 'N'

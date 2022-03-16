@@ -119,6 +119,7 @@ def kl_loss(mu_z, log_var_z,
         loss = loss + 0.5 * distances
 
     losses['kl'] = loss
+    losses['dist'] = distances
     losses['mahala'] = ((-log_var_z).exp() * (mu_z - centroids).pow(2)).sum(-1)
 
     losses['kl_rec'] = 0.5 * (losses['mahala'] + (log_var_z - 1).sum(-1) + (-log_var_z).exp().sum(-1))

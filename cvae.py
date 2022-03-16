@@ -666,11 +666,11 @@ class ClassificationVariationalNetwork(nn.Module):
                                   prior_variance = self.latent_prior_variance,
                                   latent_dictionary=dictionary,
                                   var_weighting=kl_var_weighting,
-                                  out=['kl', 'dist', 'var', 'sdist',
-                                       'kl_rec', 'mahala', 'fisher_rao'],
                                   batch_mean=False)
 
         # print('*** wxjdjd ***', 'kl', *kl_l.shape, 'zd', *zdist.shape)
+
+        zdist = batch_kl_losses['dist']
         
         total_measures['zdist'] = (current_measures['zdist'] * batch +
                                    zdist.mean().item()) / (batch + 1)
@@ -681,7 +681,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_losses['kl_rec'] = batch_kl_losses['kl_rec']
 
         batch_losses['mahala'] = batch_kl_losses['mahala']
-        
+
         batch_losses['kl'] = batch_kl_losses['kl']
 
         batch_losses['zdist'] = batch_kl_losses['dist']
@@ -693,7 +693,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 y_in = None
             else:
                 y_in = y
-                
+
             batch_quants['cross_y'] = x_loss(y_in,
                                              y_est,
                                              batch_mean=False)
@@ -717,7 +717,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 # total_measures[k] = (current_measures[k] * batch +
                 #                     batch_quants[k].item()) / (batch + 1)
                 total_measures[k] = batch_quants[k].item()
-        
+
         if self.x_is_generated:
             batch_wmse = batch_quants['wmse']
             D = np.prod(self.input_shape)
@@ -729,7 +729,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_logpx = -D * (log_sigma.mean() + np.log(2 * np.pi)
                                 + batch_wmse)
-                
+
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
 
             batch_losses['total'] += batch_losses['cross_x'] 
@@ -745,9 +745,9 @@ class ClassificationVariationalNetwork(nn.Module):
             p_z_y = (- sdist / 2 + sdist_remainder).exp()
             iws = iws * p_z_y
             if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
-            
+
             log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
-            
+
             if log_inv_q_z_x.dim() < iws.dim():
                 log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
 

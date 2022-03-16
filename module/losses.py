@@ -97,7 +97,7 @@ def kl_loss(mu_z, log_var_z,
 
     losses['var'] = var_loss
     losses['sdistances'] = torch.zeros(1, device=log_var_z.device)
-    losses['mahala'] = mahala = torch.zeros(1, device=log_var_z.device)
+    losses['mahala'] = torch.zeros(1, device=log_var_z.device)
     losses['kl_rec'] = torch.zeros(1, device=log_var_z.device)
 
     if y is None:

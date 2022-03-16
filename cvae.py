@@ -168,7 +168,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.type = type_of_net
 
         self.loss_components = self.loss_components_per_type[self.type]
-        self.printed_loss_components = [_ for _ in self.losses_components if _ not in self.masked_loss_components]
+        self.printed_loss_components = [_ for _ in self.loss_components if _ not in self.masked_loss_components]
         
         self.metrics = self.metrics_per_type[self.type]
 

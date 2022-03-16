@@ -113,7 +113,9 @@ if __name__ == '__main__':
                 i += 1
             backup_dir = os.path.join(sample_dir, f'{epoch_str}.{i}')
             os.rename(record_dir, backup_dir)
-            model.accuracy(print_result='REC', epoch=epoch, from_where='compute', sample_dirs=[sample_dir])
+            model.accuracy(batch_size=64, print_result='REC',
+                           epoch=epoch, from_where='compute',
+                           sample_dirs=[sample_dir])
             
         is_testset = True
 

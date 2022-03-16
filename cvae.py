@@ -1190,7 +1190,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 elif k in ('cross_x', 'var_kl', 'dzdist'):
                     shape = 'N'
                 else:
-                    logging.info(f'{k} shape has not been anticipated: {_s}')
+                    logging.debug(f'{k} shape has not been anticipated: {_s}')
 
                 if not i:
                     logging.debug(f'Predicted shape for {k}: {shape}. Actual: {_s}') 

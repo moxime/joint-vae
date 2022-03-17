@@ -32,7 +32,7 @@ then
 fi
 shift
 
-if [ "$1" = "lab-ia" ]
+if [ "$remote" = "lab-ia" ]
 then
     source="~/joint-vae/jobs"
 else

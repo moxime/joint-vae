@@ -129,6 +129,8 @@ if __name__ == '__main__':
         where = ('recorders',)
     elif args.compute == 'hard':
         where = ('json', 'recorders', 'compute')
+    elif args.compute == 'rehard':
+        where = ('compute',)
     else:
         where = ('json',)
 

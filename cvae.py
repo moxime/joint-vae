@@ -2547,7 +2547,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 raise e
             try:
                 vae.load_state_dict(state_dict)
-                print('********** OK **********')
+
             except RuntimeError as e:
                 state_dict_vae = vae.state_dict()
                 s = ''

@@ -15,7 +15,8 @@ from utils.parameters import gethostname
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--last', default=0, type=int)
-parser.add_argument('--metrics', nargs='*', default=['zdist'])
+# parser.add_argument('--metrics', nargs='*', default=['zdist'])
+parser.add_argument('--metrics', default='zdist')
 parser.add_argument('--soft', action='store_true')
 parser.add_argument('--by-classes', action='store_true')
 parser.add_argument('-v', action='count', default=0)
@@ -85,7 +86,7 @@ if __name__ == '__main__':
     confs = []
 
     for mdir in mdirs:
-
+        
         model = M.load(mdir, load_net=False)
         testset = model.training_parameters['set']
 

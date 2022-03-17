@@ -18,7 +18,7 @@ parser.add_argument('--last', default=0, type=int)
 parser.add_argument('--metrics', default='zdist')
 parser.add_argument('--soft', action='store_true')
 parser.add_argument('--by-classes', action='store_true')
-parser.add_argument('-v', action='count')
+parser.add_argument('-v', action='count', default=0)
 
 rmodels = load_json('jobs', 'models-home.json')
 

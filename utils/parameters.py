@@ -6,7 +6,7 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 import re, numpy as np
 from socket import gethostname as getrawhostname
-from utils.filters import ParamFilter, FilterAction, DictOfListsOfParamFilters
+from utils.filters import ParamFilter, FilterAction, DictOfListsOfParamFilters, get_filter_keys
 import os
 
 
@@ -441,11 +441,13 @@ def get_args_for_test(argv=None):
 
     args.filters = DictOfListsOfParamFilters()
     
-    filter_parser = parse_filters() #parents=[parser])
+    filter_parser = parse_filters(parents=[parser])
 
     filter_args = filter_parser.parse_args(ra)
 
-    for _ in filter_args.__dict__:
+    filter_keys = get_filter_keys()
+    
+    for _ in filter_keys:
         args.filters.add(_, filter_args.__dict__[_])
 
     return args

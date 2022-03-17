@@ -15,7 +15,7 @@ from utils.parameters import gethostname
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--last', default=0, type=int)
-parser.add_argument('--metrics', default='zdist')
+parser.add_argument('--metrics', nargs='*', default=['zdist'])
 parser.add_argument('--soft', action='store_true')
 parser.add_argument('--by-classes', action='store_true')
 parser.add_argument('-v', action='count', default=0)
@@ -105,7 +105,7 @@ if __name__ == '__main__':
         record_dir = os.path.join(sample_dir, epoch_str)
         recorders = LossRecorder.loadall(record_dir)
 
-        if args.metrics not in recorders[testset].keys():
+        if False:  # args.metrics not in recorders[testset].keys():
             model = M.load(mdir, load_state=True)
             model.to('cuda')
             logging.warning('We will train the model')

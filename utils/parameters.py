@@ -348,7 +348,7 @@ def get_args_for_train(argv=None):
 
 def get_args_for_test(argv=None):
 
-    parser = argparse.ArgumentParser(add_help=True)
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--verbose', '-v', action='count', default=0)
 
@@ -441,7 +441,7 @@ def get_args_for_test(argv=None):
 
     args.filters = DictOfListsOfParamFilters()
     
-    filter_parser = parse_filters()
+    filter_parser = parse_filters() #parents=[parser])
 
     filter_args = filter_parser.parse_args(ra)
 

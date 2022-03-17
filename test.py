@@ -267,7 +267,8 @@ if __name__ == '__main__':
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
             model = CVNet.load(m['dir'], load_state=plan['compute'])
-
+            if plan['compute']:
+                model.to('cuda')
             with torch.no_grad():
                 model.ood_detection_rates(epoch=epoch,
                                           from_where=where,

@@ -10,7 +10,7 @@ from cvae import ClassificationVariationalNetwork as M
 from utils.filters import DictOfListsOfParamFilters
 import matplotlib.pyplot as plt
 import logging
-
+from utils.parameters import gethostname
 
 parser = argparse.ArgumentParser()
 
@@ -20,7 +20,7 @@ parser.add_argument('--soft', action='store_true')
 parser.add_argument('--by-classes', action='store_true')
 parser.add_argument('-v', action='count', default=0)
 
-rmodels = load_json('jobs', 'models-home.json')
+rmodels = load_json('jobs', 'models-{}.json'.format(gethostname()))
 
 col_width = 10
 str_col_width = '13.13'

@@ -129,6 +129,8 @@ if __name__ == '__main__':
         where = ('recorders',)
     elif args.compute == 'hard':
         where = ('json', 'recorders', 'compute')
+    elif args.compute == 'rehard':
+        where = ('compute',)
     else:
         where = ('json',)
 
@@ -228,7 +230,7 @@ if __name__ == '__main__':
             else:
                 _a = _r = _c = '|'
 
-            _s = '{x} {a} {r} {c} {j:6d} {s:8} {t:5} {e:4d}/{d:4d} {arch:80.80}'
+            _s = '{x} {a} {r} {c} {j:6} {s:8} {t:5} {e:4}/{d:4} {arch:80.80}'
             logging.info(_s.format(x='*' if to_be_kept else '|',
                                    a=_a, r=_r, c=_c, j=n['job'],
                                    s=n['set'], t=n['type'], arch=n['arch'],

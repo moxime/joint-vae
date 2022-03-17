@@ -6,10 +6,11 @@ from torch import nn
 from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, kl_loss, mse_loss
-from utils.save_load import LossRecorder, last_samples, available_results, develop_starred_methods
+from utils.save_load import LossRecorder, available_results, develop_starred_methods
 from utils.save_load import DeletedModelError, NoModelError
 from utils.misc import make_list
-from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Decoder, Classifier, ConvFeatures, Sigma, ResOrDenseNetFeatures
+from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Classifier, ConvFeatures, Sigma
+from module.vae_layers import ResOrDenseNetFeatures
 from module.vae_layers import onehot_encoding
 
 import utils.torch_load as torchdl
@@ -74,7 +75,8 @@ class ClassificationVariationalNetwork(nn.Module):
     """
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
-                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist', 'iws'),
+                                'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist', 'iws',
+                                         'z_logdet', 'z_mahala', 'z_tr_inv_cov'),
                                 'xvae': ('cross_x', 'kl', 'total', 'zdist', 'iws'),
                                 'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
@@ -100,10 +102,10 @@ class ClassificationVariationalNetwork(nn.Module):
                             'vib': ['odin*', 'baseline', 'logits']}
 
     misclass_methods_per_type = {'cvae': ['iws', 'kl', 'softkl*', 'softiws*'],
-                           'xvae': [],
-                           'jvae': [],
-                           'vae': [],
-                           'vib': ['odin*', 'baseline', 'logits']}
+                                 'xvae': [],
+                                 'jvae': [],
+                                 'vae': [],
+                                 'vib': ['odin*', 'baseline', 'logits']}
 
     ODIN_TEMPS = [_ * 10 ** i for _ in (1, 2, 5) for i in (0, 1, 2)] + [1000]
     ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
@@ -164,8 +166,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.type = type_of_net
 
         self.loss_components = self.loss_components_per_type[self.type]
- 
+        
         self.metrics = self.metrics_per_type[self.type]
+
         self.predict_methods = self.predict_methods_per_type[self.type].copy()
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
         self.misclass_methods = self.misclass_methods_per_type[self.type].copy()
@@ -657,27 +660,34 @@ class ClassificationVariationalNetwork(nn.Module):
         if not batch:
             logging.debug('warmup kl weight=%e', kl_var_weighting)
 
-        kl_l, zdist, var_kl, sdist = kl_loss(mu, log_var,
-                                             z=z[1:],
-                                             y=y if self.coder_has_dict else None,
-                                             prior_variance = self.latent_prior_variance,
-                                             latent_dictionary=dictionary,
-                                             var_weighting=kl_var_weighting,
-                                             out=['kl', 'dist', 'var', 'sdist'],
-                                             batch_mean=False)
+        batch_kl_losses = kl_loss(mu, log_var,
+                                  z=z[1:],
+                                  y=y if self.coder_has_dict else None,
+                                  prior_variance = self.latent_prior_variance,
+                                  latent_dictionary=dictionary,
+                                  var_weighting=kl_var_weighting,
+                                  batch_mean=False)
 
         # print('*** wxjdjd ***', 'kl', *kl_l.shape, 'zd', *zdist.shape)
+
+        zdist = batch_kl_losses['dist']
         
         total_measures['zdist'] = (current_measures['zdist'] * batch +
                                    zdist.mean().item()) / (batch + 1)
 
         total_measures['var_kl'] = (current_measures['var_kl'] * batch +
-                                   zdist.mean().item()) / (batch + 1)
-        
-        batch_quants['latent_kl'] = kl_l
+                                    zdist.mean().item()) / (batch + 1)
 
-        batch_losses['zdist'] = zdist
-        batch_losses['var_kl'] = var_kl
+        batch_losses['kl_rec'] = batch_kl_losses['kl_rec']
+
+        batch_losses['mahala'] = batch_kl_losses['mahala']
+
+        batch_losses['kl'] = batch_kl_losses['kl']
+
+        batch_losses['fisher_rao'] = batch_kl_losses['fisher_rao']
+
+        batch_losses['zdist'] = batch_kl_losses['dist']
+        batch_losses['var_kl'] = batch_kl_losses['var']
 
         if self.y_is_decoded:
 
@@ -685,7 +695,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 y_in = None
             else:
                 y_in = y
-                
+
             batch_quants['cross_y'] = x_loss(y_in,
                                              y_est,
                                              batch_mean=False)
@@ -693,7 +703,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             # print('*** cvae:545 cross_y', *batch_quants['cross_y'].shape)
 
-        batch_losses['total'] = torch.zeros_like(batch_quants['latent_kl'])
+        batch_losses['total'] = torch.zeros_like(batch_losses['kl'])
 
         if self.coder_has_dict:
             # batch_losses['zdist'] = 0
@@ -709,7 +719,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 # total_measures[k] = (current_measures[k] * batch +
                 #                     batch_quants[k].item()) / (batch + 1)
                 total_measures[k] = batch_quants[k].item()
-        
+
         if self.x_is_generated:
             batch_wmse = batch_quants['wmse']
             D = np.prod(self.input_shape)
@@ -721,11 +731,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_logpx = -D * (log_sigma.mean() + np.log(2 * np.pi)
                                 + batch_wmse)
-                
+
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
 
             batch_losses['total'] += batch_losses['cross_x'] 
 
+            sdist = batch_kl_losses['sdist']
             if sdist.dim() > iws.dim():
                 if sdist.shape[1] == 1:
                     sdist = sdist.squeeze(1)
@@ -736,9 +747,9 @@ class ClassificationVariationalNetwork(nn.Module):
             p_z_y = (- sdist / 2 + sdist_remainder).exp()
             iws = iws * p_z_y
             if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
-            
+
             log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
-            
+
             if log_inv_q_z_x.dim() < iws.dim():
                 log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
 
@@ -775,9 +786,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.debug('CE(y) weight: %.1e', cross_y_weight)
             if cross_y_weight:
                 batch_losses['total'] = batch_losses['total'] + cross_y_weight * batch_losses['cross_y']
-                
-        batch_losses['kl'] = batch_quants['latent_kl']
-        
+
         if self.is_vib:
             if not batch:
                 logging.debug(f'KL coef={self.sigma}')
@@ -1019,7 +1028,7 @@ class ClassificationVariationalNetwork(nn.Module):
         assert 'train' in v
         assert 'test' in v
         self.training_parameters['max_batch_sizes'] = v
-    
+
     def accuracy(self, testset=None,
                  batch_size=100,
                  num_batch='all',
@@ -1039,15 +1048,17 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         MAX_SAMPLE_SAVE = 200
-        
+
         device = next(self.parameters()).device
-        
+
         if not testset:
             testset_name = self.training_parameters['set']
-            _, testset = torchdl.get_dataset(testset_name)
+            transformer = self.training_parameters['transformer']
+            _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
+
         else:
             testset_name = testset.name
-            
+
         if method == 'all':
             predict_methods = self.predict_methods
             only_one_method = False
@@ -1168,6 +1179,7 @@ class ClassificationVariationalNetwork(nn.Module):
             ind = y_test.unsqueeze(0)
             # print('*** 1156 y:', min(y_test), max(y_test)) 
             for k in batch_losses:
+                shape = '?'
                 _s = 'x'.join([str(_) for _ in batch_losses[k].shape])
                 if k in ('total', 'iws'):
                     shape = 'CxN' if self.losses_might_be_computed_for_each_class else 'N'
@@ -1178,7 +1190,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 elif k in ('cross_x', 'var_kl', 'dzdist'):
                     shape = 'N'
                 else:
-                    logging.warning(f'{k} shape has not been anticipated: {_s}')
+                    logging.debug(f'{k} shape has not been anticipated: {_s}')
 
                 if not i:
                     logging.debug(f'Predicted shape for {k}: {shape}. Actual: {_s}') 
@@ -2341,7 +2353,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         if not load_net:
             load_state = False
-            
+
         # default
         default_params = {'type': 'jvae',
                           'batch_norm': False,
@@ -2521,8 +2533,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if load_test:
             vae.ood_results = ood_results
-            
-        if load_state and vae.trained:
+
+        if load_state:  # and vae.trained:
+            logging.debug('Loading state')
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:
                 state_dict = torch.load(w_p)
@@ -2534,6 +2547,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 raise e
             try:
                 vae.load_state_dict(state_dict)
+
             except RuntimeError as e:
                 state_dict_vae = vae.state_dict()
                 s = ''

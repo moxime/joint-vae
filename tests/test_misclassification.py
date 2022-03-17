@@ -18,8 +18,7 @@ parser.add_argument('--last', default=0, type=int)
 parser.add_argument('--metrics', default='zdist')
 parser.add_argument('--soft', action='store_true')
 parser.add_argument('--by-classes', action='store_true')
-
-logging.getLogger().setLevel(logging.WARNING)
+parser.add_argument('-v', action='count', default=0)
 
 rmodels = load_json('jobs', 'models-home.json')
 
@@ -30,7 +29,11 @@ flt_col_width = '5.1f'
 wanted_ood_methods = ['iws-a-4-1', 'iws-2s', 'iws']
 
 # direction : where normal are supposed to be ('low', 'center', 'high')
-direction_of_ind = {'zdist': 'low', 'kl': 'low', 'iws': 'high'}
+direction_of_ind = {'zdist': 'low',
+                    'kl': 'low',
+                    'mahala': 'low',
+                    'fisher_rao': 'low',
+                    'iws': 'high'}
 
 tpr = 0.95
 
@@ -38,6 +41,7 @@ prec_rec = 'P (R)'
 
 if __name__ == '__main__':
 
+    wanted = 'last'
     args_from_file = ('--dataset cifar10 '
                       '--type cvae '
                       '--gamma 500 '
@@ -49,22 +53,24 @@ if __name__ == '__main__':
 
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
 
+    logging.getLogger().setLevel(40 - 10 * args.v)
+    
     metrics_for_mis = args.metrics
 
     filter_parser = parse_filters()
     filter_args = filter_parser.parse_args(ra)
-    
+
     filters = DictOfListsOfParamFilters()
 
     for _ in filter_args.__dict__:
         filters.add(_, filter_args.__dict__[_])
 
     mdirs = [_ for _ in rmodels if filters.filter(rmodels[_])][-args.last:]
-    
+
     total_models = len(mdirs)
     with open('/tmp/files', 'w') as f:
 
-        for mdir, sdir in needed_remote_files(*mdirs, epoch='min-loss', which_rec='ind'):
+        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec='ind', state=True):
             if mdir in mdirs:
                 mdirs.remove(mdir)
             f.write(sdir + '\n')
@@ -84,17 +90,34 @@ if __name__ == '__main__':
         testset = model.training_parameters['set']
 
         oodsets = []
-        
-        epoch = model.training_parameters.get('early-min-loss', 'last')
 
+        if wanted == 'min-loss':
+            epoch = model.training_parameters.get('early-min-loss', 'last')
+        else:
+            epoch = 'last'
+        
         epoch_str = '{:0>4}'.format(epoch)
-        
-        print('__', model.job_number, testset,
-              '@',  model.training_parameters.get('early-min-loss'))
 
-        record_dir = os.path.join(mdir, 'samples', epoch_str)
+        print('__', model.job_number, testset,
+              '@',  epoch)
+
+        sample_dir =  os.path.join(mdir, 'samples')
+        record_dir = os.path.join(sample_dir, epoch_str)
         recorders = LossRecorder.loadall(record_dir)
 
+        if args.metrics not in recorders[testset].keys():
+            model = M.load(mdir, load_state=True)
+            model.to('cuda')
+            logging.warning('We will train the model')
+            i = 0
+            while os.path.exists(os.path.join(sample_dir, f'{epoch_str}.{i}')):
+                i += 1
+            backup_dir = os.path.join(sample_dir, f'{epoch_str}.{i}')
+            os.rename(record_dir, backup_dir)
+            model.accuracy(batch_size=64, print_result='REC',
+                           epoch=epoch, from_where='compute',
+                           sample_dirs=[sample_dir])
+            
         is_testset = True
 
         classes_ = get_classes_by_name(testset)  # + ['OOD']

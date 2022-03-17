@@ -39,6 +39,8 @@ else
     source="~/python/dnn/joint-vae/jobs"
 fi
 
+echo $remote $source
+
 if [ -z $push ]
 then
    from=$remote:$source/

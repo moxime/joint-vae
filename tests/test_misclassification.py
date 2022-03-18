@@ -2,7 +2,7 @@ import os
 import sys
 import argparse
 import torch
-from utils.save_load import LossRecorder, load_json, needed_remote_files
+from utils.save_load import LossRecorder, load_json, needed_remote_files, available_results
 from utils.torch_load import get_same_size_by_name, get_classes_by_name
 from utils.parameters import parse_filters
 import numpy as np
@@ -48,8 +48,9 @@ if __name__ == '__main__':
                       '--gamma 500 '
                       '--sigma-train coded '
                       '--coder-dict learned '
-                      '--last 1'
-                      # '--job-num 149127'
+                      '--last 1 '
+                      '-vvv '
+                      '--job-num 151000..'
                       ).split()
 
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
@@ -71,7 +72,7 @@ if __name__ == '__main__':
     total_models = len(mdirs)
     with open('/tmp/files', 'w') as f:
 
-        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec='ind', state=True):
+        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec='ind', state=False):
             if mdir in mdirs:
                 mdirs.remove(mdir)
             f.write(sdir + '\n')
@@ -90,7 +91,7 @@ if __name__ == '__main__':
         model = M.load(mdir, load_state=False)
         testset = model.training_parameters['set']
 
-        model.misclassification_detection_rate()
+        model.misclassification_detection_rate(predict_methods='first')
         
         oodsets = []
 

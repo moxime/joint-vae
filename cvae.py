@@ -25,8 +25,6 @@ from utils.print_log import EpochOutput
 
 from utils.parameters import get_args
 
-from utils.testing import testing_plan
-
 from utils.signaling import SIGHandler
 
 import os.path
@@ -101,7 +99,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'vae': ['iws-2s', 'iws', 'logpx'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
-    misclass_methods_per_type = {'cvae': ['iws', 'kl', 'softkl*', 'softiws*'],
+    misclass_methods_per_type = {'cvae': ['iws', 'kl', 'softkl*', 'softiws*', 'zdist', 'mahala', 'fisher_rao'],
                                  'xvae': [],
                                  'jvae': [],
                                  'vae': [],
@@ -922,15 +920,12 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m.startswith('softkl-'):
                 T = float(m[7:])
                 measures = (- losses['kl'] / T).softmax(0).max(axis=0)[0]
+            elif m in ('zdist', 'fisher_rao', 'mahala'):
+                measures = (-losses[m]).min(axis=0)[0]
             elif m == 'logits':
                 measures = logits.max(axis=-1)[0]
             elif m == 'baseline':
                 measures = logits.softmax(-1).max(axis=-1)[0]
-            elif m == 't1000' and self.type in ('vib', 'jvae'):
-                measures = (logits / 1000).softmax(-1).max(axis=-1)[0]
-            elif m == 't1000' and self.type == 'cvae':
-                # measures = (logp / 1000).softmax(0).max(axis=0)[0]
-                measures = (-losses['kl'] / 1000).softmax(0).max(axis=0)[0]
             elif m == 'mag':
                 measures = logp_max - logp.median(axis=0)[0]
             elif m == 'std':
@@ -1661,31 +1656,29 @@ class ClassificationVariationalNetwork(nn.Module):
         return ood_results
 
     def misclassification_detection_rate(self,
-                                         recorder=None,
-                                         wygiswyu=True,
-                                         sample_dir=None,
                                          predict_methods='all',
                                          misclass_methods='all',
+                                         wanted_epoch='last',
                                          shown_tpr=0.95,
+                                         from_where=('json', 'recorders'),
+                                         print_result=False,
                                          outputs=EpochOutput):
 
-        if not wygiswyu:
-            logging.error('You have to compute accuracies '
-                          'before computing misclassification rates')
-            return
-
-        from_r = testing_plan(self, ood_sets=[],
-                              predict_methods=predict_methods,
-                              misclass_methods=misclass_methods)['recorders']
+        froms = available_results(self,
+                                  where=from_where,
+                                  wanted_epoch='last',
+                                  oodsets=[],
+                                  predict_methods=predict_methods,
+                                  misclass_methods=misclass_methods)
         
-        if not sample_dir:
-            sample_dir = os.path.join(self.saved_dir, 'samples', 'last')
-
         testset = self.training_parameters['set']
+        f = f'record-{testset}.pth'
+
+        epoch = next(iter(froms))
+        available = froms[epoch][testset]
         
-        if not recorder:
-            f = f'record-{testset}.pth'
-            recorder = LossRecorder.load(os.path.join(sample_dir, f))
+        sample_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))
+        recorder = LossRecorder.load(os.path.join(sample_dir, f))
         
         methods = {'predict': predict_methods, 'miss': misclass_methods}
 
@@ -1711,46 +1704,67 @@ class ClassificationVariationalNetwork(nn.Module):
         _p_1 = 4.1
         
         for predict_method in methods['predict']:
+
+            m_ = ['{}-{}'.format(predict_method, _) for _ in methods['miss']]
+            
+            available_m = [_ for _, __ in zip(methods['miss'], m_) if available['recorders'][__]]
             
             y_ = self.predict_after_evaluate(logits, losses, method=predict_method)
             missed = y_ != y
             correct = y_ == y
 
             acc = correct.sum().item() / (correct.sum().item() + missed.sum().item())
-                   
-            test_measures = self.batch_dist_measures(logits, losses, methods['miss'], to_cpu=True)
+            test_measures = self.batch_dist_measures(logits, losses, available_m, to_cpu=True)
 
             fpr_, tpr_, precision_, recall_, thresholds_ = {}, {}, {}, {}, {}
 
-            logging.debug(f'*** {predict_method} ({100 * acc:{_p}f})')
+            logging.debug(f'Acc. for method {predict_method}: ({100 * acc:{_p}f}) ****')
 
             max_P = 0
             
-            for m in methods['miss']:
+            for m in available_m:
+                measures = test_measures[m].cpu()
                 
-                auc, fpr, tpr, thr = roc_curve(test_measures[m][correct],
-                                               test_measures[m][missed], *kept_tpr)
+                auc, fpr, tpr, thr = roc_curve(measures[correct],
+                                               measures[missed], *kept_tpr)
 
-                tp = [(test_measures[m][correct] > t).sum().item() for t in thr]
-                tn =  [(test_measures[m][missed] <= t).sum().item() for t in thr]
-                fp =  [(test_measures[m][missed] > t).sum().item() for t in thr]
-                fn = [(test_measures[m][correct] <= t).sum().item() for t in thr]
+                thr = thr['low']
+                
+                tp, fp, tn, fn = [], [], [], []
 
+                for t in thr:
+                    pos = measures > t
+                    neg = ~pos
+                    tp.append((pos * correct).sum())
+                    fp.append((pos * missed).sum())
+                    tn.append((neg * missed).sum())
+                    fn.append((neg * correct).sum())
+                    """
+                    print('**** Correct: {:5} + {:5}, Missed: {:5} + {:5}'.format(tp[-1], fn[-1], tn[-1], fp[-1]))
+                    print('**** P={:4.1f} TPR={:4.1f} FPR={:4.1f} t={}'.format(100 * tp[-1] / (tp[-1] + fp[-1]),
+                                                                               100 * tp[-1] / (tp[-1] + fn[-1]),
+                                                                               100 * fp[-1] / (fp[-1] + tn[-1]), t
+                                                                               ))
+                    """
+                # print('*** fpr: {:.1f} -> {:.1f}'.format(100 * fpr[0], 100 * fpr[-1]))
                 t95 = fpr_at_tpr(fpr, tpr, shown_tpr, thr, return_threshold=True)[1]
-                
-                tp95 = (test_measures[m][correct] > t95).sum().item()
-                fp95 = (test_measures[m][missed] > t95).sum() .item()
+
+                pos = measures > t95
+                neg = ~pos
+                tp95 = (pos * correct).sum()
+                fp95 = (pos * missed).sum()
                 
                 p95 = tp95 / (tp95 + fp95)
 
                 dp95 = p95 - acc
                 
-                r95 = tp95 / correct.sum().item()
-                fpr95 = fp95 / missed.sum().item()
-                tpr95 = p95
+                r95 = tp95 / correct.sum()
+                fpr95 = fp95 / missed.sum()
+                
+                # tpr95 = p95
                 
                 precision_[m] = [(t / (t + f)) for t, f in zip(tp, fp)]
-                recall_[m] = [t / correct.sum().item() for t in tp]
+                recall_[m] = [t / correct.sum() for t in tp]
 
                 if p95 > max_P:
                     best_m = m
@@ -1759,7 +1773,7 @@ class ClassificationVariationalNetwork(nn.Module):
                               '\tP={:{p}f} '.format(100 * p95, p=_p) +
                               '({:+{p}f}) '.format(100 * dp95, p = _p_1) +
                               'R={:{p}f} FPR={:{p}f}'.format(100 * r95, 100 * fpr95, p=_p))
-            # print('*** {}: {:{p}f} ({:+{p1}f})'.format(best_m, 100 * max_P, 100 * (max_P -acc), p=_p, p1=_p-1.1))
+            print('*** {}: {:{p}f} ({:+{p1}f})'.format(best_m, 100 * max_P, 100 * (max_P -acc), p=_p, p1=_p-1.1))
                 
     def train_model(self,
                     trainset=None,

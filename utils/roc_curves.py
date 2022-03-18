@@ -35,8 +35,12 @@ def tpr_at_fpr(fpr, tpr, a):
     return as_tpr[i_fpr].max()
 
 
-def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False):
+def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False, ins_are_higher=True):
 
+    sign = 1 if ins_are_higher else -1
+    lowup = {'low': 'low', 'up': 'up'} if ins_are_higher else {'low': 'up', 'up': 'low'}
+    ins = sign * ins
+    outs = sign * outs
     t0 = time()
     if debug:
         logging.debug('Computing fprs with a {}-sided test with data of lengths {} / {}'.format(
@@ -66,8 +70,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
         delta_thresholds = np.concatenate([[0], np.sort(abs(ins[test_ins_idx] - center)), [np.inf]])
         all_thresholds['low'] = - delta_thresholds[::-1] + center
         all_thresholds['up'] = delta_thresholds + center
-
-        
+       
     elif isinstance(two_sided, tuple):
         
         old_indices = np.arange(0, len(ins_validation))
@@ -182,7 +185,8 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
                 kept_fpr[kept_tpr_i] = fpr
                 kept_tpr[kept_tpr_i] = tpr
                 for _ in t:
-                    kept_thresholds[_][kept_tpr_i] = t[_]
+                    kept_thresholds[lowup[_]][kept_tpr_i] = sign * t[_]
+                    
     # print('*** iterations:', it)
     if debug:
         for w in ('in', 'out'):

@@ -628,6 +628,8 @@ def needed_components(*methods):
            'softkl': ('kl',),
            'mse': ('cross_x',)}
 
+    ncd.update({_: (_,) for _ in ('kl', 'fisher_rao', 'mahala')})
+               
     for k in total:
         ncd[k] = ('total',)
 
@@ -1392,6 +1394,9 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
         epoch_ = epoch
         if epoch_ == 'min-loss':
             epoch_ = m.training_parameters.get('early-min-loss', 'last')
+        if epoch_ == 'last':
+            epoch_ = max(m.testing)
+            
         if isinstance(epoch_, int):
             epoch_ = '{:04d}'.format(epoch_)
 

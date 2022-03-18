@@ -1674,6 +1674,8 @@ class ClassificationVariationalNetwork(nn.Module):
         testset = self.training_parameters['set']
         f = f'record-{testset}.pth'
 
+        for _ in froms:
+            print(_, froms[_][testset]['where']
         epoch = next(iter(froms))
         available = froms[epoch][testset]
         

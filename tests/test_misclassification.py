@@ -90,6 +90,8 @@ if __name__ == '__main__':
         model = M.load(mdir, load_net=False)
         testset = model.training_parameters['set']
 
+        model.misclassification_detection_rate()
+        
         oodsets = []
 
         if wanted == 'min-loss':

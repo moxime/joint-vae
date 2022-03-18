@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
     for mdir in mdirs:
         
-        model = M.load(mdir, load_net=False)
+        model = M.load(mdir, load_state=False)
         testset = model.training_parameters['set']
 
         model.misclassification_detection_rate()

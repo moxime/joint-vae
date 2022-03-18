@@ -662,7 +662,7 @@ def available_results(model,
     ood_results = model.ood_results
     test_results = model.testing
     if wanted_epoch == 'last':
-        wanted_epoch = model.trained
+        wanted_epoch = max(model.testing)
     predict_methods = make_list(predict_methods, model.predict_methods)
     ood_methods = make_list(ood_methods, model.ood_methods)
     misclass_methods = make_list(misclass_methods, model.misclass_methods)

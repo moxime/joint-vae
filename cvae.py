@@ -1674,8 +1674,6 @@ class ClassificationVariationalNetwork(nn.Module):
         testset = self.training_parameters['set']
         f = f'record-{testset}.pth'
 
-        for _ in froms:
-            print(_, froms[_][testset]['where'])
         epoch = next(iter(froms))
         available = froms[epoch][testset]
         
@@ -1697,8 +1695,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 assert m in all_methods
 
         losses = recorder._tensors
-        logits = losses.pop('logits').T
-        y = losses.pop('y_true')
+        logits = losses.pop('logits').T.cpu()
+        y = losses.pop('y_true').cpu()
 
         kept_tpr = [pc / 100 for pc in range(90, 100)]
 

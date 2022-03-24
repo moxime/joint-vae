@@ -629,7 +629,7 @@ def needed_components(*methods):
            'mse': ('cross_x',)}
 
     ncd.update({_: (_,) for _ in ('kl', 'fisher_rao', 'mahala')})
-               
+
     for k in total:
         ncd[k] = ('total',)
 
@@ -661,6 +661,8 @@ def available_results(model,
 
     ood_results = model.ood_results
     test_results = model.testing
+    if wanted_epoch == 'min-loss':
+        wanted_epoch = model.training_parameters.get('early-min-loss', 'last')
     if wanted_epoch == 'last':
         wanted_epoch = max(model.testing)
     predict_methods = make_list(predict_methods, model.predict_methods)

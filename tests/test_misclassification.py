@@ -42,15 +42,15 @@ prec_rec = 'P (R)'
 
 if __name__ == '__main__':
 
-    wanted = 'last'
+    wanted = 'min-loss'
     args_from_file = ('--dataset cifar10 '
                       '--type cvae '
-                      '--gamma 500 '
+                      # '--gamma 500 '
                       '--sigma-train coded '
                       '--coder-dict learned '
                       '--last 1 '
                       '-vvv '
-                      '--job-num 151000..'
+                      '--job-num 169296'
                       ).split()
 
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
@@ -91,8 +91,10 @@ if __name__ == '__main__':
         model = M.load(mdir, load_state=False)
         testset = model.training_parameters['set']
 
-        model.misclassification_detection_rate(predict_methods='first')
-        
+        model.misclassification_detection_rate(predict_methods='first', wanted_epoch='min-loss')
+
+        continue
+    
         oodsets = []
 
         if wanted == 'min-loss':
@@ -103,24 +105,24 @@ if __name__ == '__main__':
         epoch_str = '{:0>4}'.format(epoch)
 
         print('__', model.job_number, testset,
-              '@',  epoch)
+              '@',  epoch, metrics_for_mis)
 
         sample_dir =  os.path.join(mdir, 'samples')
         record_dir = os.path.join(sample_dir, epoch_str)
         recorders = LossRecorder.loadall(record_dir)
 
-        if False:  # args.metrics not in recorders[testset].keys():
-            model = M.load(mdir, load_state=True)
-            model.to('cuda')
-            logging.warning('We will train the model')
-            i = 0
-            while os.path.exists(os.path.join(sample_dir, f'{epoch_str}.{i}')):
-                i += 1
-            backup_dir = os.path.join(sample_dir, f'{epoch_str}.{i}')
-            os.rename(record_dir, backup_dir)
-            model.accuracy(batch_size=64, print_result='REC',
-                           epoch=epoch, from_where='compute',
-                           sample_dirs=[sample_dir])
+        # if args.metrics not in recorders[testset].keys():
+        #     model = M.load(mdir, load_state=True)
+        #     model.to('cuda')
+        #     logging.warning('We will train the model')
+        #     i = 0
+        #     while os.path.exists(os.path.join(sample_dir, f'{epoch_str}.{i}')):
+        #         i += 1
+        #     backup_dir = os.path.join(sample_dir, f'{epoch_str}.{i}')
+        #     os.rename(record_dir, backup_dir)
+        #     model.accuracy(batch_size=64, print_result='REC',
+        #                    epoch=epoch, from_where='compute',
+        #                    sample_dirs=[sample_dir])
             
         is_testset = True
 

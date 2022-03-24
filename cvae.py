@@ -74,7 +74,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
                                 'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist', 'iws',
-                                         'z_logdet', 'z_mahala', 'z_tr_inv_cov'),
+                                         'z_logdet', 'mahala', 'kl_rec', 'z_tr_inv_cov'),
                                 'xvae': ('cross_x', 'kl', 'total', 'zdist', 'iws'),
                                 'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
@@ -99,28 +99,26 @@ class ClassificationVariationalNetwork(nn.Module):
                             'vae': ['iws-2s', 'iws', 'logpx'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
-    misclass_methods_per_type = {'cvae': ['iws', 'kl', 'softkl*', 'softiws*', 'zdist', 'mahala', 'fisher_rao'],
+    misclass_methods_per_type = {'cvae': ['iws', 'kl', 'kl_rec', 'softkl*', 'zdist', 'mahala', 'fisher_rao',
+                                          'softmahala*', 'softzdist*', 'baseline*', 'hyz'],
                                  'xvae': [],
                                  'jvae': [],
                                  'vae': [],
-                                 'vib': ['odin*', 'baseline', 'logits']}
+                                 'vib': ['odin*', 'baseline', 'logits', 'hyz']}
 
-    ODIN_TEMPS = [_ * 10 ** i for _ in (1, 2, 5) for i in (0, 1, 2)] + [1000]
+    ODIN_TEMPS = [_ * 10 ** i for i in (0, 1, 2) for _ in (1, 2, 5)] + [1000]
     ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
-    # ODIN_EPS = [_ / 40 * 0.008 for _ in range(41)]
-    
-    # ODIN_TEMPS = [500, 1000]
-    # ODIN_TEMPS = [1, 1000]
-    # ODIN_EPS = [0]  # , 0.002, 0.004]
 
     odin_params = []
     for T in ODIN_TEMPS:
         for eps in ODIN_EPS:
             odin_params.append('odin-{:.0f}-{:.4f}'.format(T, eps))
-    methods_params = {'odin': odin_params,
-                      'softiws': [f'softiws-{_:.0f}' for _ in ODIN_TEMPS],
-                      'softkl': [f'softkl-{_:.0f}' for _ in ODIN_TEMPS]}
-    
+    methods_params = {}
+    for k in ['soft' + _ for _ in ['kl', 'zdist', 'mahala']] + ['baseline']:
+        methods_params[k] = []
+        for _ in ODIN_TEMPS:
+            methods_params[k].append(f'{k}-{_:.0f}')
+    methods_params.update({'odin': odin_params})
 
     def __init__(self,
                  input_shape,
@@ -913,19 +911,27 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = (losses['iws']).softmax(0).max(axis=0)[0]
             elif m.startswith('softiws-'):
                 T = float(m[8:])
-                measures = (losses['iws'] / T).softmax(0).max(axis=0)[0]
+                measures = (-losses['iws'] / T).softmax(0).max(axis=0)[0]
             elif m in ('soft', 'softkl'):
                 # measures = logp.softmax(0).max(axis=0)[0]
                 measures = (-losses['kl']).softmax(0).max(axis=0)[0]
             elif m.startswith('softkl-'):
                 T = float(m[7:])
                 measures = (- losses['kl'] / T).softmax(0).max(axis=0)[0]
-            elif m in ('zdist', 'fisher_rao', 'mahala'):
-                measures = (-losses[m]).min(axis=0)[0]
+            elif m in ('zdist', 'fisher_rao', 'mahala', 'kl_rec'):
+                measures = (-losses[m]).max(axis=0)[0]
+            elif m.startswith('soft') and '-' in m:
+                T = float(m.split('-')[-1])
+                k = m.split('-')[0][4:]
+                measures = (-losses[k] / T).softmax(0).max(axis=0)[0]
             elif m == 'logits':
                 measures = logits.max(axis=-1)[0]
-            elif m == 'baseline':
-                measures = logits.softmax(-1).max(axis=-1)[0]
+            elif m.startswith('baseline'):
+                if '-' in m:
+                    T = float(m.split('-')[-1])
+                else:
+                    T = 1
+                measures = (logits / T).softmax(-1).max(axis=-1)[0]
             elif m == 'mag':
                 measures = logp_max - logp.median(axis=0)[0]
             elif m == 'std':
@@ -935,11 +941,14 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m == 'nstd':
                 measures = (d_logp.exp().std(axis=0).log()
                             - d_logp.exp().mean(axis=0).log()).exp().pow(2)
+            elif m == 'hyz':
+                p_y_z =  logits.softmax(-1)
+                measures = (p_y_z * p_y_z.log()).sum(-1)
             elif m == 'IYx':
                 d_logp_x = d_logp.exp().mean(axis=0).log()
                 
-                measures =  ( (d_logp * (d_logp.exp())).sum(axis=0) / (C * d_logp_x.exp())
-                            - d_logp_x )
+                measures = ((d_logp * (d_logp.exp())).sum(axis=0) / (C * d_logp_x.exp())
+                            - d_logp_x)
             elif m == 'kl':
                 measures = -losses['kl'].min(axis=0)[0]
             elif m == 'mse' and self.is_cvae:
@@ -1274,9 +1283,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                   # n, self.trained)
 
                 self.testing[epoch][m] = {'n': n,
-                                                 'epochs': epoch,
-                                                 'sampling': self.latent_samplings['eval'],
-                                                 'accuracy': acc[m]}
+                                          'epochs': epoch,
+                                          'sampling': self.latent_samplings['eval'],
+                                          'accuracy': acc[m]}
 
             elif log:
 
@@ -1662,11 +1671,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                          shown_tpr=0.95,
                                          from_where=('json', 'recorders'),
                                          print_result=False,
+                                         update_self_results=True,
                                          outputs=EpochOutput):
 
         froms = available_results(self,
                                   where=from_where,
-                                  wanted_epoch='last',
+                                  wanted_epoch=wanted_epoch,
                                   oodsets=[],
                                   predict_methods=predict_methods,
                                   misclass_methods=misclass_methods)
@@ -1676,10 +1686,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
         epoch = next(iter(froms))
         available = froms[epoch][testset]
-        
-        sample_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))
-        recorder = LossRecorder.load(os.path.join(sample_dir, f))
-        
+
+        if sum(available['recorders'].values());
+
+            sample_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))
+            recorder = LossRecorder.load(os.path.join(sample_dir, f))
+        else:
+            return
+            
         methods = {'predict': predict_methods, 'miss': misclass_methods}
 
         for which, all_methods in zip(('predict', 'miss'),
@@ -1702,18 +1716,18 @@ class ClassificationVariationalNetwork(nn.Module):
 
         _p = 5.2
         _p_1 = 4.1
-        
+
         for predict_method in methods['predict']:
 
             m_ = ['{}-{}'.format(predict_method, _) for _ in methods['miss']]
-            
-            available_m = [_ for _, __ in zip(methods['miss'], m_) if available['recorders'][__]]
-            
-            y_ = self.predict_after_evaluate(logits, losses, method=predict_method)
-            missed = y_ != y
-            correct = y_ == y
 
-            acc = correct.sum().item() / (correct.sum().item() + missed.sum().item())
+            available_m = [_ for _, __ in zip(methods['miss'], m_) if available['recorders'][__]]
+
+            y_ = self.predict_after_evaluate(logits, losses, method=predict_method).cpu()
+            missed = np.asarray(y_ != y)
+            correct = np.asarray(y_ == y)
+
+            acc = correct.sum() / (correct.sum() + missed.sum())
             test_measures = self.batch_dist_measures(logits, losses, available_m, to_cpu=True)
 
             fpr_, tpr_, precision_, recall_, thresholds_ = {}, {}, {}, {}, {}
@@ -1721,15 +1735,14 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug(f'Acc. for method {predict_method}: ({100 * acc:{_p}f}) ****')
 
             max_P = 0
-            
+
             for m in available_m:
-                measures = test_measures[m].cpu()
-                
+                measures = np.asarray(test_measures[m])
+
                 auc, fpr, tpr, thr = roc_curve(measures[correct],
                                                measures[missed], *kept_tpr)
 
                 thr = thr['low']
-                
                 tp, fp, tn, fn = [], [], [], []
 
                 for t in thr:
@@ -1773,7 +1786,18 @@ class ClassificationVariationalNetwork(nn.Module):
                               '\tP={:{p}f} '.format(100 * p95, p=_p) +
                               '({:+{p}f}) '.format(100 * dp95, p = _p_1) +
                               'R={:{p}f} FPR={:{p}f}'.format(100 * r95, 100 * fpr95, p=_p))
-            print('*** {}: {:{p}f} ({:+{p1}f})'.format(best_m, 100 * max_P, 100 * (max_P -acc), p=_p, p1=_p-1.1))
+
+                n = len(y)
+                try:
+                    n_already = self.testing[epoch][predict_methods][m]['n']
+                except KeyError:
+                    n_already = 0
+                if update_self_results and n > n_already:
+                    r = {'n': n, 'epochs': epoch, 'sampling': self.latent_samplings['eval']}
+                    r.update(dict(tpr=list(tpr), fpr=list(fpr), auc=auc, precision=list(precision_[m])))
+                    print(epoch, predict_method, m)
+                    self.testing[epoch][predict_method][m] = r
+                    
                 
     def train_model(self,
                     trainset=None,

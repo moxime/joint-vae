@@ -39,8 +39,8 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
 
     sign = 1 if ins_are_higher else -1
     lowup = {'low': 'low', 'up': 'up'} if ins_are_higher else {'low': 'up', 'up': 'low'}
-    ins = sign * ins
-    outs = sign * outs
+    # ins = np.asarray(sign * ins)
+    # outs = np.asarray(sign * outs)
     t0 = time()
     if debug:
         logging.debug('Computing fprs with a {}-sided test with data of lengths {} / {}'.format(

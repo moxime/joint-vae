@@ -94,10 +94,10 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
     
     last_fpr = -.01
 
-    kept_tpr = np.sort(kept_tpr)
-    original_kept_tpr = kept_tpr.copy()
-    kept_fpr = np.zeros_like(kept_tpr)
-    kept_thresholds = {'low': np.zeros_like(kept_tpr), 'up': np.zeros_like(kept_tpr)}
+    original_kept_tpr = sorted(kept_tpr)
+    kept_tpr = np.zeros(len(kept_tpr))
+    kept_fpr = np.ones_like(kept_tpr)
+    kept_thresholds = {'low': -np.inf * np.ones_like(kept_tpr), 'up': +np.inf * np.ones_like(kept_tpr)}
     kept_precisions = np.zeros_like(kept_tpr)
         
     if debug == 'time':
@@ -120,7 +120,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
     
     kept_tpr_i = -1
 
-    num_print = 50
+    num_print = 500
     every_print = max(len(all_thresholds['low']) // num_print, 1)
 
     it = 0
@@ -160,13 +160,13 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
                                     scores[w][idx[w]['up']],
                                     t['up']),
                           end=' | ')
-                    print(idx[w]['low'], idx[w]['up'])
+                    print(idx[w]['low'], idx[w]['up'], '[', len(scores[w]), ']')
                 
                 print('|_FPR={:6.2%} TPR={:6.2%}'.format(fpr, tpr))
         
         it += 1
-        idx['thr']['low'] +=1
-        idx['thr']['up'] -=1
+        idx['thr']['low'] += 1
+        idx['thr']['up'] -= 1
 
         t = {_: all_thresholds[_][idx['thr'][_]] for _ in ('low', 'up')}
             

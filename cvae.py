@@ -99,7 +99,8 @@ class ClassificationVariationalNetwork(nn.Module):
                             'vae': ['iws-2s', 'iws', 'logpx'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
-    misclass_methods_per_type = {'cvae': ['iws', 'kl', 'kl_rec', 'softkl*', 'zdist', 'mahala', 'fisher_rao',
+    misclass_methods_per_type = {'cvae': ['iws', 'softiws*', 'kl', 'kl_rec',  'max',
+                                          'softkl*', 'zdist', 'mahala', 'fisher_rao',
                                           'softmahala*', 'softzdist*', 'baseline*', 'hyz'],
                                  'xvae': [],
                                  'jvae': [],
@@ -1678,6 +1679,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                   where=from_where,
                                   wanted_epoch=wanted_epoch,
                                   oodsets=[],
+                                  ood_methods=[],
                                   predict_methods=predict_methods,
                                   misclass_methods=misclass_methods)
         
@@ -1687,7 +1689,7 @@ class ClassificationVariationalNetwork(nn.Module):
         epoch = next(iter(froms))
         available = froms[epoch][testset]
 
-        if sum(available['recorders'].values());
+        if available['where']['recorders']:
 
             sample_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))
             recorder = LossRecorder.load(os.path.join(sample_dir, f))
@@ -1740,29 +1742,39 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = np.asarray(test_measures[m])
 
                 auc, fpr, tpr, thr = roc_curve(measures[correct],
-                                               measures[missed], *kept_tpr)
+                                               measures[missed], *kept_tpr, debug=False)
 
                 thr = thr['low']
                 tp, fp, tn, fn = [], [], [], []
 
                 for t in thr:
-                    pos = measures > t
+                    pos = measures >= t
                     neg = ~pos
                     tp.append((pos * correct).sum())
                     fp.append((pos * missed).sum())
                     tn.append((neg * missed).sum())
                     fn.append((neg * correct).sum())
-                    """
-                    print('**** Correct: {:5} + {:5}, Missed: {:5} + {:5}'.format(tp[-1], fn[-1], tn[-1], fp[-1]))
-                    print('**** P={:4.1f} TPR={:4.1f} FPR={:4.1f} t={}'.format(100 * tp[-1] / (tp[-1] + fp[-1]),
-                                                                               100 * tp[-1] / (tp[-1] + fn[-1]),
-                                                                               100 * fp[-1] / (fp[-1] + tn[-1]), t
-                                                                               ))
-                    """
-                # print('*** fpr: {:.1f} -> {:.1f}'.format(100 * fpr[0], 100 * fpr[-1]))
-                t95 = fpr_at_tpr(fpr, tpr, shown_tpr, thr, return_threshold=True)[1]
 
-                pos = measures > t95
+                    _print = True
+                    _print = False
+                    if _print:
+                        print('**** Correct: {:5} + {:5}, Missed: {:5} + {:5}'.format(tp[-1],
+                                                                                      fn[-1],
+                                                                                      tn[-1],
+                                                                                      fp[-1]),
+                              end=' ')
+                        print('**** P={:4.1f} TPR={:4.1f} FPR={:4.1f} t={}'.format(
+                            100 * tp[-1] / (tp[-1] + fp[-1]),                           
+                            100 * tp[-1] / (tp[-1] + fn[-1]),
+                            100 * fp[-1] / (fp[-1] + tn[-1]),
+                            t
+                        ))
+                    
+                # print('*** fpr: {:.1f} -> {:.1f}'.format(100 * fpr[0], 100 * fpr[-1]))
+                # print('*** tpr: {:.1f} -> {:.1f}'.format(100 * tpr[0], 100 * tpr[-1]))
+                t95 = fpr_at_tpr(fpr, tpr, shown_tpr, thr, return_threshold=True)[1]
+                
+                pos = measures >= t95
                 neg = ~pos
                 tp95 = (pos * correct).sum()
                 fp95 = (pos * missed).sum()
@@ -1792,10 +1804,15 @@ class ClassificationVariationalNetwork(nn.Module):
                     n_already = self.testing[epoch][predict_methods][m]['n']
                 except KeyError:
                     n_already = 0
-                if update_self_results and n > n_already:
+                if update_self_results and n >= n_already:
+                    if epoch not in self.testing:
+                        self.testing[epoch] = {}
+                    if predict_method not in self.testing[epoch]:
+                        r = {'n': n, 'epochs': epoch, 'sampling': self.latent_samplings['eval'], 'accuracy': acc}
+                        self.testing[epoch][predict_method] = r
                     r = {'n': n, 'epochs': epoch, 'sampling': self.latent_samplings['eval']}
                     r.update(dict(tpr=list(tpr), fpr=list(fpr), auc=auc, precision=list(precision_[m])))
-                    print(epoch, predict_method, m)
+                    # print(epoch, predict_method, m)
                     self.testing[epoch][predict_method][m] = r
                     
                 

@@ -78,6 +78,212 @@ def export_losses(net_dict, which='loss',
     f.close()
 
 
+def test_results_df(nets,
+                    predict_methods='first',
+                    ood_methods='first',
+                    ood={},
+                    dataset=None, show_measures=True,
+                    tpr=[0.95], tnr=False, sorting_keys=[]):
+    """
+    nets : list of dicts n
+    n['net'] : the network
+    n['sigma']
+    n['arch']
+    n['set']
+    n['K']
+    n['L']
+    n['accuracies'] : {m: acc for m in methods}
+    n['best_accuracy'] : best accuracy
+    n['ood_fpr'] : '{s: {tpr : fpr}}' for best method
+    n['ood_fprs'] : '{s: {m: {tpr: fpr} for m in methods}}
+    n['options'] : vector of options
+    n['optim_str'] : optimizer
+    """
+
+    if ood_methods is None:
+        ood_methods = 'first'
+
+    if predict_methods is None:
+        predict_methods = 'first'
+    
+    if not dataset:
+        testsets = {n['set'] for n in nets}
+        return {s: test_results_df(nets,
+                                   predict_methods=predict_methods,
+                                   ood_methods=ood_methods,
+                                   ood=ood.get(s),
+                                   dataset=s,
+                                   show_measures=show_measures,
+                                   tpr=tpr, tnr=tnr,
+                                   sorting_keys=sorting_keys) for s in testsets}
+
+    arch_index = ['h/o']  if dataset.endswith('-?') else []
+    arch_index += ['type',
+                   'depth',
+                   'features',
+                   'arch_code',
+                   'K',
+                   # 'dict_var',
+                   ]
+
+    train_index = [
+        'options',
+        'batch_norm',
+        'optim_str',
+        'coder_dict',
+        'forced_var',
+        'L',
+        'sigma_train',
+        'sigma',
+        # 'beta_sigma',
+        'beta',
+        'gamma',
+        'job']
+
+    indices = arch_index + train_index
+
+    indices_replacement = {'batch_norm': 'bn'}
+
+    # acc_cols = ['best_accuracy', 'accuracies']
+    # ood_cols = ['ood_fpr', 'ood_fprs']
+
+    acc_cols = ['accuracies']
+    ood_cols = ['ood_fprs']
+
+    meas_cols = ['epoch', 'done']
+
+    if show_measures > 1:
+        meas_cols += ['dict_var', 'beta_sigma', 'rmse',
+                      'train_loss', 'test_loss',
+                      'train_zdist', 'test_zdist']
+
+    columns = indices + acc_cols + ood_cols + meas_cols
+    df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
+                                   columns=columns)
+
+    df['batch_norm'] = df['batch_norm'].apply(lambda x: x[0] if x else x)
+    df.rename(columns=indices_replacement, inplace=True)
+
+    indices = [indices_replacement.get(_, _) for _ in indices]
+    
+    df.set_index(indices, inplace=True)
+    
+    acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
+    acc_df.columns = pd.MultiIndex.from_product([acc_df.columns, ['rate']])
+    ood_df = pd.DataFrame(df['ood_fprs'].values.tolist(), index=df.index)
+    meas_df = df[meas_cols]
+    # print(meas_df.columns)
+    meas_df.columns = pd.MultiIndex.from_product([[''], meas_df.columns])
+    
+    # return acc_df
+    # return ood_df
+    d_ = {dataset: acc_df}
+
+    # print('*** ood_df:', *ood_df, 'ood', ood)
+    if ood is not None:
+        ood_df = {s: ood_df[s] for s in ood}
+    for s in ood_df:
+        d_s = pd.DataFrame(ood_df[s].values.tolist(), index=df.index)
+        d_s_ = {}
+        for m in d_s:
+            v_ = d_s[m].values.tolist()
+            _v = []
+            for v in v_:
+                if type(v) is dict:
+                    _v.append(v)
+                else: _v.append({})
+            d_s_[m] = pd.DataFrame(_v, index=df.index)
+        if d_s_:
+            d_[s] = pd.concat(d_s_, axis=1)
+            # print(d_[s].columns)
+            # print('==')
+
+            if tnr:
+                cols_fpr = d_[s].columns[~d_[s].columns.isin(['auc'], level=-1)]
+                d_[s][cols_fpr] = d_[s][cols_fpr].transform(lambda x: 1 - x)
+
+        #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
+
+    for s in d_:
+        show = predict_methods if s == dataset else ood_methods
+        cols = d_[s].columns
+        kept_columns = cols.isin(tpr + ['rate', 'auc'] + [str(_) for _ in tpr], level=1)
+        first_method_columns = cols.isin(['first'], level=0)
+        # print('*** 1st', *first_method_columns)
+
+        if show == 'first':
+            shown_columns = first_method_columns
+        elif show == 'all':
+            shown_columns = ~first_method_columns
+        else:
+            # print(show)
+            if isinstance(show, str):
+                show = [show]
+            shown_columns = cols.isin(show, level=0)
+
+        # print('*** kept', s, *shown_columns, '\n', *d_[s].columns)
+        d_[s] = d_[s][cols[shown_columns * kept_columns]]
+            
+    if show_measures:
+        d_['measures'] = meas_df
+
+    df = pd.concat(d_, axis=1)
+
+    df.columns.rename(['set', 'method', 'metrics'], inplace=True)
+    
+    cols = df.columns
+
+    if False:
+        df.columns = df.columns.droplevel(1)
+
+    def _f(x, type='pc'):
+        if type == 'pc':
+            return 100 * x
+        elif type == 'tuple':
+            return '-'.join(str(_) for _ in x)
+        return x
+        
+    col_format = {c: _f for c in df.columns}
+    for c in df.columns[df.columns.isin(['measures'], level=0)]:
+        col_format[c] = lambda x: _f(x, 'measures')
+
+    index_format = {}
+    index_format['heldout'] = lambda x: 'H' # _f(x, 'tuple')
+    
+    sorting_index = []
+
+    if sorting_keys:
+        sorting_keys_ = [k.replace('-', '_') for k in sorting_keys]
+        for k in sorting_keys_:
+            if k in df.index.names:
+                sorting_index.append(k)
+                continue
+            str_k_ = k.split('_')
+            k_ = []
+            for s_ in str_k_:
+                try:
+                    k_.append(float(s_))
+                except ValueError:
+                    k_.append(s_)
+            tuple_k = (k_[0], '_'.join([str(_) for _ in k_[1:]]))
+            if tuple_k in df.columns:
+                sorting_index.append(tuple_k)
+                continue
+            tuple_k = ('_'.join([str(_) for _ in k_[:-1]]), k_[-1])
+            if tuple_k in df.columns:
+                sorting_index.append(tuple_k)
+                continue
+
+            logging.error(f'Key {k} not used for sorting')
+            logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
+            logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
+
+    if sorting_index:
+        df = df.sort_values(sorting_index)
+
+    return df.apply(col_format)
+
+    
 @printdebug(False)
 def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
     """ 

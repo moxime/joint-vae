@@ -165,7 +165,7 @@ if __name__ == '__main__':
             wanted_epoch = None
             if early_stopping_method:
                 _k = 'early-' + '-'.join(early_stopping_method)
-                if _k in n['net'].training_parameters:
+                if _k in n['net'].training_parameters or 'json' not in where:
                     wanted_epoch = n['net'].training_parameters[_k]
                 else:
                     wanted_epoch = early_stopping(n, strategy=early_stopping_method[0],

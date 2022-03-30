@@ -1668,16 +1668,16 @@ class ClassificationVariationalNetwork(nn.Module):
     def misclassification_detection_rate(self,
                                          predict_methods='all',
                                          misclass_methods='all',
-                                         wanted_epoch='last',
+                                         epoch='last',
                                          shown_tpr=0.95,
                                          from_where=('json', 'recorders'),
                                          print_result=False,
                                          update_self_results=True,
-                                         outputs=EpochOutput):
+                                         outputs=EpochOutput()):
 
         froms = available_results(self,
                                   where=from_where,
-                                  wanted_epoch=wanted_epoch,
+                                  wanted_epoch=epoch,
                                   oodsets=[],
                                   ood_methods=[],
                                   predict_methods=predict_methods,
@@ -1719,6 +1719,9 @@ class ClassificationVariationalNetwork(nn.Module):
         _p = 5.2
         _p_1 = 4.1
 
+        if print_result:
+            outputs.results(-1, 0, 0, 0, acc_methods=methods['miss'], preamble=print_result)
+            
         for predict_method in methods['predict']:
 
             m_ = ['{}-{}'.format(predict_method, _) for _ in methods['miss']]

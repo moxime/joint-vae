@@ -185,7 +185,7 @@ if __name__ == '__main__':
             epoch_tolerance = 0
             while not to_be_kept and epoch_tolerance <= 10:
                 epoch_tolerance += 5
-                available = available_results(n, misclass_methods=[], wanted_epoch=wanted_epoch,
+                available = available_results(n, wanted_epoch=wanted_epoch,
                                               where=where, epoch_tolerance=epoch_tolerance)
 
                 total_available_by_epoch = {_: available[_]['all_sets']['anywhere'] for _ in available}
@@ -203,7 +203,7 @@ if __name__ == '__main__':
                         to_be_kept = True
 
             if to_be_kept:
-                a_everywhere = available_results(n, misclass_methods=[], wanted_epoch=result_epoch,
+                a_everywhere = available_results(n, wanted_epoch=result_epoch,
                                                  epoch_tolerance=0)[result_epoch]['all_sets']
 
                 is_a = a_.get('json', 0)
@@ -268,6 +268,7 @@ if __name__ == '__main__':
         # print('*** test:258', plan)
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
+            logging.debug('Plan for {}; {}'.format(m['job'], plan))
             model = CVNet.load(m['dir'], load_state=plan['compute'])
             if plan['compute']:
                 model.to('cuda')
@@ -283,6 +284,11 @@ if __name__ == '__main__':
                                sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
                                outputs=outputs,
                                print_result='TFR' if not plan['compute'] else 'TFM')
+
+                model.misclassification_detection_rate(epoch=epoch,
+                                                       from_where=where,
+                                                       outputs=outputs,
+                                                       print_result='MFR' if not plan['compute'] else 'MFM')
 
             if not args.dry_run:
                 model.save(m['dir'])

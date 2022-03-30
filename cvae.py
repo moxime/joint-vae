@@ -1720,7 +1720,7 @@ class ClassificationVariationalNetwork(nn.Module):
         _p_1 = 4.1
 
         if print_result:
-            outputs.results(-1, 0, 0, 0, acc_methods=methods['miss'], preamble=print_result)
+            outputs.results(-1, 0, 0, 0, acc_methods=methods['miss'], preambule=print_result)
             
         for predict_method in methods['predict']:
 

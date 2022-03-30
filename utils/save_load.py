@@ -625,11 +625,12 @@ def needed_components(*methods):
            'closest': ('zdist',),
            'kl': ('kl',),
            'soft': ('kl',),
-           'softkl': ('kl',),
            'mse': ('cross_x',)}
 
-    ncd.update({_: (_,) for _ in ('kl', 'fisher_rao', 'mahala')})
+    ncd.update({_: (_,) for _ in ('kl', 'fisher_rao', 'mahala', 'kl_rec')})
+    ncd.update({'soft' + _: (_,) for _ in ('kl', 'mahala', 'zdist')})
 
+    
     for k in total:
         ncd[k] = ('total',)
 

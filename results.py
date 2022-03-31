@@ -5,13 +5,13 @@ import argparse, configparser
 import sys, os
 import logging
 import pandas as pd
-from utils.save_load import LossRecorder, fetch_models, test_results_df, make_dict_from_model
+from utils.save_load import LossRecorder, fetch_models, make_dict_from_model
 from utils import torch_load as tl
 from utils.sample import zsample, sample
 from utils.inspection import loss_comparisons
 import matplotlib.pyplot as plt
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
-from utils.tables import agg_results
+from utils.tables import agg_results, test_results_df
 from pydoc import locate
 import re
 from utils.print_log import turnoff_debug

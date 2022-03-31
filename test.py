@@ -2,25 +2,20 @@ from __future__ import print_function
 
 import torch
 from cvae import ClassificationVariationalNetwork as CVNet
-import utils.torch_load as torchdl
 import os
 import sys
 import hashlib
 import logging
-
 import pandas as pd
-import numpy as np
-
 from utils.parameters import get_args, set_log, gethostname
 from utils.print_log import EpochOutput, turnoff_debug
-from utils.save_load import collect_models, test_results_df, LossRecorder
-from utils.save_load import make_dict_from_model, available_results, save_json, load_json
+from utils.save_load import make_dict_from_model, available_results, save_json
 from utils.save_load import fetch_models
 from utils.tables import export_losses
 from utils.texify import tex_architecture, texify_test_results, texify_test_results_df
-from utils.tables import format_df_index
+from utils.tables import test_results_df, format_df_index
 from utils.testing import early_stopping
-from utils.filters import get_filter_keys
+
 
 if __name__ == '__main__':
 

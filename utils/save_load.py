@@ -17,10 +17,14 @@ import functools
 from utils.print_log import turnoff_debug
 from utils.filters import get_filter_keys
 
+
 class NoModelError(Exception):
     pass
+
+
 class DeletedModelError(NoModelError):
     pass
+
 
 def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False, iterate_over_subdirs_if_found=False):
     def iterate_over_subdirs_wrapper(func):
@@ -130,7 +134,7 @@ def shorten_path(path, max_length=30):
 
     return path
 
-    
+
 def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
 
     rel_paths = os.listdir(dir_path)
@@ -1070,7 +1074,7 @@ def fetch_models(search_dir, registered_models_file, filter=None, flash=True, lo
         rmodels = register_models(list_of_networks, *filter_keys)
         save_json(rmodels, search_dir, registered_models_file)
         return fetch_models(search_dir, registered_models_file, filter=filter, flash=True,
-                             load_net=load_net, **kw)
+                            load_net=load_net, **kw)
 
 
 def gather_registered_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='last', **kw):

@@ -406,7 +406,8 @@ class ClassificationVariationalNetwork(nn.Module):
             self._backrep = lambda x: x
         elif representation == 'hsv':
             self._rep = Rgb2hsv(self.input_shape)
-            self._backrep = Hsv2rgb(self.input_shape)
+            self._backrep = lambda x: x                        
+            # self._backrep = Hsv2rgb(self.input_shape)
 
         self.eval()
 

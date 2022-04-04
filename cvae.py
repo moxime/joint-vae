@@ -483,7 +483,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.is_vib:
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
-            x_ = self.imager(u)
+            x_ = self.imager(u).reshape((self.latent_sampling + 1,) + reco_batch_shape)
             print('*** x_', *x_.shape)
             x_output = self._backrep(x_)
             
@@ -499,7 +499,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.is_vib:
             out = (x,)
         else:
-            out = (x_output.reshape((self.latent_sampling + 1,) + reco_batch_shape),)
+            out = (x_output,)
 
         out += (y_output,)
 

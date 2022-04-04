@@ -436,7 +436,7 @@ class Encoder(nn.Module):
 
         self._sampling_size = sampling_size
 
-        dense_layers = [Rgb2hsv()] if representation == 'rgb' else []
+        dense_layers = []
 
         input_dim = np.prod(input_shape) + num_labels * y_is_coded
         for d in intermediate_dims:

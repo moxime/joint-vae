@@ -1404,7 +1404,7 @@ class ClassificationVariationalNetwork(nn.Module):
         for s in all_set_names:
             if type(max_num_batch) is int:
                 num_batch[s] = min(num_batch[s], max_num_batch)
-                shuffle[s] = True
+                # shuffle[s] = True
             recording[s] = recorders[s] is not None and len(recorders[s]) < num_batch[s]
             recorded[s] = recorders[s] is not None and len(recorders[s]) >= num_batch[s]
             if recorded[s]:

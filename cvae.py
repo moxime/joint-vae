@@ -484,6 +484,7 @@ class ClassificationVariationalNetwork(nn.Module):
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
             u = self.imager(u)
+            print('*** u', *u.shape)
             x_output = self._backrep(u)
             
         if self.is_cvae or self.is_vae:

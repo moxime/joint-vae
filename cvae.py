@@ -484,7 +484,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.is_vib:
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
-            x_output = self._backrep(self.imager(u))
+            u = self.imager(u)
+            x_output = self._backrep(u)
+            print('*** x_', *u.shape, 'x', *x_output.shape)
             
         if self.is_cvae or self.is_vae:
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means

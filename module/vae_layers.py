@@ -31,6 +31,67 @@ activation_layers = {'linear': nn.Identity,
                      'relu': nn.ReLU}
 
 
+class Rgb2hsv(nn.Module):
+
+    def __init__(self, input_dims, epsilon=1e-10, hmax=1.):
+        super().__init__()
+        self.dims = input_dims
+        self.epsilon = epsilon
+        assert len(input_dims) == 3
+        assert input_dims[0] == 3
+        self.hmax = hmax
+        
+    def forward(self, x):
+        sixth = self.hmax / 6
+
+        r, g, b = tuple(torch.index_select(x, -3, torch.LongTensor([i]).to(x.device)).squeeze(-3)
+                        for i in range(3))
+        max_rgb, argmax_rgb = x.max(-3)
+        min_rgb, argmin_rgb = x.min(-3)
+
+        max_min = max_rgb - min_rgb + self.epsilon
+
+        h1 = sixth * (g - r) / max_min + sixth
+        h2 = sixth * (b - g) / max_min + 3 * sixth
+        h3 = sixth * (r - b) / max_min + 5 * sixth
+        h = torch.stack((h2, h3, h1), dim=0).gather(dim=0, index=argmin_rgb.unsqueeze(0)).squeeze(0)
+        s = max_min / (max_rgb + self.epsilon)
+        v = max_rgb
+
+        return torch.stack((h, s, v), dim=-3)
+
+
+class Hsv2rgb(Rgb2hsv):
+
+    def forward(self, x):
+        sixth = self.hmax / 6
+
+        h, s, v = tuple(torch.index_select(x, -3, torch.LongTensor([i]).to(x.device)).squeeze(-3)
+                        for i in range(3))
+
+        h_ = (h - torch.floor(h / self.hmax) * self.hmax) / sixth
+        
+        c = s * v
+        x = c * (1 - torch.abs(torch.fmod(h_, 2) - 1))
+        
+        zero = torch.zeros_like(c)
+        y = torch.stack((
+            torch.stack((c, x, zero), dim=-3),
+            torch.stack((x, c, zero), dim=-3),
+            torch.stack((zero, c, x), dim=-3),
+            torch.stack((zero, x, c), dim=-3),
+            torch.stack((x, zero, c), dim=-3),
+            torch.stack((c, zero, x), dim=-3),
+        ), dim=0)
+
+        index = torch.repeat_interleave(torch.floor(h_).unsqueeze(-3), 3, dim=-3).unsqueeze(0).to(torch.long)
+
+        rgb = y.gather(dim=0, index=index).squeeze(0) + (v - c).unsqueeze(-3)
+
+        # print('***', *rgb.shape, *v.shape, *c.shape)
+        return rgb
+
+    
 class Sigma(Parameter):
 
     @staticmethod
@@ -260,10 +321,10 @@ class ResOrDenseNetFeatures(nn.Sequential):
     def __init__(self, model_name='resnet152', input_shape=(3, 32, 32), pretrained=True):
 
         assert input_shape[0] == 3
-        
+
         model = getattr(models, model_name)(pretrained=pretrained)
         modules = list(model.children())
-        
+
         super(ResOrDenseNetFeatures, self).__init__(*modules[:-1])
 
         self.architecture = {'features': model_name}
@@ -279,7 +340,7 @@ class ResOrDenseNetFeatures(nn.Sequential):
         elif model_name.startswith('densenet'):
             w //= 32
             h //= 32
-        
+
         self.output_shape = (modules[-1].in_features, w, h) 
 
 
@@ -297,7 +358,7 @@ class ConvFeatures(nn.Sequential):
                                    input_shape,
                                    activation, batch_norm)
         super(ConvFeatures, self).__init__(*layers)
-        
+
         self.name = 'conv-' + f'p{padding}-'
         self.name += '-'.join([str(c) for c in channels])
 
@@ -318,7 +379,7 @@ class ConvFeatures(nn.Sequential):
                             'padding': self.padding,
                             'kernel':self.kernel,
                             'activation':self.activation}
-        
+
     def _make_layers(self, channels, padding, kernel, input_shape,
                      activation, batch_norm):
         layers = []
@@ -334,16 +395,17 @@ class ConvFeatures(nn.Sequential):
             h = h//2
             w = w//2
             in_channels = channel
-                          
+
         self.output_shape = (in_channels, h, w)
         return layers
 
-                                   
+
 class Encoder(nn.Module):
 
     capacity_log_barrier = 0.001
 
     def __init__(self, input_shape, num_labels,
+                 representation='rgb',
                  y_is_coded=False,
                  latent_dim=32,
                  intermediate_dims=[64],
@@ -360,7 +422,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
         self.y_is_coded = y_is_coded
-        
+
         if activation == 'relu':
             self.activation = F.relu
         else:
@@ -371,10 +433,10 @@ class Encoder(nn.Module):
         self.num_labels = num_labels
 
         self.forced_variance = forced_variance
-        
+
         self._sampling_size = sampling_size
 
-        dense_layers = []
+        dense_layers = [Rgb2hsv()] if representation == 'rgb' else []
 
         input_dim = np.prod(input_shape) + num_labels * y_is_coded
         for d in intermediate_dims:
@@ -382,14 +444,14 @@ class Encoder(nn.Module):
                              activation_layers[activation]()]
             input_dim = d
         self.dense_projs = nn.Sequential(*dense_layers)
-        
+
         self.dense_mean = nn.Linear(input_dim, latent_dim)
         self.dense_log_var = nn.Linear(input_dim, latent_dim)
 
         self.sigma_output_dim = sigma_output_dim
         if sigma_output_dim:
             self.sigma = nn.Linear(input_dim, np.prod(sigma_output_dim))
-            
+
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
         if coder_means in (None, 'random', 'learned'):
@@ -449,10 +511,9 @@ class Encoder(nn.Module):
 
         return torch.cdist(self.latent_dictionary,
                            self.latent_dictionary)
-    
-            
+
     def forward(self, x, y=None):
-        """ 
+        """
         - x input of size N1xN2x...xNgxD 
         - y of size N1xN2x...xNgxC
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
@@ -503,14 +564,14 @@ class Encoder(nn.Module):
             sigma = self.sigma(u)
         else:
             sigma = None
-            
+
         return z_mean, z_log_var, z, e, sigma
 
 
 class ConvDecoder(nn.Module):
     """
     -- One refeactoring linear layer for input_dim to first_shape
-    
+
     -- Successive upsampling layers
 
     -- input: N1x...xNqxK tensors
@@ -518,7 +579,6 @@ class ConvDecoder(nn.Module):
 
     """
 
-    
     def __init__(self, input_dim, first_shape, channels,
                  output_activation='linear',
                  upsampler_dict=None,
@@ -527,10 +587,10 @@ class ConvDecoder(nn.Module):
                  **kwargs):
 
         super(ConvDecoder, self).__init__(**kwargs)
-           
+
         layers = self._makelayer(first_shape, channels, output_activation, batch_norm)
         activation_layer = activation_layers[activation]()
-        
+
         self.first_shape = first_shape
         self.refactor = nn.Sequential(nn.Linear(input_dim, np.prod(first_shape)),
                                       activation_layer)
@@ -540,14 +600,13 @@ class ConvDecoder(nn.Module):
             for p in self.upsampler.parameters():
                 p.requires_grad_(False)
 
-
     def forward(self, z):
 
         t = self.refactor(z)
 
         batch_shape = t.shape[:-1]
 
-        out =  self.upsampler(t.view(-1, *self.first_shape))
+        out = self.upsampler(t.view(-1, *self.first_shape))
 
         output_dim = out.shape[1:]
         return out.view(*batch_shape, *output_dim)

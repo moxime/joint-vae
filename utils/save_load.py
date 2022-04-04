@@ -19,7 +19,6 @@ from utils.filters import get_filter_keys, ParamFilter, DictOfListsOfParamFilter
 from utils.parameters import gethostname
 
 
-
 class NoModelError(Exception):
     pass
 

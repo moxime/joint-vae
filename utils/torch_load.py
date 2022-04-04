@@ -16,6 +16,7 @@ class LoggerAsfile(object):
     def write(self, s):
         logging.debug(s)
 
+
 laf = LoggerAsfile()
 
 
@@ -29,7 +30,7 @@ def suppress_stdout(log=False):
         finally:
             sys.stdout = orig
 
-            
+
 @contextmanager
 def stdout_as_debug():
     orig = sys.stdout
@@ -433,7 +434,7 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
             dict_of_sets[set_name] = {}
         dict_of_sets[set_name][transformer] = sets
     return sets
-    
+ 
 
 def show_images(imageset, shuffle=True, num=4, **kw):
 

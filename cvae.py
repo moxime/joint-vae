@@ -436,6 +436,8 @@ class ClassificationVariationalNetwork(nn.Module):
         f_shape = self.encoder.input_shape
 
         x_ = self._rep(x)
+
+        print('*** x', *x.shape, 'x_', *x_.shape)
             
         if not self.features:
             x_features = x_

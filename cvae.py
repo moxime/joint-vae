@@ -11,7 +11,7 @@ from utils.save_load import DeletedModelError, NoModelError
 from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import ResOrDenseNetFeatures
-from module.vae_layers import onehot_encoding
+from module.vae_layers import onehot_encoding, Hsv2rgb, Rgb2hsv
 
 import utils.torch_load as torchdl
 from utils.torch_load import choose_device
@@ -152,6 +152,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  sigma={'value': 0.5},
                  optimizer={},
                  shadow=False,
+                 representation='rgb',
                  *args, **kw):
 
         super().__init__(*args, **kw)
@@ -337,6 +338,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.architecture = {'input': input_shape,
                              'labels': num_labels,
                              'type': type_of_net,
+                             'representation': representation,
                              # 'features': features_arch, 
                              'encoder': encoder_layer_sizes,
                              'batch_norm': batch_norm,
@@ -399,6 +401,13 @@ class ClassificationVariationalNetwork(nn.Module):
             
         self.z_output = False
 
+        if representation == 'rgb':
+            self._rep = lambda x: x
+            self._backrep = lambda x: x
+        elif representation == 'hsv':
+            self._rep = Rgb2hsv()
+            self._backrep = Hsv2rgb()
+
         self.eval()
 
     def train(self, *a, **k):
@@ -407,8 +416,8 @@ class ClassificationVariationalNetwork(nn.Module):
         new_state = 'train' if self.training else 'eval'
         logging.debug(f'Going from {state} to {new_state}')
         self.latent_sampling = self.latent_samplings[new_state]
-        
-    def forward(self, x, y=None, x_features=None, **kw):
+
+    def forward(self, x, y=None, x_features=None,  **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
 
         - x is of size N1x...xNgxD1x..xDt
@@ -425,12 +434,14 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_shape = x.shape[:-self.input_dim]
 
         f_shape = self.encoder.input_shape
+
+        x_ = self._rep(x)
             
         if not self.features:
-            x_features = x
+            x_features = x_
             
         if x_features is None:
-            x_features = self.features(x.view(-1, *self.input_shape)).view(*batch_shape, *f_shape)
+            x_features = self.features(x_.view(-1, *self.input_shape)).view(*batch_shape, *f_shape)
 
         return self.forward_from_features(x_features,
                                           None if y is None else y.view(*batch_shape),
@@ -471,8 +482,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.is_vib:
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
-            x_output = self.imager(u)
-
+            x_output = self._backrep(self.imager(u))
+            
         if self.is_cvae or self.is_vae:
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means
             y_output = self.classifier(z) # for classification on z
@@ -2420,7 +2431,8 @@ class ClassificationVariationalNetwork(nn.Module):
                           'encoder_forced_variance': False,
                           'test_latent_sampling': 0,
                           'latent_prior_variance': 1.,
-        }
+                          'representation': 'rgb',
+                          }
         
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
@@ -2574,6 +2586,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       output_activation=params['output'],
                       pretrained_features=train_params['pretrained_features'],
                       pretrained_upsampler=train_params['pretrained_upsampler'],
+                      representation=params['representation'],
                       shadow=not load_net,
                       **params['features'])
 

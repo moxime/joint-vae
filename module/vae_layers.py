@@ -58,6 +58,7 @@ class Rgb2hsv(nn.Module):
         s = max_min / (max_rgb + self.epsilon)
         v = max_rgb
 
+        print('***', *h.shape)
         return torch.stack((h, s, v), dim=-3)
 
 
@@ -88,7 +89,7 @@ class Hsv2rgb(Rgb2hsv):
 
         rgb = y.gather(dim=0, index=index).squeeze(0) + (v - c).unsqueeze(-3)
 
-        # print('***', *rgb.shape, *v.shape, *c.shape)
+        print('***', *rgb.shape)
         return rgb
 
     

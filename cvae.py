@@ -437,8 +437,6 @@ class ClassificationVariationalNetwork(nn.Module):
         f_shape = self.encoder.input_shape
 
         x_ = self._rep(x)
-
-        print('*** x', *x.shape, 'x_', *x_.shape)
             
         if not self.features:
             x_features = x_
@@ -487,7 +485,6 @@ class ClassificationVariationalNetwork(nn.Module):
             # x_output of size LxN1x...xKgxD
             u = self.imager(u)
             x_output = self._backrep(u)
-            print('*** x_', *u.shape, 'x', *x_output.shape)
             
         if self.is_cvae or self.is_vae:
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means

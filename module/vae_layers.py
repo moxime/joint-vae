@@ -66,7 +66,7 @@ class Hsv2rgb(Rgb2hsv):
 
     def forward(self, x):
         sixth = self.hmax / 6
-
+        print('*** r-> h', *x.shape)
         h, s, v = tuple(torch.index_select(x, -3, torch.LongTensor([i]).to(x.device)).squeeze(-3)
                         for i in range(3))
 

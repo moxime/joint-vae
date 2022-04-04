@@ -144,6 +144,7 @@ if __name__ == '__main__':
                      gamma=args.gamma,
                      coder_means=args.coder_means,
                      sigma=sigma,
+                     representation='hsv' if args.hsv else 'rgb',
                      output_activation=args.output_activation)
 
     if args.show:

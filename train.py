@@ -50,14 +50,19 @@ if __name__ == '__main__':
 
     if job_number:
         log.info(f'Job number {job_number} started')
-        
-    if not args.force_cpu:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        log.info(f'Used device: {device}')
+
+    if args.force_cpu:
+        wanted_device = 'cpu'
     else:
+        wanted_device = args.device
+        
+    if wanted_device == 'cpu' or not torch.cuda.is_available():
         device = torch.device('cpu')
         log.info(f'Used device: {device}')
         log.debug(f'CPU asked by user')
+    else:
+        device = torch.device(wanted_device)
+        log.info(f'Used device: {device}')
 
     # print('*** device:', device)
     cuda_version = torch.version.cuda

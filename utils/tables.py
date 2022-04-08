@@ -105,7 +105,7 @@ def test_results_df(nets,
 
     if predict_methods is None:
         predict_methods = 'first'
-    
+
     if not dataset:
         testsets = {n['set'] for n in nets}
         return {s: test_results_df(nets,
@@ -119,6 +119,7 @@ def test_results_df(nets,
 
     arch_index = ['h/o']  if dataset.endswith('-?') else []
     arch_index += ['type',
+                   'rep',
                    'depth',
                    'features',
                    'arch_code',

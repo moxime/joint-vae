@@ -202,7 +202,8 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('-V', '--validation', type=int, default=4096,
                         help='Number of validation samples taken away from the training set')
-    
+
+    parser.add_argument('--device', default='cuda')
     parser.add_argument('--force-cpu', action='store_true')
     parser.add_argument('--dry-run', action='store_true',
                         help='will show you what it would do')

@@ -854,7 +854,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         best_accuracy = accuracies['first'] = None
         tested_epoch = n_tested = 0
 
-    
     parent_set, heldout = torchdl.get_heldout_classes_by_name(training_set)
 
     if heldout:
@@ -1003,6 +1002,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'heldout': heldout,  # tuple(sorted(heldout)),
             'h/o': ','.join(str(_) for _ in heldout),
             'set': parent_set + ('-?' if heldout else ''),
+            'rep': architecture.representation,
             # 'parent_set': parent_set,
             'data_augmentation': training.data_augmentation,
             'train_batch_size': train_batch_size,

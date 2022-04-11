@@ -181,7 +181,6 @@ if __name__ == '__main__':
             to_be_kept = False
             epoch_tolerance = 0
             while not to_be_kept and epoch_tolerance <= 10:
-                epoch_tolerance += 5
                 available = available_results(n, wanted_epoch=wanted_epoch,
                                               where=where, epoch_tolerance=epoch_tolerance)
 
@@ -195,10 +194,11 @@ if __name__ == '__main__':
                         models_to_be_kept.append(dict(model=make_dict_from_model(n['net'],
                                                                                  directory=n['dir'],
                                                                                  wanted_epoch=result_epoch),
-                                                    epoch=result_epoch,
+                                                      epoch=result_epoch,
                                                       plan=a_))
                         to_be_kept = True
 
+                epoch_tolerance += 5
             if to_be_kept:
                 a_everywhere = available_results(n, wanted_epoch=result_epoch,
                                                  epoch_tolerance=0)[result_epoch]['all_sets']
@@ -226,6 +226,7 @@ if __name__ == '__main__':
 
             else:
                 _a = _r = _c = '|'
+                result_epoch = 'n/a'
 
             _s = '{x} {a} {r} {c} {j:6} {s:8} {t:5} {e:4}/{d:4} {arch:80.80}'
             logging.info(_s.format(x='*' if to_be_kept else '|',

@@ -78,9 +78,7 @@ if __name__ == '__main__':
     resume = args.resume
 
     representation = args.representation or (args.hsv and 'hsv') or 'rgb'
-    if len(representation.split('-')) == 1:
-        representation = '-'.join(representation for _ in range(2))
-    
+   
     if resume:
         try:
             log.info('Loading network in %s', resume)
@@ -153,7 +151,7 @@ if __name__ == '__main__':
                      gamma=args.gamma,
                      coder_means=args.coder_means,
                      sigma=sigma,
-                     representation='hsv' if args.hsv else 'rgb',
+                     representation=representation,
                      output_activation=args.output_activation)
 
     if args.show:

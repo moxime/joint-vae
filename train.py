@@ -77,6 +77,10 @@ if __name__ == '__main__':
     dry_run = args.dry_run    
     resume = args.resume
 
+    representation = args.representation or (args.hsv and 'hsv') or 'rgb'
+    if len(representation.split('-')) == 1:
+        representation = '-'.join(representation for _ in range(2))
+    
     if resume:
         try:
             log.info('Loading network in %s', resume)

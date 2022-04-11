@@ -152,7 +152,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  sigma={'value': 0.5},
                  optimizer={},
                  shadow=False,
-                 representation='rgb',
+                 representation='rgb-rgb',
                  *args, **kw):
 
         super().__init__(*args, **kw)
@@ -436,13 +436,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         f_shape = self.encoder.input_shape
 
-        x_ = self._rep(x)
-            
         if not self.features:
-            x_features = x_
+            x_features = x
             
         if x_features is None:
-            x_features = self.features(x_.view(-1, *self.input_shape)).view(*batch_shape, *f_shape)
+            x_features = self.features(x.view(-1, *self.input_shape)).view(*batch_shape, *f_shape)
 
         return self.forward_from_features(x_features,
                                           None if y is None else y.view(*batch_shape),
@@ -559,7 +557,9 @@ class ClassificationVariationalNetwork(nn.Module):
             pass
 
         C = self.num_labels
-        
+
+        x = self._rep(x)
+
         if self.features:
             t = self.features(x)
         else:
@@ -567,10 +567,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
         t_shape = t.shape
 
-        if len(t_shape) == len(self.input_shape):
-            pass
-            # t = t.unsqueeze(0)
-            
         y_shape = x.shape[:-len(self.input_shape)]
         
         if x_repeated_along_classes:
@@ -588,16 +584,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         y_in = y.view(y_shape) if self.y_is_coded else None
         
-        if self.features:
-            o = self.forward_from_features(t, y_in, x,
-                                           sampling_epsilon_norm_out=True,
-                                           sigma_out=True,
-                                           **kw)
-        else:
-            o = self.forward(t, y_in, x,
-                             sampling_epsilon_norm_out=True,
-                             sigma_out=True,
-                             **kw)
+        o = self.forward(x, y=y_in, x_features=t,
+                         sampling_epsilon_norm_out=True,
+                         sigma_out=True,
+                         **kw)
             
         x_reco, y_est, mu, log_var, z, eps_norm, sigma_coded = o
         # print('*** eps norm:', *eps_norm.shape)
@@ -819,7 +809,7 @@ class ClassificationVariationalNetwork(nn.Module):
             y_est_out = y_est[1:].mean(0)
         else:
             y_est_out = y_est[1:].mean(0) 
-        out = (x_reco, y_est_out, batch_losses, total_measures)
+        out = (self._backrep(x_reco), y_est_out, batch_losses, total_measures)
         if z_output:
             out += (mu, log_var, z)
         return out

@@ -58,6 +58,7 @@ SECONDS=0
 # rsync -vaP lab-ia:/mnt/beegfs/home/ossonce/joint-vae/jobs/ jobs/
 # ssh lab-ia '. mirror-jobs.sh'
 
-rsync -a "${opt[@]}" --exclude "log/*" --exclude "out/*" $@ $from $to
+rsync -a "${opt[@]}" --exclude "log/*" --exclude "out/*" $@ $from $to | tee /tmp/downloaded-$remote
+grep architecture.json /tmp/downloaded-$remote
 duration=$SECONDS
 echo "Files retrieved in $(($duration / 60))m$(($duration % 60))s"

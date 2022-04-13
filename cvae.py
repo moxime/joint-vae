@@ -152,7 +152,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  sigma={'value': 0.5},
                  optimizer={},
                  shadow=False,
-                 representation='rgb-rgb',
+                 representation='rgb',
                  *args, **kw):
 
         super().__init__(*args, **kw)

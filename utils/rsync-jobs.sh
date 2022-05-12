@@ -2,7 +2,7 @@
 remote=lab-ia
 push=
 target=$(dirname $0)/../jobs
-opt=( --exclude '*.pth' -uvP )
+opt=( --exclude '*.pth' -uvP --exclude '*.out' )
 while :; do
     case $1 in
 	--push )

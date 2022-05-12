@@ -39,9 +39,6 @@ tpr = 0.95
 np.seterr(divide='ignore', invalid='ignore')
 
 
-
-
-
 def log_mean_exp(*tensors, normalize=False):
 
     t = torch.cat([_.unsqueeze(0) for _ in tensors])
@@ -93,12 +90,13 @@ if __name__ == '__main__':
 
     filter_parser = parse_filters()
     filter_args = filter_parser.parse_args(ra)
-
+    
     filters = DictOfListsOfParamFilters()
 
     for _ in filter_args.__dict__:
         filters.add(_, filter_args.__dict__[_])
 
+    print(args.jobs)
     mdirs = [_ for _ in rmodels if filters.filter(rmodels[_])][-args.last:]
 
     total_models = len(mdirs)

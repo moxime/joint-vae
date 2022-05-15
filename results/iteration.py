@@ -92,7 +92,7 @@ if __name__ == '__main__':
         print(k, *measures[k].shape)
 
     dset = model.training_parameters['set']
-    transformer = model.training_paremters['transformer']
+    transformer = model.training_parameters['transformer']
     _, testset = get_dataset(dset, transformer=transformer)
 
     dataloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False)

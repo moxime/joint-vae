@@ -77,7 +77,7 @@ class IteratedModels(M):
             input['x'] = out[0][1]
             input['y'] = out[1].argmax(-1) if y else None
             for k in 'xy':
-                print('***', k, ':', *input[k].shape if input[k] else 'None')
+                print('***', k, ':', *input[k].shape if input[k] != None else 'None')
 
             for k in out[2]:
                 print('*** losses', k, ':', *out[2][k].shape)

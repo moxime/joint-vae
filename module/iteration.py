@@ -73,7 +73,7 @@ class IteratedModels(M):
 
         for m in self._models:
 
-            logging.debug('\n'.join('{}: {}'.format(k, ','.join(str(_) for _ in input[k].shape)) for k in input)
+            logging.debug('\n'.join('{}: {}'.format(k, ','.join(str(_) for _ in input[k].shape)) for k in input))
             out = m.evaluate(**input, **kw)
             input['x'] = out[0][1]
             input['y'] = out[1][1]

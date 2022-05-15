@@ -20,7 +20,7 @@ parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
 parser.add_argument('--job-dir', default='./jobs')
 
-parser.add_argument(batch_size, type=int, default=32)
+parser.add_argument('--batch_size', type=int, default=32)
 
 
 if __name__ == '__main__':

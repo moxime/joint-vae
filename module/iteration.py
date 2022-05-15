@@ -77,7 +77,7 @@ class IteratedModels(M):
             input['x'] = out[0][1]
             input['y'] = out[1].argmax(-1)
             for k in 'xy':
-                print('***', k, ':', *input['x'].shape)
+                print('***', k, ':', *input[k].shape)
 
             for k in out[2]:
                 print('*** losses', k, ':', *out[2][k].shape)

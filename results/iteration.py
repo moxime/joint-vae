@@ -88,8 +88,11 @@ if __name__ == '__main__':
 
     print(model.device)
     model.to('cuda')
-    out = model.evaluate(x)
+    x_, y_, losses, measures = model.evaluate(x)
 
-    for _ in out:
-        print(_)
-
+    print('x', x_.shape)
+    print('y', y_.shape)
+    for k in losses:
+        print(k, *k.shape)
+    for k in measures:
+        print(k, *k.shape)

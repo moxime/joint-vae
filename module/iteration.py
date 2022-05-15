@@ -53,6 +53,8 @@ class IteratedModels(M):
         except(FileNotFoundError):
             pass
 
+        return m
+
     def evaluate(self, x,
                  y=None,
                  z_output=False,
@@ -62,9 +64,9 @@ class IteratedModels(M):
         
         models = self._models
         
-        for i in models[1:]:
+        for m in models[1:]:
 
-            out.append(models[i].evaluate(*out[-1][:2], z_output=z_output, **kw))
+            out.append(m.evaluate(*out[-1][:2], z_output=z_output, **kw))
 
         return (torch.stack(_) for _ in out[1:])
 

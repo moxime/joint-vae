@@ -84,8 +84,6 @@ if __name__ == '__main__':
     models = [M.load(d, load_state=True) for d in mdirs]
     model = IteratedModels(*models)
 
-    print(model.training_parameters)
-
     x = torch.randn(100, 3, 32, 32).to('cuda')
 
     out = model.evaluate(x)

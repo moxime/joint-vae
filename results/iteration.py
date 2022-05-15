@@ -90,9 +90,9 @@ if __name__ == '__main__':
     model.to('cuda')
     x_, y_, losses, measures = model.evaluate(x)
 
-    print('x', x_.shape)
-    print('y', y_.shape)
+    print('x', *x_.shape)
+    print('y', *y_.shape)
     for k in losses:
-        print(k, *k.shape)
+        print(k, *losses[k].shape)
     for k in measures:
-        print(k, *k.shape)
+        print(k, *measures[k].shape)

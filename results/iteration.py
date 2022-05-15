@@ -84,6 +84,6 @@ if __name__ == '__main__':
     models = [M.load(d, load_state=True) for d in mdirs]
     model = IteratedModels(*models)
 
-    model.save('/tmp/m')
+    print(model.training_parameters)
 
     model = IteratedModels.load('/tmp/m')

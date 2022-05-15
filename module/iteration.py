@@ -75,7 +75,7 @@ class IteratedModels(M):
 
             out = m.evaluate(**input, **kw)
             input['x'] = out[0][1]
-            input['y'] = out[1].argmax(-1)
+            input['y'] = out[1].argmax(-1) if y else None
             for k in 'xy':
                 print('***', k, ':', *input[k].shape)
 

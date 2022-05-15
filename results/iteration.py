@@ -91,5 +91,5 @@ if __name__ == '__main__':
     out = model.evaluate(x)
 
     for _ in out:
-        print(*_.shape)
+        print(_)
 

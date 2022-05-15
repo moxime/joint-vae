@@ -104,9 +104,6 @@ if __name__ == '__main__':
 
     for i, (x, y) in enumerate(dataloader):
 
-        if i > 10:
-            break
-
         x = x.to(device)
         y = y.to(device)
 

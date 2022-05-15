@@ -2,13 +2,14 @@ import os
 from cvae import ClassificationVariationalNetwork as M
 import torch
 from utils import save_load
+import copy
 
 
 class IteratedModels(M):
 
     def __new__(cls, *models):
 
-        m = models[-1].copy()
+        m = copy.deepcopy(models[-1])
         m.__class__ = cls
         
         return m

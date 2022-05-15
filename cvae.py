@@ -12,6 +12,8 @@ from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import ResOrDenseNetFeatures
 from module.vae_layers import onehot_encoding, Hsv2rgb, Rgb2hsv
+import tempfile
+import random
 
 import utils.torch_load as torchdl
 from utils.torch_load import choose_device
@@ -2638,7 +2640,14 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Loaded')
         return vae
 
-
+    def copy(self, with_state=True):
+        
+        s = ''.join([random.choice('0123456789abcedf') for _ in range(10)])
+        d = os.path.join(tempfile.gettempdir(), s)
+        self.save(d)
+        m = self.load(d, load_net=True, load_state=with_state)
+        return m
+    
 if __name__ == '__main__':
 
     dir = save_load.get_path_by_input()

@@ -64,7 +64,7 @@ class IteratedModels(M):
                  z_output=False,
                  **kw):
 
-        input = {'x': x, 'y': y} #, 'z_output': z_output}
+        input = {'x': x, 'y': y, 'z_output': z_output}
 
         x_ = []
         y_ = []
@@ -76,7 +76,11 @@ class IteratedModels(M):
             out = m.evaluate(**input, **kw)
             input['x'] = out[0][1]
             input['y'] = out[1].argmax(-1)
-            logging.debug('\n'.join('{}: {}'.format(k, ','.join(str(_) for _ in input[k].shape)) for k in input))
+            for k in 'xy':
+                print('***', k, ':', *input['x'].shape)
+
+            for k in out[2]:
+                print('*** losses', k, ':', *loss_[k].shape)
 
             x_.append(out[0])
             y_.append(out[1])

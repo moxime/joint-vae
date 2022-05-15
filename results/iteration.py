@@ -110,6 +110,8 @@ if __name__ == '__main__':
         x = x.to(device)
         y = y.to(device)
 
+        print('***', *x.shape)
+        
         with torch.no_grad():
             x_, y_, losses, measures = model.evaluate(x)
 

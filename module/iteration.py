@@ -101,7 +101,7 @@ class IteratedModels(M):
             output_losses[k] = torch.stack([_[k] for _ in losses_])
 
         for k in measures_[0]:
-            output_measures[k] = torch.tenosr(measures_)
+            output_measures[k] = torch.tensor(measures_)
 
         return x_, y_, output_losses, output_measures
 

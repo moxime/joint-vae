@@ -2,7 +2,7 @@ import os
 from cvae import ClassificationVariationalNetwork as M
 import torch
 from utils import save_load
-
+import logging
 
 class IteratedModels(M):
 

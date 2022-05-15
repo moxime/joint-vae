@@ -116,4 +116,4 @@ if __name__ == '__main__':
     model.save()
     logging.info('Model saved in', model.saved_dir)
 
-    recorder.save(os.path.join(model.saved_dir, 'recorder-{}.pth'.format(dset))
+    recorder.save(os.path.join(model.saved_dir, 'recorder-{}.pth'.format(dset)))

@@ -96,7 +96,6 @@ if __name__ == '__main__':
     for _ in filter_args.__dict__:
         filters.add(_, filter_args.__dict__[_])
 
-    print(args.jobs)
     mdirs = [_ for _ in rmodels if filters.filter(rmodels[_])][-args.last:]
 
     total_models = len(mdirs)

@@ -16,6 +16,7 @@ import itertools
 import torch
 from torch.nn.functional import one_hot
 from scipy.stats import mode
+from module.iteration import IteratedModels
 
 parser = argparse.ArgumentParser()
 
@@ -25,8 +26,8 @@ parser.add_argument('--result-dir', default='/tmp')
 parser.add_argument('--when', default='last')
 parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
+parser.add_argument('--job-dir', default='./jobs')
 
-rmodels = load_json('jobs', 'models-{}.json'.format(gethostname()))
 
 if __name__ == '__main__':
 
@@ -36,6 +37,7 @@ if __name__ == '__main__':
                       ).split()
 
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
+    rmodels = load_json(args.job_dir, 'models-{}.json'.format(gethostname()))
     wanted = args.when
     
     logging.getLogger().setLevel(40 - 10 * args.v)
@@ -75,7 +77,13 @@ if __name__ == '__main__':
         logging.error('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
         logging.error(' Or: %s', '$ . /tmp/rsync-files remote:dir/joint-vae')
         with open('/tmp/rsync-files', 'w') as f:
-            f.write('#!/bib/bash\n')
+            f.write('#!/bin/bash\n')
             f.write('rsync -avP --files-from=/tmp/files $1 .\n')
         sys.exit(1)
-        
+
+    models = [M.load(d, load_state=True) for d in mdirs]
+    model = IteratedModels(*models)
+
+    model.save('/tmp/m')
+
+    model = IteratedModels.load('/tmp/m')

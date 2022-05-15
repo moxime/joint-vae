@@ -18,7 +18,7 @@ class IteratedModels(M):
         assert len(models) > 1
         self._modules = {str(_): m for _, m in enumerate(models)}
         self._models = models
-        self.training_parameters = self._models.training_parameters
+        # self.training_parameters = self._models.training_parameters
         
     def __len__(self):
         return len(self._models)

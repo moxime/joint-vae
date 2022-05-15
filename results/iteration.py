@@ -21,6 +21,7 @@ parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
 parser.add_argument('--job-dir', default='./jobs')
 
 parser.add_argument('--batch_size', type=int, default=32)
+parser.add_argument('--device', default='cuda')
 
 
 if __name__ == '__main__':
@@ -78,10 +79,12 @@ if __name__ == '__main__':
     models = [M.load(d, load_state=True) for d in mdirs]
     model = IteratedModels(*models)
 
-    x = torch.randn(64, 3, 32, 32).to('cuda')
+    device = args.device
+    
+    x = torch.randn(64, 3, 32, 32).to(device)
 
     print(model.device)
-    model.to('cuda')
+    model.to(device)
     x_, y_, losses, measures = model.evaluate(x)
 
     print('x', *x_.shape)

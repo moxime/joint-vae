@@ -80,7 +80,7 @@ class IteratedModels(M):
                 print('***', k, ':', *input['x'].shape)
 
             for k in out[2]:
-                print('*** losses', k, ':', *loss_[k].shape)
+                print('*** losses', k, ':', *losses_[k].shape)
 
             x_.append(out[0])
             y_.append(out[1])

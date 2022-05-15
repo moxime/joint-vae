@@ -38,6 +38,7 @@ class IteratedModels(M):
         save_load.save_json(architecture, dir_name, 'params.json')
         save_load.save_json(self.testing, dir_name, 'test.json')
         save_load.save_json(self.ood_results, dir_name, 'ood.json')
+        self.saved_dir = dir_name
         
     @classmethod
     def load(cls, dir_name, *a, **kw):
@@ -57,6 +58,8 @@ class IteratedModels(M):
         except(FileNotFoundError):
             pass
 
+        m.saved_dir = dir_name
+        
         return m
 
     def evaluate(self, x,

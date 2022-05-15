@@ -121,6 +121,6 @@ if __name__ == '__main__':
         recorder.append_batch(**losses)
 
     model.save()
-    logging.info('Model saved in', model.saved_dir)
+    logging.info('Model saved in %s', model.saved_dir)
 
     recorder.save(os.path.join(model.saved_dir, 'recorder-{}.pth'.format(dset)))

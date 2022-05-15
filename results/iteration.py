@@ -89,4 +89,7 @@ if __name__ == '__main__':
     print(model.device)
     model.to('cuda')
     out = model.evaluate(x)
-    
+
+    for _ in out:
+        print(*_.shape)
+

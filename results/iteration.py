@@ -87,5 +87,6 @@ if __name__ == '__main__':
     x = torch.randn(100, 3, 32, 32).to('cuda')
 
     print(model.device)
+    model.to('cuda')
     out = model.evaluate(x)
     

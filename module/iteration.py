@@ -74,8 +74,8 @@ class IteratedModels(M):
         for m in self._models:
 
             out = m.evaluate(**input, **kw)
-            input['x'] = out[0]
-            input['y'] = out[0]
+            input['x'] = out[0][1]
+            input['y'] = out[1][1]
 
             x_.append(out[0])
             y_.append(out[1])

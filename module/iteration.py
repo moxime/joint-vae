@@ -26,6 +26,10 @@ class IteratedModels(M):
     def __len__(self):
         return len(self._models)
 
+    def to(self, device):
+        for m in self._models:
+            m.to(device)
+    
     def save(self, dir_name=None):
         if dir_name is None:
             dir_name = os.path.join('iterated-jobs', '-'.join(str(_.job_number) for _ in self._models))

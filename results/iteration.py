@@ -113,7 +113,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             x_, y_, losses, measures = model.evaluate(x)
 
-        losses.update(y_true=y, logits=y_.T)
+        losses.update(y_true=y, logits=y_)
 
         for k in losses:
             print('***', k, *losses[k].shape)

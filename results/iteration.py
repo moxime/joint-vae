@@ -84,7 +84,7 @@ if __name__ == '__main__':
     models = [M.load(d, load_state=True) for d in mdirs]
     model = IteratedModels(*models)
 
-    x = torch.randn(16, 3, 32, 32).to('cuda')
+    x = torch.randn(128, 3, 32, 32).to('cuda')
 
     print(model.device)
     model.to('cuda')

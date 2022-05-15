@@ -76,6 +76,8 @@ class IteratedModels(M):
             out = m.evaluate(**input, **kw)
             input['x'] = out[0][1]
             input['y'] = out[1].argmax(-1) if y else None
+
+            """
             for k in 'xy':
                 print('***', k, ':', *input[k].shape if input[k] != None else 'None')
 
@@ -84,19 +86,19 @@ class IteratedModels(M):
 
             for k in out[3]:
                 print('*** meas', k, ':', type(out[3][k]))
+            """
 
-                
             x_.append(out[0])
             y_.append(out[1])
             losses_.append(out[2])
             measures_.append(out[3])
-            
+
         x_ = torch.stack(x_)
         y_ = torch.stack(y_)
 
         output_losses = {}
         output_measures = {}
-        
+
         for k in losses_[0]:
             output_losses[k] = torch.stack([_[k] for _ in losses_])
 

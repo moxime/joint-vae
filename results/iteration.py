@@ -2,20 +2,12 @@ import os
 import sys
 import argparse
 from utils.save_load import load_json, needed_remote_files, develop_starred_methods, LossRecorder
-from utils.parameters import parse_filters
+from utils.torch_load import get_dataset
 import numpy as np
 from cvae import ClassificationVariationalNetwork as M
-from utils.filters import DictOfListsOfParamFilters
 import logging
 from utils.parameters import gethostname
-import pandas as pd
-from utils.roc_curves import fpr_at_tpr
-import seaborn as sns
-import matplotlib.pyplot as plt
-import itertools
 import torch
-from torch.nn.functional import one_hot
-from scipy.stats import mode
 from module.iteration import IteratedModels
 
 parser = argparse.ArgumentParser()
@@ -27,6 +19,8 @@ parser.add_argument('--when', default='last')
 parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
 parser.add_argument('--job-dir', default='./jobs')
+
+parser.add_argument(batch_size, type=int, default=32)
 
 
 if __name__ == '__main__':
@@ -96,3 +90,30 @@ if __name__ == '__main__':
         print(k, *losses[k].shape)
     for k in measures:
         print(k, *measures[k].shape)
+
+    dset = model.training_parameters['set']
+    transformer = model.training_paremters['transformer']
+    _, testset = get_dataset(dset, transformer=transformer)
+
+    dataloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False)
+
+    recorder = LossRecorder(args.batch_size)
+    
+    for i, (x, y) in enumerate(dataloader):
+
+        if i > 10:
+            break
+        
+        x = x.to(device)
+        y = y.to(device)
+
+        x_, y_, losses, measures = model.evaluate(x)
+
+        losses.update(y_true=y, logits=y_.T)
+
+        recorder.append_batch(**losses)
+
+    model.save()
+    logging.info('Model saved in', model.saved_dir)
+
+    recorder.save(os.path.join(model.saved_dir, 'recorder-{}.pth'.format(dset))

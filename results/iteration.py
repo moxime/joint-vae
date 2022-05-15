@@ -101,20 +101,19 @@ if __name__ == '__main__':
     dataloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False)
 
     recorder = LossRecorder(args.batch_size)
-    
+
     for i, (x, y) in enumerate(dataloader):
 
         if i > 10:
             break
-        
+
         x = x.to(device)
         y = y.to(device)
 
-        print('***', *x.shape)
-        
         with torch.no_grad():
             x_, y_, losses, measures = model.evaluate(x)
 
+        print('***', *x.shape, *y.shape, *y_.shape)
         losses.update(y_true=y, logits=y_.T)
 
         recorder.append_batch(**losses)

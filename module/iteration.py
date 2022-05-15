@@ -64,7 +64,7 @@ class IteratedModels(M):
                  z_output=False,
                  **kw):
 
-        input = {'x': x, 'y': y, 'z_output': z_output}
+        input = {'x': x, 'y': y} #, 'z_output': z_output}
 
         x_ = []
         y_ = []

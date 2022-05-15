@@ -64,15 +64,37 @@ class IteratedModels(M):
                  z_output=False,
                  **kw):
 
-        out = [(x, y)]
-        
-        models = self._models
-        
-        for m in models[1:]:
+        input = {'x': x, 'y': y, 'z_output': z_output}
 
-            out.append(m.evaluate(*out[-1][:2], z_output=z_output, **kw))
+        x_ = []
+        y_ = []
+        losses_ = []
+        measures_ = []
 
-        return (torch.stack(_) for _ in out[1:])
+        for m in self._models:
+
+            out = m.evaluate(**input, **kw)
+            input['x'] = out[0]
+            input['y'] = out[0]
+
+            x_.append(out[0])
+            y_.append(out[1])
+            losses_.append(out[2])
+            measures_.append(out[3])
+            
+        x_ = torch.stack(x_)
+        y_ = torch.stack(y_)
+
+        output_losses = {}
+        output_measures = {}
+        
+        for k in losses_[0]:
+            output_losses[k] = torch.stack([_[k] for _ in losses_])
+
+        for k in measures_[0]:
+            output_measures[k] = torch.stack([_[k] for _ in measures_])
+
+        return x_, y_, output_losses, output_measures
 
     def predict_after_evaluate(self, logits, losses, method='iter'):
 

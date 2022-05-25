@@ -109,6 +109,8 @@ if __name__ == '__main__':
         recorder = LossRecorder(args.batch_size)
 
         t0 = time.time()
+
+        n = min(args.num_batch, len(dataloader))
         for i, (x, y) in enumerate(dataloader):
 
             if i > args.num_batch:
@@ -116,7 +118,7 @@ if __name__ == '__main__':
             if i:
                 ti = time.time()
                 t_per_i = (ti - t0) / i
-                eta = (len(dataloader) - i) * t_per_i
+                eta = (n - i) * t_per_i
                 
             else:
                 eta = 0

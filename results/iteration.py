@@ -82,8 +82,6 @@ if __name__ == '__main__':
     device = args.device
     
     x = torch.randn(64, 3, 32, 32).to(device)
-
-    print(model.device)
     model.to(device)
     x_, y_, losses, measures = model.evaluate(x)
 
@@ -110,6 +108,8 @@ if __name__ == '__main__':
         recorder = LossRecorder(args.batch_size)
 
         for i, (x, y) in enumerate(dataloader):
+
+            print('\r{:4}/{}   '.format(i, len(dataloader))
 
             x = x.to(device)
             y = y.to(device)

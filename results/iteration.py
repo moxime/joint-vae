@@ -2,7 +2,7 @@ import os
 import sys
 import argparse
 from utils.save_load import load_json, needed_remote_files, develop_starred_methods, LossRecorder
-from utils.torch_load import get_dataset
+from utils.torch_load import get_dataset, get_same_size_by_name
 import numpy as np
 from cvae import ClassificationVariationalNetwork as M
 import logging
@@ -94,30 +94,35 @@ if __name__ == '__main__':
     for k in measures:
         print(k, *measures[k].shape)
 
-    dset = model.training_parameters['set']
+    testset = model.training_parameters['set']
+    allsets = [testset]
+    allsets.extend(get_same_size_by_name(testset))
+    
     transformer = model.training_parameters['transformer']
-    _, testset = get_dataset(dset, transformer=transformer)
 
-    dataloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False)
+    for s in allsets:
+        logging.info('Working on {}'.format(s))
+        
+        _, dset = get_dataset(s, transformer=transformer)
 
-    recorder = LossRecorder(args.batch_size)
+        dataloader = torch.utils.data.DataLoader(dset, batch_size=args.batch_size, shuffle=False)
 
-    for i, (x, y) in enumerate(dataloader):
+        recorder = LossRecorder(args.batch_size)
 
-        x = x.to(device)
-        y = y.to(device)
+        for i, (x, y) in enumerate(dataloader):
 
-        with torch.no_grad():
-            x_, y_, losses, measures = model.evaluate(x)
+            x = x.to(device)
+            y = y.to(device)
 
-        losses.update(y_true=y, logits=y_.permute(0, 2, 1))
+            with torch.no_grad():
+                x_, y_, losses, measures = model.evaluate(x)
 
-        for k in losses:
-            print('***', k, *losses[k].shape)
+            losses.update(y_true=y, logits=y_.permute(0, 2, 1))
 
-        recorder.append_batch(**losses)
+            recorder.append_batch(**losses)
+            
+        recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
 
     model.save()
     logging.info('Model saved in %s', model.saved_dir)
 
-    recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(dset)))

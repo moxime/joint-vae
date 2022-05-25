@@ -9,7 +9,7 @@ import logging
 from utils.parameters import gethostname
 import torch
 from module.iteration import IteratedModels
-
+import time
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--jobs', '-j', nargs='+', type=int, default=[])
@@ -107,9 +107,23 @@ if __name__ == '__main__':
 
         recorder = LossRecorder(args.batch_size)
 
+        t0 = time.time()
         for i, (x, y) in enumerate(dataloader):
 
-            print('\r{:4}/{}   '.format(i, len(dataloader)), end='')
+            if i > 10:
+                break
+            if i:
+                ti = time.time()
+                t_per_i = (ti - t0) / i
+                eta = (len(dataloader) - i) * t_per_i
+                
+            else:
+                eta = np.nan
+
+            eta_m = int(eta / 60)
+            eta_s = eta - 60 * eta_m
+                
+            print('\r{:4}/{} -- eta: {:.0f}m{:.0s}   '.format(i, len(dataloader), eta_m, eta_s), end='')
 
             x = x.to(device)
             y = y.to(device)
@@ -121,8 +135,8 @@ if __name__ == '__main__':
 
             recorder.append_batch(**losses)
             
+        model.save()
         recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
 
-    model.save()
     logging.info('Model saved in %s', model.saved_dir)
 

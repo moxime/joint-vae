@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 logging.info('{} is removed (files not found)'.format(mdir.split('/')[-1]))
             f.write(sdir + '\n')
 
-    logging.info((len(mdirs), 'complete model' + ('s' if len(mdirs) > 1 else ''), 'over', total_models))
+    logging.info('{} model{} over {}'.format(len(mdirs), 's' if len(mdirs) > 1 else '', total_models))
     
     if removed:
         logging.error('Exiting, load files')

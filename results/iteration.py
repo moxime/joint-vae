@@ -123,7 +123,7 @@ if __name__ == '__main__':
             eta_m = int(eta / 60)
             eta_s = eta - 60 * eta_m
                 
-            print('\r{:4}/{} -- eta: {:.0f}m{:.0s}   '.format(i, len(dataloader), eta_m, eta_s), end='')
+            print('\r{:4}/{} -- eta: {:.0f}m{:.0f}s   '.format(i, len(dataloader), eta_m, eta_s), end='')
 
             x = x.to(device)
             y = y.to(device)

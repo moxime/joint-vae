@@ -118,7 +118,7 @@ if __name__ == '__main__':
                 eta = (len(dataloader) - i) * t_per_i
                 
             else:
-                eta = np.nan
+                eta = 0
 
             eta_m = int(eta / 60)
             eta_s = eta - 60 * eta_m

@@ -20,7 +20,8 @@ parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
 parser.add_argument('--job-dir', default='./jobs')
 
-parser.add_argument('--batch_size', type=int, default=32)
+parser.add_argument('--batch-size', type=int, default=32)
+parser.add_argument('--num-batch', type=int, default=int(1e6))
 parser.add_argument('--device', default='cuda')
 
 
@@ -110,7 +111,7 @@ if __name__ == '__main__':
         t0 = time.time()
         for i, (x, y) in enumerate(dataloader):
 
-            if i > 10:
+            if i > args.num_batch:
                 break
             if i:
                 ti = time.time()
@@ -134,7 +135,8 @@ if __name__ == '__main__':
             losses.update(y_true=y, logits=y_.permute(0, 2, 1))
 
             recorder.append_batch(**losses)
-            
+
+        print()
         model.save()
         recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
 

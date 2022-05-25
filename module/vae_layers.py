@@ -92,6 +92,30 @@ class Hsv2rgb(Rgb2hsv):
         # print('***', *rgb.shape)
         return rgb
 
+
+class Prior(object):
+
+    def __init__(cls, dim, var_ndim, var=1., mean=0, num_labels=1, learned_mean=False, learned_var=False):
+        
+        """
+        var_ndim : 0 for scalar, 1 for diag, 2 for full
+        
+        """
+
+        mean_tensor = torch.randn(num_labels, dim).squeeze()
+        self.mean = Parameter(mean_tensor)
+
+        if var_ndim == 0:
+            var_tensor = torch.tensor(1)
+        elif var_ndim == 1:
+            var_tensor = torch.ones(dim)
+        elif var_ndim == 2:
+            var_tensor = torch.eye(dim)
+
+        
+        
+    def kl(self, mu, var, y=None):
+        pass
     
 class Sigma(Parameter):
 
@@ -421,6 +445,7 @@ class Encoder(nn.Module):
                  sampling=True,
                  sigma_output_dim=0,
                  forced_variance=False,
+                 prior_variance=1.,
                  dictionary_variance=1,
                  coder_means=None,
                  dictionary_min_dist=None,
@@ -476,7 +501,47 @@ class Encoder(nn.Module):
         self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
             
         self.dictionary_is_learned = learned_dictionary
-        
+
+        self._prior_covariance_is_computed = False
+        if isinstance(prior_variance, str):
+            self._prior_variance_learned = True
+            self._prior_variance_type = prior_variance
+            if self._prior_variance_type == 'scalar':
+                mat = torch.tensor(1.)
+            elif self._prior_variance_type == 'diag':
+                mat = torch.ones(latent_dim)
+            else:
+                mat = torch.eye(latent_dim)
+            self._prior_inv_sqrt_covariance = torch.nn.Parameters(mat, requires_grad=True)
+        else:
+            self._prior_variance_type = 'scalar'
+            self._prior_variance_learned = False
+            self._prior_inv_sqrt_covariance = torch.nn.Parameters(1 / np.sqrt(prior_variance), requires_grad=False)
+
+    @property
+    def prior_inv_sqrt_covariance(self):
+
+        if self._prior_variance_type == 'full':
+            return torch.tril(self._prior_inv_sqrt_covariance)
+        if self._prior_variance_type == 'diag':
+            return torch.diag(self._prior_inv_sqrt_covariance)
+        if self._prior_variance_type == 'scalar':
+            return self._prior_inv_sqrt_covariance
+
+    @property
+    def prior_covariance(self):
+
+        if self._prior_covariance_is_computed:
+            return self._prior_covariance
+
+        if self._prior_variance_type == 'scalar':
+            inv_t = torch.inv(self.prior_inv_sqrt_covariance)
+        return torch.matmul(int_t, inv_t.T)
+            
+
+    def eval(self, *a):
+        print('eval', *a)
+    
     @property
     def sampling_size(self):
         return self._sampling_size

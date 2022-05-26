@@ -8,7 +8,7 @@ from cvae import ClassificationVariationalNetwork as M
 import logging
 from utils.parameters import gethostname
 import torch
-from module.iteration import IteratedModels
+from module.iteration import IteratedModels, iterate_with_prior
 import time
 parser = argparse.ArgumentParser()
 
@@ -16,6 +16,7 @@ parser.add_argument('--jobs', '-j', nargs='+', type=int, default=[])
 parser.add_argument('-v', action='count', default=0)
 parser.add_argument('--result-dir', default='/tmp')
 parser.add_argument('--when', default='last')
+parser.add_argument('--prior', action='store_true')
 parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
 parser.add_argument('--job-dir', default='./jobs')
@@ -24,11 +25,10 @@ parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--num-batch', type=int, default=int(1e6))
 parser.add_argument('--device', default='cuda')
 
-
 if __name__ == '__main__':
 
     args_from_file = ('-vvvv '
-                      '--tex '
+                      '--prior '
                       '--jobs 193080 193082'
                       ).split()
 
@@ -58,7 +58,9 @@ if __name__ == '__main__':
     
     with open('/tmp/files', 'w') as f:
 
-        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec=None, state=True):
+        opt = dict(which_rec='none', state=True) if not args.prior else dict(which_rec='ind')
+        
+        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, **opt):
             logging.debug('{} for {}'.format(sdir[-30:], wanted))
             if mdir in mdirs:
                 mdirs.remove(mdir)
@@ -77,70 +79,92 @@ if __name__ == '__main__':
             f.write('rsync -avP --files-from=/tmp/files $1 .\n')
         sys.exit(1)
 
-    models = [M.load(d, load_state=True) for d in mdirs]
-    model = IteratedModels(*models)
-
-    device = args.device
-    
-    x = torch.randn(64, 3, 32, 32).to(device)
-    model.to(device)
-    x_, y_, losses, measures = model.evaluate(x)
-
-    print('x', *x_.shape)
-    print('y', *y_.shape)
-    for k in losses:
-        print(k, *losses[k].shape)
-    for k in measures:
-        print(k, *measures[k].shape)
-
-    testset = model.training_parameters['set']
-    allsets = [testset]
-    allsets.extend(get_same_size_by_name(testset))
-    
-    transformer = model.training_parameters['transformer']
-
-    for s in allsets:
-        logging.info('Working on {}'.format(s))
-        
-        _, dset = get_dataset(s, transformer=transformer)
-
-        dataloader = torch.utils.data.DataLoader(dset, batch_size=args.batch_size, shuffle=False)
-
-        recorder = LossRecorder(args.batch_size)
-
-        t0 = time.time()
-
-        n = min(args.num_batch, len(dataloader))
-        for i, (x, y) in enumerate(dataloader):
-
-            if i > args.num_batch:
-                break
-            if i:
-                ti = time.time()
-                t_per_i = (ti - t0) / i
-                eta = (n - i) * t_per_i
-                
+    if args.prior:
+        kept_testset = None
+        list_of_logp_x_y = []
+        for mdir in mdirs:
+            model = M.load(mdir, load_net=False)
+            testset = model.training_parameters['set']
+            if kept_testset and testset != kept_testset:
+                continue
             else:
-                eta = 0
+                kept_testset = testset
 
-            eta_m = int(eta / 60)
-            eta_s = eta - 60 * eta_m
-                
-            print('\r{:4}/{} -- eta: {:.0f}m{:.0f}s   '.format(i, len(dataloader), eta_m, eta_s), end='')
+            if args.when == 'min-loss':
+                epoch = model.training_parameters.get('early-min-loss', 'last')
 
-            x = x.to(device)
-            y = y.to(device)
+            if args.when == 'last' or epoch == 'last':
+                epoch = max(model.testing)
 
-            with torch.no_grad():
-                x_, y_, losses, measures = model.evaluate(x)
+            recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)), device='cpu')
 
-            losses.update(y_true=y, logits=y_.permute(0, 2, 1))
+            rec = recorders[testset]
+            list_of_logp_x_y.append(rec._tensors['iws'].softmax(0))
+            y_true = recorders[kept_testset]._tensors['y_true']
+            sets = [*recorders.keys()]
 
-            recorder.append_batch(**losses)
+            # exclude rotated set
+            oodsets = [_ for _ in sets if not _.startswith(kept_testset)]
+            # sets = [kept_testset, 'lsunr']  # + sets
+            sets = [kept_testset] + oodsets
 
-        print()
-        model.save()
-        recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
+        logp_x_y = torch.stack(list_of_logp_x_y)
+        p_y_x = iterate_with_prior(logp_x_y)
 
-    logging.info('Model saved in %s', model.saved_dir)
+    else:
+
+        models = [M.load(d, load_state=True) for d in mdirs]
+        model = IteratedModels(*models)
+
+        device = args.device
+        testset = model.training_parameters['set']
+        allsets = [testset]
+        allsets.extend(get_same_size_by_name(testset))
+
+        transformer = model.training_parameters['transformer']
+
+        for s in allsets:
+            logging.info('Working on {}'.format(s))
+
+            _, dset = get_dataset(s, transformer=transformer)
+
+            dataloader = torch.utils.data.DataLoader(dset, batch_size=args.batch_size, shuffle=False)
+
+            recorder = LossRecorder(args.batch_size)
+
+            t0 = time.time()
+
+            n = min(args.num_batch, len(dataloader))
+            for i, (x, y) in enumerate(dataloader):
+
+                if i > args.num_batch:
+                    break
+                if i:
+                    ti = time.time()
+                    t_per_i = (ti - t0) / i
+                    eta = (n - i) * t_per_i
+
+                else:
+                    eta = 0
+
+                eta_m = int(eta / 60)
+                eta_s = eta - 60 * eta_m
+
+                print('\r{:4}/{} -- eta: {:.0f}m{:.0f}s   '.format(i, n, eta_m, eta_s), end='')
+
+                x = x.to(device)
+                y = y.to(device)
+
+                with torch.no_grad():
+                    x_, y_, losses, measures = model.evaluate(x)
+
+                losses.update(y_true=y, logits=y_.permute(0, 2, 1))
+
+                recorder.append_batch(**losses)
+
+            print()
+            model.save()
+            recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
+
+        logging.info('Model saved in %s', model.saved_dir)
 

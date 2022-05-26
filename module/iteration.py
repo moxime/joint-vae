@@ -4,6 +4,7 @@ import torch
 from utils import save_load
 import logging
 
+
 class IteratedModels(M):
 
     def __new__(cls, *models):
@@ -121,3 +122,26 @@ class IteratedModels(M):
         pass
 
 
+def iterate_with_prior(logp_x_y):
+
+    """Args:
+
+    -- p_x_y is a tensor of dim MxCxN with M the number of models, C
+    the number of labels and N the number of sample
+
+    """
+
+    M, C, N = logp_x_y.shape
+    prior = torch.ones(C, N, device=logp_x_y.device) / C
+    posterior = torch.zeros_like(logp_x_y)
+
+    for i in range(M):
+
+        joint = logp_x_y[i] * prior
+        p_x = joint.sum(0, keepdim=True)
+        # print('***', prior.shape, joint.shape, p_x.shape)
+        posterior[i] = joint / p_x
+        prior = posterior[i]
+
+    return posterior
+        

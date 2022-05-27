@@ -517,3 +517,9 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
     logging.debug('Going to')
     dset = _imagenet_getter()
+
+    x, y = get_batch(dset)
+
+    print(type(x))
+    print(x.shape)
+    

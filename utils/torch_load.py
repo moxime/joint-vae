@@ -514,4 +514,6 @@ def export_png(imageset, directory, by_class=False):
             
 if __name__ == '__main__':
 
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.debug('Going to')
     dset = _imagenet_getter()

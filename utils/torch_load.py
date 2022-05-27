@@ -78,6 +78,7 @@ def choose_device(device=None):
 
 cifar_shape = (3, 32 , 32)
 mnist_shape = (1, 28, 28)
+
 set_dict = {'cifar10': {'shape': (3, 32, 32),
                         'labels':10,
                         'classes': ['airplane', 'automobile', 'bird', 'cat', 'deer',
@@ -118,15 +119,17 @@ set_dict['lsunc'] = set_dict['cifar10'].copy()
 crop_transform = transforms.RandomCrop((32, 32))
 resize_transform = transforms.Resize((32, 32))
 
+
 def _lsun_getter(train=True, download=True, root='./data', **kw):
 
     if train:
         return None
-    
+
     root = os.path.join(root, 'lsun')
     set_ = datasets.LSUN(classes='test', root=root, **kw)
     return set_
-    
+
+
 set_dict['lsunc'] = set_dict['cifar10'].copy()
 set_dict['lsunc'].pop('means')
 set_dict['lsunc'].pop('stds')
@@ -142,18 +145,37 @@ def _svhn_getter(train=True, **kw):
     set_.classes = [str(i) for i in range(10)]
     return set_
 
+
 set_dict['svhn'] = set_dict['cifar10'].copy()
 set_dict['svhn'].pop('means')
 set_dict['svhn'].pop('stds')
 set_dict['svhn']['classes'] = [str(i) for i in range(10)]
 set_dict['svhn']['getter'] = _svhn_getter
 
+
+def _imagenet_getter(train=True, download=False, root='./data', **kw):
+
+    dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet'), split='train' if train else 'val',
+                             download=False,
+                             **kw)
+
+    return dset
+
+
+set_dict['imagenet'] = dict(shape=(3, 'x', 'x'),
+                            labels=200,
+                            classes=[str(_) for _ in range(200)],
+                            default='simple')
+
+set_dict['imagenet']['getter'] = _imagenet_getter
+
+
 transformers = {'simple': {n: transforms.ToTensor() for n in set_dict}}
 
 transformers['normal'] = {n: transforms.Compose([transforms.ToTensor(),
                                                 transforms.Normalize(set_dict[n].get('means', 0),
                                                                      set_dict[n].get('stds', 1))])
-                         for n in set_dict}
+                          for n in set_dict}
 
 transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTensor()])
                        for n in set_dict}

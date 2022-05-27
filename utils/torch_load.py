@@ -514,7 +514,4 @@ def export_png(imageset, directory, by_class=False):
             
 if __name__ == '__main__':
 
-    for s in ('lsunc', 'lsunr', 'cifar10'):
-        _, test = get_dataset(s)
-        export_png(test, os.path.join('/tmp', s, 'test'))
-        
+    dset = _imagenet_getter()

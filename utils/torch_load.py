@@ -250,13 +250,6 @@ def get_dataset(dataset='MNIST', root='./data',
                          transform=transform)
 
         returned_sets = (trainset, testset)
-
-        if validation_split:
-            validationset, trainset = torch.utils.data.random_split(trainset,
-                                                                    [validation_split,
-                                                                     len(trainset) - validation_split])
-        
-            returned_sets += (validationset,)
         
     for s in returned_sets:
         if s is not None:

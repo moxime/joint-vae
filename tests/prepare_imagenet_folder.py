@@ -15,6 +15,25 @@ def create_bash_for_symlinks(directory='data/ImageNet12'):
         print('ln -s $1/{} .'.format(_))
 
 
+def create_small_train_folder(directory='data/ImageNet12', target='tmp', source='train', num=2):
+
+    source_directory = os.path.join(directory, source)
+
+    nodes = [_ for _ in os.listdir(source_directory) if os.path.isdir(_)]
+
+    for node in nodes:
+
+        target_dir = os.path.join(directory, target, node)
+        if not os.apth.exists(target_dir):
+            os.makedirs(target_dir)
+
+        images = [_ for _ in os.listdir(os.path.join(source_directory, node)) if _.endswith('.JPEG')]
+
+        for image in images[:2]:
+            image_path = os.path.join(source_directory, node, image)
+            print('{} -> {}'.format(image_path, target_dir)
+            shutil.copy(image_path, target_dir)
+
 def create_validation_folder(directory='data/ImageNet12', target='val', source='tmp'):
 
     dev_kit_folder = 'ILSVRC2012_devkit_t12/data'
@@ -66,8 +85,5 @@ def create_validation_folder(directory='data/ImageNet12', target='val', source='
             
     return nodes_by_file
 
-m = create_validation_folder()
-
-meta_file = os.path.join('data/ImageNet12', 'meta.bin')
-
-classes = set(torch.load(meta_file)[0].keys())
+# m = create_validation_folder()
+create_small_train_folder()

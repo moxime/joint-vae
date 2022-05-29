@@ -157,13 +157,13 @@ def _imagenet_getter(train=True, download=False, root='./data', **kw):
 
     dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet12'), split='train' if train else 'val',
                              **kw)
-
     return dset
 
 
+imagenet_classes = [_[0] for _ in _imagenet_getter().classes]
 set_dict['imagenet12'] = dict(shape=(3, 224, 224),
-                              labels=1000,
-                              classes=[str(_) for _ in range(200)],
+                              labels=len(imagenet_classes),
+                              classes=imagenet_classes,
                               default='crop')
 
 set_dict['imagenet12']['getter'] = modify_getter(_imagenet_getter,
@@ -226,7 +226,7 @@ def get_dataset(dataset='MNIST', root='./data',
 
         if t == 'crop':
             size = set_dict[dataset]['shape'][1:]
-            padding = size[0] // 8
+            padding = 0 if 'imagenet' in dataset else size[0] // 8
             t_ = transforms.RandomCrop(size, padding=padding, padding_mode='edge')
 
         train_transforms.append(t_)
@@ -283,9 +283,11 @@ def get_dataset(dataset='MNIST', root='./data',
             s.name = dataset + ('90' if rotated else '')
             s.same_size = same_size
             s.transformer = transformer
+
+            # if not hasattr(s, 'classes'):
             C = set_dict[dataset]['labels']
             s.classes = set_dict[dataset].get('classes', [str(i) for i in range(C)])
-
+                
             s.heldout = []
             if heldout_classes:
                 s.heldout = heldout_classes
@@ -524,9 +526,10 @@ if __name__ == '__main__':
     logging.debug('Going to build dataset')
     t0 = time.time()
     # dset = _imagenet_getter(transform=transforms.ToTensor())
-    train, test = get_dataset('imagenet12', data_augmentation=['flip'])
+    train, test = get_dataset('imagenet12', data_augmentation=['crop'])
     logging.debug('Built in {:.1f}s'.format(time.time() - t0))
-    
-    x, y = get_batch(train)
 
+    show_images(train, num=32)
+    x, y = get_batch(train)
+    
     print(*x.shape)

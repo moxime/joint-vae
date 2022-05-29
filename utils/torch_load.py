@@ -155,7 +155,7 @@ set_dict['svhn']['getter'] = _svhn_getter
 
 def _imagenet_getter(train=True, download=False, root='./data', **kw):
 
-    dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet'), split='train' if train else 'val',
+    dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet12'), split='train' if train else 'val',
                              **kw)
 
     return dset
@@ -164,9 +164,10 @@ def _imagenet_getter(train=True, download=False, root='./data', **kw):
 set_dict['imagenet12'] = dict(shape=(3, 224, 224),
                               labels=1000,
                               classes=[str(_) for _ in range(200)],
-                              default='simple')
+                              default='crop')
 
-set_dict['imagenet12']['getter'] = _imagenet_getter
+set_dict['imagenet12']['getter'] = modify_getter(_imagenet_getter,
+                                                 pretransform=transforms.Resize(256))
 
 
 transformers = {'simple': {n: transforms.ToTensor() for n in set_dict}}
@@ -179,6 +180,8 @@ transformers['normal'] = {n: transforms.Compose([transforms.ToTensor(),
 transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTensor()])
                        for n in set_dict}
 
+transformers['crop']['imagenet12'] = transforms.Compose([transforms.CenterCrop(224),
+                                                       transforms.ToTensor()])
 
 def get_dataset(dataset='MNIST', root='./data', 
                 transformer='default', data_augmentation=[],
@@ -517,8 +520,6 @@ if __name__ == '__main__':
     logging.debug('Going to')
     dset = _imagenet_getter(transform=transforms.ToTensor())
 
-    x, y = get_batch(dset)
-
-    print(type(x))
-    print(x.shape)
+    for i in range(100):
+        print(*dset.data[i].shape)
     

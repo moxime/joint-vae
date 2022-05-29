@@ -184,6 +184,7 @@ transformers['crop'] = {}
 transformers['crop']['imagenet12'] = transforms.Compose([transforms.CenterCrop(224),
                                                          transforms.ToTensor()])
 
+
 def get_dataset(dataset='MNIST', root='./data', 
                 transformer='default', data_augmentation=[],
                 validation_split=None,
@@ -523,7 +524,7 @@ if __name__ == '__main__':
     logging.debug('Going to build dataset')
     t0 = time.time()
     # dset = _imagenet_getter(transform=transforms.ToTensor())
-    train, test = get_dataset('mnist', data_augmentation=['flip'])
+    train, test = get_dataset('imagenet12', data_augmentation=['flip'])
     logging.debug('Built in {:.1f}s'.format(time.time() - t0))
     
     x, y = get_batch(train)

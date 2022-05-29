@@ -19,8 +19,13 @@ def create_small_train_folder(directory='data/ImageNet12', target='tmp', source=
 
     source_directory = os.path.join(directory, source)
 
-    nodes = [_ for _ in os.listdir(source_directory) if os.path.isdir(_)]
+    nodes_ = os.listdir(source_directory)
 
+    nodes = []
+    for n in nodes_:
+        if os.path.isdir(os.path.realpath(os.path.join(source_directory, n))):
+            nodes.append(n)
+        
     for node in nodes:
 
         print('***', node)

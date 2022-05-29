@@ -523,8 +523,8 @@ if __name__ == '__main__':
     logging.debug('Going to build dataset')
     t0 = time.time()
     dset = _imagenet_getter(transform=transforms.ToTensor())
-    logging.debug('Built in {:.1f}s', time.time() - t0)
-    
+    logging.debug('Built in {:.1f}s'.format(time.time() - t0))
+
     for i in range(100):
         print(*dset.data[i].shape)
     

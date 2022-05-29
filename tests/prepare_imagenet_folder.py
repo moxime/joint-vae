@@ -30,7 +30,7 @@ def create_small_train_folder(directory='data/ImageNet12', target='tmp', source=
 
         print('***', node)
         target_dir = os.path.join(directory, target, node)
-        if not os.apth.exists(target_dir):
+        if not os.path.exists(target_dir):
             os.makedirs(target_dir)
 
         images = [_ for _ in os.listdir(os.path.join(source_directory, node)) if _.endswith('.JPEG')]

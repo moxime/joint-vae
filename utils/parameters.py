@@ -162,7 +162,6 @@ def get_args_for_train(argv=None):
                 'test_sample_size': 1024,
                 'validation': 8192,
                 'features': 'none',
-                'validation': 4096,
                 'epochs':100, 
                 'job_dir': './jobs'}
     

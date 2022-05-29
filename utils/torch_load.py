@@ -250,32 +250,12 @@ def get_dataset(dataset='MNIST', root='./data',
                          transform=transform)
 
         returned_sets = (trainset, testset)
-        if validation_split is not None:
-            validationset = getter(root=root, train=True,
-                                   download=True,
-                                   target_transform=target_transform,
-                                   transform=transform)
 
-            change_random_seed = validation_split_seed is not None
-            if change_random_seed:
-                numpy_state = np.random.get_state()
-                np.random.seed(validation_split_seed)
-            split = np.random.permutation(len(trainset))
-            if change_random_seed:
-                np.random.set_state(numpy_state)
-                
-            validationset.data = trainset.data[split[:validation_split]]
-            trainset.data = trainset.data[split[validation_split:]]
-            for attr in ('targets', 'labels'):
-                if hasattr(trainset, attr):
-                    # print(dset, attr)
-                    for s, i in zip((trainset, validationset),
-                                    (split[validation_split:], split[:validation_split])):
-                        labels = getattr(s, attr)
-                        if isinstance(labels, list):
-                            setattr(s, attr, [labels[_] for _ in i])
-                        else:
-                            setattr(s, attr, labels[i])
+        if validation_split:
+            validationset, trainset = torch.utils.data.random_split(trainset,
+                                                                    [validation_split,
+                                                                     len(trainset) - validation_split])
+        
             returned_sets += (validationset,)
         
     for s in returned_sets:
@@ -533,3 +513,5 @@ if __name__ == '__main__':
     x, y = get_batch(train)
     
     print(*x.shape)
+
+    torch.utils.data.dataset.Subset

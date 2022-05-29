@@ -31,7 +31,7 @@ def create_small_train_folder(directory='data/ImageNet12', target='tmp', source=
 
         for image in images[:2]:
             image_path = os.path.join(source_directory, node, image)
-            print('{} -> {}'.format(image_path, target_dir)
+            print('{} -> {}'.format(image_path, target_dir))
             shutil.copy(image_path, target_dir)
 
 def create_validation_folder(directory='data/ImageNet12', target='val', source='tmp'):

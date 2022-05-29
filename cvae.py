@@ -1873,7 +1873,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['transformer'] = transformer
                 self.training_parameters['validation'] = validation
                 self.training_parameters['full_test_every'] = full_test_every
-                ss = trainset.data[0].shape
+                ss = '?'
+                if hasattr(trainset, 'data'):
+                    ss = trainset.data[0].shape
                 ns = self.input_shape
                 logging.debug(f'Shapes : {ss} / {ns}')
                 # assert ns == ss or ss == ns[1:]

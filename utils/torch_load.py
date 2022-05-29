@@ -180,6 +180,7 @@ transformers['normal'] = {n: transforms.Compose([transforms.ToTensor(),
 transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTensor()])
                        for n in set_dict}
 
+transformers['crop'] = {}
 transformers['crop']['imagenet12'] = transforms.Compose([transforms.CenterCrop(224),
                                                        transforms.ToTensor()])
 

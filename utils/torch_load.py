@@ -186,10 +186,7 @@ transformers['crop']['imagenet12'] = transforms.Compose([transforms.CenterCrop(2
 
 
 def get_dataset(dataset='MNIST', root='./data', 
-                transformer='default', data_augmentation=[],
-                validation_split=None,
-                validation_split_seed=None,
-                ):
+                transformer='default', data_augmentation=[]):
 
     dataset = dataset.lower()
     rotated = dataset.endswith('90')

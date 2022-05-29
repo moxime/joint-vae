@@ -1902,19 +1902,17 @@ class ClassificationVariationalNetwork(nn.Module):
             np.random.seed()
             self.training_parameters['validation_split_seed'] = np.random.randint(0, 2 ** 12)
 
+        trainset, testset = torchdl.get_dataset(set_name,
+                                                transformer=transformer,
+                                                data_augmentation=data_augmentation)
+
         seed = self.training_parameters['validation_split_seed']
-        sets = torchdl.get_dataset(set_name,
-                                   transformer=transformer,
-                                   data_augmentation=data_augmentation,
-                                   validation_split=validation,
-                                   validation_split_seed=seed
-                                   )
         if validation:
-            trainset, testset, validationset = sets
+            set_lengths = [validation, len(trainset) - validation]
+            validationset, trainset = torch.utils.data.random_split(trainset, set_lengths,
+                                                                    generator=torch.Generator().manual_seed(seed))
+        
             validationset.name = 'validation'
-        else:
-            trainset, testset = sets
-            validationset = None
             
         logging.debug('Choosing device')
         device = choose_device(device)

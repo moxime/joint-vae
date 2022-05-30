@@ -1152,6 +1152,9 @@ class ClassificationVariationalNetwork(nn.Module):
         current_measures = {}
         measures = {}
 
+        logging.debug('Starting accuracy for {} batches of size {} for set of size {}'.format(num_batches,
+                                                                                              batch_size,
+                                                                                              len(testset)))
         for i in range(num_batch):
 
             # save_batch_as_sample = sample_file and i < sample_save // batch_size            

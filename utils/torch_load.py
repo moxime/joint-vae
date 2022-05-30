@@ -84,6 +84,7 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
 
     def __init__(self, root, classes_file, *a, **kw):
 
+        logging.debug('Creating dataset in folder {} based on classes listed in {}'.format(root, classes_file))
         self.root = root
         self._classes_file = classes_file
         self._compile_dict()

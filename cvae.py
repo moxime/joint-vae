@@ -1064,7 +1064,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not testset:
             testset_name = self.training_parameters['set']
             transformer = self.training_parameters['transformer']
-            _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
+            _, testset = torchdl.get_dataset(testset_name, transformer=transformer, splits=['test'])
 
         else:
             testset_name = testset.name
@@ -1319,7 +1319,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not testset:
             testset_name = self.training_parameters['set']
             transformer = self.training_parameters['transformer']
-            _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
+            _, testset = torchdl.get_dataset(testset_name, transformer=transformer, splits=['test'])
 
         if not method:
             return
@@ -1330,7 +1330,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         if oodsets is None:
             # print('*** 1291', *testset.same_size)
-            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer)[1]
+            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer, splits=['test'])[1]
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 

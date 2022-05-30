@@ -4,19 +4,20 @@ import torch
 import utils.torch_load as tl
 import time
 
-dataset = 'mnist+2+4'
 dataset = 'letters'
-dataset = 'cifar10+3'
-dataset='svhn'
+dataset = 'svhn'
 dataset = 'lsunr'
+dataset = 'cifar10+3'
+dataset = 'mnist'
+dataset = 'imagenet2'
 
 transformer = 'default'
 
 da = ['flip', 'crop']
 da = []
 
-splits = ['train', 'test']
 splits = ['test']
+splits = ['train', 'test']
 train, test = tl.get_dataset(dataset, data_augmentation=da, transformer=transformer, splits=splits)
 
 print('*** TRAIN')
@@ -25,5 +26,6 @@ print(train)
 print('*** TEST')
 print(test)
 
-
-tl.show_images(test, num=64)
+x, y = tl.get_batch(test)
+print(y.max().item())
+tl.show_images(test, num=4)

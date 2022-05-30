@@ -25,7 +25,7 @@ laf = LoggerAsfile()
 def suppress_stdout(log=False):
     with open(os.devnull, "w") as dev_null:
         orig = sys.stdout
-        sys.stdout = laf if log else dev_null
+        # sys.stdout = laf if log else dev_null
         try:
             yield
         finally:
@@ -80,13 +80,60 @@ def letters_getter(**kw):
     return datasets.EMNIST(split='letters', **kw)
 
 
+class ImageFolderWithClassesInFile(datasets.ImageFolder):
+
+    def __init__(self, root, classes_file, *a, **kw):
+
+        self.root = root
+        self._classes_file = classes_file
+        self._compile_dict()
+        
+        super().__init__(root, *a, **kw)
+
+    def _compile_dict(self):
+        self.node_to_idx = {}
+        self.idx_to_class = {}
+        self.idx_to_node = {}
+
+        with open(self._classes_file) as f:
+            i = 0
+            for line in f:
+                if not line.startswith('#'):
+                    splitted_line = line.split()
+                    node = splitted_line[0]
+                    classi = ' '.join(splitted_line[1:])
+                    self.node_to_idx[node] = i
+                    self.idx_to_class[i] = classi
+                    self.idx_to_node[i] = node
+                    i += 1
+                    
+            self.classes = [self.idx_to_class[i] for i in range(len(self.idx_to_class))]             
+            self.nodes = [self.idx_to_node[i] for i in range(len(self.idx_to_class))]             
+            
+    def find_classes(self, directory):
+
+        classes = self.nodes
+        return classes, self.node_to_idx
+
+
+def create_image_dataset(classes_file):
+
+    class Dataset(ImageFolderWithClassesInFile):
+
+        def __init__(self, root, *a, **kw):
+             super().__init__(root, classes_file, *a, **kw)
+
+    return Dataset
+
+
 getters = {'mnist': datasets.MNIST,
            'fashion': datasets.FashionMNIST,
            'letters': letters_getter,
            'cifar10': datasets.CIFAR10,
            'svhn': datasets.SVHN,
            'lsunc': datasets.LSUN,
-           'lsunr': datasets.LSUN}
+           'lsunr': datasets.LSUN,
+           }
 
 
 def dataset_properties(conf_file='data/sets.ini', all_keys=True):
@@ -102,8 +149,15 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
         p = {}
         p['shape'] = tuple(int(_) for _ in p_['shape'].split())
 
-        if 'classes_from_files' in p_:
+        if 'classes_from_file' in p_:
             p['classes'] = []
+            class_file = p_['classes_from_file']
+            with open(class_file) as f:
+                for i, line in enumerate(f):
+                    if not line.startswith('#'):
+                        splitted_line = line.split()
+                        p['classes'].append(' '.join(splitted_line[1:]))
+                                            
         elif 'classes' in p_:
             classes = p_.get('classes', '')
             if classes.startswith('$'):
@@ -119,7 +173,7 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
         p['labels'] = 0 if not p['classes'] else len(p['classes'])
 
         if all_keys:
-            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split', 'root')
+            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split', 'root', 'classes_from_file')
         else:
             keys = ()
         for k in keys:
@@ -130,14 +184,14 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
     return properties
 
 
-def _imagenet_getter(train=True, download=False, root='./data', **kw):
+# def _imagenet_getter(train=True, download=False, root='./data', **kw):
 
-    dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet12'), split='train' if train else 'val',
-                             **kw)
-    return dset
+#     dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet12'), split='train' if train else 'val',
+#                              **kw)
+#     return dset
 
 
-imagenet_classes = [_[0] for _ in _imagenet_getter().classes]
+# imagenet_classes = [_[0] for _ in _imagenet_getter().classes]
 
 
 def get_dataset(dataset='mnist', 
@@ -153,7 +207,6 @@ def get_dataset(dataset='mnist',
     
     if rotated:
         dataset = dataset[:-2]
-
 
     target_transform = None
     parent_set, heldout_classes = get_heldout_classes_by_name(dataset)
@@ -221,39 +274,56 @@ def get_dataset(dataset='mnist',
         post_transforms.append(transforms.Pad(2))
 
     post_transforms.append(transforms.ToTensor())
-        
-    getter = getters[dataset]
 
-    train_kw = dict(train=True)
-    test_kw = dict(train=False)
+    if set_props.get('folder'):
+        getter = create_image_dataset(set_props['classes_from_file'])
+    else:
+        getter = getters[dataset]
 
-    if set_props.get('kw_for_split'):
+    root = set_props['root']
+    directory = root # os.path.join(root, parent_set)
+    
+    train_kw = {}
+    test_kw = {}
+
+    if set_props.get('folder'):
+        root = set_props['folder']
+        kw_ = (set_props.get('kw_for_split') or 'root {}/train {}/test').format(root, root).split()
+        train_kw[kw_[0]] = kw_[1]
+        test_kw[kw_[0]] = kw_[2] 
+
+    elif set_props.get('kw_for_split'):
         kw_ = set_props['kw_for_split'].split()
         train_kw = {}
         train_kw[kw_[0]] = kw_[1]
         test_kw = {}
         test_kw[kw_[0]] = kw_[2]
-
-    print(train_kw.items())
-        
-    root = set_props['root']
-    directory = root # os.path.join(root, parent_set)
-
+        for kw in train_kw, test_kw:
+            kw['root'] = directory
+    else:
+        train_kw = dict(train=True, root=directory)
+        test_kw = dict(train=False, root=directory)
+            
     with suppress_stdout(log=True):
         if 'train' in splits:
-            trainset = getter(root=directory, **train_kw,
+            trainset = getter(**train_kw,
                               target_transform=target_transform,
                               transform=transforms.Compose(pre_transforms + train_transforms + post_transforms))
         else:
             trainset = None
 
         if 'test' in splits:
-            testset = getter(root=directory, **test_kw,
+            testset = getter(**test_kw,
                              target_transform=target_transform,
                              transform=transforms.Compose(pre_transforms + post_transforms))
         else:
             testset = None
         returned_sets = (trainset, testset)
+
+    if set_props.get('classes_from_file'):
+        for s in returned_sets:
+            if s is not None:
+                s.classes_file = set_props['classes_from_file']
         
     for s in returned_sets:
         if s is not None:
@@ -457,7 +527,7 @@ def show_images(imageset, shuffle=True, num=4, **kw):
     npimages = torchvision.utils.make_grid(x[:num]).numpy().transpose(1, 2, 0)
     labels = y
     try:
-        classes = [imageset.classes[y] for y in labels]
+        classes = [str(y.numpy()) + imageset.classes[y] for y in labels]
     except (AttributeError, TypeError):
         classes = [str(y.numpy()) for y in labels]
 

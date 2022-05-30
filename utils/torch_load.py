@@ -115,7 +115,7 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
         p['labels'] = 0 if not p['classes'] else len(p['classes'])
 
         if all_keys:
-            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split')
+            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split', 'root')
         else:
             keys = ()
         for k in keys:
@@ -166,12 +166,12 @@ def get_dataset(dataset='mnist',
 
     pre_transforms = []
     train_transforms = []
-    transforms = []
+    post_transforms = []
     
     if rotated:
         pre_transforms.append(transforms.Lambda(lambda img: transforms.functional.rotate(img, 90)))
 
-    pre_transform = set_props.get('pre_transform', '')
+    pre_transform = set_props.get('pre_transform') or ''
     for t in pre_transform.split():
 
         if t.startswith('resize'):
@@ -207,36 +207,40 @@ def get_dataset(dataset='mnist',
         train_transforms.append(t_)
 
     if transformer == 'default':
-        transformer = set_props[dataset]['default']
+        transformer = set_props['default']
 
     if transformer == 'crop':
-        transforms.append(transforms.CenterCrop(set_props['shape'][1:]))
+        post_transforms.append(transforms.CenterCrop(set_props['shape'][1:]))
+    elif transformer == 'pad':
+        post_transforms.append(transforms.Pad(2))
 
-    transforms.append(transforms.ToTensor())
+    post_transforms.append(transforms.ToTensor())
         
     getter = getters[dataset]
 
     train_kw = dict(train=True)
     test_kw = dict(train=False)
 
-    if sept_props.get('kw_for_split'):
+    if set_props.get('kw_for_split'):
         kw_ = set.props['kw_for_split'].split()
         train_kw = {}
         train_kw[kw_[0]] = kw[1]
         test_kw = {}
         test_kw[kw_[0]] = kw[2]
 
-    directory = os.path.join(root, parentset)
+    root = set_props['root']
+    directory = root # os.path.join(root, parent_set)
+
     with suppress_stdout(log=True):
         trainset = getter(root=directory, **train_kw,
                           download=True,
                           target_transform=target_transform,
-                          transform=transforms.Compose(pre_transforms + train_transforms + transforms))
+                          transform=transforms.Compose(pre_transforms + train_transforms + post_transforms))
 
         testset = getter(root=directory, **test_kw,
                          download=True,
                          target_transform=target_transform,
-                         transform=transforms.Compose(pre_transforms + transforms))
+                         transform=transforms.Compose(pre_transforms + post_transforms))
 
         returned_sets = (trainset, testset)
         
@@ -247,8 +251,8 @@ def get_dataset(dataset='mnist',
             s.transformer = transformer
 
             # if not hasattr(s, 'classes'):
-            C = set_dict[dataset]['labels']
-            s.classes = set_dict[dataset].get('classes', [str(i) for i in range(C)])
+            C = set_props['labels']
+            s.classes = set_props.get('classes', [str(i) for i in range(C)])
                 
             s.heldout = []
             if heldout_classes:
@@ -344,8 +348,10 @@ def get_shape_by_name(set_name, transform='default', conf_file='data/sets.ini'):
         return (shape[0], shape[1] + 2 * p, shape[2] + 2 * p), num_labels
 
 
-def get_same_size_by_name(set_name, rotated=False):
+def get_same_size_by_name(set_name, rotated=False, conf_file='data/sets.ini'):
 
+    set_props = dataset_properties(conf_file=conf_file)
+    
     if set_name.endswith('-?'):
         return [set_name[:-2] + '+?']
 
@@ -358,11 +364,11 @@ def get_same_size_by_name(set_name, rotated=False):
         new_heldout = [_ for _ in range(C) if _ not in heldout]
         return [get_name_by_heldout_classes(parent_set, *new_heldout)]
         
-    if set_name not in set_dict:
+    if set_name not in set_props:
         return []
 
     shape, _ = get_shape_by_name(set_name)
-    same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
+    same_size = [s for s in set_props if set_props[s]['shape'] == shape]
     if not rotated:
         same_size.remove(set_name)
         same_size.append(set_name + '90')

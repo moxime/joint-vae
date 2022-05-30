@@ -84,12 +84,6 @@ getters = {'mnist': datasets.MNIST,
            'lsunc': datasets.LSUN,
            'lsunr': datasets.LSUN}
 
-letters_rotate = transforms.Compose([lambda img: transforms.functional.rotate(img, -90),
-                                     lambda img: transforms.functional.hflip(img)])
-
-
-getter_adapters = {'letters': dict(pretransform=letters_rotate, target_transform=lambda x: x - 1)}
-
 
 def dataset_properties(conf_file='data/sets.ini', all_keys=True):
 
@@ -146,9 +140,7 @@ def get_dataset(dataset='mnist',
                 transformer='default',
                 data_augmentation=[],
                 conf_file='data/sets.ini',
-                getters=getters,
-                getter_adapters=getter_adapters
-                ):
+                getters=getters):
 
     dataset = dataset.lower()
     
@@ -173,7 +165,9 @@ def get_dataset(dataset='mnist',
     same_size = get_same_size_by_name(get_name_by_heldout_classes(dataset, *heldout_classes))
 
     pre_transforms = []
-
+    train_transforms = []
+    transforms = []
+    
     if rotated:
         pre_transforms.append(transforms.Lambda(lambda img: transforms.functional.rotate(img, 90)))
 
@@ -191,41 +185,58 @@ def get_dataset(dataset='mnist',
 
             pre_transforms.append(transforms.Resize(shape))
 
-        elif t.startswith('crop')
+        elif t.startswith('crop'):
+            pre_transforms.append(transforms.RandomCrop(set_props[1:]))
+
+        elif t.startswith('rotate'):
+            angle = int(t.split('-')[-1])
+            pre_transforms.append(lambda img: transforms.functional.rotate(img, angle))
+
+        elif t == 'hflip':
+            pre_transforms.append(lambda img: transforms.functional.hflip(img))
 
     for t in data_augmentation:
         if t == 'flip':
             t_ = transforms.RandomHorizontalFlip()
 
         if t == 'crop':
-            size = set_dict[dataset]['shape'][1:]
+            size = set_props['shape'][1:]
             padding = 0 if 'imagenet' in dataset else size[0] // 8
             t_ = transforms.RandomCrop(size, padding=padding, padding_mode='edge')
 
         train_transforms.append(t_)
 
-    transforms =
     if transformer == 'default':
         transformer = set_props[dataset]['default']
 
+    if transformer == 'crop':
+        transforms.append(transforms.CenterCrop(set_props['shape'][1:]))
+
+    transforms.append(transforms.ToTensor())
         
-    train_transforms.append(transform)
-    train_transform = transforms.Compose(train_transforms)
+    getter = getters[dataset]
 
-    getter = set_dict[dataset]['getter']
-    if rotated:
-        getter = modify_getter(getter, pretransform=rotation)
+    train_kw = dict(train=True)
+    test_kw = dict(train=False)
 
+    if sept_props.get('kw_for_split'):
+        kw_ = set.props['kw_for_split'].split()
+        train_kw = {}
+        train_kw[kw_[0]] = kw[1]
+        test_kw = {}
+        test_kw[kw_[0]] = kw[2]
+
+    directory = os.path.join(root, parentset)
     with suppress_stdout(log=True):
-        trainset = getter(root=root, train=True,
+        trainset = getter(root=directory, **train_kw,
                           download=True,
                           target_transform=target_transform,
-                          transform=train_transform)
+                          transform=transforms.Compose(pre_transforms + train_transforms + transforms))
 
-        testset = getter(root=root, train=False,
+        testset = getter(root=directory, **test_kw,
                          download=True,
                          target_transform=target_transform,
-                         transform=transform)
+                         transform=transforms.Compose(pre_transforms + transforms))
 
         returned_sets = (trainset, testset)
         

@@ -1828,7 +1828,6 @@ class ClassificationVariationalNetwork(nn.Module):
                     # print(epoch, predict_method, m)
                     self.testing[epoch][predict_method][m] = r
                     
-                
     def train_model(self,
                     trainset=None,
                     transformer=None,
@@ -1916,6 +1915,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                                                     generator=torch.Generator().manual_seed(seed))
         
             validationset.name = 'validation'
+
+        validation_sample_size = min(validation, validation_sample_size)
             
         logging.debug('Choosing device')
         device = choose_device(device)

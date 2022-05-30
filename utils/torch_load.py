@@ -9,7 +9,7 @@ import logging
 import string
 import numpy as np
 from torchvision.utils import save_image
-
+import configparser
 
 class LoggerAsfile(object):
 
@@ -46,7 +46,6 @@ def modify_getter(getter, pretransform=None, **added_kw):
     def modified_getter(*a, **kw):
         copied_kw = added_kw.copy()
 
-
         if 'transform' in kw and pretransform:
             kw['transform'] = transforms.Compose([pretransform, kw['transform']])
 
@@ -76,81 +75,52 @@ def choose_device(device=None):
     return device
 
 
-cifar_shape = (3, 32 , 32)
-mnist_shape = (1, 28, 28)
+getters = {'mnist': datasets.MNIST,
+           'fashion': datasets.FashionMNIST,
+           'letters': datasets.EMNIST,
+           'cifar10': datasets.CIFAR10,
+           'svhn': datasets.SVHN,
+           'lsunc': datasets.LSUN,
+           'lsunr': datasets.LSUN}
 
-set_dict = {'cifar10': {'shape': (3, 32, 32),
-                        'labels':10,
-                        'classes': ['airplane', 'automobile', 'bird', 'cat', 'deer',
-                                    'dog', 'frog', 'horse', 'ship', 'truck'],
-                        'default': 'simple',
-                        'means': (0.4914, 0.4822, 0.4465), 
-                        'stds': (0.2023, 0.1994, 0.2010),
-                        'getter': datasets.CIFAR10},
+letters_rotate = transforms.Compose([lambda img: transforms.functional.rotate(img, -90),
+                                     lambda img: transforms.functional.hflip(img)])
+
+
+getter_adapters = {'letters': dict(pretransform=letters_rotate, target_transform=lambda x: x - 1)}
+
+
+def dataset_properties(conf_file='data/sets.ini'):
+
+    parsed_props = configparser.ConfigParser()
+    parsed_props.read(conf_file)
+
+    properties = {}
+    
+    for s in parsed_props.sections():
+
+        p_ = parsed_props[s]
+        print('***', *list(p_.keys()))
+        p = {}
+        p['shape'] = tuple(int(_) for _ in p_['shape'].split())
+
+        if 'classes_from_files' in p_:
+            pass
+        elif 'classes' in p_:
+            classes = p_.get('classes', '')
+            if classes.startswith('$'):
+                if classes == '$letters':
+                    p['classes'] = list(string.ascii_lowercase)
+                elif classes == '$numbers':
+                    p['classes'] = [str(_) for _ in range(10)]
+            elif classes:
+                p['classes'] = classes.split()
+        else:
+            p['classes'] = None
             
-            'mnist': {'shape': (1, 28, 28),
-                      'labels':10,
-                      'classes': [str(i) for i in range(10)],
-                      'default': 'simple',
-                      'getter': datasets.MNIST}
-            }
+        properties[s] = p
 
-set_dict['fashion'] = set_dict['mnist'].copy()
-set_dict['fashion']['getter'] = datasets.FashionMNIST
-set_dict['fashion']['classes'] = datasets.FashionMNIST.classes
-
-
-set_dict['letters'] = set_dict['mnist'].copy()
-
-pretransform = transforms.Compose([
-                    lambda img: transforms.functional.rotate(img, -90),
-                    lambda img: transforms.functional.hflip(img)])
-
-set_dict['letters'].update({'classes': list(string.ascii_lowercase),
-                            'labels': 26,
-                            'getter': modify_getter(datasets.EMNIST,
-                                                    pretransform=pretransform,
-                                                    target_transform=lambda x: x - 1,
-                                                    split='letters')})
-
-
-set_dict['lsunc'] = set_dict['cifar10'].copy()
-
-crop_transform = transforms.RandomCrop((32, 32))
-resize_transform = transforms.Resize((32, 32))
-
-
-def _lsun_getter(train=True, download=True, root='./data', **kw):
-
-    if train:
-        return None
-
-    root = os.path.join(root, 'lsun')
-    set_ = datasets.LSUN(classes='test', root=root, **kw)
-    return set_
-
-
-set_dict['lsunc'] = set_dict['cifar10'].copy()
-set_dict['lsunc'].pop('means')
-set_dict['lsunc'].pop('stds')
-set_dict['lsunc'].pop('classes')
-set_dict['lsunc']['getter'] = modify_getter(_lsun_getter, pretransform=crop_transform)
-
-set_dict['lsunr'] = set_dict['lsunc'].copy()
-set_dict['lsunr']['getter'] = modify_getter(_lsun_getter, pretransform=resize_transform)
-
-
-def _svhn_getter(train=True, **kw):
-    set_ = datasets.SVHN(split='train' if train else 'test', **kw)    
-    set_.classes = [str(i) for i in range(10)]
-    return set_
-
-
-set_dict['svhn'] = set_dict['cifar10'].copy()
-set_dict['svhn'].pop('means')
-set_dict['svhn'].pop('stds')
-set_dict['svhn']['classes'] = [str(i) for i in range(10)]
-set_dict['svhn']['getter'] = _svhn_getter
+    return properties
 
 
 def _imagenet_getter(train=True, download=False, root='./data', **kw):
@@ -161,32 +131,18 @@ def _imagenet_getter(train=True, download=False, root='./data', **kw):
 
 
 imagenet_classes = [_[0] for _ in _imagenet_getter().classes]
-set_dict['imagenet12'] = dict(shape=(3, 224, 224),
-                              labels=len(imagenet_classes),
-                              classes=imagenet_classes,
-                              default='crop')
-
-set_dict['imagenet12']['getter'] = modify_getter(_imagenet_getter,
-                                                 pretransform=transforms.Resize(256))
 
 
-transformers = {'simple': {n: transforms.ToTensor() for n in set_dict}}
+def get_dataset(dataset='mnist', 
+                transformer='default',
+                data_augmentation=[],
+                conf_file='data/sets.ini',
+                getters=getters,
+                getter_adapters=getter_adapters
+                ):
 
-transformers['normal'] = {n: transforms.Compose([transforms.ToTensor(),
-                                                transforms.Normalize(set_dict[n].get('means', 0),
-                                                                     set_dict[n].get('stds', 1))])
-                          for n in set_dict}
-
-transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTensor()])
-                       for n in set_dict}
-
-transformers['crop'] = {}
-transformers['crop']['imagenet12'] = transforms.Compose([transforms.CenterCrop(224),
-                                                         transforms.ToTensor()])
-
-
-def get_dataset(dataset='MNIST', root='./data', 
-                transformer='default', data_augmentation=[]):
+    parsed_config = configparser.ConfigParser()
+    parsed_config.read(conf_file)
 
     dataset = dataset.lower()
     rotated = dataset.endswith('90')
@@ -329,8 +285,10 @@ def get_shape(dataset):
     return tuple(data[0][0].shape), num_labels
 
 
-def get_shape_by_name(set_name, transform='default'):
+def get_shape_by_name(set_name, transform='default', conf_file='data/sets.ini'):
 
+    set_props = dataset_properties(conf_file)
+    
     if set_name.endswith('90'):
         shape, labels = get_shape_by_name(set_name[:-2])
         shape = (shape[0], shape[2], shape[1])
@@ -338,16 +296,16 @@ def get_shape_by_name(set_name, transform='default'):
         
     set_name, heldout = get_heldout_classes_by_name(set_name)
 
-    if set_name not in set_dict:
+    if set_name not in set_props:
         return None, None
         
-    shape = set_dict[set_name]['shape']
-    num_labels = set_dict[set_name]['labels'] - len(heldout)
+    shape = set_props[set_name]['shape']
+    num_labels = set_props[set_name]['labels'] - len(heldout)
     if transform != 'pad':
-        return set_dict[set_name]['shape'], num_labels
+        return set_props[set_name]['shape'], num_labels
     p = transformers['pad'][set_name].transforms[0].padding
     if len(shape)==3:
-        return (shape[0], shape[1] + 2 * p, shape[2] + 2 *p), num_labels
+        return (shape[0], shape[1] + 2 * p, shape[2] + 2 * p), num_labels
 
 
 def get_same_size_by_name(set_name, rotated=False):

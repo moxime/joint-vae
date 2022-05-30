@@ -11,6 +11,7 @@ import numpy as np
 from torchvision.utils import save_image
 import configparser
 
+
 class LoggerAsfile(object):
 
     def write(self, s):
@@ -90,7 +91,7 @@ letters_rotate = transforms.Compose([lambda img: transforms.functional.rotate(im
 getter_adapters = {'letters': dict(pretransform=letters_rotate, target_transform=lambda x: x - 1)}
 
 
-def dataset_properties(conf_file='data/sets.ini'):
+def dataset_properties(conf_file='data/sets.ini', all_keys=True):
 
     parsed_props = configparser.ConfigParser()
     parsed_props.read(conf_file)
@@ -100,12 +101,11 @@ def dataset_properties(conf_file='data/sets.ini'):
     for s in parsed_props.sections():
 
         p_ = parsed_props[s]
-        print('***', *list(p_.keys()))
         p = {}
         p['shape'] = tuple(int(_) for _ in p_['shape'].split())
 
         if 'classes_from_files' in p_:
-            pass
+            p['classes'] = []
         elif 'classes' in p_:
             classes = p_.get('classes', '')
             if classes.startswith('$'):
@@ -117,7 +117,16 @@ def dataset_properties(conf_file='data/sets.ini'):
                 p['classes'] = classes.split()
         else:
             p['classes'] = None
-            
+
+        p['labels'] = 0 if not p['classes'] else len(p['classes'])
+
+        if all_keys:
+            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split')
+        else:
+            keys = ()
+        for k in keys:
+            p[k] = p_.get(k)
+        
         properties[s] = p
 
     return properties
@@ -141,14 +150,14 @@ def get_dataset(dataset='mnist',
                 getter_adapters=getter_adapters
                 ):
 
-    parsed_config = configparser.ConfigParser()
-    parsed_config.read(conf_file)
-
     dataset = dataset.lower()
+    
     rotated = dataset.endswith('90')
+    
     if rotated:
         dataset = dataset[:-2]
-        rotation = transforms.Lambda(lambda img: transforms.functional.rotate(img, 90))
+
+    set_props = dataset_properties(conf_file=conf_file, all_keys=True)[dataset]
 
     target_transform = None
     parent_set, heldout_classes = get_heldout_classes_by_name(dataset)
@@ -160,18 +169,29 @@ def get_dataset(dataset='mnist',
         d = {c: i for (i, c) in enumerate(heldin)}
         d.update({_: -1 for _ in heldout_classes})
         target_transform =  d.get
-
-    if transformer == 'default':
-        transformer = set_dict[dataset]['default']
-
-    transform = transformers[transformer][dataset]
-
-    # shape = set_dict[dataset]['shape']
-    # same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
-    # same_size.remove(dataset)
+        
     same_size = get_same_size_by_name(get_name_by_heldout_classes(dataset, *heldout_classes))
 
-    train_transforms = []
+    pre_transforms = []
+
+    if rotated:
+        pre_transforms.append(transforms.Lambda(lambda img: transforms.functional.rotate(img, 90)))
+
+    pre_transform = set_props.get('pre_transform', '')
+    for t in pre_transform.split():
+
+        if t.startswith('resize'):
+            shape = t.split('-')[1:]
+            if not shape:
+                shape = tuple(set_props['shape'][1:])
+            if len(shape) == 1:
+                shape = int(shape[0])
+            else:
+                shape = tuple(int(_) for _ in shape)
+
+            pre_transforms.append(transforms.Resize(shape))
+
+        elif t.startswith('crop')
 
     for t in data_augmentation:
         if t == 'flip':
@@ -184,6 +204,11 @@ def get_dataset(dataset='mnist',
 
         train_transforms.append(t_)
 
+    transforms =
+    if transformer == 'default':
+        transformer = set_props[dataset]['default']
+
+        
     train_transforms.append(transform)
     train_transform = transforms.Compose(train_transforms)
 
@@ -303,7 +328,7 @@ def get_shape_by_name(set_name, transform='default', conf_file='data/sets.ini'):
     num_labels = set_props[set_name]['labels'] - len(heldout)
     if transform != 'pad':
         return set_props[set_name]['shape'], num_labels
-    p = transformers['pad'][set_name].transforms[0].padding
+    p = 2
     if len(shape)==3:
         return (shape[0], shape[1] + 2 * p, shape[2] + 2 * p), num_labels
 

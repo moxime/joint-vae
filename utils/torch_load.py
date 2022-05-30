@@ -76,9 +76,13 @@ def choose_device(device=None):
     return device
 
 
+def letters_getter(**kw):
+    return datasets.EMNIST(split='letters', **kw)
+
+
 getters = {'mnist': datasets.MNIST,
            'fashion': datasets.FashionMNIST,
-           'letters': datasets.EMNIST,
+           'letters': letters_getter,
            'cifar10': datasets.CIFAR10,
            'svhn': datasets.SVHN,
            'lsunc': datasets.LSUN,
@@ -140,6 +144,7 @@ def get_dataset(dataset='mnist',
                 transformer='default',
                 data_augmentation=[],
                 conf_file='data/sets.ini',
+                splits=['train', 'test'],
                 getters=getters):
 
     dataset = dataset.lower()
@@ -149,10 +154,11 @@ def get_dataset(dataset='mnist',
     if rotated:
         dataset = dataset[:-2]
 
-    set_props = dataset_properties(conf_file=conf_file, all_keys=True)[dataset]
 
     target_transform = None
     parent_set, heldout_classes = get_heldout_classes_by_name(dataset)
+
+    set_props = dataset_properties(conf_file=conf_file, all_keys=True)[parent_set]
     
     if heldout_classes:
         dataset = parent_set
@@ -186,7 +192,7 @@ def get_dataset(dataset='mnist',
             pre_transforms.append(transforms.Resize(shape))
 
         elif t.startswith('crop'):
-            pre_transforms.append(transforms.RandomCrop(set_props[1:]))
+            pre_transforms.append(transforms.RandomCrop(set_props['shape'][1:]))
 
         elif t.startswith('rotate'):
             angle = int(t.split('-')[-1])
@@ -207,7 +213,7 @@ def get_dataset(dataset='mnist',
         train_transforms.append(t_)
 
     if transformer == 'default':
-        transformer = set_props['default']
+        transformer = set_props['default_transform']
 
     if transformer == 'crop':
         post_transforms.append(transforms.CenterCrop(set_props['shape'][1:]))
@@ -222,26 +228,31 @@ def get_dataset(dataset='mnist',
     test_kw = dict(train=False)
 
     if set_props.get('kw_for_split'):
-        kw_ = set.props['kw_for_split'].split()
+        kw_ = set_props['kw_for_split'].split()
         train_kw = {}
-        train_kw[kw_[0]] = kw[1]
+        train_kw[kw_[0]] = kw_[1]
         test_kw = {}
-        test_kw[kw_[0]] = kw[2]
+        test_kw[kw_[0]] = kw_[2]
 
+    print(train_kw.items())
+        
     root = set_props['root']
     directory = root # os.path.join(root, parent_set)
 
     with suppress_stdout(log=True):
-        trainset = getter(root=directory, **train_kw,
-                          download=True,
-                          target_transform=target_transform,
-                          transform=transforms.Compose(pre_transforms + train_transforms + post_transforms))
+        if 'train' in splits:
+            trainset = getter(root=directory, **train_kw,
+                              target_transform=target_transform,
+                              transform=transforms.Compose(pre_transforms + train_transforms + post_transforms))
+        else:
+            trainset = None
 
-        testset = getter(root=directory, **test_kw,
-                         download=True,
-                         target_transform=target_transform,
-                         transform=transforms.Compose(pre_transforms + post_transforms))
-
+        if 'test' in splits:
+            testset = getter(root=directory, **test_kw,
+                             target_transform=target_transform,
+                             transform=transforms.Compose(pre_transforms + post_transforms))
+        else:
+            testset = None
         returned_sets = (trainset, testset)
         
     for s in returned_sets:
@@ -447,7 +458,7 @@ def show_images(imageset, shuffle=True, num=4, **kw):
     labels = y
     try:
         classes = [imageset.classes[y] for y in labels]
-    except AttributeError:
+    except (AttributeError, TypeError):
         classes = [str(y.numpy()) for y in labels]
 
     legend = ' - '.join(classes)

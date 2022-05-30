@@ -9,6 +9,7 @@ import logging
 import string
 import numpy as np
 from torchvision.utils import save_image
+import configparser
 
 
 class LoggerAsfile(object):
@@ -24,7 +25,7 @@ laf = LoggerAsfile()
 def suppress_stdout(log=False):
     with open(os.devnull, "w") as dev_null:
         orig = sys.stdout
-        sys.stdout = laf if log else dev_null
+        # sys.stdout = laf if log else dev_null
         try:
             yield
         finally:
@@ -45,7 +46,6 @@ def modify_getter(getter, pretransform=None, **added_kw):
 
     def modified_getter(*a, **kw):
         copied_kw = added_kw.copy()
-
 
         if 'transform' in kw and pretransform:
             kw['transform'] = transforms.Compose([pretransform, kw['transform']])
@@ -76,126 +76,142 @@ def choose_device(device=None):
     return device
 
 
-cifar_shape = (3, 32 , 32)
-mnist_shape = (1, 28, 28)
+def letters_getter(**kw):
+    return datasets.EMNIST(split='letters', **kw)
 
-set_dict = {'cifar10': {'shape': (3, 32, 32),
-                        'labels':10,
-                        'classes': ['airplane', 'automobile', 'bird', 'cat', 'deer',
-                                    'dog', 'frog', 'horse', 'ship', 'truck'],
-                        'default': 'simple',
-                        'means': (0.4914, 0.4822, 0.4465), 
-                        'stds': (0.2023, 0.1994, 0.2010),
-                        'getter': datasets.CIFAR10},
+
+class ImageFolderWithClassesInFile(datasets.ImageFolder):
+
+    def __init__(self, root, classes_file, *a, **kw):
+
+        self.root = root
+        self._classes_file = classes_file
+        self._compile_dict()
+        
+        super().__init__(root, *a, **kw)
+
+    def _compile_dict(self):
+        self.node_to_idx = {}
+        self.idx_to_class = {}
+        self.idx_to_node = {}
+
+        with open(self._classes_file) as f:
+            i = 0
+            for line in f:
+                if not line.startswith('#'):
+                    splitted_line = line.split()
+                    node = splitted_line[0]
+                    classi = ' '.join(splitted_line[1:])
+                    self.node_to_idx[node] = i
+                    self.idx_to_class[i] = classi
+                    self.idx_to_node[i] = node
+                    i += 1
+                    
+            self.classes = [self.idx_to_class[i] for i in range(len(self.idx_to_class))]             
+            self.nodes = [self.idx_to_node[i] for i in range(len(self.idx_to_class))]             
             
-            'mnist': {'shape': (1, 28, 28),
-                      'labels':10,
-                      'classes': [str(i) for i in range(10)],
-                      'default': 'simple',
-                      'getter': datasets.MNIST}
-            }
+    def find_classes(self, directory):
 
-set_dict['fashion'] = set_dict['mnist'].copy()
-set_dict['fashion']['getter'] = datasets.FashionMNIST
-set_dict['fashion']['classes'] = datasets.FashionMNIST.classes
+        classes = self.nodes
+        return classes, self.node_to_idx
 
 
-set_dict['letters'] = set_dict['mnist'].copy()
+def create_image_dataset(classes_file):
 
-pretransform = transforms.Compose([
-                    lambda img: transforms.functional.rotate(img, -90),
-                    lambda img: transforms.functional.hflip(img)])
+    class Dataset(ImageFolderWithClassesInFile):
 
-set_dict['letters'].update({'classes': list(string.ascii_lowercase),
-                            'labels': 26,
-                            'getter': modify_getter(datasets.EMNIST,
-                                                    pretransform=pretransform,
-                                                    target_transform=lambda x: x - 1,
-                                                    split='letters')})
+        def __init__(self, root, *a, **kw):
+             super().__init__(root, classes_file, *a, **kw)
+
+    return Dataset
 
 
-set_dict['lsunc'] = set_dict['cifar10'].copy()
-
-crop_transform = transforms.RandomCrop((32, 32))
-resize_transform = transforms.Resize((32, 32))
-
-
-def _lsun_getter(train=True, download=True, root='./data', **kw):
-
-    if train:
-        return None
-
-    root = os.path.join(root, 'lsun')
-    set_ = datasets.LSUN(classes='test', root=root, **kw)
-    return set_
+getters = {'mnist': datasets.MNIST,
+           'fashion': datasets.FashionMNIST,
+           'letters': letters_getter,
+           'cifar10': datasets.CIFAR10,
+           'svhn': datasets.SVHN,
+           'lsunc': datasets.LSUN,
+           'lsunr': datasets.LSUN,
+           }
 
 
-set_dict['lsunc'] = set_dict['cifar10'].copy()
-set_dict['lsunc'].pop('means')
-set_dict['lsunc'].pop('stds')
-set_dict['lsunc'].pop('classes')
-set_dict['lsunc']['getter'] = modify_getter(_lsun_getter, pretransform=crop_transform)
+def dataset_properties(conf_file='data/sets.ini', all_keys=True):
 
-set_dict['lsunr'] = set_dict['lsunc'].copy()
-set_dict['lsunr']['getter'] = modify_getter(_lsun_getter, pretransform=resize_transform)
+    parsed_props = configparser.ConfigParser()
+    parsed_props.read(conf_file)
 
+    properties = {}
+    
+    for s in parsed_props.sections():
 
-def _svhn_getter(train=True, **kw):
-    set_ = datasets.SVHN(split='train' if train else 'test', **kw)    
-    set_.classes = [str(i) for i in range(10)]
-    return set_
+        p_ = parsed_props[s]
+        p = {}
+        p['shape'] = tuple(int(_) for _ in p_['shape'].split())
 
+        if 'classes_from_file' in p_:
+            p['classes'] = []
+            class_file = p_['classes_from_file']
+            with open(class_file) as f:
+                for i, line in enumerate(f):
+                    if not line.startswith('#'):
+                        splitted_line = line.split()
+                        p['classes'].append(' '.join(splitted_line[1:]))
+                                            
+        elif 'classes' in p_:
+            classes = p_.get('classes', '')
+            if classes.startswith('$'):
+                if classes == '$letters':
+                    p['classes'] = list(string.ascii_lowercase)
+                elif classes == '$numbers':
+                    p['classes'] = [str(_) for _ in range(10)]
+            elif classes:
+                p['classes'] = classes.split()
+        else:
+            p['classes'] = None
 
-set_dict['svhn'] = set_dict['cifar10'].copy()
-set_dict['svhn'].pop('means')
-set_dict['svhn'].pop('stds')
-set_dict['svhn']['classes'] = [str(i) for i in range(10)]
-set_dict['svhn']['getter'] = _svhn_getter
+        p['labels'] = 0 if not p['classes'] else len(p['classes'])
 
+        if all_keys:
+            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split', 'root', 'classes_from_file')
+        else:
+            keys = ()
+        for k in keys:
+            p[k] = p_.get(k)
+        
+        properties[s] = p
 
-def _imagenet_getter(train=True, download=False, root='./data', **kw):
-
-    dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet12'), split='train' if train else 'val',
-                             **kw)
-    return dset
-
-
-imagenet_classes = [_[0] for _ in _imagenet_getter().classes]
-set_dict['imagenet12'] = dict(shape=(3, 224, 224),
-                              labels=len(imagenet_classes),
-                              classes=imagenet_classes,
-                              default='crop')
-
-set_dict['imagenet12']['getter'] = modify_getter(_imagenet_getter,
-                                                 pretransform=transforms.Resize(256))
-
-
-transformers = {'simple': {n: transforms.ToTensor() for n in set_dict}}
-
-transformers['normal'] = {n: transforms.Compose([transforms.ToTensor(),
-                                                transforms.Normalize(set_dict[n].get('means', 0),
-                                                                     set_dict[n].get('stds', 1))])
-                          for n in set_dict}
-
-transformers['pad'] = {n: transforms.Compose([transforms.Pad(2), transforms.ToTensor()])
-                       for n in set_dict}
-
-transformers['crop'] = {}
-transformers['crop']['imagenet12'] = transforms.Compose([transforms.CenterCrop(224),
-                                                         transforms.ToTensor()])
+    return properties
 
 
-def get_dataset(dataset='MNIST', root='./data', 
-                transformer='default', data_augmentation=[]):
+# def _imagenet_getter(train=True, download=False, root='./data', **kw):
+
+#     dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet12'), split='train' if train else 'val',
+#                              **kw)
+#     return dset
+
+
+# imagenet_classes = [_[0] for _ in _imagenet_getter().classes]
+
+
+def get_dataset(dataset='mnist', 
+                transformer='default',
+                data_augmentation=[],
+                conf_file='data/sets.ini',
+                splits=['train', 'test'],
+                getters=getters):
 
     dataset = dataset.lower()
+    
     rotated = dataset.endswith('90')
+    
     if rotated:
         dataset = dataset[:-2]
-        rotation = transforms.Lambda(lambda img: transforms.functional.rotate(img, 90))
 
     target_transform = None
     parent_set, heldout_classes = get_heldout_classes_by_name(dataset)
+
+    set_props = dataset_properties(conf_file=conf_file, all_keys=True)[parent_set]
     
     if heldout_classes:
         dataset = parent_set
@@ -204,49 +220,110 @@ def get_dataset(dataset='MNIST', root='./data',
         d = {c: i for (i, c) in enumerate(heldin)}
         d.update({_: -1 for _ in heldout_classes})
         target_transform =  d.get
-
-    if transformer == 'default':
-        transformer = set_dict[dataset]['default']
-
-    transform = transformers[transformer][dataset]
-
-    # shape = set_dict[dataset]['shape']
-    # same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
-    # same_size.remove(dataset)
+        
     same_size = get_same_size_by_name(get_name_by_heldout_classes(dataset, *heldout_classes))
 
+    pre_transforms = []
     train_transforms = []
+    post_transforms = []
+    
+    if rotated:
+        pre_transforms.append(transforms.Lambda(lambda img: transforms.functional.rotate(img, 90)))
+
+    pre_transform = set_props.get('pre_transform') or ''
+    for t in pre_transform.split():
+
+        if t.startswith('resize'):
+            shape = t.split('-')[1:]
+            if not shape:
+                shape = tuple(set_props['shape'][1:])
+            if len(shape) == 1:
+                shape = int(shape[0])
+            else:
+                shape = tuple(int(_) for _ in shape)
+
+            pre_transforms.append(transforms.Resize(shape))
+
+        elif t.startswith('crop'):
+            pre_transforms.append(transforms.RandomCrop(set_props['shape'][1:]))
+
+        elif t.startswith('rotate'):
+            angle = int(t.split('-')[-1])
+            pre_transforms.append(lambda img: transforms.functional.rotate(img, angle))
+
+        elif t == 'hflip':
+            pre_transforms.append(lambda img: transforms.functional.hflip(img))
 
     for t in data_augmentation:
         if t == 'flip':
             t_ = transforms.RandomHorizontalFlip()
 
         if t == 'crop':
-            size = set_dict[dataset]['shape'][1:]
+            size = set_props['shape'][1:]
             padding = 0 if 'imagenet' in dataset else size[0] // 8
             t_ = transforms.RandomCrop(size, padding=padding, padding_mode='edge')
 
         train_transforms.append(t_)
 
-    train_transforms.append(transform)
-    train_transform = transforms.Compose(train_transforms)
+    if transformer == 'default':
+        transformer = set_props['default_transform']
 
-    getter = set_dict[dataset]['getter']
-    if rotated:
-        getter = modify_getter(getter, pretransform=rotation)
+    if transformer == 'crop':
+        post_transforms.append(transforms.CenterCrop(set_props['shape'][1:]))
+    elif transformer == 'pad':
+        post_transforms.append(transforms.Pad(2))
 
+    post_transforms.append(transforms.ToTensor())
+
+    if set_props.get('folder'):
+        getter = create_image_dataset(set_props['classes_from_file'])
+    else:
+        getter = getters[dataset]
+
+    root = set_props['root']
+    directory = root # os.path.join(root, parent_set)
+    
+    train_kw = {}
+    test_kw = {}
+
+    if set_props.get('folder'):
+        root = set_props['folder']
+        kw_ = (set_props.get('kw_for_split') or 'root {}/train {}/test').format(root, root).split()
+        train_kw[kw_[0]] = kw_[1]
+        test_kw[kw_[0]] = kw_[2] 
+
+    elif set_props.get('kw_for_split'):
+        kw_ = set_props['kw_for_split'].split()
+        train_kw = {}
+        train_kw[kw_[0]] = kw_[1]
+        test_kw = {}
+        test_kw[kw_[0]] = kw_[2]
+        for kw in train_kw, test_kw:
+            kw['root'] = directory
+    else:
+        train_kw = dict(train=True, root=directory)
+        test_kw = dict(train=False, root=directory)
+            
     with suppress_stdout(log=True):
-        trainset = getter(root=root, train=True,
-                          download=True,
-                          target_transform=target_transform,
-                          transform=train_transform)
+        if 'train' in splits:
+            trainset = getter(**train_kw,
+                              target_transform=target_transform,
+                              transform=transforms.Compose(pre_transforms + train_transforms + post_transforms))
+        else:
+            trainset = None
 
-        testset = getter(root=root, train=False,
-                         download=True,
-                         target_transform=target_transform,
-                         transform=transform)
-
+        if 'test' in splits:
+            testset = getter(**test_kw,
+                             target_transform=target_transform,
+                             transform=transforms.Compose(pre_transforms + post_transforms))
+        else:
+            testset = None
         returned_sets = (trainset, testset)
+
+    if set_props.get('classes_from_file'):
+        for s in returned_sets:
+            if s is not None:
+                s.classes_file = set_props['classes_from_file']
         
     for s in returned_sets:
         if s is not None:
@@ -255,8 +332,8 @@ def get_dataset(dataset='MNIST', root='./data',
             s.transformer = transformer
 
             # if not hasattr(s, 'classes'):
-            C = set_dict[dataset]['labels']
-            s.classes = set_dict[dataset].get('classes', [str(i) for i in range(C)])
+            C = set_props['labels']
+            s.classes = set_props.get('classes', [str(i) for i in range(C)])
                 
             s.heldout = []
             if heldout_classes:
@@ -329,8 +406,10 @@ def get_shape(dataset):
     return tuple(data[0][0].shape), num_labels
 
 
-def get_shape_by_name(set_name, transform='default'):
+def get_shape_by_name(set_name, transform='default', conf_file='data/sets.ini'):
 
+    set_props = dataset_properties(conf_file)
+    
     if set_name.endswith('90'):
         shape, labels = get_shape_by_name(set_name[:-2])
         shape = (shape[0], shape[2], shape[1])
@@ -338,20 +417,22 @@ def get_shape_by_name(set_name, transform='default'):
         
     set_name, heldout = get_heldout_classes_by_name(set_name)
 
-    if set_name not in set_dict:
+    if set_name not in set_props:
         return None, None
         
-    shape = set_dict[set_name]['shape']
-    num_labels = set_dict[set_name]['labels'] - len(heldout)
+    shape = set_props[set_name]['shape']
+    num_labels = set_props[set_name]['labels'] - len(heldout)
     if transform != 'pad':
-        return set_dict[set_name]['shape'], num_labels
-    p = transformers['pad'][set_name].transforms[0].padding
+        return set_props[set_name]['shape'], num_labels
+    p = 2
     if len(shape)==3:
-        return (shape[0], shape[1] + 2 * p, shape[2] + 2 *p), num_labels
+        return (shape[0], shape[1] + 2 * p, shape[2] + 2 * p), num_labels
 
 
-def get_same_size_by_name(set_name, rotated=False):
+def get_same_size_by_name(set_name, rotated=False, conf_file='data/sets.ini'):
 
+    set_props = dataset_properties(conf_file=conf_file)
+    
     if set_name.endswith('-?'):
         return [set_name[:-2] + '+?']
 
@@ -364,11 +445,11 @@ def get_same_size_by_name(set_name, rotated=False):
         new_heldout = [_ for _ in range(C) if _ not in heldout]
         return [get_name_by_heldout_classes(parent_set, *new_heldout)]
         
-    if set_name not in set_dict:
+    if set_name not in set_props:
         return []
 
     shape, _ = get_shape_by_name(set_name)
-    same_size = [s for s in set_dict if set_dict[s]['shape'] == shape]
+    same_size = [s for s in set_props if set_props[s]['shape'] == shape]
     if not rotated:
         same_size.remove(set_name)
         same_size.append(set_name + '90')
@@ -446,8 +527,8 @@ def show_images(imageset, shuffle=True, num=4, **kw):
     npimages = torchvision.utils.make_grid(x[:num]).numpy().transpose(1, 2, 0)
     labels = y
     try:
-        classes = [imageset.classes[y] for y in labels]
-    except AttributeError:
+        classes = [str(y.numpy()) + imageset.classes[y] for y in labels]
+    except (AttributeError, TypeError):
         classes = [str(y.numpy()) for y in labels]
 
     legend = ' - '.join(classes)

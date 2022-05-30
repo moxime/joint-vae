@@ -1,40 +1,31 @@
 from __future__ import print_function
 
 import torch
-import data.torch_load as torchdl
+import utils.torch_load as tl
 import time
 
-device = torch.device('cpu')
-device = torch.device('cuda')
-shuffle = False
-shuffle = True
-batch_size = 512
-pin_memory = False
-pin_memory = True
-transformer = 'pad'
+dataset = 'letters'
+dataset = 'svhn'
+dataset = 'lsunr'
+dataset = 'cifar10+3'
+dataset = 'mnist'
+dataset = 'imagenet21k'
+
 transformer = 'default'
 
-trainset, testset = torchdl.get_dataset('letters', transformer=transformer)
-trainset, testset = torchdl.get_dataset('lsunc', transformer=transformer)
+da = ['flip', 'crop']
+da = []
 
-testloader = torch.utils.data.DataLoader(testset,
-                                         pin_memory=pin_memory,
-                                         num_workers=10,
-                                         batch_size=batch_size,
-                                         shuffle=shuffle)
+splits = ['test']
+splits = ['train', 'test']
+train, test = tl.get_dataset(dataset, data_augmentation=da, transformer=transformer, splits=splits)
 
-test_iterator = iter(testloader)
+print('*** TRAIN')
+print(train)
 
-nbatch = len(testset) // batch_size
+print('*** TEST')
+print(test)
 
-t0 = time.time()
-
-for i in range(nbatch):
-
-    data = next(test_iterator)
-    x, y = (d.to(device) for d in data)
-
-    t = time.time() - t0
-    print(f'\r{t / (i + 1) / batch_size * 1e6:6.0f} mus / i', end='')
-
-print()
+x, y = tl.get_batch(test)
+print(y.max().item())
+tl.show_images(test, num=4)

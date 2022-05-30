@@ -171,7 +171,7 @@ if __name__ == '__main__':
 
         dataset, transformer = args.dataset, args.transformer
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)  # 
-        oodsets = [torchdl.get_dataset(n, transformer=transformer)[1]
+        oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
 
         data_augmentation = args.data_augmentation

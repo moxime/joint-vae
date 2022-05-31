@@ -449,8 +449,6 @@ class Encoder(nn.Module):
         self.dense_mean = nn.Linear(input_dim, latent_dim)
         self.dense_log_var = nn.Linear(input_dim, latent_dim)
 
-        self.var_mitigate = nn.Tanh()
-
         self.sigma_output_dim = sigma_output_dim
         if sigma_output_dim:
             self.sigma = nn.Linear(input_dim, np.prod(sigma_output_dim))
@@ -561,10 +559,6 @@ class Encoder(nn.Module):
         else:
             z_log_var = self.dense_log_var(u)
 
-        z_log_var = self.var_mitigate(z_log_var) * 2 - 1
-        z_mean = self.var_mitigate(z_mean) * 2 - 1
-
-        
         z, e = self.sampling(z_mean, z_log_var)
 
         if self.sigma_output_dim:

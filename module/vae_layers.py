@@ -561,8 +561,8 @@ class Encoder(nn.Module):
         else:
             z_log_var = self.dense_log_var(u)
 
-        z_log_var = self.var_mitigate(z_log_var) * 12 - 6
-        z_mean = self.var_mitigate(z_mean) * 12 - 6
+        z_log_var = self.var_mitigate(z_log_var) * 2 - 1
+        z_mean = self.var_mitigate(z_mean) * 2 - 1
 
         
         z, e = self.sampling(z_mean, z_log_var)

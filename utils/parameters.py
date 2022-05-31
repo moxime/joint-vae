@@ -307,6 +307,8 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--optimizer', choices=('sgd', 'adam'))
     parser.add_argument('--lr', default=0, type=float)
+    parser.add_argument('--wd', default=0, type=float, dest='weight_decay')
+
     parser.add_argument('--lr-decay', default=0, type=float)
     
     help = 'Find by job number and resume begun training'

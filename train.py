@@ -103,6 +103,7 @@ if __name__ == '__main__':
             'optim_type': args.optimizer,
             'lr': args.lr,
             'lr_decay':args.lr_decay,
+            'weight_decay':args.weight_decay
             }
 
         input_shape, num_labels = torchdl.get_shape_by_name(args.dataset, args.transformer)

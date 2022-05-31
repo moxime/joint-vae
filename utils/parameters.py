@@ -269,7 +269,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--features', metavar='NAME',)
                         # choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none',])
 
-    parser.add_argument('--pretrained-features', metavar='feat.pth')
+    parser.add_argument('--pretrained-features', metavar='feat.pth', nargs='?', const='online')
     parser.add_argument('--no-features', action='store_true')
 
     parser.add_argument('--pretrained-upsampler', metavar='upsampler.pth')

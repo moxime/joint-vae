@@ -219,7 +219,9 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_norm_decoder = batch_norm == 'both'
         if features:
             logging.debug('Building features')
-            if pretrained_features:
+            if pretrained_features == 'online':
+                feat_dict = True
+            elif pretrained_features:
                 feat_dict = torch.load(pretrained_features)
             else:
                 feat_dict = None

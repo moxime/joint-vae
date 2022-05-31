@@ -8,7 +8,7 @@ default_lr = {'sgd': 0.01,
               'adam': 0.001}
 
 params_by_type = {'sgd': ('momentum', 'nesterov', 'weight_decay'),
-                  'adam': ('betas', 'weight_decay', 'amsgrad')}
+                  'adam': ('betas', 'weight_decay', 'amsgrad', 'weight_decay')}
 
 class Optimizer:
         

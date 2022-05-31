@@ -549,7 +549,7 @@ class Encoder(nn.Module):
                 print(torch.isnan(p).sum().item(), 'nans in',
                       'parameters of size',
                        *p.shape)  
-            raise ValueError('ERROR')
+            # raise ValueError('ERROR')
 
         z_mean = self.dense_mean(u)
 

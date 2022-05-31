@@ -293,6 +293,11 @@ class VGGFeatures(nn.Sequential):
                 logging.debug('% state injection successful')
             else:
                 logging.error('Model %s not found in zoo', model_name)
+        if vgg_name not in vgg_cfg:
+            self.name = 'vgg-' + '-'.join(str(c) for c in channels)
+            self.architecture['features_channels'] = channels
+        else:
+            self.name = vgg_name 
 
     def _make_layers(self, cfg, input_shape, batch_norm):
         layers = []

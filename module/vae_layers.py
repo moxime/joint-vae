@@ -285,14 +285,14 @@ class VGGFeatures(nn.Sequential):
 
         self.pretrained = pretrained
         if pretrained:
-            self.load_state_dict(pretrained)
-            for p in self.parameters():
-                p.requires_grad_(False)
-        if vgg_name not in vgg_cfg:
-            self.name = 'vgg-' + '-'.join(str(c) for c in channels)
-            self.architecture['features_channels'] = channels
-        else:
-            self.name = vgg_name 
+            model_name = vgg_name  + ('_bn' if batch_norm else '')
+            if hasattr(models, model_name):
+                pretrained_vgg = getattr(models, model_name)(pretrained=True)
+                feat_to_inject = pretrained_vgg.features.state_dict()
+                self.load_state_dict(feat_to_inject)
+                logging.debug('% state injection successful')
+            else:
+                logging.error('Model %s not found in zoo', model_name)
 
     def _make_layers(self, cfg, input_shape, batch_norm):
         layers = []

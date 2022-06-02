@@ -25,7 +25,7 @@ laf = LoggerAsfile()
 def suppress_stdout(log=False):
     with open(os.devnull, "w") as dev_null:
         orig = sys.stdout
-        # sys.stdout = laf if log else dev_null
+        sys.stdout = laf if log else dev_null
         try:
             yield
         finally:

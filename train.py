@@ -103,6 +103,7 @@ if __name__ == '__main__':
             'optim_type': args.optimizer,
             'lr': args.lr,
             'lr_decay':args.lr_decay,
+            'weight_decay':args.weight_decay
             }
 
         input_shape, num_labels = torchdl.get_shape_by_name(args.dataset, args.transformer)
@@ -171,7 +172,7 @@ if __name__ == '__main__':
 
         dataset, transformer = args.dataset, args.transformer
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)  # 
-        oodsets = [torchdl.get_dataset(n, transformer=transformer)[1]
+        oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
 
         data_augmentation = args.data_augmentation

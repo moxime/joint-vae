@@ -162,7 +162,6 @@ def get_args_for_train(argv=None):
                 'test_sample_size': 1024,
                 'validation': 8192,
                 'features': 'none',
-                'validation': 4096,
                 'epochs':100, 
                 'job_dir': './jobs'}
     
@@ -270,7 +269,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--features', metavar='NAME',)
                         # choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none',])
 
-    parser.add_argument('--pretrained-features', metavar='feat.pth')
+    parser.add_argument('--pretrained-features', metavar='feat.pth', nargs='?', const='online')
     parser.add_argument('--no-features', action='store_true')
 
     parser.add_argument('--pretrained-upsampler', metavar='upsampler.pth')
@@ -291,7 +290,7 @@ def get_args_for_train(argv=None):
                         # choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10', 'letters'])
 
     parser.add_argument('--transformer',
-                        choices=['simple', 'normal', 'default'],
+                        choices=['simple', 'normal', 'default', 'crop'],
                         help='transform data, simple : 0--1, normal 0 +/- 1')
 
     parser.add_argument('--data-augmentation',
@@ -308,6 +307,8 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--optimizer', choices=('sgd', 'adam'))
     parser.add_argument('--lr', default=0, type=float)
+    parser.add_argument('--wd', default=0, type=float, dest='weight_decay')
+
     parser.add_argument('--lr-decay', default=0, type=float)
     
     help = 'Find by job number and resume begun training'

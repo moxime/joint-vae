@@ -8,11 +8,11 @@ default_lr = {'sgd': 0.01,
               'adam': 0.001}
 
 params_by_type = {'sgd': ('momentum', 'nesterov', 'weight_decay'),
-                  'adam': ('betas', 'weight_decay', 'amsgrad')}
+                  'adam': ('betas', 'weight_decay', 'amsgrad', 'weight_decay')}
 
 class Optimizer:
         
-    def __init__(self, parameters, optim_type='adam', lr=0, lr_decay=0, epoch=0, **kw):
+    def __init__(self, parameters, optim_type='adam', lr=0, lr_decay=0, weight_decay=0, epoch=0, **kw):
 
         self.kind = optim_type
 
@@ -21,7 +21,9 @@ class Optimizer:
 
         self.params = {'optim_type': optim_type,
                        'lr': lr,
-                       'lr_decay': lr_decay}
+                       'lr_decay': lr_decay,
+                       'weight_decay': weight_decay,
+                       }
         self.params.update(kw)
         
         self.init_lr = lr
@@ -32,7 +34,7 @@ class Optimizer:
         elif _ == 'adam':
             constructor = optim.Adam
             
-        self._opt = constructor(parameters, lr=lr, **kw)
+        self._opt = constructor(parameters, lr=lr, weight_decay=weight_decay, **kw)
 
         self.lr_decay = lr_decay
         if lr_decay:

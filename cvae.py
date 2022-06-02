@@ -219,7 +219,9 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_norm_decoder = batch_norm == 'both'
         if features:
             logging.debug('Building features')
-            if pretrained_features:
+            if pretrained_features == 'online':
+                feat_dict = True
+            elif pretrained_features:
                 feat_dict = torch.load(pretrained_features)
             else:
                 feat_dict = None
@@ -1064,7 +1066,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not testset:
             testset_name = self.training_parameters['set']
             transformer = self.training_parameters['transformer']
-            _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
+            _, testset = torchdl.get_dataset(testset_name, transformer=transformer, splits=['test'])
 
         else:
             testset_name = testset.name
@@ -1152,6 +1154,9 @@ class ClassificationVariationalNetwork(nn.Module):
         current_measures = {}
         measures = {}
 
+        logging.debug('Starting accuracy for {} batches of size {} for set of size {}'.format(num_batch,
+                                                                                              batch_size,
+                                                                                              len(testset)))
         for i in range(num_batch):
 
             # save_batch_as_sample = sample_file and i < sample_save // batch_size            
@@ -1319,7 +1324,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if not testset:
             testset_name = self.training_parameters['set']
             transformer = self.training_parameters['transformer']
-            _, testset = torchdl.get_dataset(testset_name, transformer=transformer)
+            _, testset = torchdl.get_dataset(testset_name, transformer=transformer, splits=['test'])
 
         if not method:
             return
@@ -1330,7 +1335,7 @@ class ClassificationVariationalNetwork(nn.Module):
         
         if oodsets is None:
             # print('*** 1291', *testset.same_size)
-            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer)[1]
+            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer, splits=['test'])[1]
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' + ' ; '.join(s.name for s in oodsets))
 
@@ -1825,7 +1830,6 @@ class ClassificationVariationalNetwork(nn.Module):
                     # print(epoch, predict_method, m)
                     self.testing[epoch][predict_method][m] = r
                     
-                
     def train_model(self,
                     trainset=None,
                     transformer=None,
@@ -1873,7 +1877,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['transformer'] = transformer
                 self.training_parameters['validation'] = validation
                 self.training_parameters['full_test_every'] = full_test_every
-                ss = trainset.data[0].shape
+                ss = '?'
+                if hasattr(trainset, 'data'):
+                    ss = trainset.data[0].shape
                 ns = self.input_shape
                 logging.debug(f'Shapes : {ss} / {ns}')
                 # assert ns == ss or ss == ns[1:]
@@ -1900,14 +1906,20 @@ class ClassificationVariationalNetwork(nn.Module):
             np.random.seed()
             self.training_parameters['validation_split_seed'] = np.random.randint(0, 2 ** 12)
 
+        trainset, testset = torchdl.get_dataset(set_name,
+                                                transformer=transformer,
+                                                data_augmentation=data_augmentation)
+
         seed = self.training_parameters['validation_split_seed']
-        trainset, testset, validationset = torchdl.get_dataset(set_name,
-                                                               transformer=transformer,
-                                                               data_augmentation=data_augmentation,
-                                                               validation_split=validation,
-                                                               validation_split_seed=seed
-                                                               )
-        validationset.name = 'validation'
+        if validation:
+            set_lengths = [validation, len(trainset) - validation]
+            validationset, trainset = torch.utils.data.random_split(trainset, set_lengths,
+                                                                    generator=torch.Generator().manual_seed(seed))
+        
+            validationset.name = 'validation'
+
+        validation_sample_size = min(validation, validation_sample_size)
+            
         logging.debug('Choosing device')
         device = choose_device(device)
         logging.debug(f'done {device}')
@@ -1956,17 +1968,20 @@ class ClassificationVariationalNetwork(nn.Module):
                       ' and validation with batch size %s',
                       train_batch_size, test_batch_size)
 
+        logging.debug('Length of datasets: train={}, valid={}'.format(len(trainset), len(validationset)))
+
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=train_batch_size,
                                                   # pin_memory=True,
                                                   shuffle=True,
                                                   num_workers=0)
 
-        validationloader = torch.utils.data.DataLoader(validationset,
-                                                       batch_size=test_batch_size,
-                                                       # pin_memory=True,
-                                                       shuffle=True,
-                                                       num_workers=0)
+        if validationset is not None:
+            validationloader = torch.utils.data.DataLoader(validationset,
+                                                           batch_size=test_batch_size,
+                                                           # pin_memory=True,
+                                                           shuffle=True,
+                                                           num_workers=0)
 
         logging.debug('...done')
         
@@ -2085,22 +2100,23 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 num_batch = 'all' if full_test else max(1, validation_sample_size // test_batch_size)
                 # print('***', validationset.name)
-                validation_accuracy = self.accuracy(validationset,
-                                                    batch_size=test_batch_size,
-                                                    num_batch=num_batch,
-                                                    # device=device,
-                                                    method=acc_methods,
-                                                    # log=False,
-                                                    outputs=outputs,
-                                                    sample_dirs=sample_dirs,
-                                                    update_self_testing=False,
-                                                    recorder=recorders['validation'],
-                                                    print_result='VALID'
-                                                    if full_test else
-                                                    'valid')
-                validation_loss = self.test_loss
-                validation_measures = self._measures.copy()
-
+                if validation:
+                    validation_accuracy = self.accuracy(validationset,
+                                                        batch_size=test_batch_size,
+                                                        num_batch=num_batch,
+                                                        # device=device,
+                                                        method=acc_methods,
+                                                        # log=False,
+                                                        outputs=outputs,
+                                                        sample_dirs=sample_dirs,
+                                                        update_self_testing=False,
+                                                        recorder=recorders['validation'],
+                                                        print_result='VALID'
+                                                        if full_test else
+                                                        'valid')
+                    validation_loss = self.test_loss
+                    validation_measures = self._measures.copy()
+                    
                 if signal_handler.sig > 3:
                     logging.warning(f'Abruptly breaking training loop bc of {signal_handler}')
                     break

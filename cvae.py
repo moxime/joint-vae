@@ -989,6 +989,7 @@ class ClassificationVariationalNetwork(nn.Module):
         training = which == 'train'
         self.train(training)
 
+        print('***', self.device)
         x = torch.randn(batch_size, *self.input_shape, device=self.device)
         y = torch.ones(batch_size, dtype=int, device=self.device) if training else None
 

@@ -156,6 +156,7 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
         if 'classes_from_file' in p_:
             p['classes'] = []
             class_file = p_['classes_from_file']
+
             with open(class_file) as f:
                 for i, line in enumerate(f):
                     if not line.startswith('#'):

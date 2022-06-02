@@ -131,6 +131,7 @@ getters = {'mnist': datasets.MNIST,
            'fashion': datasets.FashionMNIST,
            'letters': letters_getter,
            'cifar10': datasets.CIFAR10,
+           'cifar100': datasets.CIFAR100,
            'svhn': datasets.SVHN,
            'lsunc': datasets.LSUN,
            'lsunr': datasets.LSUN,
@@ -143,6 +144,8 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
     parsed_props.read(conf_file)
 
     properties = {}
+
+    bool_keys = ('downloadable',)
     
     for s in parsed_props.sections():
 
@@ -174,25 +177,16 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
         p['labels'] = 0 if not p['classes'] else len(p['classes'])
 
         if all_keys:
-            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split', 'root', 'classes_from_file')
+            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split',
+                    'root', 'classes_from_file', 'downloadable')
         else:
             keys = ()
         for k in keys:
-            p[k] = p_.get(k)
-        
+            p[k] = p_.getboolean(k) if k in bool_keys else p_.get(k)
+            
         properties[s] = p
 
     return properties
-
-
-# def _imagenet_getter(train=True, download=False, root='./data', **kw):
-
-#     dset = datasets.ImageNet(root=os.path.join(root, 'ImageNet12'), split='train' if train else 'val',
-#                              **kw)
-#     return dset
-
-
-# imagenet_classes = [_[0] for _ in _imagenet_getter().classes]
 
 
 def get_dataset(dataset='mnist', 
@@ -200,7 +194,9 @@ def get_dataset(dataset='mnist',
                 data_augmentation=[],
                 conf_file='data/sets.ini',
                 splits=['train', 'test'],
-                getters=getters):
+                getters=getters,
+                download=True,
+                **kw):
 
     dataset = dataset.lower()
     
@@ -299,12 +295,16 @@ def get_dataset(dataset='mnist',
         train_kw[kw_[0]] = kw_[1]
         test_kw = {}
         test_kw[kw_[0]] = kw_[2]
-        for kw in train_kw, test_kw:
-            kw['root'] = directory
+        for _ in train_kw, test_kw:
+            _['root'] = directory
     else:
         train_kw = dict(train=True, root=directory)
         test_kw = dict(train=False, root=directory)
-            
+
+    if not set_props.get('folder') and set_props.get('downloadable'):
+        train_kw['download'] = True and download
+        test_kw['download'] = True and download
+
     with suppress_stdout(log=True):
         if 'train' in splits:
             trainset = getter(**train_kw,

@@ -94,7 +94,8 @@ if __name__ == '__main__':
                 if jvae_dict is None:
                     raise NoModelError
                 jvae = jvae_dict['net']
-                log.debug(f'Network loaded')
+                resumed_from = jvae_dict['dir']
+                log.debug('Network loaded in {}'.format(resumed_from))
                 done_epochs = jvae.trained
                 if done_epochs == 0:
                     verb = 'will start from scratch.'
@@ -109,9 +110,10 @@ if __name__ == '__main__':
 
         else:
             try:
+                resumed_from = resume
                 log.info('Loading network in %s', resume)
                 jvae = CVNet.load(args.resume, load_state=True)
-                log.debug(f'Network loaded')
+                log.debug('Network loaded in {}'.format(resumed_from))
                 done_epochs = jvae.trained
                 if done_epochs == 0:
                     verb = 'will start from scratch.'
@@ -244,7 +246,7 @@ if __name__ == '__main__':
     jvae.saved_dir = save_dir
     
     if args.resume:
-        with open(os.path.join(args.resume, 'RESUMED'), 'w') as f:
+        with open(os.path.join(resumed_from, 'RESUMED'), 'w') as f:
             f.write(str(job_number) + '\n')
     
     with open(os.path.join(job_dir, f'number-{hostname}'), 'w') as f:

@@ -10,7 +10,7 @@ import sys
 import argparse
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
-from utils.save_load import collect_models
+from utils.save_load import collect_models, find_by_job_number, ModuleNotFoundError
 from utils.print_log import EpochOutput
 from utils.signaling import SIGHandler
 import setproctitle
@@ -81,21 +81,45 @@ if __name__ == '__main__':
    
     if resume:
         try:
-            log.info('Loading network in %s', resume)
-            jvae = CVNet.load(args.resume, load_state=True)
-            log.debug(f'Network loaded')
-            done_epochs = jvae.trained
-            if done_epochs == 0:
-                verb = 'will start from scratch.'
-            elif done_epochs < args.epochs:
-                verb = f'will resume from {done_epochs}.'
-            else:
-                verb = 'is already done.'
-            log.info(f'Training {verb}')
-            
-        except(FileNotFoundError, NameError) as err:
-            log.error(f'network not found in {resume}')
-            sys.exit(1)
+            job_TBR_num = int(resume)
+            find_by = 'number'
+        except ValueError:
+            find_by = 'directory'
+
+        if find_by == 'number':
+            try:
+                log.info('Looking for job %d to be resumed', job_TBR_num)
+                jvae_dict = find_by_job_number(job_TBR_num, job_dir=args.job_dir, flash=False, load_state=True)
+                if jvae_dict is None:
+                    raise ModuleNotFoundError
+                jvae = jvae_dict['net']
+                log.debug(f'Network loaded')
+                done_epochs = jvae.trained
+                if done_epochs == 0:
+                    verb = 'will start from scratch.'
+                elif done_epochs < args.epochs:
+                    verb = f'will resume from {done_epochs}.'
+                else:
+                    verb = 'is already done.'
+                log.info(f'Training {verb}')
+
+        else:
+            try:
+                log.info('Loading network in %s', resume)
+                jvae = CVNet.load(args.resume, load_state=True)
+                log.debug(f'Network loaded')
+                done_epochs = jvae.trained
+                if done_epochs == 0:
+                    verb = 'will start from scratch.'
+                elif done_epochs < args.epochs:
+                    verb = f'will resume from {done_epochs}.'
+                else:
+                    verb = 'is already done.'
+                log.info(f'Training {verb}')
+
+            except(FileNotFoundError, NameError):
+                log.error(f'network not found in {resume}')
+                sys.exit(1)
 
     else:
 

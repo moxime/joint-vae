@@ -146,7 +146,7 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
     properties = {}
 
     bool_keys = ('downloadable',)
-    
+
     for s in parsed_props.sections():
 
         p_ = parsed_props[s]

@@ -89,7 +89,8 @@ if __name__ == '__main__':
         if find_by == 'number':
             try:
                 log.info('Looking for job %d to be resumed', job_TBR_num)
-                jvae_dict = find_by_job_number(job_TBR_num, job_dir=args.job_dir, flash=False, load_state=True)
+                jvae_dict = find_by_job_number(job_TBR_num, job_dir=args.job_dir, flash=False,
+                                               load_net=True, load_state=True)
                 if jvae_dict is None:
                     raise NoModelError
                 jvae = jvae_dict['net']

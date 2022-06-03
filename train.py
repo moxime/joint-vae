@@ -104,7 +104,7 @@ if __name__ == '__main__':
                 else:
                     verb = 'is already done.'
                 log.info(f'Training {verb}')
-            except(NoModelError);
+            except(NoModelError):
                 log.error(f'model #{job_TBR_num} not found!')
                 sys.exit(1)
 

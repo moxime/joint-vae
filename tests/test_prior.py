@@ -1,7 +1,7 @@
 import torch
 from module.vae_layers import Prior
 from matplotlib import pyplot as plt
-
+from time import time
 var_type = 'scalar'
 var_type = 'full'
 
@@ -9,8 +9,8 @@ learned_mean = True
 learned_var = False
 learned_var = True
 
-K = 256
-N = 500
+K = 16
+N = 50
 C = 10
 
 device = 'cuda'
@@ -31,6 +31,9 @@ optimizer = torch.optim.SGD(prior.parameters(), lr=0.01)
 losses = []
 
 dev = 0
+show_every = 100
+
+t0 = time.time()
 
 for epoch in range(int(1e5)):
 
@@ -53,9 +56,12 @@ for epoch in range(int(1e5)):
     loss.backward()
 
     loss = loss.cpu()
-    if not epoch % 10:
-        print('{:6d}: {:.3e}'.format(epoch, loss.item()))
-
+    if not epoch % show_every:
+        t = (time.time() - t0) / N / show_every
+        
+        print('{:6d}: {:.3e} ({:f}s/i)'.format(epoch, loss.item(), t))
+        t0 = time.time()
+        
     optimizer.step()
 
     losses.append(loss.item())

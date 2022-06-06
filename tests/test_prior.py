@@ -61,6 +61,7 @@ for epoch in range(int(1e5)):
     
     inv_var = prior.inv_var
 
+    """
     for B in inv_var:
         if not B.isnan().any():
             eig = B.eig()[0].norm(dim=1)
@@ -69,7 +70,8 @@ for epoch in range(int(1e5)):
         else:
             max_eigen.append(np.inf)
             min_eigen.append(0)
-
+    """
+    
     loss.backward()
 
     loss = loss.cpu()
@@ -81,12 +83,16 @@ for epoch in range(int(1e5)):
         
     optimizer.step()
 
+    max_norm = max(p.grad.norm() for p in prior.parameters())
+    print('{:.2e}'.format(max_norm))
+    
     for p in prior.parameters():
+        
         if p.isnan().any():
             print('***', end='')
         else:
             print('   ', end='')
-        print('e={:.1e} E={:.1e}'.format(min(min_eigen), max(max_eigen)))
+        # print('e={:.1e} E={:.1e}'.format(min(min_eigen), max(max_eigen)))
     
     losses.append(loss.item())
     if loss < 1e-1:

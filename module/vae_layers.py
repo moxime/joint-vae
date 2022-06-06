@@ -176,6 +176,10 @@ class Prior(nn.Module):
 
         var = log_var.exp()
 
+        if self._var_parameter.isnan().any():
+            print('*** STOPPIN')
+            return
+
         prior_inv_var = self.inv_var
 
         loss_components = {}
@@ -185,7 +189,7 @@ class Prior(nn.Module):
             
             assert y is None
             loss_components['trace'] = torch.matmul(var, torch.diag(prior_inv_var))
-        
+            
         else:
             """
             tr(LB)i = sum_k Lik*Bikk = sum_k Lik*Mik where Mik = Bikk
@@ -197,7 +201,7 @@ class Prior(nn.Module):
 
             loss_components['trace'] = (var * M).sum(-1)
 
-        loss_components['log_det_prior'] = prior_inv_var.det().log()
+        loss_components['log_det_prior'] = prior_inv_var.logdet()
         if self.conditionnal:
             loss_components['log_det_prior'] = loss_components['log_det_prior'].index_select(0, y.view(-1))
 
@@ -211,9 +215,16 @@ class Prior(nn.Module):
         else:
             loss_components['distance'] = (torch.matmul(mu, self._var_parameter.T) ** 2).sum(-1)
 
+        stop = False
         for k in loss_components:
             if loss_components[k].isnan().any():
-                pass  # print('***', k, 'is nan')
+                print('***', k, 'is nan')
+                print('*** var_p is {}nan'.format('' if self._var_parameter.isnan().any() else 'not '))
+                print('*** prior_inv_var is {}nan'.format('' if prior_inv_var.isnan().any() else 'not '))
+                stop = True
+        if stop:
+            return
+
         loss_components['kl'] = (loss_components['distance'] +
                                  loss_components['trace'] -
                                  loss_components['log_det'] -

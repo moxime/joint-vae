@@ -11,9 +11,11 @@ learned_mean = True
 learned_var = False
 learned_var = True
 
-K = 256
+K = 512
 N = 500
 C = 10
+
+lr = 1e-2
 
 device = 'cpu'
 device = 'cuda'
@@ -29,14 +31,18 @@ mu_per_dim = torch.randn(C, K)
 
 mu = torch.zeros(N, K)
 
-optimizer = torch.optim.SGD(prior.parameters(), lr=0.001)
+optimizer = torch.optim.SGD(prior.parameters(), lr=lr)
 
 losses = []
 
 dev = 0
-show_every = 100
+show_every = 10
 
 t0 = time.time()
+
+former_params = None
+
+torch.autograd.set_detect_anomaly(True)
 
 for epoch in range(int(1e5)):
 
@@ -49,11 +55,13 @@ for epoch in range(int(1e5)):
     mu = mu_per_dim.index_select(0, y.view(-1)) + dev * torch.randn(N, K)
 
     log_var = var.log()
-
-    optimizer.zero_grad()
     
     losses_components = prior.kl(mu.to(device), log_var.to(device), y.to(device))
 
+    if losses_components is None:
+        print('*** max_grad = {:.1e}'.format(max_grad))
+        break
+        
     loss = losses_components['kl'].mean()
 
     max_eigen = []
@@ -61,49 +69,49 @@ for epoch in range(int(1e5)):
     
     inv_var = prior.inv_var
 
-    """
-    for B in inv_var:
-        if not B.isnan().any():
-            eig = B.eig()[0].norm(dim=1)
-            max_eigen.append(eig.max())
-            min_eigen.append(eig.min())
-        else:
-            max_eigen.append(np.inf)
-            min_eigen.append(0)
-    """
-    
-    loss.backward()
+    if inv_var.isnan().any():
+        inv_var = former_params
+        break
+    else:
+        former_params = inv_var
 
+    loss.backward()
+    
+    is_nan_before = any([_.isnan().any() for _ in prior.parameters()])
+    for p in prior.parameters():
+        if p.requires_grad:
+            p.data = p.data - lr * p.grad
+    is_nan_after = any([_.isnan().any() for _ in prior.parameters()])
+
+    if is_nan_after:
+        print('*** IS NAN NOW', is_nan_before)
+        max_grad = max(_.grad.norm() for _ in prior.parameters())
+        print(max_grad)
+        break
+
+    for p in prior.parameters():
+        p.grad.data.zero_()
+    
     loss = loss.cpu()
     if not epoch % show_every:
         t = (time.time() - t0) / N / show_every
         
         print('{:6d}: {:.3e} ({:.0f}us/i)'.format(epoch, loss.item(), t * 1e6))
         t0 = time.time()
-        
-    optimizer.step()
-
-    max_norm = max(p.grad.norm() for p in prior.parameters())
-    print('{:.2e}'.format(max_norm))
-    
-    for p in prior.parameters():
-        
-        if p.isnan().any():
-            print('***', end='')
-        else:
-            print('   ', end='')
-        # print('e={:.1e} E={:.1e}'.format(min(min_eigen), max(max_eigen)))
-    
+            
     losses.append(loss.item())
     if loss < 1e-1:
         break
 
-plt.plot(losses[100:])
-plt.show()
+# plt.plot(losses[100:])
+# plt.show(block=False)
+
 
 for y in range(C):
 
     print('****', y, '****')
-    s = prior.inv_var[y]
-    for k in range(K):
-        print(' '.join(['{:-8.2g}'.format(_.item()) for _ in s[k]]))
+    s = inv_var[y].inverse()
+    print('{}'.format(s.isnan().any()))
+    # eig = s.eig()[0].norm(dim=1)
+    # print('{:.1e} <= eig <= {:.1e}'.format(min(eig), max(eig)))
+

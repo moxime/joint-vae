@@ -59,7 +59,7 @@ for epoch in range(int(1e5)):
     if not epoch % show_every:
         t = (time.time() - t0) / N / show_every
         
-        print('{:6d}: {:.3e} ({:f}s/i)'.format(epoch, loss.item(), t))
+        print('{:6d}: {:.3e} ({:.0f}us/i)'.format(epoch, loss.item(), t * 1e6))
         t0 = time.time()
         
     optimizer.step()

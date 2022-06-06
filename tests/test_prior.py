@@ -10,7 +10,7 @@ learned_var = False
 learned_var = True
 
 K = 256
-N = 2000
+N = 500
 C = 10
 
 device = 'cuda'

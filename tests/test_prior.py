@@ -13,7 +13,11 @@ K = 16
 N = 200
 C = 10
 
+device = 'cuda'
+
 prior = Prior(K, var_type=var_type, num_priors=C, learned_mean=learned_mean, learned_var=learned_var)
+
+prior.to(device)
 
 # var_per_dim = torch.randn(C, K) ** 2
 var_per_dim = torch.stack([(i + 1) * torch.ones(K) for i in range(C)])
@@ -42,13 +46,15 @@ for epoch in range(int(1e5)):
 
     optimizer.zero_grad()
     
-    distance, trace, log_det, log_det_prior, kl = prior.kl(mu, log_var, y)
+    distance, trace, log_det, log_det_prior, kl = prior.kl(mu.to(device), log_var.to(device), y.to(device))
 
     loss = kl.mean()
 
     loss.backward()
+
+    loss = loss.cpu()
     if not epoch % 100:
-        print('{:6d}: {:.3e} {:.3e}'.format(epoch, loss.item(), distance.mean()))
+        print('{:6d}: {:.3e}'.format(epoch, loss.item())
 
     optimizer.step()
 

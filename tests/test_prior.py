@@ -53,7 +53,7 @@ for epoch in range(int(1e5)):
     loss.backward()
 
     loss = loss.cpu()
-    if not epoch % 100:
+    if not epoch % 10:
         print('{:6d}: {:.3e}'.format(epoch, loss.item()))
 
     optimizer.step()

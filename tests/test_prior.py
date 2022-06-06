@@ -60,8 +60,9 @@ for epoch in range(int(1e5)):
     inv_var = prior.inv_var
 
     for B in inv_var:
-        max_eigen.append(B.eig().max())
-        min_eigen.append(B.eig().min())
+        eig = B.eig()[0].norm(dim=1)
+        max_eigen.append(eig.max())
+        min_eigen.append(eig.min())
     
     loss.backward()
 

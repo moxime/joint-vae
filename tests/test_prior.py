@@ -15,8 +15,8 @@ K = 256
 N = 500
 C = 10
 
-device = 'cuda'
 device = 'cpu'
+device = 'cuda'
 
 prior = Prior(K, var_type=var_type, num_priors=C, learned_mean=learned_mean, learned_var=learned_var)
 

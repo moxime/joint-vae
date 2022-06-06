@@ -54,6 +54,15 @@ for epoch in range(int(1e5)):
 
     loss = losses_components['kl'].mean()
 
+    max_eigen = []
+    min_eigen = []
+    
+    inv_var = prior.inv_var
+
+    for B in inv_var:
+        max_eigen.append(B.eig().max())
+        min_eigen.append(B.eig().min())
+    
     loss.backward()
 
     loss = loss.cpu()
@@ -67,7 +76,10 @@ for epoch in range(int(1e5)):
 
     for p in prior.parameters():
         if p.isnan().any():
-            print('***', *p.shape)
+            print('***', end='')
+        else:
+            print('   ', end='')
+        print('e={:.1e} E={:.1e}', min(min_eigen), max(max_eigen))
     
     losses.append(loss.item())
     if loss < 1e-1:

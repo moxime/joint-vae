@@ -93,29 +93,124 @@ class Hsv2rgb(Rgb2hsv):
         return rgb
 
 
-class Prior(object):
+class Prior(nn.Module):
 
-    def __init__(cls, dim, var_ndim, var=1., mean=0, num_labels=1, learned_mean=False, learned_var=False):
+    def __init__(self, dim, var_type='scalar', num_priors=1, learned_mean=False, learned_var=False):
         
         """
-        var_ndim : 0 for scalar, 1 for diag, 2 for full
+        var_type : scalar, diag or full
+        num_priors: 1 for non conditionnal prior, else number of classes
         
         """
 
-        mean_tensor = torch.randn(num_labels, dim).squeeze()
-        self.mean = Parameter(mean_tensor)
+        assert not learned_mean or num_priors > 1
 
-        if var_ndim == 0:
-            var_tensor = torch.tensor(1)
-        elif var_ndim == 1:
-            var_tensor = torch.ones(dim)
-        elif var_ndim == 2:
-            var_tensor = torch.eye(dim)
+        super().__init__()
+        
+        self.num_priors = num_priors
+        self.var_type = var_type
+        self.learned_var = learned_var
+        self.dim = dim
+        
+        if num_priors == 1:
+            self.conditionnal = False
+            self.mean = 0.
+            
+        else:
+            self.conditionnal = True
+            mean_tensor = torch.randn(num_priors, dim).squeeze()
+            self.mean = Parameter(mean_tensor, requires_grad=learned_mean)        
 
+        if var_type == 'scalar':
+            self._var_parameter = Parameter(torch.tensor(1.), requires_grad=False)
+
+        else:
+            var_param_per_class = torch.ones(dim) if var_type == 'diag' else torch.eye(dim)
+            if self.conditionnal:
+                var_tensor = torch.stack([var_param_per_class for _ in range(num_priors)])
+            else:
+                var_tensor = var_param_per_class
+            self._var_parameter = Parameter(var_tensor, requires_grad=learned_var)
+
+        self._inv_var_is_computed = False
+        self._inv_var = None
         
+    @property
+    def inv_var(self):
+
+        if self._inv_var_is_computed:
+            return self._inv_var
+
+        self._compute_inv_var()
+        return self._inv_var
+
+    def _compute_inv_var(self):
+
+        if self.var_type == 'scalar':
+            self._inv_var = self._var_parameter ** 2
+            self._inv_var_is_computed = not self.training
+
+        elif self.var_type == 'diag':
+            self._inv_var = self._var_parameter ** 2
+            self._inv_var_is_computed = not self.training
+
+        elif self.var_type == 'full':
+            
+            self._inv_var = torch.matmul(self._var_parameter.transpose(1, 2), self._var_parameter)
+            self._inv_var_is_computed = not self.training
+
+    def kl(self, mu, log_var, y=None):
+        """Params:
+
+        -- mu: NxK means 
+
+        -- log_var: NxK diag log_vars
+
+        -- y: None or tensor of size N 
+
+        """
+
+        """tr(LB): L: var NxK, B: inv_var CxKxK if conditionnal else KxK 
+
+        """
+
+        var = log_var.exp()
+
+        prior_inv_var = self.inv_var
         
-    def kl(self, mu, var, y=None):
-        pass
+        if self.num_priors == 1:
+            """ (tr(LB))i = sum_k Lik*Bkk """
+            
+            assert y is None
+            trace = torch.matmul(var, torch.diag(prior_inv_var))
+        
+        else:
+            """
+            tr(LB)i = sum_k Lik*Bikk = sum_k Lik*Mik where Mik = Bikk
+            """
+            if self.var_type == 'full':
+                M = torch.stack([torch.diag(prior_inv_var[i]) for i in y])
+            else:
+                M = torch.stack([prior_inv_var[i] for i in y])
+
+            trace = (var * M).sum(-1)
+
+        log_det_prior = prior_inv_var.det().log()
+        if self.conditionnal:
+            log_det_prior = log_det_prior.index_select(0, y.view(-1))
+
+        log_det = log_var.sum(-1)
+
+        if self.conditionnal:
+            means = self.mean.index_select(0, y.view(-1))
+            transform = self._var_parameter.index_select(0, y.view(-1))
+            delta = (mu - means).unsqueeze(-1)
+            distance = (torch.matmul(transform, delta) ** 2).squeeze().sum(-1)
+        else:
+            distance = (torch.matmul(mu, self._var_parameter.T) ** 2).sum(-1)
+        kl = distance + trace - log_det - log_det_prior - self.dim
+        return distance, trace, log_det, log_det_prior, kl
+
     
 class Sigma(Parameter):
 

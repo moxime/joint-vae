@@ -1,0 +1,67 @@
+import torch
+from module.vae_layers import Prior
+from matplotlib import pyplot as plt
+
+var_type = 'scalar'
+var_type = 'full'
+
+learned_mean = True
+learned_var = False
+learned_var = True
+
+K = 16
+N = 200
+C = 10
+
+prior = Prior(K, var_type=var_type, num_priors=C, learned_mean=learned_mean, learned_var=learned_var)
+
+# var_per_dim = torch.randn(C, K) ** 2
+var_per_dim = torch.stack([(i + 1) * torch.ones(K) for i in range(C)])
+
+mu_per_dim = torch.randn(C, K)
+
+mu = torch.zeros(N, K)
+
+optimizer = torch.optim.SGD(prior.parameters(), lr=0.01)
+
+losses = []
+
+dev = 0
+
+for epoch in range(int(1e5)):
+
+    if C > 1:
+        y = torch.randint(C, (N,))
+    else:
+        y = None
+
+    var = var_per_dim.index_select(0, y.view(-1)) * (1 + dev * torch.randn(N, K))
+    mu = mu_per_dim.index_select(0, y.view(-1)) + dev * torch.randn(N, K)
+
+    log_var = var.log()
+
+    optimizer.zero_grad()
+    
+    distance, trace, log_det, log_det_prior, kl = prior.kl(mu, log_var, y)
+
+    loss = kl.mean()
+
+    loss.backward()
+    if not epoch % 100:
+        print('{:6d}: {:.3e} {:.3e}'.format(epoch, loss.item(), distance.mean()))
+
+    optimizer.step()
+
+    losses.append(loss.item())
+    if loss < 1e-1:
+        break
+
+plt.plot(losses[100:])
+plt.show()
+
+for y in range(C):
+
+    print('****', y, '****')
+    s = prior.inv_var[y]
+    for k in range(K):
+        print(' '.join(['{:-8.2g}'.format(_.item()) for _ in s[k]]))

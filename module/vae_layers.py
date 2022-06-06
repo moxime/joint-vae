@@ -202,6 +202,10 @@ class Prior(nn.Module):
             loss_components['trace'] = (var * M).sum(-1)
 
         loss_components['log_det_prior'] = prior_inv_var.logdet()
+        if loss_components['log_det_prior'].isnan().any():
+            det_prior = prior_inv_var.det()
+            print(' '.join('{:.3g}'.format(_) for _ in det_prior))
+            
         if self.conditionnal:
             loss_components['log_det_prior'] = loss_components['log_det_prior'].index_select(0, y.view(-1))
 

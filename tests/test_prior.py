@@ -26,7 +26,7 @@ mu_per_dim = torch.randn(C, K)
 
 mu = torch.zeros(N, K)
 
-optimizer = torch.optim.SGD(prior.parameters(), lr=0.01)
+optimizer = torch.optim.SGD(prior.parameters(), lr=0.001)
 
 losses = []
 

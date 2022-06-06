@@ -2,6 +2,8 @@ import torch
 from module.vae_layers import Prior
 from matplotlib import pyplot as plt
 import time
+import numpy as np
+
 var_type = 'scalar'
 var_type = 'full'
 
@@ -60,10 +62,14 @@ for epoch in range(int(1e5)):
     inv_var = prior.inv_var
 
     for B in inv_var:
-        eig = B.eig()[0].norm(dim=1)
-        max_eigen.append(eig.max())
-        min_eigen.append(eig.min())
-    
+        if not B.isnan().any():
+            eig = B.eig()[0].norm(dim=1)
+            max_eigen.append(eig.max())
+            min_eigen.append(eig.min())
+        else:
+            max_eigen.append(np.inf)
+            min_eigen.append(0)
+
     loss.backward()
 
     loss = loss.cpu()

@@ -27,7 +27,7 @@ mu_per_dim = torch.randn(C, K)
 
 mu = torch.zeros(N, K)
 
-optimizer = torch.optim.SGD(prior.parameters(), lr=0.01)
+optimizer = torch.optim.SGD(prior.parameters(), lr=0.001)
 
 losses = []
 
@@ -67,7 +67,7 @@ for epoch in range(int(1e5)):
 
     for p in prior.parameters():
         if p.isnan().any():
-            print('***', p.shape)
+            print('***', *p.shape)
     
     losses.append(loss.item())
     if loss < 1e-1:

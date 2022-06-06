@@ -11,7 +11,7 @@ learned_mean = True
 learned_var = False
 learned_var = True
 
-K = 512
+K = 256
 N = 500
 C = 10
 

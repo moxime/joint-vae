@@ -1,7 +1,7 @@
 import torch
 from module.vae_layers import Prior
 from matplotlib import pyplot as plt
-from time import time
+import time
 var_type = 'scalar'
 var_type = 'full'
 

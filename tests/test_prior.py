@@ -80,7 +80,7 @@ for epoch in range(int(1e5)):
             print('***', end='')
         else:
             print('   ', end='')
-        print('e={:.1e} E={:.1e}', min(min_eigen), max(max_eigen))
+        print('e={:.1e} E={:.1e}'.format(min(min_eigen), max(max_eigen)))
     
     losses.append(loss.item())
     if loss < 1e-1:

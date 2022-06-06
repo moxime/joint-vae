@@ -177,12 +177,14 @@ class Prior(nn.Module):
         var = log_var.exp()
 
         prior_inv_var = self.inv_var
+
+        loss_components = {}
         
         if self.num_priors == 1:
             """ (tr(LB))i = sum_k Lik*Bkk """
             
             assert y is None
-            trace = torch.matmul(var, torch.diag(prior_inv_var))
+            loss_components['trace'] = torch.matmul(var, torch.diag(prior_inv_var))
         
         else:
             """
@@ -193,23 +195,32 @@ class Prior(nn.Module):
             else:
                 M = torch.stack([prior_inv_var[i] for i in y])
 
-            trace = (var * M).sum(-1)
+            loss_components['trace'] = (var * M).sum(-1)
 
-        log_det_prior = prior_inv_var.det().log()
+        loss_components['log_det_prior'] = prior_inv_var.det().log()
         if self.conditionnal:
-            log_det_prior = log_det_prior.index_select(0, y.view(-1))
+            loss_components['log_det_prior'] = loss_components['log_det_prior'].index_select(0, y.view(-1))
 
-        log_det = log_var.sum(-1)
+        loss_components['log_det'] = log_var.sum(-1)
 
         if self.conditionnal:
             means = self.mean.index_select(0, y.view(-1))
             transform = self._var_parameter.index_select(0, y.view(-1))
             delta = (mu - means).unsqueeze(-1)
-            distance = (torch.matmul(transform, delta) ** 2).squeeze().sum(-1)
+            loss_components['distance'] = (torch.matmul(transform, delta) ** 2).squeeze().sum(-1)
         else:
-            distance = (torch.matmul(mu, self._var_parameter.T) ** 2).sum(-1)
-        kl = distance + trace - log_det - log_det_prior - self.dim
-        return distance, trace, log_det, log_det_prior, kl
+            loss_components['distance'] = (torch.matmul(mu, self._var_parameter.T) ** 2).sum(-1)
+
+        for k in loss_components:
+            if loss_components[k].isnan().any():
+                print('***', k, 'is nan')
+        loss_components['kl'] = (loss_components['distance'] +
+                                 loss_components['trace'] -
+                                 loss_components['log_det'] -
+                                 loss_components['log_det_prior'] -
+                                 self.dim)
+        
+        return loss_components
 
     
 class Sigma(Parameter):

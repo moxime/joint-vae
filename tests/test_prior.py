@@ -9,11 +9,12 @@ learned_mean = True
 learned_var = False
 learned_var = True
 
-K = 256
-N = 500
+K = 16
+N = 50
 C = 10
 
 device = 'cuda'
+device = 'cpu'
 
 prior = Prior(K, var_type=var_type, num_priors=C, learned_mean=learned_mean, learned_var=learned_var)
 
@@ -26,7 +27,7 @@ mu_per_dim = torch.randn(C, K)
 
 mu = torch.zeros(N, K)
 
-optimizer = torch.optim.SGD(prior.parameters(), lr=0.001)
+optimizer = torch.optim.SGD(prior.parameters(), lr=0.01)
 
 losses = []
 
@@ -49,9 +50,9 @@ for epoch in range(int(1e5)):
 
     optimizer.zero_grad()
     
-    distance, trace, log_det, log_det_prior, kl = prior.kl(mu.to(device), log_var.to(device), y.to(device))
+    losses_components = prior.kl(mu.to(device), log_var.to(device), y.to(device))
 
-    loss = kl.mean()
+    loss = losses_components['kl'].mean()
 
     loss.backward()
 

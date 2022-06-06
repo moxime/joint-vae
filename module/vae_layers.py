@@ -213,7 +213,7 @@ class Prior(nn.Module):
 
         for k in loss_components:
             if loss_components[k].isnan().any():
-                print('***', k, 'is nan')
+                pass  # print('***', k, 'is nan')
         loss_components['kl'] = (loss_components['distance'] +
                                  loss_components['trace'] -
                                  loss_components['log_det'] -

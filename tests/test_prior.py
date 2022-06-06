@@ -65,6 +65,10 @@ for epoch in range(int(1e5)):
         
     optimizer.step()
 
+    for p in prior.parameters():
+        if p.isnan.any():
+            print('***', p.shape)
+    
     losses.append(loss.item())
     if loss < 1e-1:
         break

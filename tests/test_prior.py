@@ -83,9 +83,9 @@ for epoch in range(int(1e5)):
             p.data = p.data - lr * p.grad
     is_nan_after = any([_.isnan().any() for _ in prior.parameters()])
 
+    max_grad = max(_.grad.norm() for _ in prior.parameters())
     if is_nan_after:
         print('*** IS NAN NOW', is_nan_before)
-        max_grad = max(_.grad.norm() for _ in prior.parameters())
         print(max_grad)
         break
 

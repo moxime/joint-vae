@@ -16,7 +16,7 @@ K = 4
 N = 100
 C = 10
 
-lr = 1e-4
+lr = 1e-3
 
 device = 'cpu'
 device = 'cuda'
@@ -48,7 +48,7 @@ former_params = None
 
 losses_components = None
 
-for epoch in range(int(1e5)):
+for epoch in range(int(1e6)):
 
     optimizer.zero_grad()
     

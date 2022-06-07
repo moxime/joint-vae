@@ -155,8 +155,9 @@ class Prior(nn.Module):
             self._inv_var_is_computed = not self.training
 
         elif self.var_type == 'full':
-            
-            self._inv_var = torch.matmul(self._var_parameter.transpose(1, 2), self._var_parameter)
+
+            var_trans = torch.tril(self._var_parameter)
+            self._inv_var = torch.matmul(var_trans.transpose(1, 2), var_trans)
             self._inv_var_is_computed = not self.training
 
     def kl(self, mu, log_var, y=None):
@@ -176,11 +177,13 @@ class Prior(nn.Module):
 
         var = log_var.exp()
 
-        if self._var_parameter.isnan().any():
+        prior_trans = torch.tril(self._var_parameter)
+
+        prior_var_diag = prior_trans.pow(2).sum(-1)
+
+        if prior_trans.isnan().any():
             print('*** STOPPIN')
             return
-
-        prior_inv_var = self.inv_var
 
         loss_components = {}
         
@@ -188,23 +191,19 @@ class Prior(nn.Module):
             """ (tr(LB))i = sum_k Lik*Bkk """
             
             assert y is None
-            loss_components['trace'] = torch.matmul(var, torch.diag(prior_inv_var))
+            loss_components['trace'] = torch.matmul(var, prior_var_diag)
             
         else:
             """
             tr(LB)i = sum_k Lik*Bikk = sum_k Lik*Mik where Mik = Bikk
             """
-            if self.var_type == 'full':
-                M = torch.stack([torch.diag(prior_inv_var[i]) for i in y])
-            else:
-                M = torch.stack([prior_inv_var[i] for i in y])
+            prior_var_diag_i = prior_var_diag.index_select(0, y.view(-1))
+            
+            loss_components['trace'] = (var * prior_var_diag_i).sum(-1)
 
-            loss_components['trace'] = (var * M).sum(-1)
-
-        loss_components['log_det_prior'] = prior_inv_var.logdet()
+        loss_components['log_det_prior'] = prior_trans.pow(2).logdet()
         if loss_components['log_det_prior'].isnan().any():
-            det_prior = prior_inv_var.det()
-            print(' '.join('{:.3g}'.format(_) for _ in det_prior))
+            print('*** Log det nan')
             
         if self.conditionnal:
             loss_components['log_det_prior'] = loss_components['log_det_prior'].index_select(0, y.view(-1))
@@ -213,7 +212,7 @@ class Prior(nn.Module):
 
         if self.conditionnal:
             means = self.mean.index_select(0, y.view(-1))
-            transform = self._var_parameter.index_select(0, y.view(-1))
+            transform = prior_trans.index_select(0, y.view(-1))
             delta = (mu - means).unsqueeze(-1)
             loss_components['distance'] = (torch.matmul(transform, delta) ** 2).squeeze().sum(-1)
         else:

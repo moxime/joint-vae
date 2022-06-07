@@ -87,5 +87,10 @@ for epoch in range(int(1e6)):
             
     losses.append(loss.item())
     if loss < 1e-4:
+        nstop += 1
+    else:
+        nstop = 0
+
+    if nstop >= 5:
         break
 

@@ -118,7 +118,7 @@ class Prior(nn.Module):
             
         else:
             self.conditionnal = True
-            mean_tensor = torch.randn(num_priors, dim).squeeze()
+            mean_tensor = 0 * torch.randn(num_priors, dim).squeeze()
             self.mean = Parameter(mean_tensor, requires_grad=learned_mean)        
 
         if var_type == 'scalar':
@@ -177,9 +177,9 @@ class Prior(nn.Module):
 
         var = log_var.exp()
 
-        prior_trans = torch.tril(self._var_parameter)
+        prior_trans = self._var_parameter.tril()
 
-        prior_var_diag = prior_trans.pow(2).sum(-1)
+        prior_inv_var_diag = prior_trans.pow(2).sum(-1)
 
         if prior_trans.isnan().any():
             print('*** STOPPIN')
@@ -191,19 +191,31 @@ class Prior(nn.Module):
             """ (tr(LB))i = sum_k Lik*Bkk """
             
             assert y is None
-            loss_components['trace'] = torch.matmul(var, prior_var_diag)
+            loss_components['trace'] = torch.matmul(var, prior_inv_var_diag)
             
         else:
             """
             tr(LB)i = sum_k Lik*Bikk = sum_k Lik*Mik where Mik = Bikk
             """
-            prior_var_diag_i = prior_var_diag.index_select(0, y.view(-1))
-            
-            loss_components['trace'] = (var * prior_var_diag_i).sum(-1)
+            prior_inv_var_diag_i = prior_inv_var_diag.index_select(0, y.view(-1))
 
-        loss_components['log_det_prior'] = prior_trans.pow(2).logdet()
+            loss_components['trace'] = (var * prior_inv_var_diag_i).sum(-1)
+
+        loss_components['log_det_prior'] = prior_trans.abs().logdet() * 2
+        # inv_var = self.inv_var 
+        # loss_components['log_det_prior'] = inv_var.logdet()
+        min_logdet = loss_components['log_det_prior'].min()
+        max_logdet = loss_components['log_det_prior'].max()
+        min_diag = prior_inv_var_diag.min()
+        max_diag = prior_inv_var_diag.max()
+        
+        # print('Var diag = {:8.3g} -- {:8.3g}'.format(min_diag, max_diag))
         if loss_components['log_det_prior'].isnan().any():
             print('*** Log det nan')
+            inv_var = self.inv_var
+            log_det_prior = inv_var.logdet()
+            is_nan_after = log_det_prior.isnan().any()
+            print('*** real log det is nan:', is_nan_after)
             
         if self.conditionnal:
             loss_components['log_det_prior'] = loss_components['log_det_prior'].index_select(0, y.view(-1))
@@ -222,8 +234,6 @@ class Prior(nn.Module):
         for k in loss_components:
             if loss_components[k].isnan().any():
                 print('***', k, 'is nan')
-                print('*** var_p is {}nan'.format('' if self._var_parameter.isnan().any() else 'not '))
-                print('*** prior_inv_var is {}nan'.format('' if prior_inv_var.isnan().any() else 'not '))
                 stop = True
         if stop:
             return

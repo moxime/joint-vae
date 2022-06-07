@@ -37,7 +37,7 @@ optimizer = torch.optim.SGD(prior.parameters(), lr=lr)
 
 losses = []
 
-dev = 0.1
+dev = 0.01
 show_every = 100
 
 t0 = time.time()

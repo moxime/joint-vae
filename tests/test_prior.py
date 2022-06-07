@@ -29,7 +29,7 @@ prior.to(device)
 # var_per_dim = torch.randn(C, K) ** 2
 var_per_dim = torch.stack([(i * 0.5 + 1) * torch.ones(K) for i in range(C)])
 
-mu_per_dim = torch.randn(C, K) * 0.5
+mu_per_dim = torch.randn(C, K) 
 
 mu = torch.zeros(N, K)
 
@@ -37,7 +37,7 @@ optimizer = torch.optim.SGD(prior.parameters(), lr=lr)
 
 losses = []
 
-dev = 0
+dev = 0.1
 show_every = 100
 
 t0 = time.time()

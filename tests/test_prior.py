@@ -86,7 +86,7 @@ for epoch in range(int(1e6)):
         t0 = time.time()
             
     losses.append(loss.item())
-    if loss < 1e-4:
+    if loss < 1e-3:
         nstop += 1
     else:
         nstop = 0

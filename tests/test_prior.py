@@ -9,8 +9,8 @@ var_type = 'full'
 
 learned_mean = False
 learned_mean = True
-learned_var = True
 learned_var = False
+learned_var = True
 
 K = 4
 N = 100

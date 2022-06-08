@@ -192,7 +192,7 @@ if __name__ == '__main__':
     if resume:
         dataset, transformer = jvae.training_parameters['set'], jvae.training_parameters['transformer'] 
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
-        oodsets = [torchdl.get_dataset(n, transformer=transformer)[1]
+        oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
         
         data_augmentation = jvae.training_parameters['data_augmentation']

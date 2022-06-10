@@ -278,6 +278,8 @@ class ClassificationVariationalNetwork(nn.Module):
         conditonal_prior = self.is_cvae or self.is_xvae
         if not conditonal_prior:
             learned_latent_prior_means = False
+
+        prior_var_type = {0: 'scalar', 1: 'diag', 2: 'full'}[latent_prior_variance.ndim]
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,
                                latent_dim=latent_dim,
@@ -286,7 +288,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                forced_variance = encoder_forced_variance,
                                sampling_size=latent_sampling,
                                conditional_prior=self.is_cvae or self.is_xvae,
-                               latent_prior_variance=latent_prior_variance,
+                               latent_prior_variance=prior_var_type,
                                learned_latent_prior_variance=learned_latent_prior_variance,
                                latent_prior_means=latent_prior_means,
                                learned_latent_prior_means=learned_latent_prior_means,
@@ -707,7 +709,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         batch_losses['total'] = torch.zeros_like(batch_losses['kl'])
 
-        logging.error('THIS LINE HAS BEEN REMOVED')
+        # logging.error('THIS LINE HAS BEEN REMOVED')
         if False: # self.coder_has_dict:
             
             # batch_losses['zdist'] = 0

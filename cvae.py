@@ -669,28 +669,27 @@ class ClassificationVariationalNetwork(nn.Module):
         if not batch:
             logging.debug('warmup kl weight=%e', kl_var_weighting)
 
-        batch_kl_losses = kl_loss(mu, log_var,
-                                  z=z[1:],
-                                  y=y if self.encoder.prior.conditional else None,
-                                  prior_variance = 1., 
-                                  latent_dictionary=dictionary,
-                                  var_weighting=kl_var_weighting,
-                                  batch_mean=False)
+        debug_msg = ('mu ' + str(mu.shape) + 'var ' + str(log_var.shape) +
+                     'y ' + ('None' if y is None else str(y.shape)))
+        
+        logging.debug('*** TBR in cvae' + debug_msg)
 
-        # print('*** wxjdjd ***', 'kl', *kl_l.shape, 'zd', *zdist.shape)
+        batch_kl_losses = self.encoder.prior.kl(mu, log_var,
+                                                y=y if self.encoder.prior.conditional else None)
 
-        zdist = batch_kl_losses['dist']
+        zdist = batch_kl_losses['distance']
+        var_kl = batch_kl_losses['var_kl']
         
         total_measures['zdist'] = (current_measures['zdist'] * batch +
                                    zdist.mean().item()) / (batch + 1)
 
         total_measures['var_kl'] = (current_measures['var_kl'] * batch +
-                                    zdist.mean().item()) / (batch + 1)
+                                    var_kl.mean().item()) / (batch + 1)
 
         batch_losses['kl'] = batch_kl_losses['kl']
 
-        batch_losses['zdist'] = batch_kl_losses['dist']
-        batch_losses['var_kl'] = batch_kl_losses['var']
+        batch_losses['zdist'] = batch_kl_losses['distance']
+        batch_losses['var_kl'] = batch_kl_losses['var_kl']
 
         if self.y_is_decoded:
 
@@ -708,7 +707,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         batch_losses['total'] = torch.zeros_like(batch_losses['kl'])
 
-        if self.coder_has_dict:
+        logging.error('THIS LINE HAS BEEN REMOVED')
+        if False: # self.coder_has_dict:
+            
             # batch_losses['zdist'] = 0
             dict_mean = dictionary.mean(0)
             zdist_to_mean = (mu - dict_mean).pow(2).sum(1)
@@ -739,15 +740,25 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_losses['total'] += batch_losses['cross_x'] 
 
-            sdist = batch_kl_losses['sdist']
-            if sdist.dim() > iws.dim():
-                if sdist.shape[1] == 1:
-                    sdist = sdist.squeeze(1)
-                else:
-                    iws = iws.unsqueeze(1)
+            logging.debug('TBR in cvae (log_density)')
+            logging.debug('y %s', y if y is None else y.shape)
+            logging.debug('z %s', z.shape)
+            
+            y_for_sampling = None
+            if self.encoder.prior.conditional:
+                y_for_sampling = torch.stack([y for _ in z[1:]])
 
-            sdist_remainder = sdist.min(0)[0] / 2
-            p_z_y = (- sdist / 2 + sdist_remainder).exp()
+            z_y = z[1:]
+            if y_for_sampling is not None and z_y.ndim < y.ndim + 2:
+                z_y = torch.stack([z_y for _ in y], 1)
+                
+            log_p_z_y = self.encoder.prior.log_density(z_y, y_for_sampling)
+            p_z_y = log_p_z_y.exp()
+
+            if iws.ndim < p_z_y.ndim:
+                iws = iws.unsqueeze(1)
+                
+            print('**** TBR iws', *iws.shape, 'pzy', *p_z_y.shape)
             iws = iws * p_z_y
             if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
 
@@ -766,10 +777,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.error('*** q_r is inf')
             if weighted_mse_remainder.isinf().sum():
                 logging.error('*** mse_r is inf')
-            if sdist_remainder.isinf().sum():
-                logging.error('*** sd_r is inf')
 
-            iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - sdist_remainder - weighted_mse_remainder
+            iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - weighted_mse_remainder
 
             if 'iws' in self.loss_components:
                 batch_losses['iws'] = iws_

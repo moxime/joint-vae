@@ -7,21 +7,26 @@ import logging
 from torchvision import models
 
 
-def adapt_batch_function(last_shapes=1):
+def adapt_batch_function(arg=1, last_shapes=1):
 
     def adapter(func):
-        return adapt_batch_dim(func, last_shapes=last_shapes)
+        return adapt_batch_dim(func, arg=arg, last_shapes=last_shapes)
     return adapter
 
 
-def adapt_batch_dim(func, last_shapes=1):
+def adapt_batch_dim(func, arg=1, last_shapes=1):
 
-    def func_(x, *a, **kw):
+    def func_(*a, **kw):
+        x = a[arg]
         batch_shape = x.shape[:-last_shapes]
         working_shape = x.shape[-last_shapes:]
-        print('b', *batch_shape, 'w', *working_shape)
-        res = func(x.view(-1, *working_shape), *a, **kw)
-        print('res', *res.shape)
+        a = list(a)
+        try:
+            a[arg] = x.contiguous().view(-1, *working_shape)
+        except RuntimeError as e:
+            print('***  ERROR', 'x', *x.shape, 'w:', *working_shape)
+            raise e
+        res = func(*a, **kw)
         return res.view(batch_shape)
     return func_
 
@@ -207,6 +212,8 @@ class Prior(nn.Module):
 
     def whiten(self, x, y=None):
 
+        logging.debug('TBR in whiten')
+        logging.debug('x : %s y:%s', x.shape, y.shape if y is not None else y)
         assert self.conditional ^ (y is None)
 
         if self.conditional:
@@ -225,7 +232,11 @@ class Prior(nn.Module):
 
         return transformed
 
+    @adapt_batch_function()
     def mahala(self, x, y=None):
+
+        logging.debug('TBR in mahala')
+        logging.debug('x : %s y:%s', x.shape, y.shape if y is not None else y)
 
         assert self.conditional ^ (y is None)
 
@@ -236,6 +247,7 @@ class Prior(nn.Module):
 
         return self.whiten(x - means, y).pow(2).sum(-1)
 
+    @adapt_batch_function()
     def trace_prod_by_var(self, var, y=None):
         """ Compute tr(LS^-1) """
 
@@ -252,9 +264,15 @@ class Prior(nn.Module):
 
         if self.var_type == 'scalar':
             prior_inv_var_diag.unsqueeze_(-1)
-    
-        return (var * prior_inv_var_diag).sum(-1)
-            
+
+        try:
+            return (var * prior_inv_var_diag).sum(-1)
+        except RuntimeError as e:
+            error_msg = '*** var: {} diag: {}'.format(' '.join(str(_) for _ in var.shape),
+                                                      ' '.join(str(_) for _ in prior_inv_var_diag.shape))
+            logging.error(error_msg)
+            return 0.
+        
     def kl(self, mu, log_var, y=None, output_dict=True):
         """Params:
 
@@ -266,15 +284,21 @@ class Prior(nn.Module):
 
         """
 
-        """tr(LB): L: var NxK, B: inv_var CxKxK if conditional else KxK 
-
-        """
-
+        if y is not None and y.ndim == mu.ndim:
+            expand_shape = list(mu.unsqueeze(0).shape)
+            expand_shape[0] = y.shape[0]
+            return self.kl(mu.expand(*expand_shape), log_var.expand(*expand_shape),
+                           y=y, output_dict=output_dict)
+        
+        debug_msg = 'TBR in kl '
+        debug_msg += 'mu: ' + ' '.join(str(_) for _ in mu.shape)
+        debug_msg += 'var: ' + ' '.join(str(_) for _ in log_var.shape)
+        debug_msg += 'y: ' + ('None' if y is None else ' '.join(str(_) for _ in y.shape))
+        logging.debug(debug_msg)
+        
         var = log_var.exp()
 
         prior_trans = self.inv_trans
-
-        prior_inv_var_diag = prior_trans.pow(2).sum(-1)
 
         if prior_trans.isnan().any():
             print('*** STOPPIN')
@@ -295,7 +319,8 @@ class Prior(nn.Module):
             print('*** real log det is nan:', is_nan_after)
             
         if self.conditional:
-            loss_components['log_det_prior'] = loss_components['log_det_prior'].index_select(0, y.view(-1))
+            log_detp = loss_components['log_det_prior']
+            loss_components['log_det_prior'] = log_detp.index_select(0, y.view(-1)).view(y.shape)
 
         loss_components['log_det'] = log_var.sum(-1)
 
@@ -309,15 +334,22 @@ class Prior(nn.Module):
         if stop:
             return
 
+        for k in loss_components:
+            logging.debug('TBR in KL %s %s', k, loss_components[k].shape)
+        loss_components['var_kl'] = (loss_components['trace'] -
+                                     loss_components['log_det'] +
+                                     loss_components['log_det_prior'] -
+                                     self.dim)
+        
         loss_components['kl'] = 0.5 * (loss_components['distance'] +
-                                       loss_components['trace'] -
-                                       loss_components['log_det'] +
-                                       loss_components['log_det_prior'] -
-                                       self.dim)
+                                       loss_components['var_kl'])
         
         return loss_components if output_dict else loss_components['kl']
 
     def log_density(self, z, y=None):
+
+        logging.debug('TBR in log_density')
+        logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
 
         assert self.conditional ^ (y is None)
 

@@ -279,7 +279,6 @@ class ClassificationVariationalNetwork(nn.Module):
         if not conditonal_prior:
             learned_latent_prior_means = False
 
-        prior_var_type = {0: 'scalar', 1: 'diag', 2: 'full'}[latent_prior_variance.ndim]
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,
                                latent_dim=latent_dim,
@@ -288,7 +287,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                forced_variance = encoder_forced_variance,
                                sampling_size=latent_sampling,
                                conditional_prior=self.is_cvae or self.is_xvae,
-                               latent_prior_variance=prior_var_type,
+                               latent_prior_variance=latent_prior_variance,
                                learned_latent_prior_variance=learned_latent_prior_variance,
                                latent_prior_means=latent_prior_means,
                                learned_latent_prior_means=learned_latent_prior_means,
@@ -345,6 +344,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                  upsampler_channels,
                                  classifier_layer_sizes]
 
+        prior_var_type = {0: 'scalar', 1: 'diag', 2: 'full'}[latent_prior_variance.ndim]
+
         self.architecture = {'input': input_shape,
                              'labels': num_labels,
                              'type': type_of_net,
@@ -356,7 +357,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'encoder_forced_variance': self.encoder.forced_variance,
                              'latent_dim': latent_dim,
                              'test_latent_sampling': test_latent_sampling,
-                             'latent_prior_variance': latent_prior_variance,
+                             'latent_prior_variance': prior_var_type,
                              'latent_prior_means': latent_prior_means,
                              'decoder': decoder_layer_sizes,
                              'upsampler': upsampler_channels,

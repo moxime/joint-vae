@@ -553,7 +553,9 @@ class ClassificationVariationalNetwork(nn.Module):
         losses_computed_for_each_class = (self.losses_might_be_computed_for_each_class
                                           and not y_in_input)
 
-        y_is_built = losses_computed_for_each_class 
+        y_is_built = losses_computed_for_each_class
+
+        compute_iws = not self.training
 
         cross_y_weight = False
         if self.y_is_decoded:
@@ -632,28 +634,28 @@ class ClassificationVariationalNetwork(nn.Module):
                 log_sigma = s_ if self.sigma.is_log else s_.log()
 
             # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape) 
-            weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
-                                                        x_reco[1:] / sigma_,
-                                                        ndim=len(self.input_shape),
-                                                        batch_mean=False)
+            if compute_iws:
+                weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
+                                                            x_reco[1:] / sigma_,
+                                                            ndim=len(self.input_shape),
+                                                            batch_mean=False)
 
             if self.sigma.is_rmse:
                 sigma_ = weighted_mse_loss_sampling * 2
                 log_sigma = sigma_.log()
-                weighted_mse_loss_sampling = 0.5 * torch.ones_like(weighted_mse_loss_sampling)
+                if compute_iws:
+                    weighted_mse_loss_sampling = 0.5 * torch.ones_like(weighted_mse_loss_sampling)
+                    batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
 
-            if not batch:
-                pass
-                # print('*** sigma', *self.sigma.shape, 'sigma_', sigma_.shape)  # 
-
-            batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
             batch_quants['mse'] = (batch_quants['wmse']).mean() * 2 * (sigma_ ** 2).mean()
             
             D = np.prod(self.input_shape)
-            weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0]
-            iws = (-D * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
-            if iws.isinf().sum(): logging.error('MSE INF')
-            weighted_mse_remainder += D * (log_sigma.mean() + np.log(2 * np.pi) / 2)
+            if compute_iws:
+                weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0]
+
+                iws = (-D * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
+                if iws.isinf().sum(): logging.error('MSE INF')
+                weighted_mse_remainder += D * (log_sigma.mean() + np.log(2 * np.pi) / 2)
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch 
@@ -746,45 +748,46 @@ class ClassificationVariationalNetwork(nn.Module):
             # logging.debug('TBR in cvae (log_density)')
             # logging.debug('y %s', y if y is None else y.shape)
             # logging.debug('z %s', z.shape)
-            
-            y_for_sampling = None
-            if self.encoder.prior.conditional:
-                y_for_sampling = torch.stack([y for _ in z[1:]])
 
-            z_y = z[1:]
-            if y_for_sampling is not None and z_y.ndim < y.ndim + 2:
-                z_y = torch.stack([z_y for _ in y], 1)
-                
-            log_p_z_y = self.encoder.prior.log_density(z_y, y_for_sampling)
-            p_z_y = log_p_z_y.exp()
+            if compute_iws:
+                y_for_sampling = None
+                if self.encoder.prior.conditional:
+                    y_for_sampling = torch.stack([y for _ in z[1:]])
 
-            if iws.ndim < p_z_y.ndim:
-                iws = iws.unsqueeze(1)
-                
-            iws = iws * p_z_y
-            if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
+                z_y = z[1:]
+                if y_for_sampling is not None and z_y.ndim < y.ndim + 2:
+                    z_y = torch.stack([z_y for _ in y], 1)
 
-            log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
+                log_p_z_y = self.encoder.prior.log_density(z_y, y_for_sampling)
+                p_z_y = log_p_z_y.exp()
 
-            if log_inv_q_z_x.dim() < iws.dim():
-                log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
+                if iws.ndim < p_z_y.ndim:
+                    iws = iws.unsqueeze(1)
 
-            log_inv_q_remainder = log_inv_q_z_x.max(0)[0]
-            inv_q = (log_inv_q_z_x - log_inv_q_remainder).exp()
-            iws = iws * inv_q
-            if inv_q.isinf().sum():
-                logging.error('Q_Z_X INF')
+                iws = iws * p_z_y
+                if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
 
-            if log_inv_q_remainder.isinf().sum():
-                logging.error('*** q_r is inf')
-            if weighted_mse_remainder.isinf().sum():
-                logging.error('*** mse_r is inf')
+                log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
 
-            iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - weighted_mse_remainder
+                if log_inv_q_z_x.dim() < iws.dim():
+                    log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
 
-            if 'iws' in self.loss_components:
-                batch_losses['iws'] = iws_
-            # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
+                log_inv_q_remainder = log_inv_q_z_x.max(0)[0]
+                inv_q = (log_inv_q_z_x - log_inv_q_remainder).exp()
+                iws = iws * inv_q
+                if inv_q.isinf().sum():
+                    logging.error('Q_Z_X INF')
+
+                if log_inv_q_remainder.isinf().sum():
+                    logging.error('*** q_r is inf')
+                if weighted_mse_remainder.isinf().sum():
+                    logging.error('*** mse_r is inf')
+
+                iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - weighted_mse_remainder
+
+                if 'iws' in self.loss_components:
+                    batch_losses['iws'] = iws_
+                # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
             
         if self.y_is_decoded:
             batch_losses['cross_y'] = batch_quants['cross_y']

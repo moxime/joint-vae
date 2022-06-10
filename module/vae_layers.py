@@ -348,8 +348,8 @@ class Prior(nn.Module):
 
     def log_density(self, z, y=None):
 
-        # logging.debug('TBR in log_density')
-        # logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
+        logging.debug('TBR in log_density')
+        logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
 
         assert self.conditional ^ (y is None)
 

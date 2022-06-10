@@ -1270,7 +1270,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 'y_pred': {m: y_pred[m][:MAX_SAMPLE_SAVE] for m in y_pred},
                 }
             if self.is_xvae or self.is_cvae:
-                mu_y = self.encoder.latent_dictionary.index_select(0, y_test)
+                mu_y = self.encoder.prior.mean.index_select(0, y_test)
                 saved_dict['mu_y'] = mu_y[:MAX_SAMPLE_SAVE]
 
             for d in sample_dirs:

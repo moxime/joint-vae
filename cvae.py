@@ -672,7 +672,7 @@ class ClassificationVariationalNetwork(nn.Module):
         debug_msg = ('mu ' + str(mu.shape) + 'var ' + str(log_var.shape) +
                      'y ' + ('None' if y is None else str(y.shape)))
         
-        logging.debug('*** TBR in cvae' + debug_msg)
+        # logging.debug('*** TBR in cvae' + debug_msg)
 
         batch_kl_losses = self.encoder.prior.kl(mu, log_var,
                                                 y=y if self.encoder.prior.conditional else None)
@@ -739,10 +739,10 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
 
             batch_losses['total'] += batch_losses['cross_x'] 
-
-            logging.debug('TBR in cvae (log_density)')
-            logging.debug('y %s', y if y is None else y.shape)
-            logging.debug('z %s', z.shape)
+            
+            # logging.debug('TBR in cvae (log_density)')
+            # logging.debug('y %s', y if y is None else y.shape)
+            # logging.debug('z %s', z.shape)
             
             y_for_sampling = None
             if self.encoder.prior.conditional:
@@ -758,7 +758,6 @@ class ClassificationVariationalNetwork(nn.Module):
             if iws.ndim < p_z_y.ndim:
                 iws = iws.unsqueeze(1)
                 
-            print('**** TBR iws', *iws.shape, 'pzy', *p_z_y.shape)
             iws = iws * p_z_y
             if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
 

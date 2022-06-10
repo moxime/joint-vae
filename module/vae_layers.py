@@ -212,8 +212,8 @@ class Prior(nn.Module):
 
     def whiten(self, x, y=None):
 
-        logging.debug('TBR in whiten')
-        logging.debug('x : %s y:%s', x.shape, y.shape if y is not None else y)
+        # logging.debug('TBR in whiten')
+        # logging.debug('x : %s y:%s', x.shape, y.shape if y is not None else y)
         assert self.conditional ^ (y is None)
 
         if self.conditional:
@@ -235,8 +235,8 @@ class Prior(nn.Module):
     @adapt_batch_function()
     def mahala(self, x, y=None):
 
-        logging.debug('TBR in mahala')
-        logging.debug('x : %s y:%s', x.shape, y.shape if y is not None else y)
+        # logging.debug('TBR in mahala')
+        # logging.debug('x : %s y:%s', x.shape, y.shape if y is not None else y)
 
         assert self.conditional ^ (y is None)
 
@@ -294,7 +294,7 @@ class Prior(nn.Module):
         debug_msg += 'mu: ' + ' '.join(str(_) for _ in mu.shape)
         debug_msg += 'var: ' + ' '.join(str(_) for _ in log_var.shape)
         debug_msg += 'y: ' + ('None' if y is None else ' '.join(str(_) for _ in y.shape))
-        logging.debug(debug_msg)
+        # logging.debug(debug_msg)
         
         var = log_var.exp()
 
@@ -334,8 +334,8 @@ class Prior(nn.Module):
         if stop:
             return
 
-        for k in loss_components:
-            logging.debug('TBR in KL %s %s', k, loss_components[k].shape)
+        # for k in loss_components:
+        #    logging.debug('TBR in KL %s %s', k, loss_components[k].shape)
         loss_components['var_kl'] = (loss_components['trace'] -
                                      loss_components['log_det'] +
                                      loss_components['log_det_prior'] -
@@ -348,8 +348,8 @@ class Prior(nn.Module):
 
     def log_density(self, z, y=None):
 
-        logging.debug('TBR in log_density')
-        logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
+        # logging.debug('TBR in log_density')
+        # logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
 
         assert self.conditional ^ (y is None)
 

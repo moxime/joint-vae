@@ -634,18 +634,16 @@ class ClassificationVariationalNetwork(nn.Module):
                 log_sigma = s_ if self.sigma.is_log else s_.log()
 
             # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape) 
-            if compute_iws:
-                weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
-                                                            x_reco[1:] / sigma_,
-                                                            ndim=len(self.input_shape),
-                                                            batch_mean=False)
+            weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
+                                                        x_reco[1:] / sigma_,
+                                                        ndim=len(self.input_shape),
+                                                        batch_mean=False)
 
             if self.sigma.is_rmse:
                 sigma_ = weighted_mse_loss_sampling * 2
                 log_sigma = sigma_.log()
-                if compute_iws:
-                    weighted_mse_loss_sampling = 0.5 * torch.ones_like(weighted_mse_loss_sampling)
-                    batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
+                weighted_mse_loss_sampling = 0.5 * torch.ones_like(weighted_mse_loss_sampling)
+                batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
 
             batch_quants['mse'] = (batch_quants['wmse']).mean() * 2 * (sigma_ ** 2).mean()
             

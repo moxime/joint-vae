@@ -7,6 +7,25 @@ import logging
 from torchvision import models
 
 
+def adapt_batch_function(last_shapes=1):
+
+    def adapter(func):
+        return adapt_batch_dim(func, last_shapes=last_shapes)
+    return adapter
+
+
+def adapt_batch_dim(func, last_shapes=1):
+
+    def func_(x, *a, **kw):
+        batch_shape = x.shape[:-last_shapes]
+        working_shape = x.shape[-last_shapes:]
+        print('b', *batch_shape, 'w', *working_shape)
+        res = func(x.view(-1, *working_shape), *a, **kw)
+        print('res', *res.shape)
+        return res.view(batch_shape)
+    return func_
+
+
 def onehot_encoding(y, C):
 
     s_y = y.shape
@@ -95,45 +114,58 @@ class Hsv2rgb(Rgb2hsv):
 
 class Prior(nn.Module):
 
-    def __init__(self, dim, var_type='scalar', num_priors=1, learned_mean=False, learned_var=False):
+    def __init__(self, dim, var_type='scalar', num_priors=1,
+                 mean=0, learned_means=False, learned_variance=False):
         
         """
         var_type : scalar, diag or full
-        num_priors: 1 for non conditionnal prior, else number of classes
+        num_priors: 1 for non conditional prior, else number of classes
         
         """
 
-        assert not learned_mean or num_priors > 1
+        assert not learned_means or num_priors > 1
 
         super().__init__()
         
         self.num_priors = num_priors
         self.var_type = var_type
-        self.learned_var = learned_var
+        self.learned_var = learned_variance
+        self.learned_means = learned_means
         self.dim = dim
         
         if num_priors == 1:
-            self.conditionnal = False
-            self.mean = 0.
+            self.conditional = False
+            mean_tensor = torch.tensor(0.)
             
         else:
-            self.conditionnal = True
+            self.conditional = True
             mean_tensor = 0 * torch.randn(num_priors, dim).squeeze()
-            self.mean = Parameter(mean_tensor, requires_grad=learned_mean)        
+        self.mean = Parameter(mean_tensor, requires_grad=learned_means)        
 
         if var_type == 'scalar':
-            self._var_parameter = Parameter(torch.tensor(1.), requires_grad=False)
-
+            var_param_per_class = torch.tensor(1.)
+        elif var_type == 'diag':
+            var_param_per_class = torch.ones(dim)
+        elif var_type == 'full':
+            var_param_per_class = torch.eye(dim)
         else:
-            var_param_per_class = torch.ones(dim) if var_type == 'diag' else torch.eye(dim)
-            if self.conditionnal:
-                var_tensor = torch.stack([var_param_per_class for _ in range(num_priors)])
-            else:
-                var_tensor = var_param_per_class
-            self._var_parameter = Parameter(var_tensor, requires_grad=learned_var)
+            raise ValueError('var_type {} unknown'.format(var_type))
+        if self.conditional:
+            var_tensor = torch.stack([var_param_per_class for _ in range(num_priors)])
+        else:
+            var_tensor = var_param_per_class
+        self._var_parameter = Parameter(var_tensor, requires_grad=learned_variance)
 
         self._inv_var_is_computed = False
         self._inv_var = None
+
+    @property
+    def inv_trans(self):
+
+        if self.var_type == 'full':
+            return self._var_parameter.tril()
+        else:
+            return self._var_parameter
         
     @property
     def inv_var(self):
@@ -155,12 +187,75 @@ class Prior(nn.Module):
             self._inv_var_is_computed = not self.training
 
         elif self.var_type == 'full':
-
-            var_trans = torch.tril(self._var_parameter)
-            self._inv_var = torch.matmul(var_trans.transpose(1, 2), var_trans)
+            self._inv_var = torch.matmul(self.inv_trans.transpose(-1, -2), self.inv_trans)
             self._inv_var_is_computed = not self.training
 
-    def kl(self, mu, log_var, y=None):
+    def log_det_per_class(self):
+        """ return log det of Sigma """
+
+        if self.var_type == 'full':
+            # return -self.inv_trans.abs().logdet() * 2
+            if self.conditional:
+                return -2 * torch.stack([M_.diag().abs().log().sum() for M_ in self.inv_trans])
+            else:
+                return -2 * self.inv_trans.diag().abs().log().sum()
+
+        elif self.var_type == 'diag':
+            return -self.inv_trans.abs().log().sum(-1) * 2
+        else:
+            return -self.dim * self.inv_trans.log() * 2
+
+    def whiten(self, x, y=None):
+
+        assert self.conditional ^ (y is None)
+
+        if self.conditional:
+            transform = self.inv_trans.index_select(0, y.view(-1))
+        else:
+            transform = self.inv_trans
+
+        if self.var_type == 'full':
+            transformed = torch.matmul(transform, x.unsqueeze(-1)).squeeze(-1)
+
+        elif self.var_type == 'diag':
+            transformed = x * transform
+
+        else:
+            transformed = x * transform.unsqueeze(-1)
+
+        return transformed
+
+    def mahala(self, x, y=None):
+
+        assert self.conditional ^ (y is None)
+
+        if self.conditional:
+            means = self.mean.index_select(0, y.view(-1))
+        else:
+            means = self.mean.unsqueeze(-1)
+
+        return self.whiten(x - means, y).pow(2).sum(-1)
+
+    def trace_prod_by_var(self, var, y=None):
+        """ Compute tr(LS^-1) """
+
+        assert self.conditional ^ (y is None)
+
+        if self.var_type == 'full':
+            prior_inv_var_diag = self.inv_trans.pow(2).sum(-2)
+            
+        else:
+            prior_inv_var_diag = self.inv_trans.pow(2)
+
+        if self.conditional:
+            prior_inv_var_diag = prior_inv_var_diag.index_select(0, y.view(-1))
+
+        if self.var_type == 'scalar':
+            prior_inv_var_diag.unsqueeze_(-1)
+    
+        return (var * prior_inv_var_diag).sum(-1)
+            
+    def kl(self, mu, log_var, y=None, output_dict=True):
         """Params:
 
         -- mu: NxK means 
@@ -171,13 +266,13 @@ class Prior(nn.Module):
 
         """
 
-        """tr(LB): L: var NxK, B: inv_var CxKxK if conditionnal else KxK 
+        """tr(LB): L: var NxK, B: inv_var CxKxK if conditional else KxK 
 
         """
 
         var = log_var.exp()
 
-        prior_trans = self._var_parameter.tril()
+        prior_trans = self.inv_trans
 
         prior_inv_var_diag = prior_trans.pow(2).sum(-1)
 
@@ -186,30 +281,12 @@ class Prior(nn.Module):
             return
 
         loss_components = {}
-        
-        if self.num_priors == 1:
-            """ (tr(LB))i = sum_k Lik*Bkk """
-            
-            assert y is None
-            loss_components['trace'] = torch.matmul(var, prior_inv_var_diag)
-            
-        else:
-            """
-            tr(LB)i = sum_k Lik*Bikk = sum_k Lik*Mik where Mik = Bikk
-            """
-            prior_inv_var_diag_i = prior_inv_var_diag.index_select(0, y.view(-1))
 
-            loss_components['trace'] = (var * prior_inv_var_diag_i).sum(-1)
+        loss_components['trace'] = self.trace_prod_by_var(var, y)
 
-        loss_components['log_det_prior'] = prior_trans.abs().logdet() * 2
-        # inv_var = self.inv_var 
-        # loss_components['log_det_prior'] = inv_var.logdet()
-        min_logdet = loss_components['log_det_prior'].min()
-        max_logdet = loss_components['log_det_prior'].max()
-        min_diag = prior_inv_var_diag.min()
-        max_diag = prior_inv_var_diag.max()
-        
-        # print('Var diag = {:8.3g} -- {:8.3g}'.format(min_diag, max_diag))
+        """ log |Sigma| """
+        loss_components['log_det_prior'] = self.log_det_per_class()
+
         if loss_components['log_det_prior'].isnan().any():
             print('*** Log det nan')
             inv_var = self.inv_var
@@ -217,18 +294,12 @@ class Prior(nn.Module):
             is_nan_after = log_det_prior.isnan().any()
             print('*** real log det is nan:', is_nan_after)
             
-        if self.conditionnal:
+        if self.conditional:
             loss_components['log_det_prior'] = loss_components['log_det_prior'].index_select(0, y.view(-1))
 
         loss_components['log_det'] = log_var.sum(-1)
 
-        if self.conditionnal:
-            means = self.mean.index_select(0, y.view(-1))
-            transform = prior_trans.index_select(0, y.view(-1))
-            delta = (mu - means).unsqueeze(-1)
-            loss_components['distance'] = (torch.matmul(transform, delta) ** 2).squeeze().sum(-1)
-        else:
-            loss_components['distance'] = (torch.matmul(mu, self._var_parameter.T) ** 2).sum(-1)
+        loss_components['distance'] = self.mahala(mu, y) 
 
         stop = False
         for k in loss_components:
@@ -238,13 +309,33 @@ class Prior(nn.Module):
         if stop:
             return
 
-        loss_components['kl'] = (loss_components['distance'] +
-                                 loss_components['trace'] -
-                                 loss_components['log_det'] -
-                                 loss_components['log_det_prior'] -
-                                 self.dim)
+        loss_components['kl'] = 0.5 * (loss_components['distance'] +
+                                       loss_components['trace'] -
+                                       loss_components['log_det'] +
+                                       loss_components['log_det_prior'] -
+                                       self.dim)
         
-        return loss_components
+        return loss_components if output_dict else loss_components['kl']
+
+    def log_density(self, z, y=None):
+
+        assert self.conditional ^ (y is None)
+
+        u = self.mahala(z, y) / 2
+
+        log_det = self.log_det_per_class()
+        if self.conditional:
+            log_det = log_det.index_select(0, y.view(-1))
+
+        return -np.log(2 * np.pi) * self.dim / 2 - u / 2
+
+    def __repr__(self):
+
+        pre = 'Conditional ' if self.conditional else ''
+        var = ('learned ' if self.learned_var else '') + self.var_type + ' variance'
+        plural = 's' if self.conditional else ''
+        mean = ('learned ' if self.learned_means else '') + 'mean' + plural
+        return '{p}prior of dim {K} with {m} and {v}'.format(p=pre, m=mean, v=var, K=self.dim)
 
     
 class Sigma(Parameter):
@@ -575,11 +666,11 @@ class Encoder(nn.Module):
                  sampling=True,
                  sigma_output_dim=0,
                  forced_variance=False,
-                 prior_variance=1.,
-                 dictionary_variance=1,
-                 coder_means=None,
-                 prior_variance='learned',
-                 dictionary_min_dist=None,
+                 conditional_prior=False,
+                 latent_prior_means=0.,
+                 latent_prior_variance=1.,
+                 learned_latent_prior_variance=False,
+                 learned_latent_prior_means=False,
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
@@ -616,10 +707,24 @@ class Encoder(nn.Module):
 
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
-        learned_mean = coder_means == 'learned'
-        learned_var = prior_variance == 'learned'
+        if latent_prior_means == 'onehot':
+            assert latent_dim >= num_labels
+            prior_means = torch.zeros(num_labels, latent_dim)
+            for i in range(num_labels):
+                prior_means[i, i] = 1
+            
+        else:
+            prior_means = latent_prior_means * torch.randn(num_labels, latent_dim)
+
+        var_ndim = torch.as_tensor(latent_prior_variance).ndim
+        var_type = {0: 'scalar', 1: 'diag', 2: 'full'}[var_ndim]
         
-        self.prior = Prior(latent_dim, var_type='full', num_priors=num_labels, learned_mean=learned_mean, leanred_var=learned_var)
+        self.prior = Prior(latent_dim,
+                           var_type=var_type,
+                           num_priors=num_labels if conditional_prior else 1,
+                           mean=prior_means,
+                           learned_means=learned_latent_prior_means,
+                           learned_variance=learned_latent_prior_variance)
 
     def eval(self, *a):
         print('eval', *a)

@@ -76,7 +76,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
                                 'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist', 'iws',
-                                         'z_logdet', 'mahala', 'kl_rec', 'z_tr_inv_cov'),
+                                         'z_logdet', 'z_tr_inv_cov'),
                                 'xvae': ('cross_x', 'kl', 'total', 'zdist', 'iws'),
                                 'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
@@ -101,9 +101,9 @@ class ClassificationVariationalNetwork(nn.Module):
                             'vae': ['iws-2s', 'iws', 'logpx'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
-    misclass_methods_per_type = {'cvae': ['iws', 'softiws*', 'kl', 'kl_rec',  'max',
-                                          'softkl*', 'zdist', 'mahala', 'fisher_rao',
-                                          'softmahala*', 'softzdist*', 'baseline*', 'hyz'],
+    misclass_methods_per_type = {'cvae': ['iws', 'softiws*', 'kl', 'max',
+                                          'softkl*', 'zdist',
+                                          'softzdist*', 'baseline*', 'hyz'],
                                  'xvae': [],
                                  'jvae': [],
                                  'vae': [],
@@ -117,7 +117,7 @@ class ClassificationVariationalNetwork(nn.Module):
         for eps in ODIN_EPS:
             odin_params.append('odin-{:.0f}-{:.4f}'.format(T, eps))
     methods_params = {}
-    for k in ['soft' + _ for _ in ['kl', 'zdist', 'mahala']] + ['baseline']:
+    for k in ['soft' + _ for _ in ['kl', 'zdist']] + ['baseline']:
         methods_params[k] = []
         for _ in ODIN_TEMPS:
             methods_params[k].append(f'{k}-{_:.0f}')
@@ -137,10 +137,11 @@ class ClassificationVariationalNetwork(nn.Module):
                  encoder_layer_sizes=[36],
                  latent_dim=32,
                  latent_prior_variance=1,
+                 latent_prior_means=0,
+                 learned_latent_prior_variance=False,
+                 learned_latent_prior_means=False,
                  beta=1.,
                  gamma=0.,
-                 dictionary_variance=1,
-                 coder_means='random',
                  decoder_layer_sizes=[36],
                  upsampler_channels=None,
                  pretrained_upsampler=None,
@@ -185,8 +186,6 @@ class ClassificationVariationalNetwork(nn.Module):
         self.y_is_decoded = True
         if self.is_cvae or self.is_vae:
             self.y_is_decoded = gamma
-
-        self.coder_has_dict = self.is_cvae or self.is_xvae
         
         self.x_is_generated = not self.is_vib
 
@@ -275,8 +274,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.gamma = gamma if self.y_is_decoded else None
         logging.debug(f'Gamma: {self.gamma}')
-        
-        self.latent_prior_variance = latent_prior_variance
+
+        conditonal_prior = self.is_cvae or self.is_xvae
+        if not conditonal_prior:
+            learned_latent_prior_means = False
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,
                                latent_dim=latent_dim,
@@ -284,8 +285,11 @@ class ClassificationVariationalNetwork(nn.Module):
                                sigma_output_dim=self.sigma.output_dim if self.sigma.coded else 0,
                                forced_variance = encoder_forced_variance,
                                sampling_size=latent_sampling,
-                               coder_means=coder_means,
-                               dictionary_variance=dictionary_variance,
+                               conditional_prior=self.is_cvae or self.is_xvae,
+                               latent_prior_variance=latent_prior_variance,
+                               learned_latent_prior_variance=learned_latent_prior_variance,
+                               latent_prior_means=latent_prior_means,
+                               learned_latent_prior_means=learned_latent_prior_means,
                                activation=activation, sampling=sampling)
         
         activation_layer = activation_layers[activation]()
@@ -351,6 +355,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'latent_dim': latent_dim,
                              'test_latent_sampling': test_latent_sampling,
                              'latent_prior_variance': latent_prior_variance,
+                             'latent_prior_means': latent_prior_means,
                              'decoder': decoder_layer_sizes,
                              'upsampler': upsampler_channels,
                              'classifier': classifier_layer_sizes,
@@ -371,8 +376,8 @@ class ClassificationVariationalNetwork(nn.Module):
             'sigma': self.sigma.params,
             'beta': self.beta,
             'gamma': self.gamma,
-            'dictionary_variance': dictionary_variance,
-            'coder_means': coder_means,
+            'learned_latent_prior_means': learned_latent_prior_means,
+            'learned_latent_prior_variance': learned_latent_prior_variance,
             'latent_sampling': latent_sampling,
             'set': None,
             'data_augmentation': [],
@@ -380,7 +385,7 @@ class ClassificationVariationalNetwork(nn.Module):
             'pretrained_upsampler': pretrained_upsampler,
             'epochs': 0,
             'batch_size': None,
-            'fine_tuning': [],}
+            'fine_tuning': []}
 
         self.testing = {0: {m: {'n': 0, 'epochs': 0, 'accuracy': 0}
                         for m in self.predict_methods}}
@@ -659,15 +664,15 @@ class ClassificationVariationalNetwork(nn.Module):
             snr = total_measures['xpow'] / total_measures['mse']
             total_measures['snr'] = 10 * np.log10(snr)
             
-        dictionary = self.encoder.latent_dictionary if self.coder_has_dict else None
+        dictionary = self.encoder.prior.mean if self.encoder.prior.conditional else None
 
         if not batch:
             logging.debug('warmup kl weight=%e', kl_var_weighting)
 
         batch_kl_losses = kl_loss(mu, log_var,
                                   z=z[1:],
-                                  y=y if self.coder_has_dict else None,
-                                  prior_variance = self.latent_prior_variance,
+                                  y=y if self.encoder.prior.conditional else None,
+                                  prior_variance = 1., 
                                   latent_dictionary=dictionary,
                                   var_weighting=kl_var_weighting,
                                   batch_mean=False)
@@ -682,13 +687,7 @@ class ClassificationVariationalNetwork(nn.Module):
         total_measures['var_kl'] = (current_measures['var_kl'] * batch +
                                     zdist.mean().item()) / (batch + 1)
 
-        batch_losses['kl_rec'] = batch_kl_losses['kl_rec']
-
-        batch_losses['mahala'] = batch_kl_losses['mahala']
-
         batch_losses['kl'] = batch_kl_losses['kl']
-
-        batch_losses['fisher_rao'] = batch_kl_losses['fisher_rao']
 
         batch_losses['zdist'] = batch_kl_losses['dist']
         batch_losses['var_kl'] = batch_kl_losses['var']

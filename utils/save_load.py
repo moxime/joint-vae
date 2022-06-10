@@ -634,7 +634,6 @@ def needed_components(*methods):
 
     ncd.update({_: (_,) for _ in ('kl', 'fisher_rao', 'mahala', 'kl_rec')})
     ncd.update({'soft' + _: (_,) for _ in ('kl', 'mahala', 'zdist')})
-
     
     for k in total:
         ncd[k] = ('total',)

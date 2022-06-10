@@ -4,93 +4,91 @@ from matplotlib import pyplot as plt
 import time
 import numpy as np
 
-var_type = 'scalar'
+var_type = 'diag'
 var_type = 'full'
-
-learned_mean = False
-learned_mean = True
-learned_var = False
-learned_var = True
+var_type = 'scalar'
 
 K = 4
 N = 100
-C = 10
+labels = 10
 
-lr = 1e-3
+var_per_dim = torch.stack([torch.ones(K) for i in range(labels)])
+mu_per_dim = torch.randn(labels, K) 
 
-device = 'cpu'
-device = 'cuda'
+priors = {}
 
-prior = Prior(K, var_type=var_type, num_priors=C, learned_mean=learned_mean, learned_var=learned_var)
+for var_type in ('full', 'diag', 'scalar'):
+    priors[var_type] = {}
+    for C in (10, 1):
+        print('************************')
+        print('***', var_type, C, '***')
+        print()
+        prior = Prior(K, var_type=var_type, num_priors=C)
+        priors[var_type][C] = prior
 
+        if C > 1:
+            params_to_be_modified = [_ for _ in prior._var_parameter]
+        else:
+            params_to_be_modifieds = [prior._var_parameter]
+        if var_type == 'full':
+            for p in params_to_be_modified:
+                p.data[0][0] = 0.5
+                p.data[1][0] = 1e-1
 
-prior.to(device)
+        if var_type == 'diag':
+            for p in params_to_be_modified:
+                p.data[0] = 0.5
 
-# var_per_dim = torch.randn(C, K) ** 2
-var_per_dim = torch.stack([(i * 0.5 + 1) * torch.ones(K) for i in range(C)])
+        if var_type == 'scalar':
+            for p in params_to_be_modified:
+                p.data = torch.tensor(0.5)
 
-mu_per_dim = torch.randn(C, K) 
+        z = torch.randn(N, K)
+        z0 = z[0]
+        v = z.exp()
+        v0 = v[0]
+        y = torch.randint(C, (N,)) if C > 1 else None
 
-mu = torch.zeros(N, K)
+        u = prior.whiten(z, y)
 
-optimizer = torch.optim.SGD(prior.parameters(), lr=lr)
+        inv_trans = prior.inv_trans
+        if prior.conditional:
+            inv_trans = inv_trans[y[0]]
+        u0 = (inv_trans * z0.unsqueeze(0))
+        if inv_trans.ndim == 2:
+            u0 = u0.sum(0)
+        print('A^-1.z of shape', *u.shape)
+        print('u err={:.2e}'.format((u[0] - u0).norm()))
 
-losses = []
-
-dev = 0.00000
-show_every = 100
-
-t0 = time.time()
-
-former_params = None
-
-# torch.autograd.set_detect_anomaly(True)
-
-losses_components = None
-
-for epoch in range(int(1e6)):
-
-    optimizer.zero_grad()
-    
-    if C > 1:
-        y = torch.randint(C, (N,))
-    else:
-        y = None
-
-    var = var_per_dim.index_select(0, y.view(-1)) * (1 + dev * torch.randn(N, K))
-    mu = mu_per_dim.index_select(0, y.view(-1)) + dev * torch.randn(N, K)
-
-    log_var = var.log()
-
-    previous_loss = losses_components
-    losses_components = prior.kl(mu.to(device), log_var.to(device), y.to(device))
-
-    # break
-    if losses_components is None:
-        break
+        print()
+        d = prior.mahala(z, y)
+        print('||z|| of shape', *d.shape)
+        d0 = u0.pow(2).sum()
+        print('|| err={:.2e}'.format(d[0] - d0))
         
-    loss = losses_components['kl'].mean()
+        print()
+        tr = prior.trace_prod_by_var(v, y)
 
-    loss.backward()
+        inv_var = prior.inv_var
+        if prior.conditional:
+            inv_var = inv_var[y[0]]
+        if inv_var.ndim > 1:
+            inv_var = inv_var.diag()
+        tr0 = (v0 * inv_var).sum()
+        print('trace of shape', *tr.shape)
+        print('trace err={:.2e}'.format(tr[0] - tr0))
 
-    optimizer.step()
-    
-    loss = loss.cpu()
-    trace = losses_components['trace'].mean().cpu().item() - K
-    distance = losses_components['distance'].mean().cpu().item()
-    
-    if not epoch % show_every:
-        t = (time.time() - t0) / N / show_every
-        
-        print('{:6d}: L={:.3e} tr={:+.3e} d={:.3e} ({:.0f}us/i)'.format(epoch, loss.item(), trace, distance, t * 1e6))
-        t0 = time.time()
-            
-    losses.append(loss.item())
-    if loss < 1e-3:
-        nstop += 1
-    else:
-        nstop = 0
+        print()
+        ld = prior.log_det_per_class()
+        print('logDet of shape', *ld.shape)
 
-    if nstop >= 5:
-        break
+        print()
+
+        log_p = prior.log_density(z, y)
+        p = log_p.exp()
+        print('log dens shape', *log_p.shape)
+        if p.isnan().any():
+            print('p is nan')
+        if p.isinf().any():
+            print('p is inf')
 

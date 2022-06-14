@@ -577,13 +577,15 @@ if __name__ == '__main__':
     import time
 
     dset = 'cifar100'
+    dset = 'letters'
     splits = ['train', 'test']
+    splits = ['test']
     
     logging.getLogger().setLevel(logging.DEBUG)
     logging.debug('Going to build dataset')
     t0 = time.time()
     # dset = _imagenet_getter(transform=transforms.ToTensor())
-    train, test = get_dataset('cifar100', splits=splits)
+    train, test = get_dataset('dset', splits=splits)
     logging.debug('Built in {:.1f}s'.format(time.time() - t0))
 
     if 'train' in splits:

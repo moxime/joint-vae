@@ -278,8 +278,6 @@ def get_args_for_train(argv=None):
     parser.add_argument('--hsv', action='store_true')
     parser.add_argument('--representation')
     
-    parser.add_argument('--latent-prior-variance', type=float, default=1.)
-
     parser.add_argument('--features', metavar='NAME',)
                         # choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none',])
 
@@ -542,7 +540,7 @@ if __name__ == '__main__':
     arg = get_args_for_train(cli)
 
     lpm = arg.learned_prior_means
-    print(lpm, type(lpm))
+    print(arg.prior_variance)
     
     # arg = get_args_for_test()
     # for k in arg.filters:

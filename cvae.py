@@ -1956,7 +1956,9 @@ class ClassificationVariationalNetwork(nn.Module):
         
         _, logits, losses, measures = self.evaluate(x_fake)
         
-        sets = [set_name, 'validation']
+        sets = [set_name]
+        if validation:
+            sets.append('validation')
         for s in oodsets:
             sets.append(s.name)
 
@@ -1980,7 +1982,11 @@ class ClassificationVariationalNetwork(nn.Module):
                       ' and validation with batch size %s',
                       train_batch_size, test_batch_size)
 
-        logging.debug('Length of datasets: train={}, valid={}'.format(len(trainset), len(validationset)))
+        if validation:
+            l_valid = len(validationset)
+        else:
+            l_valid = 0
+        logging.debug('Length of datasets: train={}, valid={}'.format(len(trainset), l_valid))
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=train_batch_size,
@@ -2227,9 +2233,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.train_history['test_accuracy'].append(test_accuracy)
                 self.train_history['test_measures'].append(test_measures)
                 self.train_history['test_loss'].append(test_loss)
-            for k,v in zip(('accuracy', 'measures', 'loss'),
-                           (validation_accuracy, validation_measures, validation_loss)):
-                self.train_history['validation_'+k].append(v)
+            if validation:
+                for k,v in zip(('accuracy', 'measures', 'loss'),
+                               (validation_accuracy, validation_measures, validation_loss)):
+                    self.train_history['validation_'+k].append(v)
             if train_accuracy:
                 self.train_history['train_accuracy'].append(train_accuracy)
             self.train_history['train_loss'].append(train_mean_loss)

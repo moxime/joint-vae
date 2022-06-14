@@ -280,7 +280,7 @@ class ClassificationVariationalNetwork(nn.Module):
             learned_latent_prior_means = False
             latent_prior_means = 0
 
-        assert latent_prior_variance in ('scalar', 'diag', 'full'), print(latent_prior_variance)
+        assert latent_prior_variance in ('scalar', 'diag', 'full'), print('LPM', latent_prior_variance)
 
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,

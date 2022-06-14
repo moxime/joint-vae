@@ -172,7 +172,7 @@ if __name__ == '__main__':
                      encoder_forced_variance=args.forced_encoder_variance,
                      latent_dim=args.latent_dim,
                      latent_prior_variance=args.latent_prior_variance,
-                     learned_latent_prior_variance=args.prior_variance := 'scalar',
+                     learned_latent_prior_variance=args.prior_variance != 'scalar',
                      learned_latent_prior_means=args.learned_prior_means,
                      latent_sampling=args.latent_sampling,
                      test_latent_sampling=args.test_latent_sampling,

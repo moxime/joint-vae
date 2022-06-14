@@ -280,6 +280,9 @@ class ClassificationVariationalNetwork(nn.Module):
             learned_latent_prior_means = False
             latent_prior_means = 0
 
+        elif latent_prior_means == 'onehot':
+            learned_latent_prior_means = False
+        
         assert latent_prior_variance in ('scalar', 'diag', 'full'), print('LPV', latent_prior_variance)
         
         self.encoder = Encoder(encoder_input_shape, num_labels,

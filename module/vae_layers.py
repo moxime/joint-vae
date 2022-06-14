@@ -746,7 +746,6 @@ class Encoder(nn.Module):
                 prior_means[i, i] = 1
                 
         else:
-            print('***', latent_prior_means, num_labels, latent_dim)
             prior_means = latent_prior_means * torch.randn(num_labels, latent_dim)
 
         self.prior = Prior(latent_dim,

@@ -167,10 +167,7 @@ def get_args_for_train(argv=None):
     
     defaults.update(config_params)
 
-    alphanum_keys = ('sigma',
-                     'prior_means',
-                     'conv_padding',
-                     'encoder',
+    alphanum_keys = ('encoder',
                      'data_augmentation',
                      'features_channels',
                      'decoder',
@@ -541,7 +538,7 @@ if __name__ == '__main__':
     cli = ''.split()
     arg = get_args_for_train(cli)
 
-    print(arg.prior_variance)
+    print(type(arg.prior_means))
     
     # arg = get_args_for_test()
     # for k in arg.filters:

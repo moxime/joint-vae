@@ -1052,7 +1052,10 @@ def register_models(models, *keys):
     return d
 
 
-def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True, load_net=False, **kw):
+def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
+                 load_net=False,
+                 show_debug=False,
+                 **kw):
 
     if not registered_models_file:
         registered_models_file = 'models-{}.json'.format(gethostname())
@@ -1060,7 +1063,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
         logging.debug('Flash collecting networks')
         try:
             rmodels = load_json(search_dir, registered_models_file)
-            with turnoff_debug():
+            with turnoff_debug(turnoff=not show_debug):
                 return gather_registered_models(rmodels, filter, load_net=load_net, **kw)
                 
         except (FileNotFoundError, NoModelError) as e:
@@ -1069,7 +1072,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
             
     if not flash:    
         logging.debug('Collecting networks')
-        with turnoff_debug():
+        with turnoff_debug(turnoff=not show_debug):
             list_of_networks = collect_models(search_dir,
                                               load_net=False,
                                               **kw)

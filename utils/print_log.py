@@ -29,13 +29,14 @@ def printdebug(d=True):
 
 
 @contextmanager
-def turnoff_debug(logger=None, type_of_stream=os.sys.stderr):
+def turnoff_debug(turnoff=True, logger=None, type_of_stream=os.sys.stderr):
     logger = logger or logging.getLogger()
     handlers = logger.handlers
     logging_levels = {_: _.level for _ in handlers}
-    for h in handlers:
-        if h.stream == type_of_stream or not type_of_stream:
-            h.setLevel(logging.ERROR)
+    if turnoff:
+        for h in handlers:
+            if h.stream == type_of_stream or not type_of_stream:
+                h.setLevel(logging.ERROR)
     try:
         yield
     finally:

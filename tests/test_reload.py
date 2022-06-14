@@ -1,9 +1,11 @@
-from utils.save_load import find_by_job_number
+from utils.save_load import needed_remote_files, load_json
 import argparse
 import logging
 import torch
 from utils.print_log import turnoff_debug
 import sys
+from utils.parameters import gethostname
+from cvae import ClassificationVariationalNetwork as M
 
 if __name__ == '__main__':
 
@@ -24,19 +26,55 @@ if __name__ == '__main__':
     
     args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)
 
+    rmodels = load_json(args.job_dir, 'models-{}.json'.format(gethostname()))
+    wanted = args.when
+    
     logging.getLogger().setLevel(40 - 10 * args.v)
-    models = find_by_job_number(*args.jobs, job_dir=args.job_dir,
-                                load_net=True,
-                                load_state=True, show_debug=True)
+    
+    mdirs = [_ for _ in rmodels if rmodels[_]['job'] in args.jobs]
 
-    for _ in models:
+    if len(mdirs) < len(args.jobs):
+        logging.error('Jobs not found')
+        sys.exit(1)
 
-        model = models[_]['net']
-        dset = models[_]['set']
+    total_models = len(mdirs)
+    logging.info('{} models found'.format(total_models))
+    removed = False
+    
+    with open('/tmp/files', 'w') as f:
 
+        opt = dict(which_rec='none', state=True) 
+        
+        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, **opt):
+            logging.debug('{} for {}'.format(sdir[-30:], wanted))
+            if mdir in mdirs:
+                mdirs.remove(mdir)
+                removed = True
+                logging.info('{} is removed (files not found)'.format(mdir.split('/')[-1]))
+            f.write(sdir + '\n')
+
+    logging.info('{} model{} over {}'.format(len(mdirs), 's' if len(mdirs) > 1 else '', total_models))
+    
+    if removed:
+        logging.error('Exiting, load files')
+        logging.error('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
+        logging.error(' Or: %s', '$ . /tmp/rsync-files remote:dir/joint-vae')
+        with open('/tmp/rsync-files', 'w') as f:
+            f.write('#!/bin/bash\n')
+            f.write('rsync -avP --files-from=/tmp/files $1 .\n')
+        sys.exit(1)
+
+    models = [M.load(d, load_state=True) for d in mdirs]
+
+    for _ in mdirs:
+
+        model = M.load(_, load_state=True)
+        dset = rmodels[_]['set']
+        job = rmodels[_]['job']
+        
         num_batch = args.num_batch
         batch_size = args.batch_size
-        print('*** Computing accuracy for {} on model # {} with {} images'.format(dset, _, num_batch * batch_size))
+        print('*** Computing accuracy for {} on model # {} with {} images'.format(dset, job, num_batch * batch_size))
         with turnoff_debug():
             with torch.no_grad():
                 acc = model.accuracy(batch_size=args.batch_size,

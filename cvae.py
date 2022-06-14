@@ -1994,13 +1994,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   shuffle=True,
                                                   num_workers=0)
 
-        if validationset is not None:
-            validationloader = torch.utils.data.DataLoader(validationset,
-                                                           batch_size=test_batch_size,
-                                                           # pin_memory=True,
-                                                           shuffle=True,
-                                                           num_workers=0)
-
         logging.debug('...done')
         
         dataset_size = len(trainset)

@@ -162,7 +162,7 @@ if __name__ == '__main__':
         jvae = CVNet(input_shape, num_labels,
                      type_of_net=args.type,
                      features=args.features,
-                     features_channels=aargs.features_channels,
+                     features_channels=args.features_channels,
                      conv_padding=args.conv_padding,
                      pretrained_features=args.pretrained_features,
                      pretrained_upsampler=args.pretrained_upsampler,

@@ -167,17 +167,26 @@ def get_args_for_train(argv=None):
     
     defaults.update(config_params)
 
-    alphanum_keys = ('encoder',
+    alphanum_keys = ('sigma',
+                     'prior_means',
+                     'conv_padding',
+                     'encoder',
                      'data_augmentation',
                      'features_channels',
                      'decoder',
                      'upsampler',
                      'classifier')
+
+    bool_keys = ('learned_prior_means',)
     
     for k in alphanum_keys:
         p = defaults.get(k, '')
         defaults[k] = list_of_alphanums(p)
 
+    for k in bool_keys:
+        p = defaults.get(k, '')
+        defaults[k] = str2bool(p)
+        
     parser = argparse.ArgumentParser(parents=[conf_parser],
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -246,14 +255,19 @@ def get_args_for_train(argv=None):
                         help='Beta-(C)VAE',
                         metavar='ß')
 
-    parser.add_argument('--dictionary-variance',
-                        type=float,
-                        default=1)
-
     parser.add_argument('--gamma', type=float,
                         default=0.)
     
-    parser.add_argument('--coder-means', default='random')
+    parser.add_argument('--prior-means',
+                        type=alphanum,
+                        default=0,
+                        help='For CVAE, energy of latent prior means (or \'onehot\')'
+                        )
+
+    parser.add_argument('--learned-prior-means',
+                        action='store_true')
+
+    parser.add_argument('--prior-variance', choices=['scalar', 'diag', 'full'])
     
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)
@@ -330,7 +344,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--output-dir', metavar='DIR/')
 
     parser.add_argument('--show', action='store_true',
-                        help='Shiw network structure and exit')
+                        help='Show network structure and exit')
     
     parser.add_argument('--where', action='store_true',
                         help='Print saving dir and exit')
@@ -527,7 +541,9 @@ if __name__ == '__main__':
     cli = '--config cifar10'.split()
     arg = get_args_for_train(cli)
 
-    print(arg.latent_sampling, arg.test_batch_size, *arg.upsampler, arg.data_augmentation, len(arg.data_augmentation))
+    lpm = arg.learned_prior_means
+    print(lpm, type(lpm))
+    
     # arg = get_args_for_test()
     # for k in arg.filters:
         # if not arg.filters[k].always_true:

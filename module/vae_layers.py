@@ -744,20 +744,19 @@ class Encoder(nn.Module):
             prior_means = torch.zeros(num_labels, latent_dim)
             for i in range(num_labels):
                 prior_means[i, i] = 1
-            
+                
         else:
             prior_means = latent_prior_means * torch.randn(num_labels, latent_dim)
 
-        var_ndim = torch.as_tensor(latent_prior_variance).ndim
-        var_type = {0: 'scalar', 1: 'diag', 2: 'full'}[var_ndim]
-        
         self.prior = Prior(latent_dim,
-                           var_type=var_type,
+                           var_type=latent_prior_variance,
                            num_priors=num_labels if conditional_prior else 1,
                            mean=prior_means,
                            learned_means=learned_latent_prior_means,
                            learned_variance=learned_latent_prior_variance)
 
+        logging.debug('Built %s', self.prior)
+        
     def eval(self, *a):
         print('eval', *a)
     

@@ -136,7 +136,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_norm=False,
                  encoder_layer_sizes=[36],
                  latent_dim=32,
-                 latent_prior_variance=1,
+                 latent_prior_variance='scalar',
                  latent_prior_means=0,
                  learned_latent_prior_variance=False,
                  learned_latent_prior_means=False,
@@ -275,9 +275,12 @@ class ClassificationVariationalNetwork(nn.Module):
         self.gamma = gamma if self.y_is_decoded else None
         logging.debug(f'Gamma: {self.gamma}')
 
-        conditonal_prior = self.is_cvae or self.is_xvae
-        if not conditonal_prior:
+        self.conditional_prior = self.is_cvae or self.is_xvae
+        if not self.conditional_prior:
             learned_latent_prior_means = False
+            latent_prior_means = 0
+
+        assert latent_prior_variance in ('scalar', 'diag', 'full')
 
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,
@@ -286,7 +289,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                sigma_output_dim=self.sigma.output_dim if self.sigma.coded else 0,
                                forced_variance = encoder_forced_variance,
                                sampling_size=latent_sampling,
-                               conditional_prior=self.is_cvae or self.is_xvae,
+                               conditional_prior=self.conditional_prior,
                                latent_prior_variance=latent_prior_variance,
                                learned_latent_prior_variance=learned_latent_prior_variance,
                                latent_prior_means=latent_prior_means,
@@ -344,8 +347,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                  upsampler_channels,
                                  classifier_layer_sizes]
 
-        prior_var_type = {0: 'scalar', 1: 'diag', 2: 'full'}[latent_prior_variance.ndim]
-
         self.architecture = {'input': input_shape,
                              'labels': num_labels,
                              'type': type_of_net,
@@ -357,7 +358,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'encoder_forced_variance': self.encoder.forced_variance,
                              'latent_dim': latent_dim,
                              'test_latent_sampling': test_latent_sampling,
-                             'latent_prior_variance': prior_var_type,
+                             'latent_prior_variance': latent_prior_variance,
                              'latent_prior_means': latent_prior_means,
                              'decoder': decoder_layer_sizes,
                              'upsampler': upsampler_channels,

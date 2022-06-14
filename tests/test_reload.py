@@ -74,7 +74,8 @@ if __name__ == '__main__':
         
         num_batch = args.num_batch
         batch_size = args.batch_size
-        print('*** Computing accuracy for {} on model # {} with {} images'.format(dset, job, num_batch * batch_size))
+        print('*** Computing accuracy for {} on model # {} with {} images'.format(dset, job,
+                                                                                  num_batch * batch_size))
         with turnoff_debug():
             with torch.no_grad():
                 acc = model.accuracy(batch_size=args.batch_size,

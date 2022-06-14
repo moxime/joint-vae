@@ -700,7 +700,7 @@ def available_results(model,
     for s in sets:
         C = get_shape_by_name(s)[-1]
         if not C:
-            C = model.num_labels
+            C = model.architecture['labels']
         min_samples[s] = C * min_samples_by_class
         samples_available_by_compute[s] = C * samples_available_by_class
 

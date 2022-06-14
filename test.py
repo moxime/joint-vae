@@ -181,6 +181,7 @@ if __name__ == '__main__':
             to_be_kept = False
             epoch_tolerance = 0
             while not to_be_kept and epoch_tolerance <= 10:
+
                 available = available_results(n, wanted_epoch=wanted_epoch,
                                               where=where, epoch_tolerance=epoch_tolerance)
 

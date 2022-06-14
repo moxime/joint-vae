@@ -269,7 +269,7 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--prior-variance',
                         choices=['scalar', 'diag', 'full'],
-                        default='scalar')
+                        default='scalr')
     
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)
@@ -538,10 +538,9 @@ class NewEntryDictofLists(argparse.Action):
             
 if __name__ == '__main__':
 
-    cli = '--config cifar10'.split()
+    cli = ''.split()
     arg = get_args_for_train(cli)
 
-    lpm = arg.learned_prior_means
     print(arg.prior_variance)
     
     # arg = get_args_for_test()

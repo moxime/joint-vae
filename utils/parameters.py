@@ -264,7 +264,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--learned-prior-means',
                         action='store_true')
     parser.add_argument('--static-prior-means',
-                        dest='learned_latent_prior_means',
+                        dest='learned_prior_means',
                         action='store_false')
     
     parser.add_argument('--prior-variance',

@@ -26,7 +26,7 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
         sigmabeta += f' (\\ensuremath\\beta=\\num{{{beta}}})'
 
     parent_set, heldout = torchdl.get_heldout_classes_by_name(trainset)
-    parent_classes = torchdl.set_dict[parent_set]['classes']
+    parent_classes = torchdl.dataset_properties()[parent_set]['classes']
     classes = [c for (i, c) in enumerate(parent_classes) if i not in heldout]
     ood_results = net.ood_results.get(epoch, {})
     exported_values = dict(

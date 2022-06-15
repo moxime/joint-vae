@@ -929,7 +929,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         loss_[s].update(last_loss)
 
     has_validation = 'validation_loss' in history
-    
+    validation = model.training_parameters.get('validation', 0)
     sigma = model.sigma
     beta = model.training_parameters['beta']
     if sigma.learned and not sigma.coded:
@@ -1013,6 +1013,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'done': model.train_history['epochs'],
             'epochs': model.training_parameters['epochs'],
             'has_validation': has_validation,
+            'validation': validation,
             'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
             'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
             'n_tested': n_tested,

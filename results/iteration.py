@@ -29,7 +29,8 @@ if __name__ == '__main__':
 
     args_from_file = ('-vvvv '
                       '--prior '
-                      '--jobs 193080 193082'
+                      #                      '--jobs 193080 193082'
+                      '--jobs 169381'
                       ).split()
 
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)

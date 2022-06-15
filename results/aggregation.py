@@ -80,6 +80,12 @@ if __name__ == '__main__':
                       '--when min-loss '
                       ).split()
 
+    args_from_file = ('-vvvv '
+                      #                      '--jobs 193080 193082'
+                      '--job-num 169381 '
+                      '--when min-loss '
+                      ).split()
+
     # args_from_file = '--job-num 192000... --when min-loss'.split()
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
     wanted = args.when

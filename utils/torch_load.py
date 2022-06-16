@@ -42,26 +42,6 @@ def stdout_as_debug():
         sys.stdout = orig
 
 
-def modify_getter(getter, pretransform=None, **added_kw):
-
-    def modified_getter(*a, **kw):
-        copied_kw = added_kw.copy()
-
-        if 'transform' in kw and pretransform:
-            kw['transform'] = transforms.Compose([pretransform, kw['transform']])
-
-        k = 'target_transform'
-        if added_kw.get(k):
-            if kw.get(k):
-                kw[k] = transforms.Compose([copied_kw.pop(k), kw[k]])
-            else:
-                kw[k] = copied_kw.pop(k)
-        kw.update(copied_kw)
-        return getter(*a, **kw)
-
-    return modified_getter
-
-
 def choose_device(device=None):
     """if device is None, returns cuda or cpu if not available.
     else returns device
@@ -77,7 +57,8 @@ def choose_device(device=None):
 
 
 def letters_getter(**kw):
-    return datasets.EMNIST(split='letters', **kw)
+    
+    return datasets.EMNIST(split='letters',  **kw)
 
 
 class ImageFolderWithClassesInFile(datasets.ImageFolder):
@@ -217,7 +198,7 @@ def get_dataset(dataset='mnist',
         heldin = [_ for _ in range(C) if _ not in heldout_classes]
         d = {c: i for (i, c) in enumerate(heldin)}
         d.update({_: -1 for _ in heldout_classes})
-        target_transform =  d.get
+        target_transform = d.get
         
     same_size = get_same_size_by_name(get_name_by_heldout_classes(dataset, *heldout_classes))
 

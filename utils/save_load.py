@@ -329,6 +329,7 @@ class LossRecorder:
                  **tensors):
 
         self.last_batch_size = {}
+        self._seed = None
         self.reset()
 
         self._num_batch = 0
@@ -339,6 +340,7 @@ class LossRecorder:
         self._tensors = {}
 
         self.device = device
+
 
         if tensors:
             self._create_tensors(num_batch, device=device, **tensors)
@@ -366,10 +368,11 @@ class LossRecorder:
         for t in self._tensors:
             self._tensors[t] = self._tensors[t].to(device)
 
-    def reset(self):
+    def reset(self, seed=False):
 
         self._recorded_batches = 0
-        self._seed = np.random.randint(1, int(1e8))
+        if self._seed is None or seed:
+            self._seed = np.random.randint(1, int(1e8))
         self.last_batch_size = {k: self.batch_size for k in self.last_batch_size}
         return
 

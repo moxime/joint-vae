@@ -84,4 +84,9 @@ if __name__ == '__main__':
                                      print_result='ACC',
                                      update_self_testing=False,
                                      )
-        
+
+                ood = model.ood_detection_rates(batch_size=batch_size,
+                                                num_batch=num_batch,
+                                                print_result='OOD',
+                                                update_self_ood=False,
+                                                from_where=('compute'))

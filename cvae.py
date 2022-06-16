@@ -2069,7 +2069,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                     self.ood_detection_rates(oodsets=oodsets, testset=testset,
                                              batch_size=test_batch_size,
-                                             num_batch=len(testset) // test_batch_size,
+                                             num_batch=2 * len(testset) // test_batch_size,
                                              outputs=outputs,
                                              recorders=recorders,
                                              sample_dirs=sample_dirs,

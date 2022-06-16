@@ -398,6 +398,7 @@ def get_batch(dataset, shuffle=True, batch_size=100, device=None):
 
 
 def get_shape(dataset):
+
     loader = torch.utils.data.DataLoader(dataset,
                                          batch_size=1)
 
@@ -517,7 +518,7 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
     return sets
  
 
-def show_images(imageset, shuffle=True, num=4, **kw):
+def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
 
     batch_size = num
     loader = torch.utils.data.DataLoader(imageset,
@@ -525,21 +526,25 @@ def show_images(imageset, shuffle=True, num=4, **kw):
                                          batch_size=batch_size)
 
     x, y = next(iter(loader))
+
+    nrows = int(np.ceil(num / ncols))
     
-    npimages = torchvision.utils.make_grid(x[:num]).numpy().transpose(1, 2, 0)
-    labels = y
-    try:
-        classes = [str(y.numpy()) + imageset.classes[y] for y in labels]
-    except (AttributeError, TypeError):
-        classes = [str(y.numpy()) for y in labels]
-
-    legend = ' - '.join(classes)
-
-    f, a = plt.subplots()
-    a.axis('off')
-    a.imshow(npimages, **kw)
-    a.set_title(legend)
-    f.show()
+    fix, axs = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False)
+    
+    for i, image in enumerate(x):
+        r = i // ncols
+        c = i - r * ncols
+        img = transforms.functional.to_pil_image(image)
+        axs[r, c].imshow(np.asarray(img))
+    
+        try:
+            label = imageset.classes[y[i]]
+        except (AttributeError, TypeError):
+            label = str(y[i].numpy())
+        except IndexError:
+            label = i
+        axs[r, c].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[], title=label)
+    fix.show()
 
 
 def export_png(imageset, directory, by_class=False):

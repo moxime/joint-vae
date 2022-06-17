@@ -91,6 +91,9 @@ if __name__ == '__main__':
                         num_batch * batch_size,
                         next(model.parameters()).device))
 
+        sample_dir = os.path.join('/tmp/reload/samples', str(job))
+        if not os.path.exists(sample_dir):
+            os.makedirs(sample_dir)
         with turnoff_debug():
             with torch.no_grad():
                 
@@ -104,7 +107,7 @@ if __name__ == '__main__':
                 ood = model.ood_detection_rates(batch_size=batch_size,
                                                 num_batch=num_batch,
                                                 print_result='OOD',
-                                                sample_dirs=[os.path.join('/tmp/reload/samples', str(job))],
+                                                sample_dirs=[sample_dir],
                                                 update_self_ood=False,
                                                 recorders=recorders,
                                                 from_where=('compute'))

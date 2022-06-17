@@ -1089,6 +1089,11 @@ class ClassificationVariationalNetwork(nn.Module):
             num_batch = len(testset) // batch_size
             shuffle = False
 
+        if num_batch >= len(testset) // batch_size:
+            num_batch = len(testset) // batch_size
+            shuffle = False
+
+            
         if epoch == 'last':
             epoch = self.trained
 

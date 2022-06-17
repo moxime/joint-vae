@@ -1,4 +1,4 @@
-from utils.save_load import needed_remote_files, load_json
+from utils.save_load import needed_remote_files, load_json, LossRecorder
 import argparse
 import logging
 import torch
@@ -6,6 +6,7 @@ from utils.print_log import turnoff_debug
 import sys, os
 from utils.parameters import gethostname
 from cvae import ClassificationVariationalNetwork as M
+import utils.torch_load as tl
 
 if __name__ == '__main__':
 
@@ -74,10 +75,17 @@ if __name__ == '__main__':
         model.to(device)
         
         dset = rmodels[_]['set']
+
+        all_sets = tl.get_same_size_by_name(dset)
+        all_sets.append(dset)
+
         job = rmodels[_]['job']
         
         num_batch = args.num_batch
         batch_size = args.batch_size
+
+        recorders = {_: tl.LossRecorder(batch_size) for _ in all_sets}
+        
         _s = '*** Computing accuracy for {} on model # {} with {} images on {}'
         print(_s.format(dset, job,
                         num_batch * batch_size,
@@ -97,4 +105,5 @@ if __name__ == '__main__':
                                                 print_result='OOD',
                                                 sample_dirs=os.path.join('/tmp/reload/samples', str(job)),
                                                 update_self_ood=False,
+                                                recorders=recorders,
                                                 from_where=('compute'))

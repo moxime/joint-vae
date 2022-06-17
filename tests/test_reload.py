@@ -104,7 +104,7 @@ if __name__ == '__main__':
                 ood = model.ood_detection_rates(batch_size=batch_size,
                                                 num_batch=num_batch,
                                                 print_result='OOD',
-                                                sample_dirs=os.path.join('/tmp/reload/samples', str(job)),
+                                                sample_dirs=[os.path.join('/tmp/reload/samples', str(job))],
                                                 update_self_ood=False,
                                                 recorders=recorders,
                                                 from_where=('compute'))

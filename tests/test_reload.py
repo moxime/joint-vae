@@ -93,6 +93,7 @@ if __name__ == '__main__':
 
         with turnoff_debug():
             with torch.no_grad():
+                
                 acc = model.accuracy(batch_size=args.batch_size,
                                      num_batch=args.num_batch,
                                      from_where=('compute'),

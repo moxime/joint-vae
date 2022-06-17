@@ -66,16 +66,23 @@ if __name__ == '__main__':
 
     models = [M.load(d, load_state=True) for d in mdirs]
 
+    device = args.device if torch.cuda.is_available() else 'cpu'
+    
     for _ in mdirs:
 
         model = M.load(_, load_state=True)
+        model.to(device)
+        
         dset = rmodels[_]['set']
         job = rmodels[_]['job']
         
         num_batch = args.num_batch
         batch_size = args.batch_size
-        print('*** Computing accuracy for {} on model # {} with {} images'.format(dset, job,
-                                                                                  num_batch * batch_size))
+        _s = '*** Computing accuracy for {} on model # {} with {} images on {}'
+        print(_s.format(dset, job,
+                        num_batch * batch_size,
+                        next(model.parameters()).device)
+
         with turnoff_debug():
             with torch.no_grad():
                 acc = model.accuracy(batch_size=args.batch_size,

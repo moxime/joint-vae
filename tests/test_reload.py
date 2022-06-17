@@ -84,7 +84,7 @@ if __name__ == '__main__':
         num_batch = args.num_batch
         batch_size = args.batch_size
 
-        recorders = {_: tl.LossRecorder(batch_size) for _ in all_sets}
+        recorders = {_: LossRecorder(batch_size) for _ in all_sets}
         
         _s = '*** Computing accuracy for {} on model # {} with {} images on {}'
         print(_s.format(dset, job,

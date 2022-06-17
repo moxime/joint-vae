@@ -81,7 +81,7 @@ if __name__ == '__main__':
         _s = '*** Computing accuracy for {} on model # {} with {} images on {}'
         print(_s.format(dset, job,
                         num_batch * batch_size,
-                        next(model.parameters()).device)
+                        next(model.parameters()).device))
 
         with turnoff_debug():
             with torch.no_grad():

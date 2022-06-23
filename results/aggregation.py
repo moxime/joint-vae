@@ -64,7 +64,7 @@ def likelihood_of_classification(counted_values, accuracy, axis=-1):
 
     return 1 / C * (accuracy / (1 - accuracy) * (C - 1)) ** counted_values * ((1 - accuracy) / (C - 1)) ** N
 
-    
+
 if __name__ == '__main__':
 
     args_from_file = ('--dataset cifar10 '
@@ -81,8 +81,8 @@ if __name__ == '__main__':
                       ).split()
 
     args_from_file = ('-vvvv '
-                      #                      '--jobs 193080 193082'
-                      '--job-num 169381 '
+                      '--job-num 193080 193082 '
+                      # '--job-num 169381 '
                       '--when min-loss '
                       ).split()
 
@@ -205,7 +205,12 @@ if __name__ == '__main__':
     
     i_ax = 0
 
-    results_computed = '+,'
+    """
+    + : work with p(x|y) = sum p_k(x|y)
+    , : work with z = [z1,...,zn]
+    . : work wiht p(x|y) = prod p_k(x|y)
+    """
+    results_computed = '+,.'
 
     corrs = {}
 
@@ -305,6 +310,8 @@ if __name__ == '__main__':
                 if w == '+':
                     t = log_mean_exp(*(iws[_][s] for _ in combo), normalize=normalize)
                     iws[combo_name][s] = t
+                elif w == '.':
+                    t = torch.stack([iws[_][s] for _ in combo]).sum(0)
                 elif w == ',':
                     t = torch.stack([zdist[_][s] for _ in combo]).mean(0)
                     zdist[combo_name][s] = t
@@ -330,7 +337,7 @@ if __name__ == '__main__':
             oods[combo_name] = {}
             ood_rates[combo_name] = {}
 
-            if w == '+':
+            if w in '+.':
                 t_in = iws[combo_name][kept_testset].max(0)[0]
             else:
                 t_in = (-zdist[combo_name][kept_testset]).max(0)[0]
@@ -339,8 +346,8 @@ if __name__ == '__main__':
             thr = sorted(t_in)[i1], sorted(t_in)[i2]
             thresholds[combo_name] = thr
 
-            for s in (oodsets if w == '+' else []):
-                if w == '+':
+            for s in (oodsets if w in '+.' else []):
+                if w in '+.':
                     t = iws[combo_name][s].max(0)[0]
                 else:
                     t = (-zdist[combo_name][s]).max(0)[0]

@@ -130,7 +130,7 @@ if __name__ == '__main__':
         for s in allsets:
             logging.info('Working on {}'.format(s))
 
-            _, dset = get_dataset(s, transformer=transformer)
+            _, dset = get_dataset(s, transformer=transformer, splits=['test'])
 
             dataloader = torch.utils.data.DataLoader(dset, batch_size=args.batch_size, shuffle=False)
 

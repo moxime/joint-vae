@@ -118,6 +118,9 @@ if __name__ == '__main__':
         model = IteratedModels(*models)
 
         device = args.device
+
+        model.to(device)
+        
         testset = model.training_parameters['set']
         allsets = [testset]
         allsets.extend(get_same_size_by_name(testset))

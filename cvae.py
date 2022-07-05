@@ -1381,18 +1381,17 @@ class ClassificationVariationalNetwork(nn.Module):
         if not froms:
             return ood_results
 
-        oodsets_already_computed = []
         for dset in oodsets_names:
             if froms[dset]['where']['json']:
                 ood_results[dset] = self.ood_results[epoch][dset]
-                oodsets_already_computed.append(dset)
 
-        oodsets = [o for o in oodsets if o.name not in oodsets_already_computed]
+        oodsets = [o for o in oodsets if froms[o.name]['where']['compute'] or froms[o.name]['where']['recorders']]
 
         for _ in oodsets:
             print('***', _.name, '***\n', froms[_.name])
 
             print('*** all sets ***\n', froms['all_sets'])
+
         if froms['all_sets']['recorders']:
             rec_dir = froms.pop('rec_dir')
 

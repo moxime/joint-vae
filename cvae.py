@@ -1306,7 +1306,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             elif log:
 
-                logging.debug(f'Accuracies not updated bc {}<={}'.format(n, n_laready))
+                logging.debug('Accuracies not updated bc {}<={}'.format(n, n_already))
 
         return acc[m] if only_one_method else acc
 

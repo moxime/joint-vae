@@ -1205,12 +1205,17 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
         testset = m.training_parameters['set']
 
         sets = []
-        
-        if which_rec in ('all', 'ind'):
-            sets.append(testset)
-            if which_rec == 'all':
-                sets += get_same_size_by_name(testset)
 
+        recs_to_exclude = which_rec.split('-')[1:]
+        which_rec_ = which_rec.split('-')[0]
+
+        if which_rec_ in ('all', 'ind'):
+            sets.append(testset)
+            if which_rec_ == 'all':
+                sets += get_same_size_by_name(testset)
+                for _ in [_ for _ in recs_to_exclude if _ in  sets]:
+                    sets.remove(_)
+                    
         for s in sets:
             sdir = os.path.join(d, 'samples', epoch_, 'record-{}.pth'.format(s))
             if not os.path.exists(sdir):

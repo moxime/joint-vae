@@ -15,7 +15,7 @@ from utils.tables import agg_results, test_results_df
 from pydoc import locate
 import re
 from utils.print_log import turnoff_debug
-from utils.parameters import gethostname
+from utils.parameters import gethostname, DEFAULT_RESULTS_DIR, DEFAULT_JOBS_DIR
 
 
 def expand_row(row_format, *a, col_sep=' & '):
@@ -33,8 +33,8 @@ def bold_best_values(data, value, format_string='{:.1f}', prec=1, highlight = '\
     return format_string.format(min(data, max_value))
 
 
-root = 'results/'
-job_dir = 'jobs'
+root = DEFAULT_RESULTS_DIR
+job_dir = DEFAULT_JOBS_DIR
 
 file_ini = None
 

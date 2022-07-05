@@ -26,6 +26,7 @@ parser.add_argument('--result-dir', default='/tmp')
 parser.add_argument('--when', default='last')
 parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
+parser.add_argument('--sets-to-exclude', nargs='*', default=[])
 
 rmodels = load_json('jobs', 'models-{}.json'.format(gethostname()))
 
@@ -69,28 +70,31 @@ if __name__ == '__main__':
 
     args_from_file = ('--dataset cifar10 '
                       '--type cvae '
-                      # '--gamma 500 '
+                      '--gamma 1000 '
+                      '--features vgg19 ' 
+                      '--representation rgb '
                       '--sigma-train coded '
                       '--coder-dict learned '
                       # '--last 1 '
                       '-vv '
                       '--tex '
                       '--method iws-a-4-1 '
-                      '--job-num 192000.. '
+                      '--job-num 169000.. '
                       '--when min-loss '
+                      '--sets-to-exclude cifar100 '
                       ).split()
 
-    args_from_file = ('-vvvv '
-                      '--job-num 193080 193082 '
-                      # '--job-num 169381 '
-                      '--when min-loss '
-                      ).split()
+    # args_from_file = ('-vvvv '
+    #                   '--job-num 193080 193082 '
+    #                   # '--job-num 169381 '
+    #                   '--when min-loss '
+    #                   ).split()
 
     # args_from_file = '--job-num 192000... --when min-loss'.split()
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
     wanted = args.when
 
-    max_per_rep = 4
+    max_per_rep = 7
     
     logging.getLogger().setLevel(40 - 10 * args.v)
 
@@ -107,9 +111,10 @@ if __name__ == '__main__':
     total_models = len(mdirs)
     logging.info('{} models found'.format(total_models))
     removed = False
+    which_rec = '-'.join(['all'] + args.sets_to_exclude)
     with open('/tmp/files', 'w') as f:
 
-        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec='all', state=False):
+        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec=which_rec, state=False):
             logging.debug('{} for {}'.format(sdir[-30:], wanted))
             if mdir in mdirs:
                 mdirs.remove(mdir)
@@ -119,9 +124,14 @@ if __name__ == '__main__':
 
     # logging.info((len(mdirs), 'complete model' + ('s' if len(mdirs) > 1 else ''), 'over', total_models))
     
-    if not mdirs or removed:
-        logging.warning('Exiting, load files')
-        logging.warning('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
+    if not mdirs:
+        logging.error('Exiting, load files')
+        logging.error('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
+        logging.error(' Or: %s', '$ . /tmp/rsync-files remote:dir/joint-vae')
+        with open('/tmp/rsync-files', 'w') as f:
+            f.write('#!/bin/bash\n')
+            f.write('rsync -avP --files-from=/tmp/files $1 .\n')
+        raise ValueError
 
     key_loss = args.method.split('-')[0]
 
@@ -210,7 +220,7 @@ if __name__ == '__main__':
     , : work with z = [z1,...,zn]
     . : work wiht p(x|y) = prod p_k(x|y)
     """
-    results_computed = '+,.'
+    results_computed = '+'
 
     corrs = {}
 

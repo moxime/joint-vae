@@ -7,6 +7,8 @@ import pandas as pd
 import hashlib
 import argparse
 import logging
+from utils.parameters import DEFAULT_RESULTS_DIR
+import os
 
 
 def printout(s='', file_id=None, std=True, end='\n'):
@@ -21,7 +23,7 @@ def create_printout(file_id=None, std=True, end='\n'):
 
 
 def export_losses(net_dict, which='loss',
-                  directory='results/%j',
+                  directory=os.path.join(DEFAULT_RESULTS_DIR, '%j'),
                   filename='losses.tab',
                   col_width=0, stdout=False):
     """ which is either 'loss' or 'measures' or 'all'
@@ -151,7 +153,7 @@ def test_results_df(nets,
     acc_cols = ['accuracies']
     ood_cols = ['ood_fprs']
 
-    meas_cols = ['epoch', 'done']
+    meas_cols = ['epoch', 'done', 'validation']
 
     if show_measures > 1:
         meas_cols += ['dict_var', 'beta_sigma', 'rmse',
@@ -353,7 +355,7 @@ def digest_table(*jobs,
                  highlight=r'\bfseries',
                  empty= r'\text{--}',
                  stdout=True,
-                 directory='./results/%j',
+                 directory=os.path.join(DEFAULT_RESULTS_DIR, '%j'),
                  filename='row.tex',
                  **method_and_set_dict):
 

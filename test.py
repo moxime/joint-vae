@@ -328,7 +328,6 @@ if __name__ == '__main__':
     early_stopping_str = args.early_stopping or 'last'
     tab_code = hashlib.sha1(bytes(tex_filter_str + early_stopping_str, 'utf-8')).hexdigest()[:6]
 
-    
     if len(df) == 1:
         tab_file = os.path.join(args.results_directory, results_file_name + '.tab') 
         tex_file = os.path.join(args.results_directory, results_file_name + '.tex')
@@ -345,7 +344,6 @@ if __name__ == '__main__':
 
         # print('**********', d.reset_index().columns)  # 
         texify_test_results_df(d, s, tex_file, tab_file, tab_code=tab_code)
-
         
         # d.index = d.index.droplevel(('sigma_train', 'beta_sigma', 'features'))
         # d.index = d.index.droplevel(('sigma_train', 'sigma', 'features'))
@@ -407,7 +405,7 @@ if __name__ == '__main__':
 
         col_show_levels = {_: 0 for _ in d.columns}
         col_show_levels.update({_: 2 for _ in d.columns if _[0] == 'measures'})
-        col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['done', 'epoch']})
+        col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['done', 'epoch', 'validation']})
 
         drop_cols = [_ for _ in d.columns if col_show_levels[_] > args.show_measures]
 

@@ -13,13 +13,14 @@ import logging
 import os
 from utils.save_load import job_to_str, LossRecorder
 from utils.inspection import output_latent_distribution
+from utils.parameters import DEFAULT_RESULTS_DIR, DEFAULT_JOBS_DIR
 
 from torchvision.utils import save_image
 
 import argparse, sys
 
 
-def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
+def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), directory='test',
            N=20, L=10, iteration=False):
     r"""Creates a grid of output images. If x is None tuhe output images
     are the ones created when the decoder is fed with prior z"""
@@ -139,7 +140,7 @@ def sample(net, x=None, y=None, root='results/%j/samples', directory='test',
     return list_of_images
 
 
-def zsample(x, net,y=None, batch_size=128, root='results/%j/samples', bins=10, directory='test'):
+def zsample(x, net,y=None, batch_size=128, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), bins=10, directory='test'):
     r"""will sample variable latent and ouput scatter and histogram of
     variance and mean of z
 
@@ -193,7 +194,7 @@ def zsample(x, net,y=None, batch_size=128, root='results/%j/samples', bins=10, d
                                            bins=bins, per_dim=True)
 
             
-def comparison(x, *nets, batch_size=128, root='results/%j/samples', directory='ood'):
+def comparison(x, *nets, batch_size=128, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), directory='ood'):
     r""" Comparison of different nets """
     
     root = root.replace('%j', '-'.join(str(n.job_number) for n in nets))
@@ -238,7 +239,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--job-dir', default='jobs')
+    parser.add_argument('--job-dir', default=DEFAULT_JOBS_DIR)
     parser.add_argument('-m', '--batch-size', type=int, default=256)
     parser.add_argument('-W', '--grid-width', type=int, default=0)
     parser.add_argument('--total-width', type=int, default=30)
@@ -269,7 +270,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args(args=remaining_args, namespace=filter_args)
 
-    set_log(args.verbose, args.debug, 'jobs/log', name='results')
+    set_log(args.verbose, args.debug, os.path.join(DEFAULT_JOBS_DIR, 'log'), name='results')
     
     L = args.grid_width
     N = args.grid_height

@@ -1,3 +1,4 @@
+import os
 from utils.save_load import create_file_for_job as create_file
 from utils.tables import create_printout
 from module.optimizers import Optimizer
@@ -7,9 +8,10 @@ import string
 import pandas as pd
 from utils.print_log import texify_str
 from datetime import datetime
+from utils.parameters import DEFAULT_RESULTS_DIR
 
 
-def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdout=False,):
+def tex_architecture(net_dict, filename='arch.tex', directory=os.path.join(DEFAULT_RESULTS_DIR, '%j'), stdout=False,):
 
     net = net_dict['net']
     epoch = net_dict['epoch']
@@ -67,7 +69,7 @@ def tex_architecture(net_dict, filename='arch.tex', directory='results/%j', stdo
 
 
 def texify_test_results(net,
-                        directory='results/%j',
+                        directory=os.path.join(DEFAULT_RESULTS_DIR, '%j'),
                         filename='res.tex',
                         which='all',
                         tpr=[0.95, 'auc'],

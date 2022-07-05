@@ -2460,7 +2460,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'data_augmentation': [],
                         'fine_tuning': [],
                         'optim': {},
-        }
+                        }
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
 

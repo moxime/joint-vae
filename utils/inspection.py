@@ -8,7 +8,7 @@ import errno
 import sys
 import argparse
 import logging
-
+from utils.parameters import DEFAULT_RESULTS_DIR
 
 def _create_output_plot(*outputs, pltf='plot'):
 
@@ -127,7 +127,7 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
         close()
 
     
-def loss_comparisons(net, root='results/%j/losses', plot=False, **kw):
+def loss_comparisons(net, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'losses'), plot=False, **kw):
 
     if plot == True:
         plot = 'all'
@@ -262,7 +262,7 @@ def losses_distribution_graphs(dict_of_losses,
 
 if __name__ == '__main__':
 
-    root = 'results/%j/losses'
+    root = os.path.join(DEFAULT_RESULTS_DIR, '%j', 'losses')
 
     j = 112267
     

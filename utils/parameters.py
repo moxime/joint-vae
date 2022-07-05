@@ -9,6 +9,9 @@ from socket import gethostname as getrawhostname
 from utils.filters import ParamFilter, FilterAction, DictOfListsOfParamFilters, get_filter_keys
 import os
 
+DEFAULT_JOBS_DIR = 'jobs'
+DEFAULT_RESULTS_DIR = 'jobs/results'
+
 
 def gethostname():
 
@@ -163,7 +166,7 @@ def get_args_for_train(argv=None):
                 'validation': 8192,
                 'features': 'none',
                 'epochs':100, 
-                'job_dir': './jobs'}
+                'job_dir': DEFAULT_JOBS_DIR}
     
     defaults.update(config_params)
 
@@ -360,7 +363,7 @@ def get_args_for_test(argv=None):
     defaults = {'batch_size': 128,
                 'epochs': 0,
                 'test_sample_size': 1024,
-                'job_dir': './jobs'}
+                'job_dir': DEFAULT_JOBS_DIR}
 
     parser.set_defaults(**defaults)
 
@@ -371,7 +374,7 @@ def get_args_for_test(argv=None):
     parser.add_argument('--load-dir',
                         default=None)
 
-    parser.add_argument('-J', '--job-dir', default='./jobs')
+    parser.add_argument('-J', '--job-dir', default=DEFAULT_JOBS_DIR)
     
     parser.add_argument('-M', '--batch-size', type=int, metavar='M')
 
@@ -410,7 +413,7 @@ def get_args_for_test(argv=None):
     parser.add_argument('--list-jobs-and-quit', action='store_true')
     
     parser.add_argument('--results-file')
-    parser.add_argument('--results-directory', default='results')
+    parser.add_argument('--results-directory', default=DEFAULT_RESULTS_DIR)
     
     parser.add_argument('--show', action='store_true')
     

@@ -154,7 +154,7 @@ if __name__ == '__main__':
                 eta_m = int(eta / 60)
                 eta_s = eta - 60 * eta_m
 
-                print('\r{:4}/{} -- eta: {:.0f}m{:.0f}s   '.format(i, n, eta_m, eta_s), end='')
+                print('\r{:4}/{} -- eta: {:.0f}m{:.0f}s   '.format(i + 1, n, eta_m, eta_s), end='')
 
                 x = x.to(device)
                 y = y.to(device)

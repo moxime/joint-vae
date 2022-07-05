@@ -257,7 +257,7 @@ if __name__ == '__main__':
         epoch = m_['epoch']
         plan = m_['plan']
 
-        # print('*** test:258', plan)
+        print('*** test:258', plan)
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
             logging.debug('Plan for {}; {}'.format(m['job'], plan))

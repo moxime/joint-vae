@@ -257,7 +257,6 @@ if __name__ == '__main__':
         epoch = m_['epoch']
         plan = m_['plan']
 
-        print('*** test:258', plan)
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch)) 
             logging.debug('Plan for {}; {}'.format(m['job'], plan))
@@ -270,18 +269,19 @@ if __name__ == '__main__':
             logging.debug('Will work on {}'.format(device))
             model.to(device)
             with torch.no_grad():
+                print('OOD')
                 model.ood_detection_rates(epoch=epoch,
                                           from_where=where,
                                           sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
                                           outputs=outputs,
                                           print_result='OFR' if not plan['compute'] else 'OFM')
-
+                print('Acc')
                 model.accuracy(epoch=epoch,
                                from_where=where,
                                sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
                                outputs=outputs,
                                print_result='TFR' if not plan['compute'] else 'TFM')
-
+                print('Misclassification')
                 model.misclassification_detection_rate(epoch=epoch,
                                                        from_where=where,
                                                        outputs=outputs,

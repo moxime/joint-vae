@@ -35,6 +35,9 @@ shift
 if [ "$remote" = "lab-ia" ]
 then
     source="~/joint-vae/jobs"
+elif [ "$remote" = "z4" ]
+then
+     source="~/jvae/jobs"
 else
     source="~/python/dnn/joint-vae/jobs"
 fi

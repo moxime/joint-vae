@@ -266,7 +266,8 @@ if __name__ == '__main__':
                 device = args.device or 'cuda'
             else:
                 device = args.device or 'cpu'
-                
+
+            logging.debug('Will work on {}'.format(device))
             model.to(device)
             with torch.no_grad():
                 model.ood_detection_rates(epoch=epoch,

@@ -1390,8 +1390,9 @@ class ClassificationVariationalNetwork(nn.Module):
         oodsets = [o for o in oodsets if o.name not in oodsets_already_computed]
 
         for _ in oodsets:
-            print('***', _, '***\n', froms[_.name])
-        
+            print('***', _.name, '***\n', froms[_.name])
+
+            print('*** all sets ***\n', froms['all_sets'])
         if froms['all_sets']['recorders']:
             rec_dir = froms.pop('rec_dir')
 

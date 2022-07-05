@@ -1709,7 +1709,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if available['where']['recorders']:
 
             sample_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))
-            recorder = LossRecorder.load(os.path.join(sample_dir, f))
+            recorder = LossRecorder.load(os.path.join(sample_dir, f), map_location=self.device)
         else:
             return
             

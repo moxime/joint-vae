@@ -287,7 +287,7 @@ def get_dataset(dataset='mnist',
         train_kw['download'] = True and download
         test_kw['download'] = True and download
 
-    with suppress_stdout(log=True):
+    with suppress_stdout(log=False):
         if 'train' in splits:
             trainset = getter(**train_kw,
                               target_transform=target_transform,

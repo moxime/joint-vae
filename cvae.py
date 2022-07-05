@@ -1119,7 +1119,7 @@ class ClassificationVariationalNetwork(nn.Module):
             
         if froms[testset_name]['where']['recorders']:
             rec_dir = froms.pop('rec_dir')
-            recorder = LossRecorder.loadall(rec_dir, testset_name)[testset_name]
+            recorder = LossRecorder.loadall(rec_dir, testset_name, map_location=self.device)[testset_name]
             num_batch = len(recorder)
             batch_size = recorder.batch_size
                 
@@ -1172,7 +1172,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 x_test, y_test = data[0].to(device), data[1].to(device)
                 (x_, logits,
                  batch_losses, measures) = self.evaluate(x_test, batch=i,
-                                                        current_measures=current_measures)
+                                                         current_measures=current_measures)
                 
                 # print('*** batch_losses:', *batch_losses)
                 current_measures = measures
@@ -1391,7 +1391,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if froms['all_sets']['recorders']:
             rec_dir = froms.pop('rec_dir')
 
-            loaded_recorders = LossRecorder.loadall(rec_dir, *all_set_names)
+            loaded_recorders = LossRecorder.loadall(rec_dir, *all_set_names, map_location=self.device)
 
             for dset in all_set_names:
                 if froms[dset]['where']['compute']:
@@ -1597,7 +1597,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                 odin_softmax['odin-{:.0f}-{:.4f}'.format(T, eps)] = out_probs
                         
                 else:
-                    components = [k for k in recorders[s].keys() if k in self.loss_components or k.startswith('odin')]
+                    components = [k for k in recorders[s].keys()
+                                  if k in self.loss_components or k.startswith('odin')]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
                     

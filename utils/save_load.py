@@ -503,7 +503,7 @@ class LossRecorder:
 
         return number < self._recorded_batches
     
-    def get_batch(self, i, *which):
+    def get_batch(self, i, *which, device=None):
         
         if not which:
             return self.get_batch(i, *self.keys())
@@ -523,7 +523,9 @@ class LossRecorder:
             end = start + self.batch_size
 
         t = self._tensors[w]
-        
+        if device:
+            t = t.to(device)
+            
         return t[..., start:end]
     
     def append_batch(self, extend=True, **tensors):

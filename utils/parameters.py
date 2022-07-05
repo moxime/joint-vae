@@ -399,7 +399,7 @@ def get_args_for_test(argv=None):
 
     parser.add_argument('--early-stopping')
     
-    parser.add_argument('--force-cpu', action='store_true')
+    parser.add_argument('--device')
     parser.add_argument('--compute',
                         nargs='?',
                         default=False,

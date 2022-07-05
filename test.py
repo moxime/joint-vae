@@ -28,13 +28,6 @@ if __name__ == '__main__':
     log_dir = os.path.join(args.job_dir, 'log')
     log = set_log(verbose, debug, log_dir, name='test', job_number=args.job_id)
     logging.debug('$ ' + ' '.join(sys.argv))
-    if not args.force_cpu:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        log.info(f'Used device: {device} on {hostname}')
-    else:
-        device = torch.device('cpu')
-        log.info(f'Used device: {device}')
-        log.debug('CPU asked by user')
 
     job_dir = args.job_dir
 
@@ -270,7 +263,11 @@ if __name__ == '__main__':
             logging.debug('Plan for {}; {}'.format(m['job'], plan))
             model = CVNet.load(m['dir'], load_state=plan['compute'])
             if plan['compute']:
-                model.to('cuda')
+                device = args.device or 'cuda'
+            else:
+                device = args.device or 'cpu'
+                
+            model.to(device)
             with torch.no_grad():
                 model.ood_detection_rates(epoch=epoch,
                                           from_where=where,

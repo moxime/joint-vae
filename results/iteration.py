@@ -172,16 +172,14 @@ if __name__ == '__main__':
                 losses.update(y_true=y, logits=y_.permute(0, 2, 1))
                 recorder.append_batch(**losses)
 
+                print('***', 'x:', *x.shape, 'x_:', *x_.shape)
+                for k in losses:
+                    print('***', k, *losses[k].shape)
                 n_samples = args.saved_samples_per_batch
                 samples['x'].append(x[:n_samples])
                 samples['x_'].append(x_[:, :2, :n_samples])
                 samples['losses'].append({k: losses[k][..., :n_samples] for k in losses})
                 samples['y'].append(y[:n_samples])
-                for _ in ('x', 'x_', 'y'):
-                    print('***', _, *samples[_][-1].shape)
-
-                for _ in samples['losses'][-1]:
-                    print('***', _, *samples['losses'][_][-1].shape)
 
 
             print()

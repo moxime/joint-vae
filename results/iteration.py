@@ -185,7 +185,7 @@ if __name__ == '__main__':
                 samples[k] = torch.stack(samples[k])
 
             samples_losses = {}
-            for k in samples['losses']:
+            for k in losses:
                 samples_losses[k] = torch.stack([_[k] for _ in samples['losses']])
             samples['losses'] = samples_losses
 

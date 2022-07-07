@@ -181,7 +181,7 @@ if __name__ == '__main__':
                     print('***', _, *samples[_][-1].shape)
 
                 for _ in samples['losses']:
-                    print('***', _, *samples[losses][_][-1].shape)
+                    print('***', _, *samples['losses'][_][-1].shape)
 
 
             print()

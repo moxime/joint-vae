@@ -105,14 +105,12 @@ class IteratedModels(M):
         input_dims = tuple([0] + [_ - self.input_dim for _ in range(self.input_dim)])
         
         for i in range(len(x_) + 1):
-            for j in range(i + 1):
+            for j in range(i):
 
                 x_i = x_[i - 1][1:]
                 x_j = x.unsqueeze(0) if not j else x_[j - 1][1:]
 
-                i_ = 'I'  if not i else f'O{i}'
-                j_ = 'I'  if not j else f'O{j}'
-                print('***', i_, ':',  *x_i.shape, '--', j_, ':',  *x_j.shape)
+                print('***', i, ':',  *x_i.shape, '--', j, ':',  *x_j.shape)
 
                 mse_.append((x_i - x_j).pow(2).mean(input_dims))
 

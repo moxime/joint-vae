@@ -75,6 +75,8 @@ class IteratedModels(M):
         losses_ = []
         measures_ = []
 
+        mse_ = []
+
         for m in self._models:
 
             out = m.evaluate(**input, **kw)
@@ -100,6 +102,16 @@ class IteratedModels(M):
         x_ = torch.stack(x_)
         y_ = torch.stack(y_)
 
+        input_dims = tuple(range(self.input_dim))
+        
+        for i in range(len(x_) + 1):
+            for j in range(i + 1):
+
+                x_i = x_[i - 1]
+                x_j = x if not j else x_[j - 1]
+
+                mse_.append((x_i _ x_j).pow(2).mean(input_dims))
+
         output_losses = {}
         output_measures = {}
 
@@ -109,6 +121,8 @@ class IteratedModels(M):
         for k in measures_[0]:
             output_measures[k] = torch.tensor([_[k] for _ in measures_])
 
+        out_losses['mse'] = torch.stack(mse_)
+            
         return x_, y_, output_losses, output_measures
 
     def predict_after_evaluate(self, logits, losses, method='iter'):

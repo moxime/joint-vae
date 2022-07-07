@@ -172,9 +172,9 @@ if __name__ == '__main__':
                 losses.update(y_true=y, logits=y_.permute(0, 2, 1))
                 recorder.append_batch(**losses)
 
-                print('***', 'x:', *x.shape, 'x_:', *x_.shape)
-                for k in losses:
-                    print('***', k, *losses[k].shape)
+                # print('***', 'x:', *x.shape, 'x_:', *x_.shape)
+                # for k in losses:
+                #     print('***', k, *losses[k].shape)
                 n_samples = args.saved_samples_per_batch
                 samples['x'].append(x[:n_samples])
                 samples['x_'].append(x_[:, :2, :n_samples])
@@ -192,7 +192,7 @@ if __name__ == '__main__':
             print()
             model.save()
             recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
-            f = os.path.join(model.saved_dir, f'sample-{testset.name}.pth')
+            f = os.path.join(model.saved_dir, 'sample-{}.pth'.format(s))
             torch.save(samples, f)
 
         logging.info('Model saved in %s', model.saved_dir)

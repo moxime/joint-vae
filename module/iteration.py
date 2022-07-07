@@ -110,6 +110,8 @@ class IteratedModels(M):
                 x_i = x_[i - 1]
                 x_j = x if not j else x_[j - 1]
 
+                print('***', i, ':',  *x_i.shape, '--', j, ':',  *x_j.shape)
+
                 mse_.append((x_i - x_j).pow(2).mean(input_dims))
 
         output_losses = {}

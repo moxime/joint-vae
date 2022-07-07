@@ -178,13 +178,26 @@ if __name__ == '__main__':
                 n_samples = args.saved_samples_per_batch
                 samples['x'].append(x[:n_samples])
                 samples['x_'].append(x_[:, :2, :n_samples])
-                samples['losses'].append({k: losses[k][..., :n_samples] for k in losses})
                 samples['y'].append(y[:n_samples])
+                samples['losses'].append({k: losses[k][..., :n_samples] for k in losses})
 
+            for k in ('x', 'x_', 'y'):
+                samples[k] = torch.stack(samples[k])
+
+            samples_losses = {}
+            for k in samples['losses']:
+                samples_losses[k] = torch.stack([_[k] for _ in samples['losses']])
+            samples['losses'] = samples_losses
 
             print()
             model.save()
             recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
+            f = os.path.join(model.saved_dir, f'sample-{testset.name}.pth')
+            torch.save(samples, f)
 
         logging.info('Model saved in %s', model.saved_dir)
 
+
+
+
+        

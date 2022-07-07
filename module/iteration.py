@@ -105,6 +105,8 @@ class IteratedModels(M):
         input_dims = tuple([0] + [_ - self.input_dim for _ in range(self.input_dim)])
         
         for i in range(len(x_) + 1):
+
+            print('***', i)
             for j in range(i):
 
                 x_i = x_[i - 1][1:]

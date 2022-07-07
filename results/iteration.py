@@ -143,7 +143,7 @@ if __name__ == '__main__':
             n = min(args.num_batch, len(dataloader))
             for i, (x, y) in enumerate(dataloader):
 
-                if i > args.num_batch:
+                if i >= args.num_batch:
                     break
                 if i:
                     ti = time.time()

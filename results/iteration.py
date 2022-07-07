@@ -25,6 +25,8 @@ parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--num-batch', type=int, default=int(1e6))
 parser.add_argument('--device', default='cuda')
 
+parser.add_argument('--saved-samples-per-batch', type=int, default=1)
+
 if __name__ == '__main__':
 
     args_from_file = ('-vvvv '
@@ -141,6 +143,9 @@ if __name__ == '__main__':
             t0 = time.time()
 
             n = min(args.num_batch, len(dataloader))
+
+            samples = {'x_':[], 'x': [], 'y': [], 'losses': []}
+            
             for i, (x, y) in enumerate(dataloader):
 
                 if i >= args.num_batch:
@@ -165,8 +170,15 @@ if __name__ == '__main__':
                     x_, y_, losses, measures = model.evaluate(x)
 
                 losses.update(y_true=y, logits=y_.permute(0, 2, 1))
-
                 recorder.append_batch(**losses)
+
+                n_samples = args.saved_samples_per_batch
+                samples['x'].append(x[:n_samples])
+                samples['x_'].append(x_[:, :2, :n_samples])
+                samples['losses'].append({k: losses[k][..., :n_samples]})
+                samples['y'].append(y[:n_samples])
+                for _ in samples:
+                    print('***', _, samples[_][-1].shape)
 
             print()
             model.save()

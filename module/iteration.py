@@ -105,7 +105,7 @@ class IteratedModels(M):
         input_dims = tuple([0] + [_ - self.input_dim for _ in range(self.input_dim)])
         
         for i in range(len(x_) + 1):
-            for j in range(i):
+            for j in range(i + 1):
 
                 x_i = x_[i - 1][1:]
                 x_j = x.unsqueeze(0) if not j else x_[j - 1][1:]

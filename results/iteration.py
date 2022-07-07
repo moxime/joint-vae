@@ -43,13 +43,13 @@ if __name__ == '__main__':
         logging.error('At least two jobs (%d provided)', len(args.jobs))
         sys.exit(1)
     
-    mdirs = [_ for _ in rmodels if rmodels[_]['job'] in args.jobs]
-
-    if len(mdirs) < len(args.jobs):
+    mdirs_ = {rmodels[_]['job']: _  for _ in rmodels if rmodels[_]['job'] in args.jobs}
+    
+    if len(mdirs_) < len(args.jobs):
         logging.error('Jobs not found')
         sys.exit(1)
 
-    mdirs = [mdirs[_] for _ in args.jobs]
+    mdirs = [mdirs_[j] for j in args.jobs]
         
     if len(set(rmodels[_]['set'] for _ in mdirs)) > 1:
         logging.error('Not all jobs trained on the same set')

@@ -183,11 +183,11 @@ if __name__ == '__main__':
                 samples['losses'].append({k: losses[k][..., :n_samples] for k in losses})
 
             for k in ('x', 'x_', 'y'):
-                samples[k] = torch.concat(samples[k], dim=concat_dim[k])
+                samples[k] = torch.cat(samples[k], dim=concat_dim[k])
 
             samples_losses = {}
             for k in losses:
-                samples_losses[k] = torch.concat([_[k] for _ in samples['losses']], dim=-1)
+                samples_losses[k] = torch.cat([_[k] for _ in samples['losses']], dim=-1)
             samples['losses'] = samples_losses
 
             print()

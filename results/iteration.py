@@ -49,6 +49,8 @@ if __name__ == '__main__':
         logging.error('Jobs not found')
         sys.exit(1)
 
+    mdirs = [mdirs[_] for _ in args.jobs]
+        
     if len(set(rmodels[_]['set'] for _ in mdirs)) > 1:
         logging.error('Not all jobs trained on the same set')
         sys.exit(1)

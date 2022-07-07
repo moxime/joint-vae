@@ -176,7 +176,7 @@ if __name__ == '__main__':
                 # for k in losses:
                 #     print('***', k, *losses[k].shape)
                 n_samples = args.saved_samples_per_batch
-                concat_dim = {'x': 0, 'x_': 2, 'y_': 0}
+                concat_dim = {'x': 0, 'x_': 2, 'y': 0}
                 samples['x'].append(x[:n_samples])
                 samples['x_'].append(x_[:, :2, :n_samples])
                 samples['y'].append(y[:n_samples])

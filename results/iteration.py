@@ -176,17 +176,18 @@ if __name__ == '__main__':
                 # for k in losses:
                 #     print('***', k, *losses[k].shape)
                 n_samples = args.saved_samples_per_batch
+                concat_dim = {'x': 0, 'x_': 2, 'y_': 0}
                 samples['x'].append(x[:n_samples])
                 samples['x_'].append(x_[:, :2, :n_samples])
                 samples['y'].append(y[:n_samples])
                 samples['losses'].append({k: losses[k][..., :n_samples] for k in losses})
 
             for k in ('x', 'x_', 'y'):
-                samples[k] = torch.stack(samples[k])
+                samples[k] = torch.concat(samples[k], dim=concat_dim[k])
 
             samples_losses = {}
             for k in losses:
-                samples_losses[k] = torch.stack([_[k] for _ in samples['losses']])
+                samples_losses[k] = torch.concat([_[k] for _ in samples['losses']], dim=-1)
             samples['losses'] = samples_losses
 
             print()

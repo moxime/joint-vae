@@ -25,7 +25,7 @@ parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--num-batch', type=int, default=int(1e6))
 parser.add_argument('--device', default='cuda')
 
-parser.add_argument('--saved-samples-per-batch', type=int, default=1)
+parser.add_argument('--saved-samples-per-batch', type=int, default=2)
 
 if __name__ == '__main__':
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
             n = min(args.num_batch, len(dataloader))
 
-            samples = {'x_':[], 'x': [], 'y': [], 'losses': []}
+            samples = {'x_': [], 'x': [], 'y': [], 'losses': []}
             
             for i, (x, y) in enumerate(dataloader):
 
@@ -175,10 +175,14 @@ if __name__ == '__main__':
                 n_samples = args.saved_samples_per_batch
                 samples['x'].append(x[:n_samples])
                 samples['x_'].append(x_[:, :2, :n_samples])
-                samples['losses'].append({k: losses[k][..., :n_samples]})
+                samples['losses'].append({k: losses[k][..., :n_samples] for k in losses})
                 samples['y'].append(y[:n_samples])
-                for _ in samples:
-                    print('***', _, samples[_][-1].shape)
+                for _ in ('x', 'x_', 'y'):
+                    print('***', _, *samples[_][-1].shape)
+
+                for _ in samples['losses']:
+                    print('***', _, *samples[losses][_][-1].shape)
+
 
             print()
             model.save()

@@ -79,7 +79,8 @@ if __name__ == '__main__':
                       '-vv '
                       '--tex '
                       '--method iws-a-4-1 '
-                      '--job-num 169000.. '
+                      '--job-num 190000.. '
+                      # '--job-num 140000...144000 '
                       '--when min-loss '
                       '--sets-to-exclude cifar100 '
                       ).split()
@@ -94,7 +95,7 @@ if __name__ == '__main__':
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
     wanted = args.when
 
-    max_per_rep = 7
+    max_per_rep = 100
     
     logging.getLogger().setLevel(40 - 10 * args.v)
 
@@ -159,7 +160,8 @@ if __name__ == '__main__':
         model = M.load(mdir, load_net=False)
         rep = model.architecture['representation']
         name = rep.upper() + str(n_by_rep[rep])
-
+        name = str(model.job_number)
+        
         n_by_rep[rep] += 1
         testset = model.training_parameters['set']
         if kept_testset and testset != kept_testset:
@@ -199,9 +201,10 @@ if __name__ == '__main__':
             
     combos = []
     l_combos = [1, 2, 3, 4, 5]
-    l_combos = [1]
     l_combos = [1, 7]
+    l_combos = [1]
     l_combos = [1, 3, 5, 7]
+    l_combos = [1, 3, 5]
 
     df_idx = ['ag', 'T', 'l', 'name']
     df = pd.DataFrame(columns=df_idx + sets + ['mis'])

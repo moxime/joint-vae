@@ -180,7 +180,7 @@ if __name__ == '__main__':
                 for _ in ('x', 'x_', 'y'):
                     print('***', _, *samples[_][-1].shape)
 
-                for _ in samples['losses']:
+                for _ in samples['losses'][-1]:
                     print('***', _, *samples['losses'][_][-1].shape)
 
 

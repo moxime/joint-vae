@@ -203,7 +203,7 @@ if __name__ == '__main__':
     
     mdirs_ = {rmodels[_]['job']: _  for _ in rmodels if rmodels[_]['job'] in args.jobs}
     
-    if len(mdirs_) < len(args.jobs):
+    if len(mdirs_) < len(set(args.jobs)):
         logging.error('Jobs not found')
         sys.exit(1)
 

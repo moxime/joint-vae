@@ -447,7 +447,9 @@ def get_classes_by_name(dataset):
         return [_ + '90' for _ in get_classes_by_name(dataset[:-2])]
     parent_set, ho = get_heldout_classes_by_name(dataset)
 
-    parent_classes = set_dict[parent_set].get('classes', [dataset.upper()])
+    dp = dataset_properties()[parent_set]
+    
+    parent_classes = dp.get('classes') or [parent_set]
 
     return [_ for i, _ in enumerate(parent_classes) if i not in ho]
 

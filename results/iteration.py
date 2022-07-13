@@ -1,198 +1,190 @@
 import os
 import sys
-import argparse
-from utils.save_load import load_json, needed_remote_files, develop_starred_methods, LossRecorder
-from utils.torch_load import get_dataset, get_same_size_by_name
-import numpy as np
-from cvae import ClassificationVariationalNetwork as M
 import logging
-from utils.parameters import gethostname
+from utils.print_log import turnoff_debug
+import argparse
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
-from module.iteration import IteratedModels, iterate_with_prior
-import time
+import torchvision
+from torchvision import transforms
+from torchvision.utils import save_image
+
+from utils.save_load import LossRecorder
+from utils.torch_load import get_same_size_by_name, get_classes_by_name
+from module.iteration import IteratedModels
+
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--jobs', '-j', nargs='+', type=int, default=[])
 parser.add_argument('-v', action='count', default=0)
-parser.add_argument('--result-dir', default='/tmp')
-parser.add_argument('--when', default='last')
-parser.add_argument('--prior', action='store_true')
-parser.add_argument('--plot', nargs='?', const='p')
-parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
-parser.add_argument('--job-dir', default='./jobs')
+parser.add_argument('--job-dir', default='./iterated-jobs')
+parser.add_argument('--results-dir', default='/tmp')
+parser.add_argument('--plot', action='store_true')
+parser.add_argument('--png', action='store_true')
+parser.add_argument('--images', default=10, type=int)
 
-parser.add_argument('--batch-size', type=int, default=32)
-parser.add_argument('--num-batch', type=int, default=int(1e6))
-parser.add_argument('--device', default='cuda')
-
-parser.add_argument('--saved-samples-per-batch', type=int, default=2)
 
 if __name__ == '__main__':
 
-    args_from_file = ('-vvvv '
-                      '--prior '
-                      #                      '--jobs 193080 193082'
-                      '--jobs 169381'
+    args_from_file = ('-vvv '
+                      '--jobs 199384 203528 203529 '
+                      '--png '
                       ).split()
 
-    args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
-    rmodels = load_json(args.job_dir, 'models-{}.json'.format(gethostname()))
-    wanted = args.when
+    args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)
+
+    model_name = '-'.join(str(_) for _ in args.jobs)
+    dir_name = os.path.join(args.job_dir, model_name)
+    model = IteratedModels.load(dir_name, load_state=False)
+
+    log = logging.getLogger(__name__)
+    log.setLevel(40 - 10 * args.v)
+    log.debug('Logging at level %d', log.level)
+
+    testset = model.training_parameters['set']
+    allsets = [testset]
+    allsets.extend(get_same_size_by_name(testset))
+
+    result_dir = os.path.join(args.results_dir, model_name)
+
+    recorders = LossRecorder.loadall(dir_name, map_location='cpu')
+    samples_files = LossRecorder.loadall(dir_name, file_name='sample-{w}.pth', output='path', map_location='cpu')
+    samples = {_: torch.load(samples_files[_]) for _ in samples_files} 
+
+    n_images = args.images
     
-    logging.getLogger().setLevel(40 - 10 * args.v)
+    dset = model.training_parameters['set']
+    sets = list(recorders)
+    sets.remove(dset)
+    sets = [dset] + sets
 
-    if len(args.jobs) < 2:
-        logging.error('At least two jobs (%d provided)', len(args.jobs))
-        sys.exit(1)
-    
-    mdirs_ = {rmodels[_]['job']: _  for _ in rmodels if rmodels[_]['job'] in args.jobs}
-    
-    if len(mdirs_) < len(args.jobs):
-        logging.error('Jobs not found')
-        sys.exit(1)
+    samples_idx = {}
+    samples_i = {}
+    y_pred_ = {}
 
-    mdirs = [mdirs_[j] for j in args.jobs]
-        
-    if len(set(rmodels[_]['set'] for _ in mdirs)) > 1:
-        logging.error('Not all jobs trained on the same set')
-        sys.exit(1)
+    plt.close('all')
 
-    total_models = len(mdirs)
-    logging.info('{} models found'.format(total_models))
-    removed = False
-    
-    with open('/tmp/files', 'w') as f:
+    for s in sets:
 
-        opt = dict(which_rec='none', state=True) if not args.prior else dict(which_rec='ind')
-        
-        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, **opt):
-            logging.debug('{} for {}'.format(sdir[-30:], wanted))
-            if mdir in mdirs:
-                mdirs.remove(mdir)
-                removed = True
-                logging.info('{} is removed (files not found)'.format(mdir.split('/')[-1]))
-            f.write(sdir + '\n')
+        log.debug('Working on %s', s)
 
-    logging.info('{} model{} over {}'.format(len(mdirs), 's' if len(mdirs) > 1 else '', total_models))
-    
-    if removed:
-        logging.error('Exiting, load files')
-        logging.error('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
-        logging.error(' Or: %s', '$ . /tmp/rsync-files remote:dir/joint-vae')
-        with open('/tmp/rsync-files', 'w') as f:
-            f.write('#!/bin/bash\n')
-            f.write('rsync -avP --files-from=/tmp/files $1 .\n')
-        sys.exit(1)
+        rec = recorders[s]
+        t = rec._tensors
+        kl = t['kl']
 
-    if args.prior:
-        kept_testset = None
-        list_of_logp_x_y = []
-        for mdir in mdirs:
-            model = M.load(mdir, load_net=False)
-            testset = model.training_parameters['set']
-            if kept_testset and testset != kept_testset:
-                continue
-            else:
-                kept_testset = testset
+        y_pred = kl.argmin(1)
+        y_pred_[s] = y_pred
 
-            if args.when == 'min-loss':
-                epoch = model.training_parameters.get('early-min-loss', 'last')
+        agreement = torch.zeros_like(y_pred[0])
 
-            if args.when == 'last' or epoch == 'last':
-                epoch = max(model.testing)
+        for k in range(len(agreement)):
+            agreement[k] = len(y_pred[:, k].unique())
 
-            recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)), device='cpu')
+        if s == dset:
+            y_true = t['y_true']
 
-            rec = recorders[testset]
-            list_of_logp_x_y.append(rec._tensors['iws'].softmax(0))
-            y_true = recorders[kept_testset]._tensors['y_true']
-            sets = [*recorders.keys()]
+            for i in range(y_pred.shape[0]):
+                print('Acc of step {}: {:.2%}'.format(i, (y_true == y_pred[i]).float().mean()))
 
-            # exclude rotated set
-            oodsets = [_ for _ in sets if not _.startswith(kept_testset)]
-            # sets = [kept_testset, 'lsunr']  # + sets
-            sets = [kept_testset] + oodsets
-
-        logp_x_y = torch.stack(list_of_logp_x_y)
-        p_y_x = iterate_with_prior(logp_x_y)
-
-    else:
-
-        models = [M.load(d, load_state=True) for d in mdirs]
-        model = IteratedModels(*models)
-
-        device = args.device
-
-        model.to(device)
-        
-        testset = model.training_parameters['set']
-        allsets = [testset]
-        allsets.extend(get_same_size_by_name(testset))
-
-        transformer = model.training_parameters['transformer']
-
-        for s in allsets:
-            logging.info('Working on {}'.format(s))
-
-            _, dset = get_dataset(s, transformer=transformer, splits=['test'])
-
-            dataloader = torch.utils.data.DataLoader(dset, batch_size=args.batch_size, shuffle=False)
-
-            recorder = LossRecorder(args.batch_size)
-
-            t0 = time.time()
-
-            n = min(args.num_batch, len(dataloader))
-
-            samples = {'x_': [], 'x': [], 'y': [], 'losses': []}
+            i_true = y_true == y_pred[0]
             
-            for i, (x, y) in enumerate(dataloader):
+        else:
+            i_true = (y_pred[0] >= 0)
 
-                if i >= args.num_batch:
-                    break
-                if i:
-                    ti = time.time()
-                    t_per_i = (ti - t0) / i
-                    eta = (n - i) * t_per_i
+        w = ('all', True, False) if s == dset else ('all',)
 
-                else:
-                    eta = 0
+        disagrees_on = {}
+        count = {}
 
-                eta_m = int(eta / 60)
-                eta_s = eta - 60 * eta_m
+        i_ = {'all': i_true + True,
+              True: i_true,
+              False: ~i_true}
 
-                print('\r{:4}/{} -- eta: {:.0f}m{:.0f}s   '.format(i + 1, n, eta_m, eta_s), end='')
+        for _ in i_:
+            disagrees_on[_], count[_] = agreement[i_[_]].unique(return_counts=True)
 
-                x = x.to(device)
-                y = y.to(device)
-
-                with torch.no_grad():
-                    x_, y_, losses, measures = model.evaluate(x)
-
-                losses.update(y_true=y, logits=y_.permute(0, 2, 1))
-                recorder.append_batch(**losses)
-
-                # print('***', 'x:', *x.shape, 'x_:', *x_.shape)
-                # for k in losses:
-                #     print('***', k, *losses[k].shape)
-                n_samples = args.saved_samples_per_batch
-                concat_dim = {'x': 0, 'x_': 2, 'y': 0}
-                samples['x'].append(x[:n_samples].to('cpu'))
-                samples['x_'].append(x_[:, :2, :n_samples].to('cpu'))
-                samples['y'].append(y[:n_samples].to('cpu'))
-
-            for k in ('x', 'x_', 'y'):
-                samples[k] = torch.cat(samples[k], dim=concat_dim[k])
-
+        for _ in w:
+            for a, k in zip(disagrees_on[_], count[_]):
+                print('Disagreement Lvl {} for {:5}: {:6.1%}'.format(a, _, k / i_[_].sum()))
             print()
-            model.save()
-            recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
-            f = os.path.join(model.saved_dir, 'sample-{}.pth'.format(s))
-            torch.save(samples, f)
 
-        logging.info('Model saved in %s', model.saved_dir)
+        batch_size = recorders[s].batch_size
+        num_batch = len(recorders[s])
+        len_samples = len(samples[s]['y'])
+        samples_per_batch = len_samples // num_batch
 
+        samples_idx[s] = torch.tensor([_ % batch_size < samples_per_batch for _ in range(len(i_true))])
 
+        samples_i[s] = {True: i_true[samples_idx[s]], False: ~i_true[samples_idx[s]]}
 
-
+        y_pred = y_pred_[s]
+        x = {_: samples[s]['x'][samples_i[s][_]][:n_images] for _ in (True, False)}
+        x_ = {_: samples[s]['x_'][:, 0, samples_i[s][_]][:, :n_images] for _ in (True, False)}
         
+        y_ = {_: y_pred[:, samples_idx[s]][:, samples_i[s][_]][:, :n_images] for _ in (True, False)}
+
+        y = {_: samples[s]['y'][samples_i[s][_]][:n_images] for _ in (True, False)}
+
+        if s != dset:
+            pass
+            # y = {_: -1 * torch.ones_like(y[_]) for _ in y}
+    
+        w = (True, False) if s == dset else (True,)
+    
+        for _ in w:
+            x[_] = torch.cat([x[_].unsqueeze(0), x_[_]])
+            y[_] = torch.cat([y[_].unsqueeze(0), y_[_]])
+            title = {True: 'correct', False: 'incorrect'} if s == dset else {True: s}
+
+        if args.png:
+            with open(os.path.join(result_dir, 'arch.tex'), 'w') as f:
+                f.write('\\def\\niter{{{}}}\n'.format(len(model)))
+
+            classes = {_: get_classes_by_name(s) if not _ else get_classes_by_name(dset)
+                       for _ in range(len(model) + 1)}
+            
+            for _ in w:
+                image_dir = os.path.join(result_dir, 'samples', title[_])
+                if not os.path.exists(image_dir):
+                    os.makedirs(image_dir)
+                for i in range(n_images):
+                    tex_file = os.path.join(image_dir, 'image_{}.tex'.format(i))
+                    with open(tex_file, 'w') as f:
+                    
+                        for k in range(len(model) + 1):
+
+                            image = x[_][k][i]
+                            image_name = 'x_{}_{}.png'.format(i, k)
+                            save_image(image, os.path.join(image_dir, image_name))
+                        f.write(r'\def\yin{{{}}}'.format(classes[0][y[_][0][i]]))
+                        f.write(r'\def\yout{')
+                        f.write(','.join(classes[k][y[_][k][i]] for k in range(1, len(model) + 1)))
+                        f.write('}\n')
+                        f.write(r'\def\n{{{}}}'.format(len(model)))
+                        f.write('\n')
+                        
+                        
+        if args.plot:
+            for _ in w:
+
+                image = torchvision.utils.make_grid(x[_].transpose(0, 1).flatten(end_dim=1), nrow=len(model) + 1)
+                img = transforms.functional.to_pil_image(image)
+                with turnoff_debug():
+
+                    fig, ax = plt.subplots(1)
+                    ax.imshow(np.asarray(img))
+                    ax.set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+                    fig.suptitle(title[_])
+                
+                    fig.show()
+
+                print(title[_])
+
+                for row in y[_].T:
+
+                    print(' -> '.join('{:2}'.format(_) for _ in row))
+
+    if sys.argv[0] and args.plot:
+        input('Press key to close')

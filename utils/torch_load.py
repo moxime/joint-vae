@@ -444,7 +444,8 @@ def get_same_size_by_name(set_name, rotated=False, conf_file='data/sets.ini'):
 def get_classes_by_name(dataset):
 
     if dataset.endswith('90'):
-        return [_ + '90' for _ in get_classes_by_name(dataset[:-2])]
+        return get_classes_by_name(dataset[:-2])
+        # return [_ + '-90' for _ in get_classes_by_name(dataset[:-2])]
     parent_set, ho = get_heldout_classes_by_name(dataset)
 
     dp = dataset_properties()[parent_set]

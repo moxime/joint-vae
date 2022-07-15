@@ -41,7 +41,8 @@ class IteratedModels(M):
     
     def save(self, dir_name=None):
         if dir_name is None:
-            dir_name = os.path.join('iterated-jobs', '-'.join(str(_.job_number) for _ in self._models))
+            trainset = self.training_parameters['set']
+            dir_name = os.path.join('iterated-jobs', trainset, '-'.join(str(_.job_number) for _ in self._models))
         architecture = {_: m.saved_dir for _, m in enumerate(self._models)}
             
         save_load.save_json(architecture, dir_name, 'params.json')

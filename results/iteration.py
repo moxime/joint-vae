@@ -15,57 +15,48 @@ from utils.torch_load import get_same_size_by_name, get_classes_by_name
 from module.iteration import IteratedModels
 
 
+classif_titles = {True: 'correct', False: 'incorrect'}
+
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--jobs', '-j', nargs='+', type=int, default=[])
+parser.add_argument('jobs', nargs='+')
 parser.add_argument('-v', action='count', default=0)
-parser.add_argument('--job-dir', default='./iterated-jobs')
 parser.add_argument('--results-dir', default='/tmp')
 parser.add_argument('--plot', action='store_true')
 parser.add_argument('--png', action='store_true')
 parser.add_argument('--images', default=10, type=int)
 
+log = logging.getLogger(__name__)
 
-if __name__ == '__main__':
 
-    args_from_file = ('-vvv '
-                      '--jobs 199384 203528 203529 '
-                      '--png '
-                      ).split()
+def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True):
 
-    args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)
-
-    model_name = '-'.join(str(_) for _ in args.jobs)
-    dir_name = os.path.join(args.job_dir, model_name)
-    model = IteratedModels.load(dir_name, load_state=False)
-
-    log = logging.getLogger(__name__)
-    log.setLevel(40 - 10 * args.v)
-    log.debug('Logging at level %d', log.level)
+    try:
+        model = IteratedModels.load(dir_name, load_state=False)
+    except FileNotFoundError:
+        log.error('{} not a model'.format(dir_name))
+        return
 
     testset = model.training_parameters['set']
     allsets = [testset]
     allsets.extend(get_same_size_by_name(testset))
 
-    result_dir = os.path.join(args.results_dir, model_name)
-
     recorders = LossRecorder.loadall(dir_name, map_location='cpu')
     samples_files = LossRecorder.loadall(dir_name, file_name='sample-{w}.pth', output='path', map_location='cpu')
     samples = {_: torch.load(samples_files[_]) for _ in samples_files} 
-
-    n_images = args.images
     
     dset = model.training_parameters['set']
-    sets = list(recorders)
-    sets.remove(dset)
-    sets = [dset] + sets
+    oodsets = list(recorders)
+    oodsets.remove(dset)
+    
+    sets = [dset] + oodsets
 
     samples_idx = {}
     samples_i = {}
     y_pred_ = {}
 
-    plt.close('all')
-
+    output = {}
+    
     for s in sets:
 
         log.debug('Working on %s', s)
@@ -102,12 +93,15 @@ if __name__ == '__main__':
               True: i_true,
               False: ~i_true}
 
+        n_ = {'all': '*', True: 'v', False: 'x'}
+
         for _ in i_:
             disagrees_on[_], count[_] = agreement[i_[_]].unique(return_counts=True)
 
+        print(s)
         for _ in w:
             for a, k in zip(disagrees_on[_], count[_]):
-                print('Disagreement Lvl {} for {:5}: {:6.1%}'.format(a, _, k / i_[_].sum()))
+                print('Disagreement Lvl {} for {}: {:6.1%}'.format(a, n_[_], k / i_[_].sum()))
             print()
 
         batch_size = recorders[s].batch_size
@@ -136,15 +130,26 @@ if __name__ == '__main__':
         for _ in w:
             x[_] = torch.cat([x[_].unsqueeze(0), x_[_]])
             y[_] = torch.cat([y[_].unsqueeze(0), y_[_]])
-            title = {True: 'correct', False: 'incorrect'} if s == dset else {True: s}
+            title = classif_titles if s == dset else {True: s}
 
-        if args.png:
+        classes = {_: get_classes_by_name(s) if not _ else get_classes_by_name(dset)
+                   for _ in range(len(model) + 1)}
+
+        output.update({title[_]:
+                       {'x': x[_],
+                        'y': y[_],
+                        'c': classes}
+                       for _ in title})
+                           
+        if png:
             with open(os.path.join(result_dir, 'arch.tex'), 'w') as f:
                 f.write('\\def\\niter{{{}}}\n'.format(len(model)))
-
-            classes = {_: get_classes_by_name(s) if not _ else get_classes_by_name(dset)
-                       for _ in range(len(model) + 1)}
-            
+                f.write('\\def\\trainset{{{}}}\n'.format(dset))
+                _sets = ','.join(oodsets)
+                f.write('\\def\\oodsets{{{}}}\n'.format(_sets))
+                _sets = ','.join([classif_titles[True], classif_titles[False], *oodsets])
+                f.write('\\def\\allsets{{{}}}\n'.format(_sets))
+                
             for _ in w:
                 image_dir = os.path.join(result_dir, 'samples', title[_])
                 if not os.path.exists(image_dir):
@@ -164,27 +169,57 @@ if __name__ == '__main__':
                         f.write('}\n')
                         f.write(r'\def\n{{{}}}'.format(len(model)))
                         f.write('\n')
-                        
-                        
-        if args.plot:
-            for _ in w:
+                        f.write(r'\def\rotatedlabel{}'.format('{90}' if s.endswith('90') else '{0}'))
+                        f.write('\n')
+    return output
 
-                image = torchvision.utils.make_grid(x[_].transpose(0, 1).flatten(end_dim=1), nrow=len(model) + 1)
-                img = transforms.functional.to_pil_image(image)
-                with turnoff_debug():
+
+if __name__ == '__main__':
+
+    args_from_file = ('-vvv '
+                      '--png '
+                      '--plot '
+                      'iterated-jobs/199384-203528-203529'
+                      ).split()
+
+    args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)
+    n_images = args.images
+
+    log.setLevel(40 - 10 * args.v)
+    log.debug('Logging at level %d', log.level)
+
+    plt.close('all')
+
+    for model_dir in args.jobs:
+
+        log.info('Processing %s', model_dir)
+        model_name = os.path.split(model_dir)[-1]
+        result_dir = os.path.join(args.results_dir, model_name)
+
+        if not os.path.exists(result_dir):
+            os.makedirs(result_dir)
+            
+        output = do_what_you_gotta_do(model_dir, result_dir, n_images=n_images, png=args.png)
+
+        if args.plot:
+            for s in output:
+                x, y, classes = (output[s][_] for _ in 'xyc')
+                
+                for _ in x:
+
+                    image = torchvision.utils.make_grid(x[_].transpose(0, 1).flatten(end_dim=1), nrow=len(x[_]))
+                    img = transforms.functional.to_pil_image(image)
 
                     fig, ax = plt.subplots(1)
                     ax.imshow(np.asarray(img))
                     ax.set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
-                    fig.suptitle(title[_])
-                
+                    fig.suptitle(_)
+
                     fig.show()
 
-                print(title[_])
+                    print(_)
 
-                for row in y[_].T:
+                    for row in y[_].T:
 
-                    print(' -> '.join('{:2}'.format(_) for _ in row))
+                        print(' -> '.join('{:2}'.format(_) for _ in row))
 
-    if sys.argv[0] and args.plot:
-        input('Press key to close')

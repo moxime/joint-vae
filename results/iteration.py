@@ -345,3 +345,8 @@ if __name__ == '__main__':
 
     if args.plot and sys.argv[0]:
         input('Press any key to close figures')
+
+    else:
+        def c():
+            plt.close('all')
+        

@@ -321,8 +321,68 @@ def pgfplotstable_preambule(df, dataset, file, mode='a'):
                         w_[i + 1] = '@FPR=' + w
                     except ValueError:
                         pass
-                        
+
                 cols[c] = {'style': 'fixed num',
                             'name': ' '.join(w_)}
 
-                
+
+def tex_command(command, *args):
+
+    c = r'\{}'.format(command)
+
+    for a in args:
+        c += '{'
+        c += str(a)
+        c += '}'
+
+    return c
+
+
+def tabular_env(*formats, env='tabular', reduce_space=True):
+    """
+    formats is a list of (n, f), n is int, f is str (eg l, S[table-format=2.1])...
+    """
+
+    col_formats = ''
+    if reduce_space:
+        col_formats += '@{}%\n'
+    for n, f in formats:
+        col_formats += f * n
+    if reduce_space:
+        col_formats += '%\n@{}'
+  
+    begin_env = tex_command('begin', env, col_formats) 
+
+    end_env = tex_command('end', env)
+    
+    return begin_env, end_env
+    
+
+def tabular_rule(where, start=1, end=-1, tab_width=None):
+
+    if where == 'top':
+        return r'\toprule' + '\n'
+    if where == 'bottom':
+        return r'\bottomrule' + '\n'
+    if where == 'mid':
+        if start == 1 and (end == -1 or end == tab_width):
+            return r'\midrule' + '\n'
+        if end == -1:
+            end == tab_width
+        border = ''
+        if start > 1:
+            border += 'l'
+        if end < tab_width:
+            border += 'r'
+        border = '({})'.format(border)
+        return r'\cmidrule{}{{{}-{}}}'.format(border, start, end) + '\n'
+
+
+def tabular_row(*a, end='\n'):
+
+    return ' & '.join(str(_) for _ in a) + r'\\' + end
+    
+def tabular_multicol(width, cell_format, s):
+
+    return tex_command('multicolumn', width, cell_format, s)
+

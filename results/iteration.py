@@ -14,6 +14,7 @@ from utils.save_load import LossRecorder
 from utils.torch_load import get_same_size_by_name, get_classes_by_name
 from module.iteration import IteratedModels
 
+from utils.texify import tabular_env, tabular_rule, tabular_multicol, tabular_row, tex_command
 
 classif_titles = {True: 'correct', False: 'incorrect'}
 
@@ -29,7 +30,7 @@ parser.add_argument('--images', default=10, type=int)
 log = logging.getLogger(__name__)
 
 
-def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True):
+def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, prec=2):
 
     try:
         model = IteratedModels.load(dir_name, load_state=False)
@@ -56,7 +57,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True):
     y_pred_ = {}
 
     output = {}
-    
+
     for s in sets:
 
         log.debug('Working on %s', s)
@@ -135,12 +136,33 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True):
         classes = {_: get_classes_by_name(s) if not _ else get_classes_by_name(dset)
                    for _ in range(len(model) + 1)}
 
+        index = torch.ones_like(t['kl'], dtype=int) * y_pred[0]
+        for k in ('kl', 'zdist'):
+            # print('***', k)
+            t[k] = t[k].gather(1, index)[:, 0,]
+            # print('****', k, t[k].shape, y_pred[0].shape)
+            
+        averaged = {_: {k: t[k][..., i_[_]].mean(-1) for k in ('kl', 'mse', 'zdist')} for _ in title}
+
         output.update({title[_]:
                        {'x': x[_],
                         'y': y[_],
+                        'kl': averaged[_]['kl'],
+                        'mse': averaged[_]['mse'],
+                        'zdist': averaged[_]['zdist'],
                         'c': classes}
                        for _ in title})
-                           
+
+        for _ in title:
+            mse = {}
+            n = 0
+            for i in range(len(model) + 1):
+                for j in range(i):
+                    mse[(j, i)] = output[title[_]]['mse'][n]
+                    n += 1
+                    
+            output[title[_]]['mse'] = mse
+
         if png:
             with open(os.path.join(result_dir, 'arch.tex'), 'w') as f:
                 f.write('\\def\\niter{{{}}}\n'.format(len(model)))
@@ -157,20 +179,119 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True):
                 for i in range(n_images):
                     tex_file = os.path.join(image_dir, 'image_{}.tex'.format(i))
                     with open(tex_file, 'w') as f:
-                    
+
                         for k in range(len(model) + 1):
 
                             image = x[_][k][i]
                             image_name = 'x_{}_{}.png'.format(i, k)
                             save_image(image, os.path.join(image_dir, image_name))
-                        f.write(r'\def\yin{{{}}}'.format(classes[0][y[_][0][i]]))
+                        f.write(r'\def\yin{{{}}}'.format(classes[0][y[_][0][i]]).replace('_', '-'))
                         f.write(r'\def\yout{')
-                        f.write(','.join(classes[k][y[_][k][i]] for k in range(1, len(model) + 1)))
-                        f.write('}\n')
+                        out_classes = [classes[k][y[_][k][i]] for k in range(1, len(model) + 1)]
+                        f.write('\"' +
+                                '\",\"'.join(out_classes[k].replace('_', '-') for k in range(len(model))))
+                        f.write('\"}\n')
                         f.write(r'\def\n{{{}}}'.format(len(model)))
                         f.write('\n')
                         f.write(r'\def\rotatedlabel{}'.format('{90}' if s.endswith('90') else '{0}'))
                         f.write('\n')
+
+    if tex:
+        """ MSE tex file """
+        tab_width = len(model) * 2
+        first_row = True    
+
+        max_mse = max([max(output[_]['mse'].values()) for _ in output])
+        min_mse = min([min(output[_]['mse'].values()) for _ in output])
+
+        min_mse_exp = np.floor(np.log10(min_mse))
+        mse_factor = int(np.ceil(-min_mse_exp / 3) * 3 - 3)
+        max_mse_exp = int(np.floor(np.log10(max_mse)))
+
+        swidth = mse_factor + max_mse_exp + 1 
+        stable = '%\nS[table-format={:d}.3]'.format(swidth)
+
+        begin_env, end_env = tabular_env((1, 'l'), (len(model) * 2 - 1, stable))
+        input_cell = tabular_multicol(1, 'c', 'In')
+        with open(os.path.join(result_dir, 'mse.tex'), 'w') as f:                        
+            f.write(begin_env)
+            f.write(tabular_rule('top'))
+
+            for _ in output:
+                header = [_.capitalize() if _.endswith('correct') else tex_command('makecommand', _)]
+                subheader = [tex_command('acron', 'mse') + ' avec']
+                row = ['']
+                for j in range(1, len(model) + 1):
+                    output_cell = 'Out {}'.format(j)
+                    prev_cell = 'Out {}'.format(j - 1)
+                    header += [tabular_multicol(1 if j == 1 else 2, 'c', output_cell)]
+                    subheader += ([input_cell, tabular_multicol(1, 'c', prev_cell)] if j > 1 else [input_cell])
+
+                    for i in set([0, j-1]):
+                        row += ['{:.3f}'.format(output[_]['mse'][(i, j)] * 10 ** mse_factor)]
+
+                if first_row:
+                    first_row = False
+                else:
+                    f.write(tabular_rule('mid'))
+
+                f.write(tabular_row(*header))
+                f.write(tabular_rule('mid'))
+
+                f.write(tabular_row(*subheader))
+                for j in range(1, len(model) + 1):
+                    start = 2 if j == 1 else 2 * j - 1
+                    f.write(tabular_rule('mid', start=start,
+                                         end=start + (0 if j == 1 else 1), tab_width=tab_width))
+                f.write(tabular_row(*row))
+
+            f.write(tabular_rule('bottom'))
+            f.write(end_env)
+            f.write('\n\\def\\msefactor{{{}}}\n'.format('{:1.0f}'.format(-mse_factor)))
+
+        """ ZDisT tex file """
+        tab_width = len(model) + 1
+        
+        first_row = True    
+
+        max_zdist = max([max(output[_]['zdist']) for _ in output])
+        min_zdist = min([min(output[_]['zdist']) for _ in output])
+
+        min_zdist_exp = np.floor(np.log10(min_zdist))
+        if min_zdist_exp <= -3:
+            min_zdist_exp -= 3
+            
+        zdist_factor = int(np.ceil(-min_zdist_exp / 3) * 3)
+
+        # print('MIN ZDIST', min_zdist, min_zdist_exp, zdist_factor)
+        
+        max_zdist_exp = int(np.floor(np.log10(max_zdist)))
+
+        swidth = zdist_factor + max_zdist_exp + 1 
+        stable = '%\nS[table-format={:d}.3]'.format(swidth)
+
+        begin_env, end_env = tabular_env((1, 'l'), (len(model), stable))
+        input_cell = tabular_multicol(1, 'c', 'In')
+        with open(os.path.join(result_dir, 'zdist.tex'), 'w') as f:                        
+            f.write(begin_env)
+            f.write(tabular_rule('top'))
+            header = ['']
+            for j in range(len(model)):
+                header += [tabular_multicol(1, 'c', 'M{}'.format(j + 1))]
+            f.write(tabular_row(*header))
+            f.write(tabular_rule('mid'))
+            
+            for _ in output:
+                row = [_.capitalize() if _.endswith('correct') else tex_command('makecommand', _)]
+                for j in range(len(model)):
+                    row += ['{:.3f}'.format(output[_]['zdist'][j] * 10 ** zdist_factor)]
+                f.write(tabular_row(*row))
+
+            f.write(tabular_rule('bottom'))
+            f.write(end_env)
+            f.write('\n\\def\\zdistfactor{{{}}}\n'.format('{:1.0f}'.format(-zdist_factor)))
+        
+        
     return output
 
 
@@ -179,7 +300,8 @@ if __name__ == '__main__':
     args_from_file = ('-vvv '
                       '--png '
                       '--plot '
-                      'iterated-jobs/199384-203528-203529'
+                      # 'iterated-jobs/svhn/199384-203528-203529 '
+                      'iterated-jobs/cifar10/173277-173278-173279 '
                       ).split()
 
     args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)
@@ -205,21 +327,21 @@ if __name__ == '__main__':
             for s in output:
                 x, y, classes = (output[s][_] for _ in 'xyc')
                 
-                for _ in x:
+                image = torchvision.utils.make_grid(x.transpose(0, 1).flatten(end_dim=1), nrow=len(x))
+                img = transforms.functional.to_pil_image(image)
 
-                    image = torchvision.utils.make_grid(x[_].transpose(0, 1).flatten(end_dim=1), nrow=len(x[_]))
-                    img = transforms.functional.to_pil_image(image)
+                fig, ax = plt.subplots(1)
+                ax.imshow(np.asarray(img))
+                ax.set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+                fig.suptitle(s)
 
-                    fig, ax = plt.subplots(1)
-                    ax.imshow(np.asarray(img))
-                    ax.set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
-                    fig.suptitle(_)
+                fig.show()
 
-                    fig.show()
+                print(s)
 
-                    print(_)
+                for row in y.T:
 
-                    for row in y[_].T:
+                    print(' -> '.join('{:2}'.format(_) for _ in row))
 
-                        print(' -> '.join('{:2}'.format(_) for _ in row))
-
+    if args.plot and sys.argv[0]:
+        input('Press any key to close figures')

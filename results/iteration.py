@@ -26,11 +26,12 @@ parser.add_argument('--results-dir', default='/tmp')
 parser.add_argument('--plot', action='store_true')
 parser.add_argument('--png', action='store_true')
 parser.add_argument('--images', default=10, type=int)
+parser.add_argument('--tex', action='store_true')
 
 log = logging.getLogger(__name__)
 
 
-def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, prec=2):
+def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['means'], prec=2, tpr=0.95):
 
     try:
         model = IteratedModels.load(dir_name, load_state=False)
@@ -58,6 +59,9 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, 
 
     output = {}
 
+    k_with_y = ('kl', 'zdist')
+    pr = {}
+    
     for s in sets:
 
         log.debug('Working on %s', s)
@@ -82,8 +86,47 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, 
 
             i_true = y_true == y_pred[0]
             
+            t_y = {}
+            thr = {}
+            pr['correct'] = {}
+            pr['incorrect'] = {}
+            
+            for k in ('kl', 'zdist', 'mse'):
+                
+                thr[k] = {}
+                if k in k_with_y:
+                    index_y = torch.ones_like(t[k], dtype=int) * y_pred[0]
+                    t_y[k] = t[k].gather(1, index_y)[:, 0]
+                else:
+                    t_y[k] = t[k]
+                    
+                i_tpr = int(len(y_true) * tpr)
+                thr[k] = t_y[k].sort()[0][..., i_tpr]
+                
+                for w in ('correct', 'incorrect'):
+                    pr[w][k] = torch.zeros(len(model))
+                
+                for i, w in zip((i_true, ~i_true), ['correct', 'incorrect']):
+                    for m in range(len(model)):
+                        mean = t_y[k][m][i].mean()
+                        pr[w][k][m] = (t_y[k][m][i] <= thr[k][m]).sum() / i.sum()
+                        print('*** {} {} {} {:.1%} {:.3e}'.format(w, k, m, pr[w][k][m], mean))
+
         else:
-            i_true = (y_pred[0] >= 0)
+            i_true = torch.ones_like(y_pred[0], dtype=bool)
+            pr[s] = {}
+
+            for k in ('kl', 'zdist', 'mse'):
+
+                if k in k_with_y:
+                    index_y = torch.ones_like(t[k], dtype=int) * y_pred[0]
+                    t_y[k] = t[k].gather(1, index_y)[:, 0]
+                else:
+                    t_y[k] = t[k]
+                    
+                pr[s][k] = torch.zeros(len(model))
+                for m in range(len(model)):
+                    pr[s][k][m] = (t_y[k][m] <= thr[k][m]).sum() / len(y_pred[0])
 
         w = ('all', True, False) if s == dset else ('all',)
 
@@ -139,7 +182,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, 
         index = torch.ones_like(t['kl'], dtype=int) * y_pred[0]
         for k in ('kl', 'zdist'):
             # print('***', k)
-            t[k] = t[k].gather(1, index)[:, 0,]
+            t[k] = t[k].gather(1, index)[:, 0, ]
             # print('****', k, t[k].shape, y_pred[0].shape)
             
         averaged = {_: {k: t[k][..., i_[_]].mean(-1) for k in ('kl', 'mse', 'zdist')} for _ in title}
@@ -198,9 +241,9 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, 
 
     if tex:
         """ MSE tex file """
-        tab_width = len(model) * 2
+        tab_width = len(model) * 3
         first_row = True    
-
+        
         max_mse = max([max(output[_]['mse'].values()) for _ in output])
         min_mse = min([min(output[_]['mse'].values()) for _ in output])
 
@@ -209,10 +252,13 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, 
         max_mse_exp = int(np.floor(np.log10(max_mse)))
 
         swidth = mse_factor + max_mse_exp + 1 
-        stable = '%\nS[table-format={:d}.3]'.format(swidth)
-
-        begin_env, end_env = tabular_env((1, 'l'), (len(model) * 2 - 1, stable))
-        input_cell = tabular_multicol(1, 'c', 'In')
+        stable_mse = '%\nS[table-format={:d}.3]'.format(swidth)
+        stable_pr = '\n@{ (}S[table-format=2.1]@{\\%) }'
+        
+        col_format = stable_mse + stable_pr + (stable_mse + stable_pr + stable_mse) * (len(model) - 1)
+        
+        begin_env, end_env = tabular_env((1, 'l'), (1, col_format))
+        
         with open(os.path.join(result_dir, 'mse.tex'), 'w') as f:                        
             f.write(begin_env)
             f.write(tabular_rule('top'))
@@ -222,13 +268,18 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, 
                 subheader = [tex_command('acron', 'mse') + ' avec']
                 row = ['']
                 for j in range(1, len(model) + 1):
-                    output_cell = 'Out {}'.format(j)
-                    prev_cell = 'Out {}'.format(j - 1)
-                    header += [tabular_multicol(1 if j == 1 else 2, 'c', output_cell)]
-                    subheader += ([input_cell, tabular_multicol(1, 'c', prev_cell)] if j > 1 else [input_cell])
+                    input_cell = tabular_multicol(2, 'c', 'In')
+                    prev_cell = tabular_multicol(1, 'c', 'Out {}'.format(j - 1))
+                    output_cell = tabular_multicol(2 + (j > 1), 'c', 'Out {}'.format(j))
+                    header.append(output_cell)
+                    subheader.append(input_cell)
+                    if j > 1:
+                        subheader.append(prev_cell)
 
-                    for i in set([0, j-1]):
-                        row += ['{:.3f}'.format(output[_]['mse'][(i, j)] * 10 ** mse_factor)]
+                    row.append('{:.3f}'.format(output[_]['mse'][(0, j)] * 10 ** mse_factor))
+                    row.append('{:.1f}'.format(100 * pr[_]['mse'][j - 1]))
+                    if j > 1:
+                        row.append('{:.3f}'.format(output[_]['mse'][(j-1, j)] * 10 ** mse_factor))
 
                 if first_row:
                     first_row = False
@@ -240,57 +291,59 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=True, 
 
                 f.write(tabular_row(*subheader))
                 for j in range(1, len(model) + 1):
-                    start = 2 if j == 1 else 2 * j - 1
+                    start = 2 if j == 1 else 3 * j - 2
                     f.write(tabular_rule('mid', start=start,
-                                         end=start + (0 if j == 1 else 1), tab_width=tab_width))
+                                         end=start + (1 if j == 1 else 2), tab_width=tab_width))
                 f.write(tabular_row(*row))
 
             f.write(tabular_rule('bottom'))
             f.write(end_env)
             f.write('\n\\def\\msefactor{{{}}}\n'.format('{:1.0f}'.format(-mse_factor)))
 
-        """ ZDisT tex file """
-        tab_width = len(model) + 1
-        
-        first_row = True    
+        """ ZDisT / KL tex file """
+        for k in k_with_y:
+            tab_width = len(model) + 1
 
-        max_zdist = max([max(output[_]['zdist']) for _ in output])
-        min_zdist = min([min(output[_]['zdist']) for _ in output])
+            first_row = True    
 
-        min_zdist_exp = np.floor(np.log10(min_zdist))
-        if min_zdist_exp <= -3:
-            min_zdist_exp -= 3
+            max_k = max([max(output[_][k]) for _ in output])
+            min_k = min([min(output[_][k]) for _ in output])
+
+            min_k_exp = np.floor(np.log10(min_k))
+            if min_k_exp <= -3:
+                min_k_exp -= 3
+
+            k_factor = int(np.ceil(-min_k_exp / 3) * 3)
+
+            # print('MIN ZDIST', min_zdist, min_zdist_exp, zdist_factor)
+
+            max_k_exp = int(np.floor(np.log10(max_k)))
+
+            swidth = k_factor + max_k_exp + 1 
+            stable = '%\nS[table-format={:d}.3]'.format(swidth)
+            stable += '\n@{ (}S[table-format=2.1]@{\\%) }'
             
-        zdist_factor = int(np.ceil(-min_zdist_exp / 3) * 3)
-
-        # print('MIN ZDIST', min_zdist, min_zdist_exp, zdist_factor)
-        
-        max_zdist_exp = int(np.floor(np.log10(max_zdist)))
-
-        swidth = zdist_factor + max_zdist_exp + 1 
-        stable = '%\nS[table-format={:d}.3]'.format(swidth)
-
-        begin_env, end_env = tabular_env((1, 'l'), (len(model), stable))
-        input_cell = tabular_multicol(1, 'c', 'In')
-        with open(os.path.join(result_dir, 'zdist.tex'), 'w') as f:                        
-            f.write(begin_env)
-            f.write(tabular_rule('top'))
-            header = ['']
-            for j in range(len(model)):
-                header += [tabular_multicol(1, 'c', 'M{}'.format(j + 1))]
-            f.write(tabular_row(*header))
-            f.write(tabular_rule('mid'))
-            
-            for _ in output:
-                row = [_.capitalize() if _.endswith('correct') else tex_command('makecommand', _)]
+            begin_env, end_env = tabular_env((1, 'l'), (len(model), stable))
+            input_cell = tabular_multicol(1, 'c', 'In')
+            with open(os.path.join(result_dir, '{}.tex'.format(k)), 'w') as f:                        
+                f.write(begin_env)
+                f.write(tabular_rule('top'))
+                header = ['']
                 for j in range(len(model)):
-                    row += ['{:.3f}'.format(output[_]['zdist'][j] * 10 ** zdist_factor)]
-                f.write(tabular_row(*row))
+                    header += [tabular_multicol(2, 'c', 'M{}'.format(j + 1))]
+                f.write(tabular_row(*header))
+                f.write(tabular_rule('mid'))
 
-            f.write(tabular_rule('bottom'))
-            f.write(end_env)
-            f.write('\n\\def\\zdistfactor{{{}}}\n'.format('{:1.0f}'.format(-zdist_factor)))
-        
+                for _ in output:
+                    row = [_.capitalize() if _.endswith('correct') else tex_command('makecommand', _)]
+                    for j in range(len(model)):
+                        row += ['{:.3f}'.format(output[_][k][j] * 10 ** k_factor)]
+                        row += ['{:.1f}'.format(100 * pr[_][k][j])]
+                    f.write(tabular_row(*row))
+
+                f.write(tabular_rule('bottom'))
+                f.write(end_env)
+                f.write('\n\\def\\{}factor{{{}}}\n'.format(k, '{:1.0f}'.format(-k_factor)))
         
     return output
 
@@ -299,14 +352,18 @@ if __name__ == '__main__':
 
     args_from_file = ('-vvv '
                       '--png '
-                      '--plot '
-                      # 'iterated-jobs/svhn/199384-203528-203529 '
-                      'iterated-jobs/cifar10/173277-173278-173279 '
+                      # '--plot '
+                      '--tex '
+                      'iterated-jobs/svhn/199384-203528-203529 '
+                      # 'iterated-jobs/cifar10/173277-173278-173279 '
                       ).split()
 
     args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)
     n_images = args.images
 
+    if args.tex == []:
+        args.tex = ['mean']
+    
     log.setLevel(40 - 10 * args.v)
     log.debug('Logging at level %d', log.level)
 

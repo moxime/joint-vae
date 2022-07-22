@@ -176,7 +176,8 @@ class ListOfParamFilters(list):
     def __str__(self):
 
         return ', '.join(str(_) for _ in self)
-    
+
+
 class DictOfListsOfParamFilters(dict):
 
     def add(self, key, filter):
@@ -193,7 +194,6 @@ class DictOfListsOfParamFilters(dict):
                 return False
 
         return True
-
 
     def __str__(self):
 

@@ -350,12 +350,14 @@ def tabular_env(*formats, env='tabular', reduce_space=True):
         col_formats += f * n
     if reduce_space:
         col_formats += '%\n@{}'
-  
-    begin_env = tex_command('begin', env, col_formats) 
 
-    end_env = tex_command('end', env)
+    if env:
+        begin_env = tex_command('begin', env, col_formats) 
+        end_env = tex_command('end', env)
+        return begin_env, end_env
+
+    return col_formats
     
-    return begin_env, end_env
     
 
 def tabular_rule(where, start=1, end=-1, tab_width=None):
@@ -381,7 +383,8 @@ def tabular_rule(where, start=1, end=-1, tab_width=None):
 def tabular_row(*a, end='\n'):
 
     return ' & '.join(str(_) for _ in a) + r'\\' + end
-    
+
+
 def tabular_multicol(width, cell_format, s):
 
     return tex_command('multicolumn', width, cell_format, s)

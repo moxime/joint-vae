@@ -164,7 +164,7 @@ if __name__ == '__main__':
         if args.when == 'last' or epoch == 'last':
             epoch = max(model.testing)
 
-        recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)), device='cpu')
+        recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)), map_location='cpu')
         current_y_true = recorders[testset]._tensors['y_true']
 
         if y_true is not None and (y_true != current_y_true).any():

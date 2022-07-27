@@ -28,7 +28,7 @@ parser.add_argument('--method', default='iws-2s')
 parser.add_argument('--tpr', type=float, default=0.95)
 parser.add_argument('-v', action='count', default=0)
 parser.add_argument('--result-dir', default='/tmp')
-parser.add_argument('--agg-type', nargs='*', choices=list(agg_type_letter))
+parser.add_argument('--agg-type', nargs='*', choices=list(agg_type_letter), default=[])
 parser.add_argument('--when', default='last')
 parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--tex', action='store_true')
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         with open('/tmp/rsync-files', 'w') as f:
             f.write('#!/bin/bash\n')
             f.write('rsync -avP --files-from=/tmp/files $1 .\n')
-        raise ValueError
+        sys.exit(1)
 
     key_loss = args.method.split('-')[0]
 
@@ -167,7 +167,7 @@ if __name__ == '__main__':
         recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)), device='cpu')
         current_y_true = recorders[testset]._tensors['y_true']
 
-        if y_true and y_true != current_y_true:
+        if y_true is not None and (y_true != current_y_true).any():
             logging.debug('{} has a diffrent shuffle, can not use!'.format(name))
             continue
         else:

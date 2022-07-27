@@ -44,6 +44,10 @@ flt_col_width = '5.1f'
 _ = np.seterr(divide='ignore', invalid='ignore')
 
 
+def diff(t):
+
+    return t[...,1:] - t[...,:-1]
+
 if __name__ == '__main__':
 
     args_from_file = ('--dataset cifar10 '
@@ -164,7 +168,7 @@ if __name__ == '__main__':
         if args.when == 'last' or epoch == 'last':
             epoch = max(model.testing)
 
-        recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)), map_location='cpu')
+            recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)), map_location='cpu')
         current_y_true = recorders[testset]._tensors['y_true']
 
         if y_true is not None and (y_true != current_y_true).any():
@@ -338,7 +342,7 @@ if __name__ == '__main__':
                                        for t in _temps}
                                    for s in sets}
 
-                    as_in[k][combo_name]['vote'] = {s: {t: (count_as_in[s][t].diff() >= 0).squeeze()
+                    as_in[k][combo_name]['vote'] = {s: {t: (diff(count_as_in[s][t]) >= 0).squeeze()
                                                         for t in _temps}
                                                     for s in sets}
                     

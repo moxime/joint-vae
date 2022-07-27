@@ -1,4 +1,5 @@
-import os
+import os, sys
+from collections import OrderedDict
 from utils.save_load import create_file_for_job as create_file
 from utils.tables import create_printout
 from module.optimizers import Optimizer
@@ -358,26 +359,26 @@ def tabular_env(*formats, env='tabular', reduce_space=True):
 
     return col_formats
     
-    
 
-def tabular_rule(where, start=1, end=-1, tab_width=None):
+def tabular_rule(where, start=0, end=-1, tab_width=None):
 
     if where == 'top':
         return r'\toprule' + '\n'
     if where == 'bottom':
-        return r'\bottomrule' + '\n'
+        return r'\\\bottomrule' + '\n'
     if where == 'mid':
-        if start == 1 and (end == -1 or end == tab_width):
+        if not start and (end == -1 or end == tab_width - 1):
             return r'\midrule' + '\n'
         if end == -1:
-            end == tab_width
+            end = tab_width - 1
+
         border = ''
-        if start > 1:
+        if start:
             border += 'l'
-        if end < tab_width:
+        if end < tab_width - 1:
             border += 'r'
         border = '({})'.format(border)
-        return r'\cmidrule{}{{{}-{}}}'.format(border, start, end) + '\n'
+        return r'\cmidrule{}{{{}-{}}}'.format(border, start + 1, end + 1) + '\n'
 
 
 def tabular_row(*a, end='\n'):
@@ -389,3 +390,263 @@ def tabular_multicol(width, cell_format, s):
 
     return tex_command('multicolumn', width, cell_format, s)
 
+
+class TexCell(object):
+
+    def __init__(self, a, width=1, multicol_format=None, formatter='{}', na_rep='na'):
+
+        assert width == 1 or multicol_format
+
+        self._value = a
+        self._multicol = multicol_format
+        self._width = width
+        self._format = formatter
+        self.na_rep = na_rep
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def width(self):
+        return self._width
+        
+    def __repr__(self):
+
+        of_width = 'of width {} '.format(self.width) if self.width > 1 else ''
+        return 'cell {}containing {}'.format(of_width, self._format.format(self._value))
+
+    def __str__(self):
+
+        if self._value is None:
+            return self.na_rep
+        
+        return self._format.format(self._value)
+
+    def __format__(self, spec):
+
+        s = ''
+        tex = spec.endswith('x')
+        if tex:
+            tex = True
+            spec = spec[:-1]
+        
+        if self._multicol and tex:
+            s += r'\multicolumn{{{}}}{{{}}}'.format(self.width, self._multicol)
+            s += '{'
+
+        s += str(self).__format__(spec)
+            
+        if self._multicol and tex:
+            s += '}'
+
+        return s
+    
+                
+class TexRow(list):
+
+    def __init__(self, *a, col_format=[]):
+
+        super().__init__(*a)
+        self._col_formats = col_format
+    
+    def __len__(self):
+
+        return sum(_.width for _ in self)
+
+    def __str__(self):
+
+        return ' '.join(str(_) for _ in self)
+
+    def __format__(self, spec):
+
+        tex = spec.endswith('x')
+        if tex:
+            spec = spec[-1]
+            
+        sep = '& ' if tex else ' '
+
+        if '-' in spec:
+            row_str = ''
+            str_w = [int(_) for _ in spec.plits('-')]
+            i0 = 0
+            for i, c in enumarate(self):
+                c_w = sum(str_w[i0:i0 + c.width + 1])
+                # c_f = ''
+                row_str += '{:{}}'.format(c, c_w)
+        
+        return sep.join(_.__format__(spec) for _ in self)
+    
+    
+class TexTab(object):
+
+    def __init__(self, *col_format, environment='tabular', float_format='{}'.format,
+                 na_rep='--',
+                 multicol_format='c'):
+
+        self._env = environment
+        self._col_format = col_format
+
+        self._col_sep = ['' for _ in col_format]
+
+        self._has_to_be_float = [_.startswith('f') for _ in col_format]
+        
+        self.width = len(col_format)
+        
+        self._rows = OrderedDict()
+        self._rules = {'top': True, 'bottom': True, 'mid': {}}
+
+        self.na_rep = na_rep
+        self.float_format = float_format
+        self.default_multicol_format = multicol_format
+        
+    def __repr__(self):
+
+        return 'TeX tab of format {} with {} rows'.format(self._col_format, len(self._rows))
+
+    def __str__(self):
+
+        return '\n'.join(str(self[_]) for _ in self)
+    
+    def __len__(self):
+
+        return len(self._rows)
+
+    def __iter__(self):
+
+        return self._rows.__iter__()
+
+    def __getitem__(self, row):
+
+        return self._rows[row]
+
+    @classmethod
+    def _next_row(cls, row_id):
+
+        if row_id is None:
+            return 0
+        
+        if isinstance(row_id, int):
+            return row_id+1
+
+        if isinstance(row_id, str):
+            splitted_id = row_id.split('-')
+            try:
+                k = int(splitted_id[-1])
+                splitted_id[-1] = str(k + 1)
+            except ValueError:
+                splitted_id.append('1')
+                
+            return '-'.join(splitted_id)
+
+    def _new_row(self, row_id=None):
+
+        if row_id is None or row_id in self._rows:
+            return self._new_row(self._next_row(row_id))
+
+        else:
+            self._rows[row_id] = TexRow(col_format=self._col_format)
+            return row_id
+        
+    def _make_cell(self, a, width=1, multicol_format=None, formatter=None, has_to_be_float=None):
+
+        try:
+            float(a)
+            is_float = True
+        except (ValueError, TypeError):
+            is_float = False
+
+        is_multicol = width > 1 or multicol_format or (has_to_be_float and not is_float) or a is None
+        multicol_format = multicol_format or self.default_multicol_format
+
+        return TexCell(a, width=width,
+                       multicol_format= multicol_format if is_multicol else None,
+                       na_rep=self.na_rep,
+                       formatter=formatter or (self.float_format if is_float else '{}'))
+
+    def get(self, *a, **kw):
+
+        return self._rows.get(*a, **kw)
+    
+    def add_col_sep(self, before_col, sep=''):
+
+        self._col_sep[before_col] = '@{{{}}}'.format(sep)
+        
+    def render(self, io=sys.stdout):
+
+        col_format = ''
+        for f, s in zip(self._col_format, self._col_sep):
+            if f.startswith('s'):
+                col_format += s + 'S[table-format={}]%\n'.format(f[1:])
+            else:
+                col_format += s + f + '%\n'
+
+        begin_env, end_env = tabular_env((1, col_format), env=self._env)
+        
+        io.write(begin_env)
+        io.write('\n')
+
+        body = ''
+        for r in self:
+            if r in self._rules['mid']:
+                for (start, end) in self._rules['mid'][r]:
+                    body += tabular_rule('mid', start=start, end=end, tab_width=self.width)
+
+            body += '{:x}'.format(self[r])
+            body += '\\\\\n'
+
+        bottom = tabular_rule('bottom') if self._rules['bottom'] else ''
+        top = tabular_rule('top') if self._rules['top'] else ''
+
+        io.write(top)
+        io.write(body[:-3])
+        io.write('\n')
+        io.write(bottom)
+        io.write(end_env)
+        io.write('\n')
+            
+    def append_cell(self, a, row=None, width=1, multicol_format=None, formatter=None):
+        """if row is None will create a new row"""
+
+        if row not in self:
+            row = self._new_row(row)
+
+        row_width = len(self[row])
+        if row_width + width > self.width:
+            raise IndexError('row {} already full'.format(row))
+
+        has_to_be_float = self._has_to_be_float[row_width]
+        self[row].append(self._make_cell(a, width=width,
+                                         multicol_format=multicol_format,
+                                         formatter=formatter,
+                                         has_to_be_float=has_to_be_float))
+        return row
+
+    def add_midrule(self, row, start=0, end=-1):
+
+        assert row in self._rows
+        if end == -1:
+            end = self.width - 1
+
+        if start > end or end > self.width - 1:
+            raise IndexError(max(start, end))
+        
+        if row not in self._rules['mid']:
+            self._rules['mid'][row] = []
+
+        rules = self._rules['mid'][row]
+        
+        if not rules or end < rules[0][0]:
+            print('*** {}--{} inserted at beginning'.format(start, end))
+            rules.insert(0, (start, end))
+            return
+        
+        for i, (s,e) in enumerate(rules):
+            if start > e:
+                print('*** {}--{} inserted after {} -- {}'.format(start, end, s, e)) 
+                rules.insert(i + 1, (start, end))
+                break
+        else:
+            raise IndexError('Can\'t insert midrule {} -- {} '
+                             'with already existing {} -- {}'.format(start, end, s, e))
+                

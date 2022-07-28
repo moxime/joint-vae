@@ -222,6 +222,11 @@ if __name__ == '__main__':
     agg_types = {w: [_ for _ in wanted_aggs  if _ not in unwanted_aggs[w]] for w in unwanted_aggs}
                    
     result_dir = args.result_dir
+
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+
+    _ = os.listdir(result_dir)
     
     nan_temp = -1
 

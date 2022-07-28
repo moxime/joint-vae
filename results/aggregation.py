@@ -34,6 +34,7 @@ parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--tex', action='store_true')
 parser.add_argument('--sets-to-exclude', nargs='*', default=[])
 parser.add_argument('--combos', nargs='+', type=int)
+parser.add_argument('--device', default='cpu')
 
 rmodels = load_json('jobs', 'models-{}.json'.format(gethostname()))
 
@@ -66,7 +67,7 @@ if __name__ == '__main__':
                       '--when min-loss '
                       '--sets-to-exclude cifar100 '
                       '--agg-type mean joint mean~ '
-                      '--combos 1 3 5 '
+                      '--combos 5 '
                       ).split()
 
     # args_from_file = ('-vvvv '
@@ -168,7 +169,8 @@ if __name__ == '__main__':
         if args.when == 'last' or epoch == 'last':
             epoch = max(model.testing)
 
-            recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)), map_location='cpu')
+        recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)),
+                                         map_location=args.device)
         current_y_true = recorders[testset]._tensors['y_true']
 
         if y_true is not None and (y_true != current_y_true).any():
@@ -244,8 +246,10 @@ if __name__ == '__main__':
             y_classif[combo_name] = {s: torch.argmax(t['iws'][combo_name][testset], dim=0)
                                      for s in sets}
 
-        for w in (wanted_aggs if len(combo) >= 1 else ['vote']):
+        for w in (wanted_aggs if len(combo) > 1 else ['vote']):
 
+            t_pth = {}
+            
             temps = temps_[w]
             combo_name = agg_type_letter[w].join(combo)
             logging.info(w)
@@ -565,9 +569,6 @@ if __name__ == '__main__':
                                                           r,
                                                           '-'.join(str(_) for _ in combo_lengths),
                                                           '-'.join(agg_[r]))
-            tex_file = 'misclass-{}.tex'.format(r)
+            # tex_file = 'misclass-{}.tex'.format(r)  # 
             with open(os.path.join(args.result_dir, tex_file), 'w') as f:
                 tab.render(f)
-
-            
-            

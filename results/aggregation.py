@@ -23,6 +23,7 @@ agg_type_letter = {'vote': '&', 'joint': ',', 'mean': '+', 'mean~': '~'}
 parser = argparse.ArgumentParser()
 
 
+parser.add_argument('--compute', action='store_true')
 parser.add_argument('--last', default=0, type=int)
 parser.add_argument('--method', default='iws-2s')
 parser.add_argument('--tpr', type=float, default=0.95)
@@ -68,6 +69,7 @@ if __name__ == '__main__':
                       '--sets-to-exclude cifar100 '
                       '--agg-type mean joint mean~ '
                       '--combos 5 '
+                      '--compute '
                       ).split()
 
     # args_from_file = ('-vvvv '
@@ -223,10 +225,12 @@ if __name__ == '__main__':
                    
     result_dir = args.result_dir
 
-    if not os.path.exists(result_dir):
-        os.makedirs(result_dir)
+    saved_dir = os.path.join(result_dir, 'saved')
+    
+    if not os.path.exists(saved_dir):
+        os.makedirs(saved_dir)
 
-    _ = os.listdir(result_dir)
+    _ = os.listdir(saved_dir)
     
     nan_temp = -1
 
@@ -253,27 +257,41 @@ if __name__ == '__main__':
 
         for w in (wanted_aggs if len(combo) > 1 else ['vote']):
 
-            t_pth = {}
+            combo_name = agg_type_letter[w].join(combo)
+            saved_pth = os.path.join(saved_dir, '{}.pth'.format(combo_name))
+            is_saved = os.path.exists(saved_pth)
+            compute = args.compute or not is_saved
+
+            if compute:
+                t_pth = {}
+            else:
+                t_pth = torch.load(saved_pth)
             
             temps = temps_[w]
-            combo_name = agg_type_letter[w].join(combo)
             logging.info(w)
-            
-            if w == 'joint':
-                p_y_x[combo_name] = {s: joint_posterior(*[t['zdist'][_][s] for _ in combo], temps=temps)
-                                     for s in sets}
-            elif w == 'mean':
-                p_y_x[combo_name] = {s: mean_posterior(*[t['iws'][_][s] for _ in combo], temps=temps)
-                                     for s in sets}
 
-            elif w == 'mean~':
-                p_y_x_ = {s: [posterior(t['iws'][_][s], temps=temps) for _ in combo] for s in sets}
-                p_y_x[combo_name] = {s: {temp: sum([_[temp] for _ in p_y_x_[s]]) for temp in temps}
-                                     for s in sets}
-                
-            elif w == 'dist' or (w == 'vote'):  # and len(combo) == 1):
-                p_y_x[combo_name] = {s: voting_posterior(*[y_classif[_][s] for _ in combo], temps=temps)
-                                     for s in sets}
+            if compute:
+                logging.info('Computing y|x for {}'.format(combo_name))
+                if w == 'joint':
+                    p_y_x[combo_name] = {s: joint_posterior(*[t['zdist'][_][s] for _ in combo], temps=temps)
+                                         for s in sets}
+                elif w == 'mean':
+                    p_y_x[combo_name] = {s: mean_posterior(*[t['iws'][_][s] for _ in combo], temps=temps)
+                                         for s in sets}
+
+                elif w == 'mean~':
+                    p_y_x_ = {s: [posterior(t['iws'][_][s], temps=temps) for _ in combo] for s in sets}
+                    p_y_x[combo_name] = {s: {temp: sum([_[temp] for _ in p_y_x_[s]]) for temp in temps}
+                                         for s in sets}
+
+                elif w == 'dist' or (w == 'vote'):  # and len(combo) == 1):
+                    p_y_x[combo_name] = {s: voting_posterior(*[y_classif[_][s] for _ in combo], temps=temps)
+                                         for s in sets}
+
+                t_pth['p_y_x'] = p_y_x[combo_name]
+
+            else:
+                p_y_x[combo_name] = t_pth['p_y_x']
                                  
             y_classif[combo_name] = {s: p_y_x[combo_name][s][temps[0]].argmax(0) for s in sets}
                                  
@@ -298,14 +316,22 @@ if __name__ == '__main__':
                         tprs[k]['vote'] = pr[k][vote_combo]['vote'][testset if k == 'ind' else 'correct']
 
                 if w == 'mean' or len(combo) == 1:
-                    log_p_x_y[combo_name] = {s: log_mean_exp(*[t['iws'][_][s] for _ in combo]).max(0)[0]
-                                             for s in sets}
+                    if compute:
+                        logging.info('Computing x|y for {}'.format(combo_name))
+
+                        log_p_x_y[combo_name] = {s: log_mean_exp(*[t['iws'][_][s] for _ in combo]).max(0)[0]
+                                                 for s in sets}
+                        t_pth['log_p_x_y'] = log_p_x_y[combo_name]
+                        
+                    else:
+                        log_p_x_y[combo_name] = t_pth['log_p_x_y']
 
                     for s, i_ in zip(('correct', 'incorrect'), (i_true, ~i_true)):
                         log_p_x_y[combo_name][s] = log_p_x_y[combo_name][testset][i_]
 
                 k_ = [_ for _ in ('ind', 'correct') if w in agg_types[in_set[_]]]
 
+                logging.debug('Computing prs')
                 for k in k_:
                     if k == 'ind':
                         t_in_out = {s: {nan_temp: log_p_x_y[combo_name][s]} for s in all_sets}
@@ -339,7 +365,8 @@ if __name__ == '__main__':
                                                           for t in _temps}
                             pr[k][combo_name][r][s] = {t: as_in[k][combo_name][r][s][t].float().mean().item()
                                                        for t in _temps}
-                            
+                logging.debug('Done computing prs')
+
             elif w == 'vote':
                 for k in ('ind', 'correct'):
 
@@ -377,6 +404,8 @@ if __name__ == '__main__':
                     for k in k_dist:
                         freq = (c == k[1]).float().mean() if k[0] == '=' else (c >= k[1]).float().mean()
                         distribution[combo_name][s][k] = freq.item()
+            if compute:
+                torch.save(t_pth, saved_pth)
 
     def make_dfs():
         df_idx = {_: ['agg', 'T', 'l', 'name', 'tpr'] for _ in ('acc', 'ood', 'misclass')}

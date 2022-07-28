@@ -68,7 +68,7 @@ if __name__ == '__main__':
                       '--when min-loss '
                       '--sets-to-exclude cifar100 '
                       '--agg-type mean joint mean~ '
-                      '--combos 5 '
+                      '--combos 3 5 '
                       '--compute '
                       ).split()
 
@@ -599,7 +599,7 @@ if __name__ == '__main__':
             tab.add_midrule(temps[0])
 
             tab.render()
-            tex_file = 'misclass-ood-{}-{}--{}--{}.tex'.format(testset,
+            tex_file = 'misclass-agg-{}-{}--{}--{}.tex'.format(testset,
                                                           r,
                                                           '-'.join(str(_) for _ in combo_lengths),
                                                           '-'.join(agg_[r]))

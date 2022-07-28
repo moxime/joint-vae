@@ -637,13 +637,11 @@ class TexTab(object):
         rules = self._rules['mid'][row]
         
         if not rules or end < rules[0][0]:
-            print('*** {}--{} inserted at beginning'.format(start, end))
             rules.insert(0, (start, end))
             return
         
         for i, (s,e) in enumerate(rules):
             if start > e:
-                print('*** {}--{} inserted after {} -- {}'.format(start, end, s, e)) 
                 rules.insert(i + 1, (start, end))
                 break
         else:

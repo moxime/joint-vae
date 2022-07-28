@@ -256,7 +256,7 @@ if __name__ == '__main__':
             y_classif[combo_name] = {s: torch.argmax(t['iws'][combo_name][testset], dim=0)
                                      for s in sets}
 
-        for w in (wanted_aggs if len(combo) > 1 else ['vote']):
+        for w in (wanted_aggs if len(combo) >= 1 else ['vote']):
 
             combo_name = agg_type_letter[w].join(combo)
             saved_pth = os.path.join(saved_dir, '{}.pth'.format(combo_name))

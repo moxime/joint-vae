@@ -10,9 +10,6 @@ from utils.filters import DictOfListsOfParamFilters
 from utils.texify import tex_command, TexTab
 from utils.parameters import gethostname
 import pandas as pd
-from utils.roc_curves import fpr_at_tpr
-import seaborn as sns
-import matplotlib.pyplot as plt
 import itertools
 import torch
 from torch.nn.functional import one_hot
@@ -51,12 +48,13 @@ def diff(t):
     # return t.diff()
     return t[..., 1:] - t[..., :-1]
 
+
 if __name__ == '__main__':
 
     args_from_file = ('--dataset cifar10 '
                       '--type cvae '
                       '--gamma 1000 '
-                      '--features vgg19 ' 
+                      '--features vgg19 '
                       '--representation rgb '
                       '--sigma-train coded '
                       '--coder-dict learned '
@@ -86,14 +84,14 @@ if __name__ == '__main__':
 
     args.agg_type.insert(0, 'vote')
     tpr = args.tpr
-    
+
     max_per_rep = 100
-    
+
     logging.getLogger().setLevel(40 - 10 * args.v)
 
     filter_parser = parse_filters()
     filter_args = filter_parser.parse_args(ra)
-    
+
     filters = DictOfListsOfParamFilters()
 
     for _ in filter_args.__dict__:
@@ -118,7 +116,7 @@ if __name__ == '__main__':
             f.write(sdir + '\n')
 
     # logging.info((len(mdirs), 'complete model' + ('s' if len(mdirs) > 1 else ''), 'over', total_models))
-    
+
     if not mdirs:
         logging.error('Exiting, load files')
         logging.error('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
@@ -133,7 +131,7 @@ if __name__ == '__main__':
     p_y_x = {}
 
     t = {_: {} for _ in ('iws', 'zdist')}
-    
+
     testset = None
     ind_thr = {}
 
@@ -155,7 +153,7 @@ if __name__ == '__main__':
         rep = model.architecture['representation']
         name = rep.upper() + str(n_by_rep[rep])
         name = str(model.job_number)
-        
+
         n_by_rep[rep] += 1
         current_testset = model.training_parameters['set']
         if testset and current_testset != testset:
@@ -181,36 +179,36 @@ if __name__ == '__main__':
             continue
         else:
             y_true = current_y_true
-        
+
         sets = [*recorders.keys()]
 
         # exclude rotated set
         oodsets = [_ for _ in sets if (not _.startswith(testset) and _ not in args.sets_to_exclude)]
         # sets = [kept_testset, 'lsunr']  # + sets
         sets = [testset] + oodsets
-        
+
         t['iws'][name] = {}
         t['zdist'][name] = {}
-        
+
         as_in['ind'][name] = {}
 
         for _ in ('zdist', 'iws'):
             for dset in sets:
                 t[_][name][dset] = recorders[dset]._tensors[_]
                 t[_][name][dset] = recorders[dset]._tensors[_]
-            
+
     combo_lengths = sorted(args.combos)
     if 1 not in combo_lengths:
         combo_lengths.insert(0, 1)
 
-    all_sets = [testset, 'correct' , 'incorrect', *oodsets]
+    all_sets = [testset, 'correct', 'incorrect', *oodsets]
 
     combos = []
     for _ in combo_lengths:
         combos += [*itertools.combinations(sorted(as_in['ind']), _)]
 
     logging.info('Will work on {} combos'.format(len(combos)))
-    
+
     i_ax = 0
 
     """
@@ -221,18 +219,18 @@ if __name__ == '__main__':
     wanted_aggs = args.agg_type
 
     unwanted_aggs = {'acc': ['dist'], 'ood': ['dist', 'mean~', 'joint'], 'misclass': []}
-    
-    agg_types = {w: [_ for _ in wanted_aggs  if _ not in unwanted_aggs[w]] for w in unwanted_aggs}
-                   
+
+    agg_types = {w: [_ for _ in wanted_aggs if _ not in unwanted_aggs[w]] for w in unwanted_aggs}
+
     result_dir = args.result_dir
 
     saved_dir = os.path.join(result_dir, 'saved')
-    
+
     if not os.path.exists(saved_dir):
         os.makedirs(saved_dir)
 
     _ = os.listdir(saved_dir)
-    
+
     nan_temp = -1
 
     temps_ = {_: [nan_temp, 1, 2, 5, 10, 20] for _ in wanted_aggs}
@@ -243,7 +241,7 @@ if __name__ == '__main__':
     ind_thr = {}
     correct_thr = {}
     accuracies = {}
-    
+
     for combo in combos:
 
         logging.info('Working on {}'.format('--'.join(combo)))
@@ -267,7 +265,7 @@ if __name__ == '__main__':
                 t_pth = {}
             else:
                 t_pth = torch.load(saved_pth)
-            
+
             temps = temps_[w]
             logging.info(w)
 
@@ -293,16 +291,16 @@ if __name__ == '__main__':
 
             else:
                 p_y_x[combo_name] = t_pth['p_y_x']
-                                 
+
             y_classif[combo_name] = {s: p_y_x[combo_name][s][temps[0]].argmax(0) for s in sets}
-                                 
+
             acc = (y_classif[combo_name][testset].squeeze() == y_true).float().mean().item()
             i_true = (y_classif[combo_name][testset] == y_true).squeeze()
             accuracies[combo_name] = acc
-                                 
+
             for s, i_ in zip(('correct', 'incorrect'), (i_true, ~i_true)):
-                p_y_x[combo_name][s] = {t: p_y_x[combo_name][testset][t][:, i_] for t in temps} 
-                                 
+                p_y_x[combo_name][s] = {t: p_y_x[combo_name][testset][t][:, i_] for t in temps}
+
             max_py = {s: {t: p_y_x[combo_name][s][t].max(0)[0] for t in temps} for s in all_sets}
 
             in_set = {'ind': 'ood', 'correct': 'misclass'}
@@ -323,7 +321,7 @@ if __name__ == '__main__':
                         log_p_x_y[combo_name] = {s: log_mean_exp(*[t['iws'][_][s] for _ in combo]).max(0)[0]
                                                  for s in sets}
                         t_pth['log_p_x_y'] = log_p_x_y[combo_name]
-                        
+
                     else:
                         log_p_x_y[combo_name] = t_pth['log_p_x_y']
 
@@ -341,7 +339,7 @@ if __name__ == '__main__':
                     else:
                         t_in_out = {s: max_py[s] for s in all_sets}
                         _temps = temps
-                        
+
                     n = {t: len(t_in_out[k][t]) for t in _temps}
 
                     ind_thr[combo_name] = {}
@@ -375,18 +373,18 @@ if __name__ == '__main__':
                     as_in[k][combo_name] = {}
                     pr[k][combo_name] = {}
                     count_as_in = {s: {t: sum([one_hot(as_in[k][_][tpr][s][t].long(), num_classes=2)
-                                           for _ in combo])
+                                               for _ in combo])
                                        for t in _temps}
                                    for s in sets}
 
                     as_in[k][combo_name]['vote'] = {s: {t: (diff(count_as_in[s][t]) >= 0).squeeze()
                                                         for t in _temps}
                                                     for s in sets}
-                    
+
                     for s, i_ in zip(('correct', 'incorrect'), (i_true, ~i_true)):
                         as_in[k][combo_name]['vote'][s] = {t: as_in[k][combo_name]['vote'][testset][t][i_]
                                                            for t in _temps}
-                        
+
                     pr[k][combo_name]['vote'] = {s: {t: as_in[k][combo_name]['vote'][s][t].float().mean().item()
                                                      for t in _temps}
                                                  for s in all_sets}
@@ -399,7 +397,7 @@ if __name__ == '__main__':
                 for _ in range(int(np.ceil(len(combo) / 2)), len(combo) + 1):
                     k_dist.append(('>=', _))
 
-                for s in all_sets:                        
+                for s in all_sets:
                     c = (p_y_x[combo_name][s][temps[0]] * len(combo)).max(0)[0].long()
 
                     for k in k_dist:
@@ -453,12 +451,12 @@ if __name__ == '__main__':
                 df[_] = df[_].reorder_levels(['l', 'set'], axis='columns').sort_values(by='l', axis=1)
 
         return df
-    
+
     df = make_dfs()
 
     for _ in df:
         print('\n\n\n*** {} ***'.format(_))
-        
+
         print(df[_].to_string(float_format='{:.1%}'.format, na_rep='--'))
 
     if args.tex:
@@ -479,10 +477,10 @@ if __name__ == '__main__':
         tex_file = 'acc-agg-{}--{}--{}.tex'.format(testset,
                                                    '-'.join(str(_) for _ in combo_lengths),
                                                    '-'.join(agg_types['acc']))
-                                                 
+
         with open(os.path.join(args.result_dir, tex_file), 'w') as f:
             tab.render(f)
-            
+
         agg_for_ood = agg_types['ood']
         combo_l_ = {'vote': [_ for _ in combo_lengths if _ != 1], tpr: combo_lengths}
         agg_ = {tpr: [_ for _ in agg_for_ood if _ != 'vote'], 'vote': agg_for_ood}
@@ -490,19 +488,19 @@ if __name__ == '__main__':
 
         tex_rename = {s: tex_command('makecommand', s) for s in sets}
         tex_rename.update({s: s.capitalize() for s in ('correct', 'incorrect')})
-                           
+
         for r in (tpr, 'vote'):
-            
+
             i_ = df['ood'].index
             i = i_.isin([r], level='tpr') & i_.isin(agg_[r], level='agg')
-            df_ = df['ood'][i].stack('set').droplevel('tpr')[combo_l_[r]].unstack('agg')            
-                           
+            df_ = df['ood'][i].stack('set').droplevel('tpr')[combo_l_[r]].unstack('agg')
+
             if r == 'vote':
                 n_cols = (len(agg_[r]) + 1) * (len(combo_l_[r]))
 
             else:
                 n_cols = len(agg_[r]) * (len(combo_l_[r]))
-                
+
             df_tex = df_.rename(index=tex_rename)
             cols = ['s2.1'] * n_cols
             tab = TexTab('l', *cols, float_format='{:2.1f}')
@@ -515,7 +513,7 @@ if __name__ == '__main__':
                 tab.append_cell('', row='subheader')
                 tab.append_cell('/'.join(agg_[r]), width=n_cols, row='subheader')
                 tab.add_midrule('subheader')
-                
+
             for s in sets_[r]:
                 tab.append_cell(tex_command('makecommand', s), row=s)
                 if s == testset:
@@ -534,25 +532,25 @@ if __name__ == '__main__':
                 for i_l, _ in enumerate(combo_l_[r]):
                     for i_agg, _ in enumerate(agg_[r][:-1]):
                         tab.add_col_sep(1 + i_l * len(agg_[r]) + i_agg + 1, '/')
-            
+
             tab.render()
             tex_file = 'ood-agg-{}-{}--{}--{}.tex'.format(testset,
                                                           r,
                                                           '-'.join(str(_) for _ in combo_lengths),
                                                           '-'.join(agg_for_ood))
-            
+
             with open(os.path.join(args.result_dir, tex_file), 'w') as f:
                 tab.render(f)
-                
+
         df_ = df['misclass']
         incorrect_cols = df_.columns.isin(['incorrect', 'correct'], level='set')
-        df_ = df_[df_.columns[incorrect_cols]] # .stack('set').droplevel('set')
+        df_ = df_[df_.columns[incorrect_cols]]  # .stack('set').droplevel('set')
         aggs = agg_types['misclass']
         combo_l_ = {'vote': [_ for _ in combo_lengths if _ != 1], tpr: combo_lengths}
         agg_ = {tpr: [_ for _ in aggs if _ != 'vote'], 'vote': aggs}
 
         tex_aggs_ = {'TPR': r'\acron{tpr}', 'mean~': r'mean\~'}
-        
+
         for r in (tpr, 'vote'):
 
             aggs = ['TPR', *agg_[r]] if r == 'vote' else agg_[r]
@@ -560,19 +558,19 @@ if __name__ == '__main__':
             tex_aggs = [tex_aggs_.get(_, _) for _ in aggs]
 
             if r == 'vote':
-                n_cols = len(aggs) * (len(combo_l_[r])) 
+                n_cols = len(aggs) * (len(combo_l_[r]))
 
             else:
-                n_cols = len(aggs) * (len(combo_l_[r])) 
-                
+                n_cols = len(aggs) * (len(combo_l_[r]))
+
             cols = ['s2.1'] * n_cols
 
             tab = TexTab('l', *cols, float_format='{:2.1f}')
 
             tab.append_cell('$M$', row='header')
-            
+
             for l in combo_l_[r]:
-                tab.append_cell(l, multicol_format='c', width=len(aggs), # if l > 1 else 1,
+                tab.append_cell(l, multicol_format='c', width=len(aggs),  # if l > 1 else 1,
                                 row='header', formatter='{}')
 
             tab.append_cell('T', row='subheader')
@@ -581,12 +579,12 @@ if __name__ == '__main__':
                 tab.append_cell(T if T != nan_temp else '--', row=T, formatter='{}')
                 for l in combo_l_[r]:
                     if r == 'vote':
-                        pr  = 100 * df_.loc[(agg, r, T)][l, 'correct']
+                        pr = 100 * df_.loc[(agg, r, T)][l, 'correct']
                         tab.append_cell(pr, row=T)
-                        
+
                     for agg in agg_[r]:
                         if T in temps_[agg]:
-                            pr  = 100 * df_.loc[(agg, r, T)][l, 'incorrect']
+                            pr = 100 * df_.loc[(agg, r, T)][l, 'incorrect']
                         else:
                             pr = None
                         tab.append_cell(pr, row=T)
@@ -601,9 +599,9 @@ if __name__ == '__main__':
 
             tab.render()
             tex_file = 'misclass-agg-{}-{}--{}--{}.tex'.format(testset,
-                                                          r,
-                                                          '-'.join(str(_) for _ in combo_lengths),
-                                                          '-'.join(agg_[r]))
-            # tex_file = 'misclass-{}.tex'.format(r)  # 
+                                                               r,
+                                                               '-'.join(str(_) for _ in combo_lengths),
+                                                               '-'.join(agg_[r]))
+            # tex_file = 'misclass-{}.tex'.format(r)  #
             with open(os.path.join(args.result_dir, tex_file), 'w') as f:
                 tab.render(f)

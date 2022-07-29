@@ -45,12 +45,12 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
     recorders = LossRecorder.loadall(dir_name, map_location='cpu')
     samples_files = LossRecorder.loadall(dir_name, file_name='sample-{w}.pth', output='path', map_location='cpu')
-    samples = {_: torch.load(samples_files[_]) for _ in samples_files} 
-    
+    samples = {_: torch.load(samples_files[_]) for _ in samples_files}
+
     dset = model.training_parameters['set']
     oodsets = list(recorders)
     oodsets.remove(dset)
-    
+
     sets = [dset] + oodsets
 
     samples_idx = {}
@@ -61,7 +61,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
     k_with_y = ('kl', 'zdist')
     pr = {}
-    
+
     for s in sets:
 
         log.debug('Working on %s', s)
@@ -85,27 +85,27 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                 print('Acc of step {}: {:.2%}'.format(i, (y_true == y_pred[i]).float().mean()))
 
             i_true = y_true == y_pred[0]
-            
+
             t_y = {}
             thr = {}
             pr['correct'] = {}
             pr['incorrect'] = {}
-            
+
             for k in ('kl', 'zdist', 'mse'):
-                
+
                 thr[k] = {}
                 if k in k_with_y:
                     index_y = torch.ones_like(t[k], dtype=int) * y_pred[0]
                     t_y[k] = t[k].gather(1, index_y)[:, 0]
                 else:
                     t_y[k] = t[k]
-                    
+
                 i_tpr = int(len(y_true) * tpr)
                 thr[k] = t_y[k].sort()[0][..., i_tpr]
-                
+
                 for w in ('correct', 'incorrect'):
                     pr[w][k] = torch.zeros(len(model))
-                
+
                 for i, w in zip((i_true, ~i_true), ['correct', 'incorrect']):
                     for m in range(len(model)):
                         mean = t_y[k][m][i].mean()
@@ -123,7 +123,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                     t_y[k] = t[k].gather(1, index_y)[:, 0]
                 else:
                     t_y[k] = t[k]
-                    
+
                 pr[s][k] = torch.zeros(len(model))
                 for m in range(len(model)):
                     pr[s][k][m] = (t_y[k][m] <= thr[k][m]).sum() / len(y_pred[0])
@@ -160,7 +160,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         y_pred = y_pred_[s]
         x = {_: samples[s]['x'][samples_i[s][_]][:n_images] for _ in (True, False)}
         x_ = {_: samples[s]['x_'][:, 0, samples_i[s][_]][:, :n_images] for _ in (True, False)}
-        
+
         y_ = {_: y_pred[:, samples_idx[s]][:, samples_i[s][_]][:, :n_images] for _ in (True, False)}
 
         y = {_: samples[s]['y'][samples_i[s][_]][:n_images] for _ in (True, False)}
@@ -168,9 +168,9 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         if s != dset:
             pass
             # y = {_: -1 * torch.ones_like(y[_]) for _ in y}
-    
+
         w = (True, False) if s == dset else (True,)
-    
+
         for _ in w:
             x[_] = torch.cat([x[_].unsqueeze(0), x_[_]])
             y[_] = torch.cat([y[_].unsqueeze(0), y_[_]])
@@ -184,7 +184,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
             # print('***', k)
             t[k] = t[k].gather(1, index)[:, 0, ]
             # print('****', k, t[k].shape, y_pred[0].shape)
-            
+
         averaged = {_: {k: t[k][..., i_[_]].mean(-1) for k in ('kl', 'mse', 'zdist')} for _ in title}
 
         output.update({title[_]:
@@ -203,7 +203,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                 for j in range(i):
                     mse[(j, i)] = output[title[_]]['mse'][n]
                     n += 1
-                    
+
             output[title[_]]['mse'] = mse
 
         if png:
@@ -214,7 +214,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                 f.write('\\def\\oodsets{{{}}}\n'.format(_sets))
                 _sets = ','.join([classif_titles[True], classif_titles[False], *oodsets])
                 f.write('\\def\\allsets{{{}}}\n'.format(_sets))
-                
+
             for _ in w:
                 image_dir = os.path.join(result_dir, 'samples', title[_])
                 if not os.path.exists(image_dir):
@@ -242,8 +242,8 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
     if tex:
         """ MSE tex file """
         tab_width = len(model) * 3
-        first_row = True    
-        
+        first_row = True
+
         max_mse = max([max(output[_]['mse'].values()) for _ in output])
         min_mse = min([min(output[_]['mse'].values()) for _ in output])
 
@@ -251,15 +251,15 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         mse_factor = int(np.ceil(-min_mse_exp / 3) * 3 - 3)
         max_mse_exp = int(np.floor(np.log10(max_mse)))
 
-        swidth = mse_factor + max_mse_exp + 1 
+        swidth = mse_factor + max_mse_exp + 1
         stable_mse = '%\nS[table-format={:d}.3]'.format(swidth)
         stable_pr = '\n@{ (}S[table-format=2.1]@{\\%) }'
-        
+
         col_format = stable_mse + stable_pr + (stable_mse + stable_pr + stable_mse) * (len(model) - 1)
-        
+
         begin_env, end_env = tabular_env((1, 'l'), (1, col_format))
-        
-        with open(os.path.join(result_dir, 'mse.tex'), 'w') as f:                        
+
+        with open(os.path.join(result_dir, 'mse.tex'), 'w') as f:
             f.write(begin_env)
             f.write(tabular_rule('top'))
 
@@ -304,7 +304,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         for k in k_with_y:
             tab_width = len(model) + 1
 
-            first_row = True    
+            first_row = True
 
             max_k = max([max(output[_][k]) for _ in output])
             min_k = min([min(output[_][k]) for _ in output])
@@ -319,13 +319,13 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
             max_k_exp = int(np.floor(np.log10(max_k)))
 
-            swidth = k_factor + max_k_exp + 1 
+            swidth = k_factor + max_k_exp + 1
             stable = '%\nS[table-format={:d}.3]'.format(swidth)
             stable += '\n@{ (}S[table-format=2.1]@{\\%) }'
-            
+
             begin_env, end_env = tabular_env((1, 'l'), (len(model), stable))
             input_cell = tabular_multicol(1, 'c', 'In')
-            with open(os.path.join(result_dir, '{}.tex'.format(k)), 'w') as f:                        
+            with open(os.path.join(result_dir, '{}.tex'.format(k)), 'w') as f:
                 f.write(begin_env)
                 f.write(tabular_rule('top'))
                 header = ['']
@@ -344,7 +344,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                 f.write(tabular_rule('bottom'))
                 f.write(end_env)
                 f.write('\n\\def\\{}factor{{{}}}\n'.format(k, '{:1.0f}'.format(-k_factor)))
-        
+
     return output
 
 
@@ -363,7 +363,7 @@ if __name__ == '__main__':
 
     if args.tex == []:
         args.tex = ['mean']
-    
+
     log.setLevel(40 - 10 * args.v)
     log.debug('Logging at level %d', log.level)
 
@@ -377,13 +377,13 @@ if __name__ == '__main__':
 
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
-            
+
         output = do_what_you_gotta_do(model_dir, result_dir, n_images=n_images, png=args.png)
 
         if args.plot:
             for s in output:
                 x, y, classes = (output[s][_] for _ in 'xyc')
-                
+
                 image = torchvision.utils.make_grid(x.transpose(0, 1).flatten(end_dim=1), nrow=len(x))
                 img = transforms.functional.to_pil_image(image)
 

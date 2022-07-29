@@ -48,8 +48,8 @@ _ = np.seterr(divide='ignore', invalid='ignore')
 
 def diff(t):
 
-    return t.diff()
-    # return t[...,1:] - t[...,:-1]
+    # return t.diff()
+    return t[..., 1:] - t[..., :-1]
 
 if __name__ == '__main__':
 

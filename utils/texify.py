@@ -339,18 +339,22 @@ def tex_command(command, *args):
     return c
 
 
-def tabular_env(*formats, env='tabular', reduce_space=True):
+def tabular_env(formats, col_seps, env='tabular', reduce_space=True):
     """
     formats is a list of (n, f), n is int, f is str (eg l, S[table-format=2.1])...
     """
+    col_seps_tex = [''] * (len(formats) + 1)
 
-    col_formats = ''
-    if reduce_space:
-        col_formats += '@{}%\n'
-    for n, f in formats:
-        col_formats += f * n
-    if reduce_space:
-        col_formats += '%\n@{}'
+    for i in range(len(formats) + 1):
+        col_seps_tex[i] = '@{' + col_seps[i] + '}' if col_seps[i] else ''
+
+    for i in (0, -1):
+        col_seps_tex[i] = '@{' + col_seps[i] + '}'
+
+    col_formats = '%\n'
+    for f, s in zip(formats, col_seps_tex):
+        col_formats += s + f + '%\n'
+    col_formats += col_seps_tex[-1] + '%\n'
 
     if env:
         begin_env = tex_command('begin', env, col_formats) 
@@ -400,7 +404,7 @@ class TexCell(object):
         self._value = a
         self._multicol = multicol_format
         self._width = width
-        self._format = formatter
+        self._formatted_str = formatter
         self.na_rep = na_rep
 
     @property
@@ -414,14 +418,14 @@ class TexCell(object):
     def __repr__(self):
 
         of_width = 'of width {} '.format(self.width) if self.width > 1 else ''
-        return 'cell {}containing {}'.format(of_width, self._format.format(self._value))
+        return 'cell {}containing {}'.format(of_width, self._formatted_str.format(self._value))
 
     def __str__(self):
 
         if self._value is None:
             return self.na_rep
         
-        return self._format.format(self._value)
+        return self._formatted_str.format(self._value)
 
     def __format__(self, spec):
 
@@ -480,14 +484,14 @@ class TexRow(list):
     
 class TexTab(object):
 
-    def __init__(self, *col_format, environment='tabular', float_format='{}'.format,
+    def __init__(self, *col_format, environment='tabular', float_format='{}',
                  na_rep='--',
                  multicol_format='c'):
 
         self._env = environment
         self._col_format = col_format
 
-        self._col_sep = ['' for _ in col_format]
+        self._col_sep = ['' for _ in col_format] + ['']
 
         self._has_to_be_float = [_.startswith('f') for _ in col_format]
         
@@ -570,18 +574,18 @@ class TexTab(object):
     
     def add_col_sep(self, before_col, sep=''):
 
-        self._col_sep[before_col] = '@{{{}}}'.format(sep)
+        self._col_sep[before_col] = sep
         
     def render(self, io=sys.stdout):
 
-        col_format = ''
-        for f, s in zip(self._col_format, self._col_sep):
+        col_formats = []
+        for i, f in enumerate(self._col_format):
             if f.startswith('s'):
-                col_format += s + 'S[table-format={}]%\n'.format(f[1:])
+                col_formats.append('S[table-format={}]'.format(f[1:]))
             else:
-                col_format += s + f + '%\n'
+                col_formats.append(f)
 
-        begin_env, end_env = tabular_env((1, col_format), env=self._env)
+        begin_env, end_env = tabular_env(col_formats, self._col_sep, env=self._env)
         
         io.write(begin_env)
         io.write('\n')

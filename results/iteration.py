@@ -1,7 +1,6 @@
 import os
 import sys
 import logging
-from utils.print_log import turnoff_debug
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,10 +10,10 @@ from torchvision import transforms
 from torchvision.utils import save_image
 
 from utils.save_load import LossRecorder
-from utils.torch_load import get_same_size_by_name, get_classes_by_name
+from utils.torch_load import get_same_size_by_name, get_classes_by_name, get_shape_by_name
 from module.iteration import IteratedModels
 
-from utils.texify import tabular_env, tabular_rule, tabular_multicol, tabular_row, tex_command
+from utils.texify import TexTab, tex_command
 
 classif_titles = {True: 'correct', False: 'incorrect'}
 
@@ -59,8 +58,25 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
     output = {}
 
-    k_with_y = ('kl', 'zdist')
+    k_with_y = {_: _ for _ in ('kl', 'zdist', 'iws', 'loss')}
+    k_with_y_moving = {_ + '_': _ for _ in k_with_y}
+
+    k_without_y = {'mse': 'mse'}
+
+    k_all = dict(**k_without_y, **k_with_y, **k_with_y_moving)
+
+    signs = {_: 1 for _ in k_all}
+    signs['iws'] = -1
+    signs['iws_'] = -1
+
+    def which_y(t, k, dim=0):
+
+        s = signs[k]
+        return s * (s * t).min(dim=dim)[0]
+
     pr = {}
+
+    disagreement = {}
 
     for s in sets:
 
@@ -70,13 +86,20 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         t = rec._tensors
         kl = t['kl']
 
+        i_mse = [0]
+        for j in range(1, len(model)):
+            i_mse.append(i_mse[-1] + j)
+
+        beta = np.prod(get_shape_by_name(s)[0]) / 1e-3
+        t['loss'] = t['kl'] + beta * t['mse'][i_mse].unsqueeze(-2)
+        
         y_pred = kl.argmin(1)
         y_pred_[s] = y_pred
 
-        agreement = torch.zeros_like(y_pred[0])
+        disagreement[s] = torch.zeros_like(y_pred[0])
 
-        for k in range(len(agreement)):
-            agreement[k] = len(y_pred[:, k].unique())
+        for i in range(len(disagreement[s])):
+            disagreement[s][i] = len(y_pred[:, i].unique())
 
         if s == dset:
             y_true = t['y_true']
@@ -91,14 +114,21 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
             pr['correct'] = {}
             pr['incorrect'] = {}
 
-            for k in ('kl', 'zdist', 'mse'):
+            for k in k_all:
 
                 thr[k] = {}
                 if k in k_with_y:
-                    index_y = torch.ones_like(t[k], dtype=int) * y_pred[0]
-                    t_y[k] = t[k].gather(1, index_y)[:, 0]
+                    index_y = torch.ones_like(t[k_all[k]], dtype=int) * y_pred[0]
+                    t_y[k] = t[k_all[k]].gather(1, index_y)[:, 0]
+
+                elif k in k_with_y_moving:
+
+                    t_y[k] = which_y(t[k_all[k]], k, dim=1)
+
                 else:
                     t_y[k] = t[k]
+
+                t_y[k] *= signs[k]
 
                 i_tpr = int(len(y_true) * tpr)
                 thr[k] = t_y[k].sort()[0][..., i_tpr]
@@ -116,37 +146,36 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
             i_true = torch.ones_like(y_pred[0], dtype=bool)
             pr[s] = {}
 
-            for k in ('kl', 'zdist', 'mse'):
+            for k in k_all:
 
                 if k in k_with_y:
-                    index_y = torch.ones_like(t[k], dtype=int) * y_pred[0]
-                    t_y[k] = t[k].gather(1, index_y)[:, 0]
+                    index_y = torch.ones_like(t[k_all[k]], dtype=int) * y_pred[0]
+                    t_y[k] = t[k_all[k]].gather(1, index_y)[:, 0]
+
+                elif k in k_with_y_moving:
+                    t_y[k] = which_y(t[k_all[k]], k, dim=1)
+
                 else:
                     t_y[k] = t[k]
+
+                t_y[k] *= signs[k]
 
                 pr[s][k] = torch.zeros(len(model))
                 for m in range(len(model)):
                     pr[s][k][m] = (t_y[k][m] <= thr[k][m]).sum() / len(y_pred[0])
 
-        w = ('all', True, False) if s == dset else ('all',)
+        w = (True, False) if s == dset else (True,)
 
-        disagrees_on = {}
-        count = {}
+        title = classif_titles if s == dset else {True: s}
 
         i_ = {'all': i_true + True,
               True: i_true,
               False: ~i_true}
 
-        n_ = {'all': '*', True: 'v', False: 'x'}
-
-        for _ in i_:
-            disagrees_on[_], count[_] = agreement[i_[_]].unique(return_counts=True)
+        for _ in w:
+            disagreement[title[_]] = disagreement[s][i_[_]]
 
         print(s)
-        for _ in w:
-            for a, k in zip(disagrees_on[_], count[_]):
-                print('Disagreement Lvl {} for {}: {:6.1%}'.format(a, n_[_], k / i_[_].sum()))
-            print()
 
         batch_size = recorders[s].batch_size
         num_batch = len(recorders[s])
@@ -174,27 +203,25 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         for _ in w:
             x[_] = torch.cat([x[_].unsqueeze(0), x_[_]])
             y[_] = torch.cat([y[_].unsqueeze(0), y_[_]])
-            title = classif_titles if s == dset else {True: s}
 
         classes = {_: get_classes_by_name(s) if not _ else get_classes_by_name(dset)
                    for _ in range(len(model) + 1)}
 
-        index = torch.ones_like(t['kl'], dtype=int) * y_pred[0]
-        for k in ('kl', 'zdist'):
-            # print('***', k)
-            t[k] = t[k].gather(1, index)[:, 0, ]
-            # print('****', k, t[k].shape, y_pred[0].shape)
+        for k in k_with_y_moving:
+            t[k] = which_y(t[k_all[k]], k, dim=1)
 
-        averaged = {_: {k: t[k][..., i_[_]].mean(-1) for k in ('kl', 'mse', 'zdist')} for _ in title}
+        for k in k_with_y:
+            index = torch.ones_like(t[k_all[k]], dtype=int) * y_pred[0]
+            t[k] = t[k_all[k]].gather(1, index)[:, 0, ]
 
-        output.update({title[_]:
-                       {'x': x[_],
-                        'y': y[_],
-                        'kl': averaged[_]['kl'],
-                        'mse': averaged[_]['mse'],
-                        'zdist': averaged[_]['zdist'],
-                        'c': classes}
-                       for _ in title})
+        averaged = {title[_]: {k: t[k][..., i_[_]].mean(-1) for k in k_all} for _ in title}
+
+        for _ in title:
+            output[title[_]] = averaged[title[_]]
+            output[title[_]].update({'x': x[_], 'y': y[_], 'c': classes})
+            output[title[_]]['disagree'] = torch.zeros(len(model))
+            for m in range(len(model)):
+                output[title[_]]['disagree'][m] = (disagreement[title[_]] == m + 1).float().mean()
 
         for _ in title:
             mse = {}
@@ -241,7 +268,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
     if tex:
         """ MSE tex file """
-        tab_width = len(model) * 3
+        # tab_width = len(model) * 3
         first_row = True
 
         max_mse = max([max(output[_]['mse'].values()) for _ in output])
@@ -252,98 +279,111 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         max_mse_exp = int(np.floor(np.log10(max_mse)))
 
         swidth = mse_factor + max_mse_exp + 1
-        stable_mse = '%\nS[table-format={:d}.3]'.format(swidth)
-        stable_pr = '\n@{ (}S[table-format=2.1]@{\\%) }'
+        stable_mse = 's{}.3'.format(swidth)
+        stable_pr = 's2.1'
 
-        col_format = stable_mse + stable_pr + (stable_mse + stable_pr + stable_mse) * (len(model) - 1)
+        col_format = [stable_mse, stable_pr] + [stable_mse, stable_pr, stable_mse] * (len(model) - 1)
 
-        begin_env, end_env = tabular_env((1, 'l'), (1, col_format))
+        tab = TexTab('l', *col_format, float_format='{:.1f}')
+
+        for m in range(len(model)):
+            c = 3 * m + 1 + (m == 0)
+            tab.add_col_sep(c, ' (')
+            tab.add_col_sep(c + 1, '\\%) ')
+
+        for _ in output:
+            header = _.capitalize() if _.endswith('correct') else tex_command('makecommand', _)
+            tab.append_cell(header, row='header' + _)
+            subheader = tex_command('acron', 'mse') + ' avec'
+            tab.append_cell(subheader, row='subheader' + _)
+            tab.append_cell('', row=_)
+
+            for j in range(1, len(model) + 1):
+                tab.append_cell('Out {}'.format(j), width=2 + (j > 1), multicol_format='c', row='header' + _)
+                tab.append_cell('In', width=2, multicol_format='c', row='subheader' + _)
+                if j > 1:
+                    tab.append_cell('Out {}'.format(j - 1), multicol_format='c', row='subheader' + _)
+                tab.append_cell(output[_]['mse'][(0, j)] * 10 ** mse_factor, row=_, formatter='{:.3f}')
+                tab.append_cell(100 * pr[_]['mse'][j - 1], row=_, formatter='{:.1f}')
+                if j > 1:
+                    tab.append_cell(output[_]['mse'][(j - 1, j)] * 10 ** mse_factor, row=_, formatter='{:.3f}')
+
+            if first_row:
+                first_row = False
+            else:
+                tab.add_midrule('header' + _)
+
+            for j in range(1, len(model) + 1):
+                start = 1 if j == 1 else 3 * j - 3
+                tab.add_midrule(_, start=start, end=start + 1 + (j > 1))
 
         with open(os.path.join(result_dir, 'mse.tex'), 'w') as f:
-            f.write(begin_env)
-            f.write(tabular_rule('top'))
-
-            for _ in output:
-                header = [_.capitalize() if _.endswith('correct') else tex_command('makecommand', _)]
-                subheader = [tex_command('acron', 'mse') + ' avec']
-                row = ['']
-                for j in range(1, len(model) + 1):
-                    input_cell = tabular_multicol(2, 'c', 'In')
-                    prev_cell = tabular_multicol(1, 'c', 'Out {}'.format(j - 1))
-                    output_cell = tabular_multicol(2 + (j > 1), 'c', 'Out {}'.format(j))
-                    header.append(output_cell)
-                    subheader.append(input_cell)
-                    if j > 1:
-                        subheader.append(prev_cell)
-
-                    row.append('{:.3f}'.format(output[_]['mse'][(0, j)] * 10 ** mse_factor))
-                    row.append('{:.1f}'.format(100 * pr[_]['mse'][j - 1]))
-                    if j > 1:
-                        row.append('{:.3f}'.format(output[_]['mse'][(j-1, j)] * 10 ** mse_factor))
-
-                if first_row:
-                    first_row = False
-                else:
-                    f.write(tabular_rule('mid'))
-
-                f.write(tabular_row(*header))
-                f.write(tabular_rule('mid'))
-
-                f.write(tabular_row(*subheader))
-                for j in range(1, len(model) + 1):
-                    start = 2 if j == 1 else 3 * j - 2
-                    f.write(tabular_rule('mid', start=start,
-                                         end=start + (1 if j == 1 else 2), tab_width=tab_width))
-                f.write(tabular_row(*row))
-
-            f.write(tabular_rule('bottom'))
-            f.write(end_env)
-            f.write('\n\\def\\msefactor{{{}}}\n'.format('{:1.0f}'.format(-mse_factor)))
+            tab.render(f)
+            f.write('\\def\\msefactor{{{}}}'.format('{:1.0f}'.format(-mse_factor)))
 
         """ ZDisT / KL tex file """
-        for k in k_with_y:
-            tab_width = len(model) + 1
+        for k in [*k_with_y, *k_with_y_moving]:
 
             first_row = True
 
-            max_k = max([max(output[_][k]) for _ in output])
-            min_k = min([min(output[_][k]) for _ in output])
-
+            max_k = max([max(output[_][k].abs()) for _ in output])
+            min_k = min([min(output[_][k].abs()) for _ in output])
             min_k_exp = np.floor(np.log10(min_k))
+
+            # print('*** MIN / MAX {} = {:.2e} ({}) / {:.2e}'.format(k, min_k, min_k_exp, max_k))
+
             if min_k_exp <= -3:
                 min_k_exp -= 3
 
             k_factor = int(np.ceil(-min_k_exp / 3) * 3)
 
-            # print('MIN ZDIST', min_zdist, min_zdist_exp, zdist_factor)
-
             max_k_exp = int(np.floor(np.log10(max_k)))
 
             swidth = k_factor + max_k_exp + 1
-            stable = '%\nS[table-format={:d}.3]'.format(swidth)
-            stable += '\n@{ (}S[table-format=2.1]@{\\%) }'
 
-            begin_env, end_env = tabular_env((1, 'l'), (len(model), stable))
-            input_cell = tabular_multicol(1, 'c', 'In')
-            with open(os.path.join(result_dir, '{}.tex'.format(k)), 'w') as f:
-                f.write(begin_env)
-                f.write(tabular_rule('top'))
-                header = ['']
+            col_format = ['l'] + ['s{}.3'.format(swidth), 's2.1'] * len(model)
+            tab = TexTab(*col_format)
+            for m in range(len(model)):
+                tab.add_col_sep(2 + 2 * m, ' (')
+                tab.add_col_sep(3 + 2 * m, '\\%)' + ' ' * (m < len(model) - 1))
+
+            tab.append_cell('', row='header')
+            for j in range(len(model)):
+                tab.append_cell('M{}'.format(j + 1), width=2, multicol_format='c', row='header')
+
+            for _ in output:
+                tab.append_cell(_.capitalize() if _.endswith('correct') else tex_command('makecommand', _),
+                                row=_)
+
                 for j in range(len(model)):
-                    header += [tabular_multicol(2, 'c', 'M{}'.format(j + 1))]
-                f.write(tabular_row(*header))
-                f.write(tabular_rule('mid'))
 
-                for _ in output:
-                    row = [_.capitalize() if _.endswith('correct') else tex_command('makecommand', _)]
-                    for j in range(len(model)):
-                        row += ['{:.3f}'.format(output[_][k][j] * 10 ** k_factor)]
-                        row += ['{:.1f}'.format(100 * pr[_][k][j])]
-                    f.write(tabular_row(*row))
+                    tab.append_cell(output[_][k][j] * 10 ** k_factor, row=_, formatter='{:.3f}')
+                    tab.append_cell(100 * pr[_][k][j], row=_, formatter='{:.1f}')
 
-                f.write(tabular_rule('bottom'))
-                f.write(end_env)
-                f.write('\n\\def\\{}factor{{{}}}\n'.format(k, '{:1.0f}'.format(-k_factor)))
+                if first_row:
+                    first_row = False
+                    tab.add_midrule(_)
+
+            with open(os.path.join(result_dir, '{}.tex'.format(k)), 'w') as f:
+                tab.render(f)
+                f.write('\\def\\{}factor{{{}}}\n'.format(k, '{:1.0f}'.format(-k_factor)))
+
+        """ Agreement """
+        col_format = ['l'] + ['s2.1'] * len(model)
+        tab = TexTab(*col_format)
+        tab.append_cell(r'$|\mathcal Y|$', row='header')
+        for m in range(len(model)):
+            tab.append_cell(m + 1, multicol_format='c', row='header')
+
+        for _ in output:
+            tab.append_cell(_, row=_)
+            for m in range(len(model)):
+                tab.append_cell(100 * output[_]['disagree'][m], row=_, formatter='{:.1f}')
+
+        tab.add_midrule(next(iter(output)))
+
+        with open(os.path.join(result_dir, 'disagree.tex'), 'w') as f:
+            tab.render(f)
 
     return output
 

@@ -192,6 +192,8 @@ if __name__ == '__main__':
     if resume:
         dataset, transformer = jvae.training_parameters['set'], jvae.training_parameters['transformer'] 
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
+        validation = jvae.training_parameters['validation']
+        
         oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
         
@@ -202,6 +204,7 @@ if __name__ == '__main__':
 
         dataset, transformer = args.dataset, args.transformer
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)  # 
+        validation = args.validation
         oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
 
@@ -290,7 +293,7 @@ if __name__ == '__main__':
                              test_batch_size=test_batch_size,
                              full_test_every=2 if debug else args.full_test_every,
                              ood_detection_every=2 if debug else args.full_test_every,
-                             validation=args.validation,
+                             validation=validation,
                              device=device,
                              testset=testset,
                              oodsets=oodsets,

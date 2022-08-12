@@ -248,6 +248,8 @@ if __name__ == '__main__':
 
     model.to(device)
 
+    logging.debug('Model sent to {} (device wanted: {})'.format(next(iter(model.parameters())), device))
+    
     testset = model.training_parameters['set']
     allsets = [testset]
     allsets.extend(get_same_size_by_name(testset))

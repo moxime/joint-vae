@@ -1978,7 +1978,8 @@ class ClassificationVariationalNetwork(nn.Module):
                       ' and validation with batch size %s',
                       train_batch_size, test_batch_size)
 
-        logging.debug('Length of datasets: train={}, valid={}'.format(len(trainset), len(validationset)))
+        logging.debug('Length of datasets: train={}, valid={}'.format(len(trainset),
+                                                                      len(validationset) if validation else 0))
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=train_batch_size,

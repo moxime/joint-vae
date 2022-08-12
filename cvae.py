@@ -1921,12 +1921,11 @@ class ClassificationVariationalNetwork(nn.Module):
                                                 data_augmentation=data_augmentation)
 
         seed = self.training_parameters['validation_split_seed']
-        if validation:
-            set_lengths = [validation, len(trainset) - validation]
-            validationset, trainset = torch.utils.data.random_split(trainset, set_lengths,
-                                                                    generator=torch.Generator().manual_seed(seed))
+        set_lengths = [validation, len(trainset) - validation]
+        validationset, trainset = torch.utils.data.random_split(trainset, set_lengths,
+                                                                generator=torch.Generator().manual_seed(seed))
 
-            validationset.name = 'validation'
+        validationset.name = 'validation'
 
         validation_sample_size = min(validation, validation_sample_size)
 
@@ -1978,8 +1977,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       ' and validation with batch size %s',
                       train_batch_size, test_batch_size)
 
-        logging.debug('Length of datasets: train={}, valid={}'.format(len(trainset),
-                                                                      len(validationset) if validation else 0))
+        logging.debug('Length of datasets: train={}, valid={}'.format(len(trainset), len(validationset)))
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=train_batch_size,
@@ -1987,7 +1985,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   shuffle=True,
                                                   num_workers=0)
 
-        if validationset is not None:
+        if validationset:
             validationloader = torch.utils.data.DataLoader(validationset,
                                                            batch_size=test_batch_size,
                                                            # pin_memory=True,

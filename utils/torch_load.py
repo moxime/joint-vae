@@ -10,7 +10,7 @@ import string
 import numpy as np
 from torchvision.utils import save_image
 import configparser
-
+from matplotlib import pyplot as plt
 
 class LoggerAsfile(object):
 
@@ -530,6 +530,22 @@ def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
         axs[r, c].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[], title=label)
     fix.show()
 
+    nrows = int(np.ceil(num / ncols))
+    
+    fix, axs = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False)
+    
+    for i, image in enumerate(x):
+        r = i // ncols
+        c = i - r * ncols
+        img = transforms.functional.to_pil_image(image)
+        axs[r, c].imshow(np.asarray(img))
+    
+        try:
+            label = imageset.classes[y[i]]
+        except (AttributeError, TypeError):
+            label = str(y[i].numpy())
+        axs[r, c].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[], title=label)
+    fix.show()
 
 def export_png(imageset, directory, by_class=False):
 
@@ -563,17 +579,24 @@ def export_png(imageset, directory, by_class=False):
 if __name__ == '__main__':
 
     import time
+
+    dset = 'cifar100'
+    dset = 'letters'
+    splits = ['train', 'test']
+    splits = ['test']
     
     logging.getLogger().setLevel(logging.DEBUG)
     logging.debug('Going to build dataset')
     t0 = time.time()
     # dset = _imagenet_getter(transform=transforms.ToTensor())
-    train, test = get_dataset('imagenet12', data_augmentation=['crop'])
+    train, test = get_dataset('dset', splits=splits)
     logging.debug('Built in {:.1f}s'.format(time.time() - t0))
 
-    show_images(train, num=32)
-    x, y = get_batch(train)
-    
-    print(*x.shape)
-
-    torch.utils.data.dataset.Subset
+    if 'train' in splits:
+        plt.figure()
+        show_images(train, num=36, ncols=6)
+    if 'test' in splits:
+        plt.figure()
+        show_images(test, num=36, ncols=6)
+        
+        

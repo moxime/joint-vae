@@ -176,11 +176,17 @@ def get_args_for_train(argv=None):
                      'decoder',
                      'upsampler',
                      'classifier')
+
+    bool_keys = ('learned_prior_means',)
     
     for k in alphanum_keys:
         p = defaults.get(k, '')
         defaults[k] = list_of_alphanums(p)
 
+    for k in bool_keys:
+        p = defaults.get(k, '')
+        defaults[k] = str2bool(p)
+        
     parser = argparse.ArgumentParser(parents=[conf_parser],
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -249,14 +255,24 @@ def get_args_for_train(argv=None):
                         help='Beta-(C)VAE',
                         metavar='ß')
 
-    parser.add_argument('--dictionary-variance',
-                        type=float,
-                        default=1)
-
     parser.add_argument('--gamma', type=float,
                         default=0.)
     
-    parser.add_argument('--coder-means', default='random')
+    parser.add_argument('--prior-means',
+                        type=alphanum,
+                        default=0,
+                        help='For CVAE, energy of latent prior means (or \'onehot\')'
+                        )
+
+    parser.add_argument('--learned-prior-means',
+                        action='store_true')
+    parser.add_argument('--static-prior-means',
+                        dest='learned_prior_means',
+                        action='store_false')
+    
+    parser.add_argument('--prior-variance',
+                        choices=['scalar', 'diag', 'full'],
+                        default='scalr')
     
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)
@@ -267,8 +283,6 @@ def get_args_for_train(argv=None):
     parser.add_argument('--hsv', action='store_true')
     parser.add_argument('--representation')
     
-    parser.add_argument('--latent-prior-variance', type=float, default=1.)
-
     parser.add_argument('--features', metavar='NAME',)
                         # choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none',])
 
@@ -333,7 +347,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--output-dir', metavar='DIR/')
 
     parser.add_argument('--show', action='store_true',
-                        help='Shiw network structure and exit')
+                        help='Show network structure and exit')
     
     parser.add_argument('--where', action='store_true',
                         help='Print saving dir and exit')
@@ -527,10 +541,11 @@ class NewEntryDictofLists(argparse.Action):
             
 if __name__ == '__main__':
 
-    cli = '--config cifar10'.split()
+    cli = ''.split()
     arg = get_args_for_train(cli)
 
-    print(arg.latent_sampling, arg.test_batch_size, *arg.upsampler, arg.data_augmentation, len(arg.data_augmentation))
+    print(type(arg.prior_means))
+    
     # arg = get_args_for_test()
     # for k in arg.filters:
         # if not arg.filters[k].always_true:

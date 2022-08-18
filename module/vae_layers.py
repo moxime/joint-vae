@@ -7,6 +7,30 @@ import logging
 from torchvision import models
 
 
+def adapt_batch_function(arg=1, last_shapes=1):
+
+    def adapter(func):
+        return adapt_batch_dim(func, arg=arg, last_shapes=last_shapes)
+    return adapter
+
+
+def adapt_batch_dim(func, arg=1, last_shapes=1):
+
+    def func_(*a, **kw):
+        x = a[arg]
+        batch_shape = x.shape[:-last_shapes]
+        working_shape = x.shape[-last_shapes:]
+        a = list(a)
+        try:
+            a[arg] = x.contiguous().view(-1, *working_shape)
+        except RuntimeError as e:
+            print('***  ERROR', 'x', *x.shape, 'w:', *working_shape)
+            raise e
+        res = func(*a, **kw)
+        return res.view(batch_shape)
+    return func_
+
+
 def onehot_encoding(y, C):
 
     s_y = y.shape
@@ -91,6 +115,259 @@ class Hsv2rgb(Rgb2hsv):
 
         # print('***', *rgb.shape)
         return rgb
+
+
+class Prior(nn.Module):
+
+    def __init__(self, dim, var_type='scalar', num_priors=1,
+                 mean=0, learned_means=False, learned_variance=False):
+        
+        """
+        var_type : scalar, diag or full
+        num_priors: 1 for non conditional prior, else number of classes
+        
+        """
+
+        assert not learned_means or num_priors > 1
+
+        super().__init__()
+        
+        self.num_priors = num_priors
+        self.var_type = var_type
+        self.learned_var = learned_variance
+        self.learned_means = learned_means
+        self.dim = dim
+        
+        if num_priors == 1:
+            self.conditional = False
+            mean_tensor = torch.tensor(0.)
+            
+        else:
+            self.conditional = True
+            mean_tensor = 0 * torch.randn(num_priors, dim).squeeze()
+        self.mean = Parameter(mean_tensor, requires_grad=learned_means)        
+
+        if var_type == 'scalar':
+            var_param_per_class = torch.tensor(1.)
+        elif var_type == 'diag':
+            var_param_per_class = torch.ones(dim)
+        elif var_type == 'full':
+            var_param_per_class = torch.eye(dim)
+        else:
+            raise ValueError('var_type {} unknown'.format(var_type))
+        if self.conditional:
+            var_tensor = torch.stack([var_param_per_class for _ in range(num_priors)])
+        else:
+            var_tensor = var_param_per_class
+        self._var_parameter = Parameter(var_tensor, requires_grad=learned_variance)
+
+        self._inv_var_is_computed = False
+        self._inv_var = None
+
+    @property
+    def inv_trans(self):
+
+        if self.var_type == 'full':
+            return self._var_parameter.tril()
+        else:
+            return self._var_parameter
+        
+    @property
+    def inv_var(self):
+
+        if self._inv_var_is_computed:
+            return self._inv_var
+
+        self._compute_inv_var()
+        return self._inv_var
+
+    def _compute_inv_var(self):
+
+        if self.var_type == 'scalar':
+            self._inv_var = self._var_parameter ** 2
+            self._inv_var_is_computed = not self.training
+
+        elif self.var_type == 'diag':
+            self._inv_var = self._var_parameter ** 2
+            self._inv_var_is_computed = not self.training
+
+        elif self.var_type == 'full':
+            self._inv_var = torch.matmul(self.inv_trans.transpose(-1, -2), self.inv_trans)
+            self._inv_var_is_computed = not self.training
+
+    def log_det_per_class(self):
+        """ return log det of Sigma """
+
+        if self.var_type == 'full':
+            # return -self.inv_trans.abs().logdet() * 2
+            if self.conditional:
+                return -2 * torch.stack([M_.diag().abs().log().sum() for M_ in self.inv_trans])
+            else:
+                return -2 * self.inv_trans.diag().abs().log().sum()
+
+        elif self.var_type == 'diag':
+            return -self.inv_trans.abs().log().sum(-1) * 2
+        else:
+            return -self.dim * self.inv_trans.log() * 2
+
+    def whiten(self, x, y=None):
+
+        # logging.debug('TBR in whiten')
+        # logging.debug('x : %s y:%s', x.shape, y.shape if y is not None else y)
+        assert self.conditional ^ (y is None)
+
+        if self.conditional:
+            transform = self.inv_trans.index_select(0, y.view(-1))
+        else:
+            transform = self.inv_trans
+
+        if self.var_type == 'full':
+            transformed = torch.matmul(transform, x.unsqueeze(-1)).squeeze(-1)
+
+        elif self.var_type == 'diag':
+            transformed = x * transform
+
+        else:
+            transformed = x * transform.unsqueeze(-1)
+
+        return transformed
+
+    @adapt_batch_function()
+    def mahala(self, x, y=None):
+
+        # logging.debug('TBR in mahala')
+        # logging.debug('x : %s y:%s', x.shape, y.shape if y is not None else y)
+
+        assert self.conditional ^ (y is None)
+
+        if self.conditional:
+            means = self.mean.index_select(0, y.view(-1))
+        else:
+            means = self.mean.unsqueeze(-1)
+
+        return self.whiten(x - means, y).pow(2).sum(-1)
+
+    @adapt_batch_function()
+    def trace_prod_by_var(self, var, y=None):
+        """ Compute tr(LS^-1) """
+
+        assert self.conditional ^ (y is None)
+
+        if self.var_type == 'full':
+            prior_inv_var_diag = self.inv_trans.pow(2).sum(-2)
+            
+        else:
+            prior_inv_var_diag = self.inv_trans.pow(2)
+
+        if self.conditional:
+            prior_inv_var_diag = prior_inv_var_diag.index_select(0, y.view(-1))
+
+        if self.var_type == 'scalar':
+            prior_inv_var_diag.unsqueeze_(-1)
+
+        try:
+            return (var * prior_inv_var_diag).sum(-1)
+        except RuntimeError as e:
+            error_msg = '*** var: {} diag: {}'.format(' '.join(str(_) for _ in var.shape),
+                                                      ' '.join(str(_) for _ in prior_inv_var_diag.shape))
+            logging.error(error_msg)
+            return 0.
+        
+    def kl(self, mu, log_var, y=None, output_dict=True):
+        """Params:
+
+        -- mu: NxK means 
+
+        -- log_var: NxK diag log_vars
+
+        -- y: None or tensor of size N 
+
+        """
+
+        if y is not None and y.ndim == mu.ndim:
+            expand_shape = list(mu.unsqueeze(0).shape)
+            expand_shape[0] = y.shape[0]
+            return self.kl(mu.expand(*expand_shape), log_var.expand(*expand_shape),
+                           y=y, output_dict=output_dict)
+        
+        debug_msg = 'TBR in kl '
+        debug_msg += 'mu: ' + ' '.join(str(_) for _ in mu.shape)
+        debug_msg += 'var: ' + ' '.join(str(_) for _ in log_var.shape)
+        debug_msg += 'y: ' + ('None' if y is None else ' '.join(str(_) for _ in y.shape))
+        # logging.debug(debug_msg)
+        
+        var = log_var.exp()
+
+        prior_trans = self.inv_trans
+
+        if prior_trans.isnan().any():
+            print('*** STOPPIN')
+            return
+
+        loss_components = {}
+
+        loss_components['trace'] = self.trace_prod_by_var(var, y)
+
+        """ log |Sigma| """
+        loss_components['log_det_prior'] = self.log_det_per_class()
+
+        if loss_components['log_det_prior'].isnan().any():
+            print('*** Log det nan')
+            inv_var = self.inv_var
+            log_det_prior = inv_var.logdet()
+            is_nan_after = log_det_prior.isnan().any()
+            print('*** real log det is nan:', is_nan_after)
+            
+        if self.conditional:
+            log_detp = loss_components['log_det_prior']
+            loss_components['log_det_prior'] = log_detp.index_select(0, y.view(-1)).view(y.shape)
+
+        loss_components['log_det'] = log_var.sum(-1)
+
+        loss_components['distance'] = self.mahala(mu, y) 
+
+        stop = False
+        for k in loss_components:
+            if loss_components[k].isnan().any():
+                print('***', k, 'is nan')
+                stop = True
+        if stop:
+            return
+
+        # for k in loss_components:
+        #    logging.debug('TBR in KL %s %s', k, loss_components[k].shape)
+        loss_components['var_kl'] = (loss_components['trace'] -
+                                     loss_components['log_det'] +
+                                     loss_components['log_det_prior'] -
+                                     self.dim)
+        
+        loss_components['kl'] = 0.5 * (loss_components['distance'] +
+                                       loss_components['var_kl'])
+        
+        return loss_components if output_dict else loss_components['kl']
+
+    def log_density(self, z, y=None):
+
+        logging.debug('TBR in log_density')
+        logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
+
+        assert self.conditional ^ (y is None)
+
+        u = self.mahala(z, y) / 2
+
+        log_det = self.log_det_per_class()
+        if self.conditional:
+            log_det = log_det.index_select(0, y.view(-1))
+
+        return -np.log(2 * np.pi) * self.dim / 2 - u / 2
+
+    def __repr__(self):
+
+        pre = 'Conditional ' if self.conditional else ''
+        var = ('learned ' if self.learned_var else '') + self.var_type + ' variance'
+        plural = 's' if self.conditional else ''
+        mean = ('learned ' if self.learned_means else '') + 'mean' + plural
+        return '{p}prior of dim {K} with {m} and {v}'.format(p=pre, m=mean, v=var, K=self.dim)
 
     
 class Sigma(Parameter):
@@ -421,9 +698,11 @@ class Encoder(nn.Module):
                  sampling=True,
                  sigma_output_dim=0,
                  forced_variance=False,
-                 dictionary_variance=1,
-                 coder_means=None,
-                 dictionary_min_dist=None,
+                 conditional_prior=False,
+                 latent_prior_means=0.,
+                 latent_prior_variance=1.,
+                 learned_latent_prior_variance=False,
+                 learned_latent_prior_means=False,
                  **kwargs):
         super(Encoder, self).__init__(**kwargs)
         self.name = name
@@ -460,23 +739,27 @@ class Encoder(nn.Module):
 
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
-        if coder_means in (None, 'random', 'learned'):
-            centroids = np.sqrt(dictionary_variance) * torch.randn(num_labels, latent_dim)
-
-        elif coder_means == 'onehot':
-            centroids = torch.zeros(num_labels, latent_dim)
-            for k in range(num_labels):
-                centroids[k, k] = 1.
-
+        if latent_prior_means == 'onehot':
+            assert latent_dim >= num_labels
+            prior_means = torch.zeros(num_labels, latent_dim)
+            for i in range(num_labels):
+                prior_means[i, i] = 1
+                
         else:
-            logging.error('%s unknown', coder_means)    
-            
-        learned_dictionary = coder_means == 'learned'
-            
-        self.latent_dictionary = torch.nn.Parameter(centroids, requires_grad=learned_dictionary)
-            
-        self.dictionary_is_learned = learned_dictionary
+            prior_means = latent_prior_means * torch.randn(num_labels, latent_dim)
+
+        self.prior = Prior(latent_dim,
+                           var_type=latent_prior_variance,
+                           num_priors=num_labels if conditional_prior else 1,
+                           mean=prior_means,
+                           learned_means=learned_latent_prior_means,
+                           learned_variance=learned_latent_prior_variance)
+
+        logging.debug('Built %s', self.prior)
         
+    def eval(self, *a):
+        print('eval', *a)
+    
     @property
     def sampling_size(self):
         return self._sampling_size

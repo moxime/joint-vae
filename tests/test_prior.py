@@ -8,8 +8,8 @@ var_type = 'diag'
 var_type = 'full'
 var_type = 'scalar'
 
-K = 4
-N = 100
+K = 5
+N = 50
 labels = 10
 
 var_per_dim = torch.stack([torch.ones(K) for i in range(labels)])
@@ -17,13 +17,21 @@ mu_per_dim = torch.randn(labels, K)
 
 priors = {}
 
-for var_type in ('full', 'diag', 'scalar'):
+var_types = ('full', 'diag', 'scalar')
+var_types = ('full',)
+Cs = (10, 1)
+Cs = (10,)
+Cs = (1,)
+
+print('\n'*20)
+for var_type in var_types:
     priors[var_type] = {}
-    for C in (10, 1):
+    for C in Cs:
         print('************************')
         print('***', var_type, C, '***')
         print()
-        prior = Prior(K, var_type=var_type, num_priors=C)
+        mean = torch.randn(C, K)
+        prior = Prior(K, mean=mean, var_type=var_type, num_priors=C)
         priors[var_type][C] = prior
 
         if C > 1:
@@ -54,17 +62,18 @@ for var_type in ('full', 'diag', 'scalar'):
         inv_trans = prior.inv_trans
         if prior.conditional:
             inv_trans = inv_trans[y[0]]
-        u0 = (inv_trans * z0.unsqueeze(0))
-        if inv_trans.ndim == 2:
-            u0 = u0.sum(0)
+        if inv_trans.ndim < 2:
+            u0 = (inv_trans * z0.unsqueeze(0))
+        else:
+            u0 = torch.matmul(inv_trans, z0.unsqueeze(-1)).squeeze(-1)
         print('A^-1.z of shape', *u.shape)
-        print('u err={:.2e}'.format((u[0] - u0).norm()))
+        print('u err={:.2%}'.format((u[0] - u0).norm() / u0.norm()))
 
         print()
         d = prior.mahala(z, y)
         print('||z|| of shape', *d.shape)
         d0 = u0.pow(2).sum()
-        print('|| err={:.2e}'.format(d[0] - d0))
+        print('||.|| err={:.2e}'.format(d[0] - d0))
         
         print()
         tr = prior.trace_prod_by_var(v, y)
@@ -92,3 +101,5 @@ for var_type in ('full', 'diag', 'scalar'):
         if p.isinf().any():
             print('p is inf')
 
+        if C == 1:
+            log_p0 = - np.log(2 * np.pi) * K / 2 - prior.log_det_per_class() - u0.norm()

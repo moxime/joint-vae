@@ -749,6 +749,9 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_losses['total'] += batch_losses['cross_x']
 
             if compute_iws:
+
+                t0_p_z = time.time()
+
                 y_for_sampling = None
                 if self.encoder.prior.conditional:
                     y_for_sampling = torch.stack([y for _ in z[1:]])
@@ -757,17 +760,17 @@ class ClassificationVariationalNetwork(nn.Module):
                 if y_for_sampling is not None and z_y.ndim < y.ndim + 2:
                     z_y = torch.stack([z_y for _ in y], 1)
 
-                t0_p_z = time.time()
+                # log_p_z_y = torch.ones_like(y_for_sampling)
                 log_p_z_y = self.encoder.prior.log_density(z_y, y_for_sampling)
                 p_z_y = log_p_z_y.exp()
                 t0_p_z = time.time() - t0_p_z
                 
-                if not batch:
+                if not batch and False:
                     print('**** SHAPES (batch of size', *x.shape, ')')
                     print('z_y', *z_y.shape)
                     print('y_for_sampling', *y_for_sampling.shape)
                     print('p_z_y', *p_z_y.shape)
-                    print('time: {:0f}ms'.format(1000 * t0_p_z))
+                    print('time for z|y: {:.0f}us/i'.format(1e6 * t0_p_z / x.shape[0]))
                     
                 if iws.ndim < p_z_y.ndim:
                     iws = iws.unsqueeze(1)
@@ -1961,10 +1964,16 @@ class ClassificationVariationalNetwork(nn.Module):
 
         test_batch_size = min(max_batch_sizes['test'], test_batch_size)
 
+        logging.info('Test batch size wanted {} / max {}'.format(test_batch_size, max_batch_sizes['test']))
+        
         if batch_size:
             train_batch_size = min(batch_size, max_batch_sizes['train'])
         else:
             train_batch_size = max_batch_sizes['train']
+            logging.info('Train batch size wanted {} / max {}'.format(train_batch_size, max_batch_sizes['train']))
+
+            
+        logging.info('Train batch size is {}'.format(train_batch_size))    
 
         warmup = max(warmup, self.training_parameters.get('warmup', 0))
         self.training_parameters['warmup'] = warmup

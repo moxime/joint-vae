@@ -137,14 +137,21 @@ class Prior(nn.Module):
         self.learned_var = learned_variance
         self.learned_means = learned_means
         self.dim = dim
-        
+            
         if num_priors == 1:
             self.conditional = False
             mean_tensor = torch.tensor(0.)
             
         else:
             self.conditional = True
-            mean_tensor = 0 * torch.randn(num_priors, dim).squeeze()
+            unit_mean = torch.ones(num_priors, dim).squeeze()
+
+            try:
+                float(mean)
+                mean_tensor = mean * unit_mean
+            except ValueError:
+                mean_tensor = mean.squeeze()
+                
         self.mean = Parameter(mean_tensor, requires_grad=learned_means)        
 
         if var_type == 'scalar':
@@ -221,6 +228,7 @@ class Prior(nn.Module):
         else:
             transform = self.inv_trans
 
+        # print('**** transf shape', *transform.shape, 'x', *x.shape)
         if self.var_type == 'full':
             transformed = torch.matmul(transform, x.unsqueeze(-1)).squeeze(-1)
 
@@ -229,7 +237,7 @@ class Prior(nn.Module):
 
         else:
             transformed = x * transform.unsqueeze(-1)
-
+            
         return transformed
 
     @adapt_batch_function()
@@ -348,18 +356,19 @@ class Prior(nn.Module):
 
     def log_density(self, z, y=None):
 
-        logging.debug('TBR in log_density')
-        logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
+        # logging.debug('TBR in log_density')
+        # logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
 
         assert self.conditional ^ (y is None)
-
+        
         u = self.mahala(z, y) / 2
 
         log_det = self.log_det_per_class()
         if self.conditional:
-            log_det = log_det.index_select(0, y.view(-1))
+            log_det = log_det.index_select(0, y.view(-1)).view(u.shape)
 
-        return -np.log(2 * np.pi) * self.dim / 2 - u / 2
+        # print('**** log_det', *log_det.shape, 'u', *u.shape)
+        return -np.log(2 * np.pi) * self.dim / 2 - u / 2 - log_det
 
     def __repr__(self):
 

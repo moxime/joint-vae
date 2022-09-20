@@ -655,9 +655,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
             D = np.prod(self.input_shape)
             if compute_iws:
-                weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0]
+                weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0] / 2
 
-                iws = (-D * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
+                iws = (-D / 2 * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
                 if iws.isinf().sum(): logging.error('MSE INF')
                 weighted_mse_remainder *= sigma_
             

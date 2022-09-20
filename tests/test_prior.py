@@ -20,8 +20,8 @@ priors = {}
 var_types = ('full', 'diag', 'scalar')
 var_types = ('full',)
 Cs = (10, 1)
-Cs = (10,)
 Cs = (1,)
+Cs = (10,)
 
 print('\n'*20)
 for var_type in var_types:
@@ -37,7 +37,7 @@ for var_type in var_types:
         if C > 1:
             params_to_be_modified = [_ for _ in prior._var_parameter]
         else:
-            params_to_be_modifieds = [prior._var_parameter]
+            params_to_be_modified = [prior._var_parameter]
         if var_type == 'full':
             for p in params_to_be_modified:
                 p.data[0][0] = 0.5
@@ -64,15 +64,17 @@ for var_type in var_types:
             inv_trans = inv_trans[y[0]]
         if inv_trans.ndim < 2:
             u0 = (inv_trans * z0.unsqueeze(0))
+            m0 = (inv_trans * prior.mean[y[0]].unsqueeze(0))
         else:
             u0 = torch.matmul(inv_trans, z0.unsqueeze(-1)).squeeze(-1)
+            m0 = torch.matmul(inv_trans, prior.mean[y[0]].unsqueeze(-1)).squeeze(-1)
         print('A^-1.z of shape', *u.shape)
         print('u err={:.2%}'.format((u[0] - u0).norm() / u0.norm()))
 
         print()
         d = prior.mahala(z, y)
         print('||z|| of shape', *d.shape)
-        d0 = u0.pow(2).sum()
+        d0 = (u0 - m0).pow(2).sum()
         print('||.|| err={:.2e}'.format(d[0] - d0))
         
         print()
@@ -101,5 +103,7 @@ for var_type in var_types:
         if p.isinf().any():
             print('p is inf')
 
-        if C == 1:
-            log_p0 = - np.log(2 * np.pi) * K / 2 - prior.log_det_per_class() - u0.norm()
+        if C > 1:
+            v0 = u0 - m0
+            log_p0 = - np.log(2 * np.pi) * K / 2 - ld[0] / 2 - v0.norm() ** 2 / 2
+            print('logp err: {:.2f}'.format((log_p0 - log_p[0]) / log_p0))

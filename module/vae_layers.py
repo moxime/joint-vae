@@ -361,14 +361,14 @@ class Prior(nn.Module):
 
         assert self.conditional ^ (y is None)
         
-        u = self.mahala(z, y) / 2
+        u = self.mahala(z, y)
 
         log_det = self.log_det_per_class()
         if self.conditional:
             log_det = log_det.index_select(0, y.view(-1)).view(u.shape)
 
         # print('**** log_det', *log_det.shape, 'u', *u.shape)
-        return -np.log(2 * np.pi) * self.dim / 2 - u / 2 - log_det
+        return -np.log(2 * np.pi) * self.dim / 2 - u / 2 - log_det / 2
 
     def __repr__(self):
 

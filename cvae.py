@@ -628,6 +628,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.x_is_generated:
 
             if self.sigma.coded:
+
                 s_ = sigma_coded.view(-1, *self.sigma.output_dim)
                 self.sigma.update(v=s_)
             else:
@@ -659,7 +660,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 iws = (-D / 2 * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
                 if iws.isinf().sum(): logging.error('MSE INF')
-                weighted_mse_remainder *= sigma_
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch
@@ -742,8 +742,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['sigma'] = self.sigma.params
 
             batch_logpx = -D * (log_sigma + np.log(2 * np.pi)
-                                + batch_wmse)
-
+                                + batch_wmse) / 2
+            
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
 
             batch_losses['total'] += batch_losses['cross_x']
@@ -775,7 +775,18 @@ class ClassificationVariationalNetwork(nn.Module):
                 if iws.ndim < p_z_y.ndim:
                     iws = iws.unsqueeze(1)
 
+                if not batch:
+                    iws0 = iws[1, :, 0]
+                    print('*** mse' + ','.join(['{:.2e}'] * len(iws0)).format(*iws0))
+                    # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
+
                 iws = iws * p_z_y
+
+                if not batch:
+                    iws0 = iws[1, :, 0]
+                    print('***' + ','.join(['{:.2e}'] * len(iws0)).format(*iws0))
+                    # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
+                            
                 if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
 
                 log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
@@ -783,9 +794,14 @@ class ClassificationVariationalNetwork(nn.Module):
                 if log_inv_q_z_x.dim() < iws.dim():
                     log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
 
+                if not batch:
+                    iws0 = iws[1, :, 0]
+                    print('***' + ','.join(['{:.2e}'] * len(iws0)).format(*iws0))
+                
                 log_inv_q_remainder = log_inv_q_z_x.max(0)[0]
                 inv_q = (log_inv_q_z_x - log_inv_q_remainder).exp()
                 iws = iws * inv_q
+
                 if inv_q.isinf().sum():
                     logging.error('Q_Z_X INF')
 
@@ -793,16 +809,15 @@ class ClassificationVariationalNetwork(nn.Module):
                     logging.error('*** q_r is inf')
                 if weighted_mse_remainder.isinf().sum():
                     logging.error('*** mse_r is inf')
-
+                    
                 iws_ = ((iws.mean(0) + 1e-40).log()
                         + log_inv_q_remainder
-                        - weighted_mse_remainder
+                        - weighted_mse_remainder / 2
                         - D / 2 * np.log(2 * np.pi))
 
                 if 'iws' in self.loss_components:
                     batch_losses['iws'] = iws_
-                # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
-            
+
         if self.y_is_decoded:
             batch_losses['cross_y'] = batch_quants['cross_y']
             """ print('*** cvae:528', 'losses:',

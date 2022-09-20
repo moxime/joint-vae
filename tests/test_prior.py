@@ -19,6 +19,7 @@ priors = {}
 
 var_types = ('full', 'diag', 'scalar')
 var_types = ('full',)
+var_types = ('scalar',)
 Cs = (10, 1)
 Cs = (1,)
 Cs = (10,)
@@ -49,7 +50,7 @@ for var_type in var_types:
 
         if var_type == 'scalar':
             for p in params_to_be_modified:
-                p.data = torch.tensor(0.5)
+                pass # p.data = torch.tensor(0.5)
 
         z = torch.randn(N, K)
         z0 = z[0]
@@ -63,7 +64,7 @@ for var_type in var_types:
         if prior.conditional:
             inv_trans = inv_trans[y[0]]
         if inv_trans.ndim < 2:
-            u0 = (inv_trans * z0.unsqueeze(0))
+            u0 = (inv_trans * u[0].unsqueeze(0))
             m0 = (inv_trans * prior.mean[y[0]].unsqueeze(0))
         else:
             u0 = torch.matmul(inv_trans, z0.unsqueeze(-1)).squeeze(-1)

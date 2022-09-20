@@ -638,7 +638,7 @@ class ClassificationVariationalNetwork(nn.Module):
             else:
                 sigma_ = s_.exp() if self.sigma.is_log else s_
                 log_sigma = s_ if self.sigma.is_log else s_.log()
-
+                
             # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape)
             weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
                                                         x_reco[1:] / sigma_,
@@ -659,7 +659,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 iws = (-D * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
                 if iws.isinf().sum(): logging.error('MSE INF')
-                weighted_mse_remainder += D * (log_sigma.mean() + np.log(2 * np.pi) / 2)
+                weighted_mse_remainder *= sigma_
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch
@@ -741,7 +741,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
                 self.training_parameters['sigma'] = self.sigma.params
 
-            batch_logpx = -D * (log_sigma.mean() + np.log(2 * np.pi)
+            batch_logpx = -D * (log_sigma + np.log(2 * np.pi)
                                 + batch_wmse)
 
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
@@ -757,9 +757,18 @@ class ClassificationVariationalNetwork(nn.Module):
                 if y_for_sampling is not None and z_y.ndim < y.ndim + 2:
                     z_y = torch.stack([z_y for _ in y], 1)
 
+                t0_p_z = time.time()
                 log_p_z_y = self.encoder.prior.log_density(z_y, y_for_sampling)
                 p_z_y = log_p_z_y.exp()
-
+                t0_p_z = time.time() - t0_p_z
+                
+                if not batch:
+                    print('**** SHAPES (batch of size', *x.shape, ')')
+                    print('z_y', *z_y.shape)
+                    print('y_for_sampling', *y_for_sampling.shape)
+                    print('p_z_y', *p_z_y.shape)
+                    print('time: {:0f}ms'.format(1000 * t0_p_z))
+                    
                 if iws.ndim < p_z_y.ndim:
                     iws = iws.unsqueeze(1)
 
@@ -782,7 +791,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 if weighted_mse_remainder.isinf().sum():
                     logging.error('*** mse_r is inf')
 
-                iws_ = (iws.mean(0) + 1e-40).log() + log_inv_q_remainder - weighted_mse_remainder
+                iws_ = ((iws.mean(0) + 1e-40).log()
+                        + log_inv_q_remainder
+                        - weighted_mse_remainder
+                        - D / 2 * np.log(2 * np.pi))
 
                 if 'iws' in self.loss_components:
                     batch_losses['iws'] = iws_

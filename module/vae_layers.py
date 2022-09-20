@@ -773,7 +773,7 @@ class Encoder(nn.Module):
         """ 
         Approximation (upper-bound) of I(Z ; Y)
         """
-        m = self.latent_dictionary
+        m = self.prior.mean
         # K = self.latent_dim
         C = self.num_labels
         # E = np.exp(1)
@@ -787,7 +787,7 @@ class Encoder(nn.Module):
     def dict_min_distance(self):
 
         C = self.num_labels
-        dictionary = self.latent_dictionary
+        dictionary = self.prior.mean
 
         max_norm = dictionary.norm(dim=1).max()
         diag = 2 * max_norm * torch.eye(C, device=dictionary.device)

@@ -716,7 +716,7 @@ class ClassificationVariationalNetwork(nn.Module):
         batch_losses['total'] = torch.zeros_like(batch_losses['kl'])
 
         # logging.error('THIS LINE HAS BEEN REMOVED')
-        if False: # self.coder_has_dict:
+        if dictionary is not None:
             
             # batch_losses['zdist'] = 0
             dict_mean = dictionary.mean(0)
@@ -724,7 +724,7 @@ class ClassificationVariationalNetwork(nn.Module):
             dict_norm_var = dictionary.pow(2).sum(1).mean(0) - dict_mean.pow(2).sum()
             batch_losses['dzdist'] = zdist_to_mean + dict_norm_var
             batch_quants['imut-zy'] = self.encoder.capacity()
-            batch_quants['ld-norm'] = self.encoder.latent_dictionary.pow(2).mean()
+            batch_quants['ld-norm'] = dictionary.pow(2).mean()
             batch_quants['d-mind'] = self.encoder.dict_min_distance()
 
             for k in ('ld-norm', 'imut-zy', 'd-mind'):

@@ -272,7 +272,7 @@ def get_args_for_train(argv=None):
     
     parser.add_argument('--prior-variance',
                         choices=['scalar', 'diag', 'full'],
-                        default='scalr')
+                        default='scalar')
     
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)

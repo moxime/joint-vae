@@ -1009,6 +1009,9 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m == 'mse' and self.is_cvae:
                 measures = -losses['cross_x']
 
+            elif m == 'wmse' and self.is_cvae:
+                measures = -losses['wmse']
+
             elif m.startswith('odin'):
                 # print('odin losses:', *[_ for _ in losses if _.startswith('odin')])
                 measures = losses[m]

@@ -1,9 +1,12 @@
 #!/bin/bash
 force=
+script_abs_path=$(realpath "$0")
+root_directory=$(dirname "$script_abs_path")
+
 directory="$(dirname "$0")"/jobs
 light=
-out_dir="$(dirname "$0")"/jobs/out
-log_dir="$(dirname "$0")"/jobs/log
+out_dir="$script_abs_path"/jobs/out
+log_dir="$script_abs_path")"/jobs/log
 
 while :; do
     case $1 in

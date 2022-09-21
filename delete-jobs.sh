@@ -2,6 +2,9 @@
 force=
 directory="$(dirname "$0")"/jobs
 light=
+out_dir="$(dirname "$0")"/jobs/out
+log_dir="$(dirname "$0")"/jobs/log
+
 while :; do
     case $1 in
 	-f )
@@ -39,8 +42,8 @@ do
 	done
 	scancel "$job" 2> /dev/null
 	echo "$dir" 'will be deleted'
-	rm log/train.log.$job 2> /dev/null && echo Log file deleted || echo No log file found
-	rm out/train-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
+	rm "$log_directory"/train.log.$job 2> /dev/null && echo Log file deleted || echo No log file found
+	rm "$out_directory"/train-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
 	if [ "$light" ]
 	then
 	    touch "$dir"/deleted

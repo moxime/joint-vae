@@ -658,7 +658,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     print('**** wmse', *weighted_mse_loss_sampling.shape, '({})'.format(mode))
                 sigma2_ = weighted_mse_loss_sampling.mean(0)
                 sigma_ = sigma2_.sqrt()
-                log_sigma = sigma.log().squeeze()
+                log_sigma = sigma_.log().squeeze()
                 weighted_mse_loss_sampling = weighted_mse_loss_sampling / sigma2_.unsqueeze(0)
 
             batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)

@@ -96,7 +96,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vib': ['sigma', ]}
 
     ood_methods_per_type = {'cvae': ['iws-2s', 'iws-a-1-1', 'iws-a-1-4', 'iws-a-4-1',
-                                     'iws', 'kl', 'mse', 'max', 'soft'],
+                                     'iws', 'kl', 'mse', 'max', 'soft', 'wmse'],
                             'xvae': ['max', 'mean', 'std'],  # , 'mag', 'IYx'],
                             'jvae': ['max', 'sum',  'std'],  # 'mag'],
                             'vae': ['iws-2s', 'iws', 'logpx'],
@@ -744,7 +744,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['sigma'] = self.sigma.params
 
             batch_logpx = -D * (log_sigma / sigma_dims + batch_wmse + np.log(2 * np.pi)) / 2
-            
+
+            batch_losses['wmse'] = batch_wmse
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
 
             batch_losses['total'] += batch_losses['cross_x']

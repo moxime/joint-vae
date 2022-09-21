@@ -626,11 +626,15 @@ class ClassificationVariationalNetwork(nn.Module):
         total_measures['sigma'] = self.sigma.value
 
         if self.x_is_generated:
-
+            D = np.prod(self.input_shape)
+            sigma_dims = D if self.sigma.per_dim else 1
+            # print('****', sigma_dims)
+            
             if self.sigma.coded:
-
                 s_ = sigma_coded.view(-1, *self.sigma.output_dim)
+                # print('****', *s_.shape, *sigma_coded.shape)
                 self.sigma.update(v=s_)
+                
             else:
                 s_ = self.sigma
             if self.sigma.is_rmse:
@@ -638,28 +642,26 @@ class ClassificationVariationalNetwork(nn.Module):
                 log_sigma = 0.
             else:
                 sigma_ = s_.exp() if self.sigma.is_log else s_
-                log_sigma = s_ if self.sigma.is_log else s_.log()
+                log_sigma = s_.squeeze() if self.sigma.is_log else s_.log().squeeze()
                 
             # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape)
-            weighted_mse_loss_sampling = 0.5 * mse_loss(x / sigma_,
-                                                        x_reco[1:] / sigma_,
-                                                        ndim=len(self.input_shape),
-                                                        batch_mean=False)
+            weighted_mse_loss_sampling = mse_loss(x / sigma_,
+                                                  x_reco[1:] / sigma_,
+                                                  ndim=len(self.input_shape),
+                                                  batch_mean=False)
 
             if self.sigma.is_rmse:
-                sigma_ = weighted_mse_loss_sampling * 2
-                log_sigma = sigma_.log()
-                weighted_mse_loss_sampling = 0.5 * torch.ones_like(weighted_mse_loss_sampling)
+                sigma_ = weighted_mse_loss_sampling
+                log_sigma = sigma_.log().squeeze()
+                weighted_mse_loss_sampling = torch.ones_like(weighted_mse_loss_sampling)                
+
             batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
 
-            batch_quants['mse'] = (batch_quants['wmse']).mean() * 2 * (sigma_ ** 2).mean()
+            batch_quants['mse'] = batch_quants['wmse'] * sigma_ ** 2
 
-            D = np.prod(self.input_shape)
             if compute_iws:
-                weighted_mse_remainder = D * weighted_mse_loss_sampling.min(0)[0] / 2
-
-                iws = (-D / 2 * weighted_mse_loss_sampling + weighted_mse_remainder).exp()
-                if iws.isinf().sum(): logging.error('MSE INF')
+                log_iws = -D / 2 * (weighted_mse_loss_sampling + log_sigma / sigma_dims + np.log(2 * np.pi))
+                if log_iws.isinf().sum(): logging.error('MSE INF')
             
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch
@@ -741,8 +743,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
                 self.training_parameters['sigma'] = self.sigma.params
 
-            batch_logpx = -D * (log_sigma + np.log(2 * np.pi)
-                                + batch_wmse) / 2
+            batch_logpx = -D * (log_sigma / sigma_dims + batch_wmse + np.log(2 * np.pi)) / 2
             
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
 
@@ -762,61 +763,65 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 # log_p_z_y = torch.ones_like(y_for_sampling)
                 log_p_z_y = self.encoder.prior.log_density(z_y, y_for_sampling)
-                p_z_y = log_p_z_y.exp()
                 t0_p_z = time.time() - t0_p_z
                 
                 if not batch and False:
                     print('**** SHAPES (batch of size', *x.shape, ')')
                     print('z_y', *z_y.shape)
                     print('y_for_sampling', *y_for_sampling.shape)
-                    print('p_z_y', *p_z_y.shape)
+                    print('p_z_y', *log_p_z_y.shape)
                     print('time for z|y: {:.0f}us/i'.format(1e6 * t0_p_z / x.shape[0]))
                     
-                if iws.ndim < p_z_y.ndim:
-                    iws = iws.unsqueeze(1)
+                if log_iws.ndim < log_p_z_y.ndim:
+                    log_iws = log_iws.unsqueeze(1)
 
-                if not batch:
-                    iws0 = iws[1, :, 0]
-                    print('*** mse' + ','.join(['{:.2e}'] * len(iws0)).format(*iws0))
+                if not batch and False:
+                    _t = log_iws[1, :, 0]
+                    print('*** mse' + ' - '.join(['{:.2e}'] * len(_t)).format(*_t))
                     # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
 
-                iws = iws * p_z_y
+                log_iws = log_iws + log_p_z_y
 
-                if not batch:
-                    iws0 = iws[1, :, 0]
-                    print('***' + ','.join(['{:.2e}'] * len(iws0)).format(*iws0))
+                if not batch and False:
+                    _t = log_p_z_y[1, :, 0]
+                    print('*** p_z' + ' - '.join(['{:.2e}'] * len(_t)).format(*_t))
                     # print('*** iws:', *iws.shape, 'eps', *eps_norm.shape)
                             
-                if p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
+                if log_p_z_y.isinf().sum(): logging.error('P_Z_Y INF')
 
-                log_inv_q_z_x = ((eps_norm + log_var.sum(-1)) / 2)
+                K = log_var.shape[-1]
+                log_inv_q_z_x = (eps_norm + log_var.sum(-1)) / 2 + K / 2 * np.log(2 * np.pi)
 
-                if log_inv_q_z_x.dim() < iws.dim():
+                if log_inv_q_z_x.dim() < log_iws.dim():
                     log_inv_q_z_x = log_inv_q_z_x.unsqueeze(1)
 
-                if not batch:
-                    iws0 = iws[1, :, 0]
-                    print('***' + ','.join(['{:.2e}'] * len(iws0)).format(*iws0))
+                if not batch and False:
+                    _t = log_inv_q_z_x[1, :, 0]
+                    print('*** q_z' + ' - '.join(['{:.2e}'] * len(_t)).format(*_t))
                 
-                log_inv_q_remainder = log_inv_q_z_x.max(0)[0]
-                inv_q = (log_inv_q_z_x - log_inv_q_remainder).exp()
-                iws = iws * inv_q
+                log_iws = log_iws + log_inv_q_z_x
 
-                if inv_q.isinf().sum():
+                if log_inv_q_z_x.isinf().sum():
                     logging.error('Q_Z_X INF')
 
-                if log_inv_q_remainder.isinf().sum():
-                    logging.error('*** q_r is inf')
-                if weighted_mse_remainder.isinf().sum():
-                    logging.error('*** mse_r is inf')
-                    
-                iws_ = ((iws.mean(0) + 1e-40).log()
-                        + log_inv_q_remainder
-                        - weighted_mse_remainder / 2
-                        - D / 2 * np.log(2 * np.pi))
+                log_iws_remainder = log_iws.max(0)[0]
+                
+                dlog_iws = log_iws - log_iws_remainder
 
+                if not batch and False:
+                    _t = log_iws[1, :, 0]
+                    print('*** log_iws' + ' - '.join(['{:.2e}'] * len(_t)).format(*_t))
+                    print('*** max: {:.2e}'.format(log_iws.max())) 
+
+                if not batch and False:
+                    _t = dlog_iws[1, :, 0]
+                    print('*** dlog_iws' + ' - '.join(['{:.2e}'] * len(_t)).format(*_t))
+                    print('*** max: {:.2e}'.format(dlog_iws.max())) 
+
+                iws = (dlog_iws).exp().mean(0) + log_iws_remainder
+                
                 if 'iws' in self.loss_components:
-                    batch_losses['iws'] = iws_
+                    batch_losses['iws'] = iws
 
         if self.y_is_decoded:
             batch_losses['cross_y'] = batch_quants['cross_y']
@@ -1061,12 +1066,15 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.eval()
                 return batch_size // 2
             except RuntimeError as e:
-                logging.debug('Batch size of %s too much for %s.',
-                              batch_size,
-                              which)
-                _s = str(e).split('\n')[0]
-                logging.debug(_s)
-                batch_size //= 2
+                if 'CUDA' in str(e):
+                    logging.debug('Batch size of %s too much for %s.',
+                                  batch_size,
+                                  which)
+                    _s = str(e).split('\n')[0]
+                    logging.debug(_s)
+                    batch_size //= 2
+                else:
+                    raise(e)
 
     @property
     def max_batch_sizes(self):

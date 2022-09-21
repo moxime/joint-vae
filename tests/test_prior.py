@@ -64,7 +64,7 @@ for var_type in var_types:
         if prior.conditional:
             inv_trans = inv_trans[y[0]]
         if inv_trans.ndim < 2:
-            u0 = (inv_trans * u[0].unsqueeze(0))
+            u0 = (inv_trans * z0.unsqueeze(0))
             m0 = (inv_trans * prior.mean[y[0]].unsqueeze(0))
         else:
             u0 = torch.matmul(inv_trans, z0.unsqueeze(-1)).squeeze(-1)

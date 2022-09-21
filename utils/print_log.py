@@ -127,13 +127,14 @@ class EpochOutput:
 
         kept_metrics = {}
         for k in metrics:
-            kept = True
-            for k_ in best_of:
-                if k.startswith(k_):
-                    kept_metrics[k_] = None
-                    kept = False
-            if kept:
-                kept_metrics[k] = None
+            if '-a-' not in metrics and not metrics.endswith('-2s'):
+                kept = True
+                for k_ in best_of:
+                    if k.startswith(k_):
+                        kept_metrics[k_] = None
+                        kept = False
+                if kept:
+                    kept_metrics[k] = None
         metrics = list(kept_metrics)
 
         kept_accuracies = {}

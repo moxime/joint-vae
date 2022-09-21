@@ -649,8 +649,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 sigma_ = weighted_mse_loss_sampling * 2
                 log_sigma = sigma_.log()
                 weighted_mse_loss_sampling = 0.5 * torch.ones_like(weighted_mse_loss_sampling)
-            batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
 
+            batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
             batch_quants['mse'] = (batch_quants['wmse']).mean() * 2 * (sigma_ ** 2).mean()
 
             D = np.prod(self.input_shape)

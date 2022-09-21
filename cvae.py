@@ -640,15 +640,16 @@ class ClassificationVariationalNetwork(nn.Module):
                 s_ = self.sigma
                 
             if self.sigma.is_rmse:
-                sigma2_ = 1.
+                sigma_ = 1.
                 log_sigma = 0.
             else:
-                sigma2_ = (2 * s_).exp() if self.sigma.is_log else s_ ** 2
+                sigma_ = s_.exp() if self.sigma.is_log else s_
+                sigma2_ = sigma_ ** 2
                 log_sigma = s_.squeeze() if self.sigma.is_log else s_.log().squeeze()
                 
             # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape)
-            weighted_mse_loss_sampling = mse_loss(x / sigma2_,
-                                                  x_reco[1:],
+            weighted_mse_loss_sampling = mse_loss(x / sigma_,
+                                                  x_reco[1:] / sigma_,
                                                   ndim=len(self.input_shape),
                                                   batch_mean=False)
 
@@ -656,7 +657,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 if not batch and False:
                     print('**** wmse', *weighted_mse_loss_sampling.shape, '({})'.format(mode))
                 sigma2_ = weighted_mse_loss_sampling.mean(0)
-                log_sigma = 0.5 * sigma2_.log().squeeze()
+                sigma_ = sigma2_.sqrt()
+                log_sigma = sigma.log().squeeze()
                 weighted_mse_loss_sampling = weighted_mse_loss_sampling / sigma2_.unsqueeze(0)
 
             batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)

@@ -77,6 +77,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     loss_components_per_type = {'jvae': ('cross_x', 'kl', 'cross_y', 'total'),
                                 'cvae': ('cross_x', 'kl', 'total', 'zdist', 'var_kl', 'dzdist', 'iws',
+                                         'sigma', 'wmse',
                                          'z_logdet', 'z_tr_inv_cov'),
                                 'xvae': ('cross_x', 'kl', 'total', 'zdist', 'iws'),
                                 'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
@@ -89,10 +90,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vae': [],
                                 'vib': ['esty']}
 
-    metrics_per_type = {'jvae': ['std', 'snr', 'sigma'],
-                        'cvae': ['std', 'snr',  'd-mind', 'ld-norm', 'sigma'],
-                        'xvae': ['std', 'snr', 'zdist', 'd-mind', 'ld-norm', 'sigma'],
-                        'vae': ['std', 'snr', 'sigma'],
+    metrics_per_type = {'jvae': ['rmse', 'dB', 'sigma'],
+                        'cvae': ['rmse', 'dB',  'd-mind', 'ld-norm', 'sigma'],
+                        'xvae': ['rmse', 'dB', 'zdist', 'd-mind', 'ld-norm', 'sigma'],
+                        'vae': ['rmse', 'dB', 'sigma'],
                         'vib': ['sigma', ]}
 
     ood_methods_per_type = {'cvae': ['iws-2s', 'iws-a-1-1', 'iws-a-1-4', 'iws-a-4-1',
@@ -618,7 +619,7 @@ class ClassificationVariationalNetwork(nn.Module):
         total_measures = {}
 
         if not current_measures:
-            current_measures = {k: 0. for k in ('xpow', 'mse', 'snr',
+            current_measures = {k: 0. for k in ('xpow', 'mse', 'dB',
                                                 'imut-zy', 'd-mind',
                                                 'ld-norm', 'var_kl',
                                                 'zdist')}
@@ -637,27 +638,30 @@ class ClassificationVariationalNetwork(nn.Module):
                 
             else:
                 s_ = self.sigma
+                
             if self.sigma.is_rmse:
-                sigma_ = 1.
+                sigma2_ = 1.
                 log_sigma = 0.
             else:
-                sigma_ = s_.exp() if self.sigma.is_log else s_
+                sigma2_ = (2 * s_).exp() if self.sigma.is_log else s_ ** 2
                 log_sigma = s_.squeeze() if self.sigma.is_log else s_.log().squeeze()
                 
             # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape)
-            weighted_mse_loss_sampling = mse_loss(x / sigma_,
-                                                  x_reco[1:] / sigma_,
+            weighted_mse_loss_sampling = mse_loss(x / sigma2_,
+                                                  x_reco[1:],
                                                   ndim=len(self.input_shape),
                                                   batch_mean=False)
 
             if self.sigma.is_rmse:
-                sigma_ = weighted_mse_loss_sampling
-                log_sigma = sigma_.log().squeeze()
-                weighted_mse_loss_sampling = torch.ones_like(weighted_mse_loss_sampling)                
+                if not batch and False:
+                    print('**** wmse', *weighted_mse_loss_sampling.shape, '({})'.format(mode))
+                sigma2_ = weighted_mse_loss_sampling.mean(0)
+                log_sigma = 0.5 * sigma2_.log().squeeze()
+                weighted_mse_loss_sampling = weighted_mse_loss_sampling / sigma2_.unsqueeze(0)
 
             batch_quants['wmse'] = weighted_mse_loss_sampling.mean(0)
 
-            batch_quants['mse'] = batch_quants['wmse'] * sigma_ ** 2
+            batch_quants['mse'] = batch_quants['wmse'] * sigma2_
 
             if compute_iws:
                 log_iws = -D / 2 * (weighted_mse_loss_sampling + log_sigma / sigma_dims + np.log(2 * np.pi))
@@ -671,9 +675,9 @@ class ClassificationVariationalNetwork(nn.Module):
             total_measures['mse'] = (current_measures['mse'] * batch
                                      + mse) / (batch + 1)
 
-            total_measures['std'] = np.sqrt(total_measures['mse'])
+            total_measures['rmse'] = np.sqrt(total_measures['mse'])
             snr = total_measures['xpow'] / total_measures['mse']
-            total_measures['snr'] = 10 * np.log10(snr)
+            total_measures['dB'] = 10 * np.log10(snr)
             
         dictionary = self.encoder.prior.mean if self.encoder.prior.conditional else None
 
@@ -745,6 +749,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
             batch_logpx = -D * (log_sigma / sigma_dims + batch_wmse + np.log(2 * np.pi)) / 2
 
+            # if not batch and True:
+            #     print('**** SHAPES l749')
+            #     print('log_sigma', *log_sigma.shape)
+            #     print('sigma dims', sigma_dims)
+            #     print('wmse', *batch_wmse.shape)
+            #     print('log_px', *batch_logpx.shape)
+            #     print('total', *batch_losses['total'] .shape)
+            
             batch_losses['wmse'] = batch_wmse
             batch_losses['cross_x'] = - batch_logpx * mse_weighting
 

@@ -127,7 +127,7 @@ class EpochOutput:
 
         kept_metrics = {}
         for k in metrics:
-            if '-a-' not in metrics and not metrics.endswith('-2s'):
+            if '-a-' not in k and not k.endswith('-2s'):
                 kept = True
                 for k_ in best_of:
                     if k.startswith(k_):

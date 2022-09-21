@@ -123,7 +123,7 @@ class EpochOutput:
         
         num_format = {'default': '{' + f':{cell_width-1}.2e' + '} ',
                       'odin': '{' + f':>{cell_width}' + '}',
-                      'snr': '{' + f':{cell_width-4}.1f' + '} dB '}
+                      'dB': '{' + f':{cell_width-4}.1f' + '} dB '}
 
         kept_metrics = {}
         for k in metrics:

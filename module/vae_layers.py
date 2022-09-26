@@ -950,19 +950,18 @@ class VGGDecoder(ConvDecoder):
 
             if x == 'U':
                 layers.append(nn.UpsamplingNearest2d(scale_factor=2))
-                print('*** U')
+          
             else:
-                print('***', input_channels, x)
                 layers.append(nn.ConvTranspose2d(input_channels, x,
                                                  3, stride=1, padding=1))
                 input_channels = x
 
                 if batch_norm:
                     layers.append(nn.BatchNorm2d(x)),
-                    print('*** bn', x)
                 layers.append(nn.ReLU(inplace=True))
-                print('*** ReLU')
-            
+
+        if x == 'U':
+            layers.append(None)
         layers[-1] = activation_layers.get(output_activation, nn.Identity)()
 
         return layers

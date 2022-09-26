@@ -252,7 +252,10 @@ if __name__ == '__main__':
     if args.resume:
         with open(os.path.join(resumed_from, 'RESUMED'), 'w') as f:
             f.write(str(job_number) + '\n')
-    
+
+    if not os.path.exists(job_dir):
+        os.makedirs(job_dir)
+        
     with open(os.path.join(job_dir, f'number-{hostname}'), 'w') as f:
         f.write(str(job_number + 1) + '\n')
 

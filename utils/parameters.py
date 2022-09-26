@@ -541,10 +541,11 @@ class NewEntryDictofLists(argparse.Action):
             
 if __name__ == '__main__':
 
-    cli = ''.split()
+    cli = '--upsampler vgg19 4 5'.split()
     arg = get_args_for_train(cli)
 
-    print(type(arg.prior_means))
+    print(arg.upsampler)
+
     
     # arg = get_args_for_test()
     # for k in arg.filters:

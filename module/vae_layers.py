@@ -64,7 +64,7 @@ class Rgb2hsv(nn.Module):
         assert len(input_dims) == 3
         assert input_dims[0] == 3
         self.hmax = hmax
-        
+
     def forward(self, x):
         sixth = self.hmax / 6
 
@@ -95,10 +95,10 @@ class Hsv2rgb(Rgb2hsv):
                         for i in range(3))
 
         h_ = (h - torch.floor(h / self.hmax) * self.hmax) / sixth
-        
+
         c = s * v
         x = c * (1 - torch.abs(torch.fmod(h_, 2) - 1))
-        
+
         zero = torch.zeros_like(c)
         y = torch.stack((
             torch.stack((c, x, zero), dim=-3),
@@ -121,27 +121,26 @@ class Prior(nn.Module):
 
     def __init__(self, dim, var_type='scalar', num_priors=1,
                  mean=0, learned_means=False, learned_variance=False):
-        
         """
         var_type : scalar, diag or full
         num_priors: 1 for non conditional prior, else number of classes
-        
+
         """
 
         assert not learned_means or num_priors > 1
 
         super().__init__()
-        
+
         self.num_priors = num_priors
         self.var_type = var_type
         self.learned_var = learned_variance
         self.learned_means = learned_means
         self.dim = dim
-            
+
         if num_priors == 1:
             self.conditional = False
             mean_tensor = torch.tensor(0.)
-            
+
         else:
             self.conditional = True
             unit_mean = torch.ones(num_priors, dim).squeeze()
@@ -151,8 +150,8 @@ class Prior(nn.Module):
                 mean_tensor = mean * unit_mean
             except ValueError:
                 mean_tensor = mean.squeeze()
-                
-        self.mean = Parameter(mean_tensor, requires_grad=learned_means)        
+
+        self.mean = Parameter(mean_tensor, requires_grad=learned_means)
 
         if var_type == 'scalar':
             var_param_per_class = torch.tensor(1.)
@@ -178,7 +177,7 @@ class Prior(nn.Module):
             return self._var_parameter.tril()
         else:
             return self._var_parameter
-        
+
     @property
     def inv_var(self):
 
@@ -237,7 +236,7 @@ class Prior(nn.Module):
 
         else:
             transformed = x * transform.unsqueeze(-1)
-            
+
         return transformed
 
     @adapt_batch_function()
@@ -263,7 +262,7 @@ class Prior(nn.Module):
 
         if self.var_type == 'full':
             prior_inv_var_diag = self.inv_trans.pow(2).sum(-2)
-            
+
         else:
             prior_inv_var_diag = self.inv_trans.pow(2)
 
@@ -280,7 +279,7 @@ class Prior(nn.Module):
                                                       ' '.join(str(_) for _ in prior_inv_var_diag.shape))
             logging.error(error_msg)
             return 0.
-        
+
     def kl(self, mu, log_var, y=None, output_dict=True):
         """Params:
 
@@ -297,13 +296,13 @@ class Prior(nn.Module):
             expand_shape[0] = y.shape[0]
             return self.kl(mu.expand(*expand_shape), log_var.expand(*expand_shape),
                            y=y, output_dict=output_dict)
-        
+
         debug_msg = 'TBR in kl '
         debug_msg += 'mu: ' + ' '.join(str(_) for _ in mu.shape)
         debug_msg += 'var: ' + ' '.join(str(_) for _ in log_var.shape)
         debug_msg += 'y: ' + ('None' if y is None else ' '.join(str(_) for _ in y.shape))
         # logging.debug(debug_msg)
-        
+
         var = log_var.exp()
 
         prior_trans = self.inv_trans
@@ -325,14 +324,14 @@ class Prior(nn.Module):
             log_det_prior = inv_var.logdet()
             is_nan_after = log_det_prior.isnan().any()
             print('*** real log det is nan:', is_nan_after)
-            
+
         if self.conditional:
             log_detp = loss_components['log_det_prior']
             loss_components['log_det_prior'] = log_detp.index_select(0, y.view(-1)).view(y.shape)
 
         loss_components['log_det'] = log_var.sum(-1)
 
-        loss_components['distance'] = self.mahala(mu, y) 
+        loss_components['distance'] = self.mahala(mu, y)
 
         stop = False
         for k in loss_components:
@@ -348,10 +347,10 @@ class Prior(nn.Module):
                                      loss_components['log_det'] +
                                      loss_components['log_det_prior'] -
                                      self.dim)
-        
+
         loss_components['kl'] = 0.5 * (loss_components['distance'] +
                                        loss_components['var_kl'])
-        
+
         return loss_components if output_dict else loss_components['kl']
 
     def log_density(self, z, y=None):
@@ -360,7 +359,7 @@ class Prior(nn.Module):
         # logging.debug('z : %s y:%s', z.shape, y.shape if y is not None else y)
 
         assert self.conditional ^ (y is None)
-        
+
         u = self.mahala(z, y)
 
         log_det = self.log_det_per_class()
@@ -378,7 +377,7 @@ class Prior(nn.Module):
         mean = ('learned ' if self.learned_means else '') + 'mean' + plural
         return '{p}prior of dim {K} with {m} and {v}'.format(p=pre, m=mean, v=var, K=self.dim)
 
-    
+
 class Sigma(Parameter):
 
     @staticmethod
@@ -391,11 +390,11 @@ class Sigma(Parameter):
             learned = True
         if learned:
             is_log = True
-        if is_log:   
+        if is_log:
             value = np.log(value)
 
         return super().__new__(cls, torch.zeros(sdim).fill_(value), requires_grad=learned)
-   
+
     def __init__(self, value=None, learned=False,  is_rmse=False,
                  sdim=1,
                  input_dim=False,
@@ -489,9 +488,9 @@ class Sigma(Parameter):
             if self.learned:
                 return 'l'
             return str(self)
-                
+
         return str(self)
-        
+
     def __str__(self):
 
         if self.is_rmse:
@@ -558,20 +557,23 @@ vgg_cfg = {
               512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
+ivgg_cfg = {'ivgg19': [512, 512, 512, 'U', 512, 512, 512, 512, 'U',
+                       256, 256, 256, 256, 'U', 128, 128, 'U', 64, 64, -1, 'U'], }
+
 
 class VGGFeatures(nn.Sequential):
-    
+
     def __init__(self, vgg_name, input_shape, batch_norm=False, channels=None, pretrained=None):
 
         cfg = vgg_cfg.get(vgg_name, channels)
-            
+
         layers = self._make_layers(cfg, input_shape, batch_norm)
         super(VGGFeatures, self).__init__(*layers)
         self.architecture = {'features': vgg_name}
 
         self.pretrained = pretrained
         if pretrained:
-            model_name = vgg_name  + ('_bn' if batch_norm else '')
+            model_name = vgg_name + ('_bn' if batch_norm else '')
             if hasattr(models, model_name):
                 pretrained_vgg = getattr(models, model_name)(pretrained=True)
                 feat_to_inject = pretrained_vgg.features.state_dict()
@@ -583,7 +585,7 @@ class VGGFeatures(nn.Sequential):
             self.name = 'vgg-' + '-'.join(str(c) for c in channels)
             self.architecture['features_channels'] = channels
         else:
-            self.name = vgg_name 
+            self.name = vgg_name
 
     def _make_layers(self, cfg, input_shape, batch_norm):
         layers = []
@@ -600,8 +602,8 @@ class VGGFeatures(nn.Sequential):
             else:
                 layers += [nn.Conv2d(in_channels, x, kernel_size=3, padding=1)]
                 if batch_norm:
-                    layers += [nn.BatchNorm2d(x),]
-                layers+= [nn.ReLU(inplace=True)]
+                    layers += [nn.BatchNorm2d(x), ]
+                layers += [nn.ReLU(inplace=True)]
                 in_channels = x
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         self.output_shape = (in_channels, h, w)
@@ -633,7 +635,7 @@ class ResOrDenseNetFeatures(nn.Sequential):
             w //= 32
             h //= 32
 
-        self.output_shape = (modules[-1].in_features, w, h) 
+        self.output_shape = (modules[-1].in_features, w, h)
 
 
 class ConvFeatures(nn.Sequential):
@@ -669,13 +671,13 @@ class ConvFeatures(nn.Sequential):
         self.params_dict = {'input_channels': self.input_shape,
                             'channels': self.channels,
                             'padding': self.padding,
-                            'kernel':self.kernel,
-                            'activation':self.activation}
+                            'kernel': self.kernel,
+                            'activation': self.activation}
 
     def _make_layers(self, channels, padding, kernel, input_shape,
                      activation, batch_norm):
         layers = []
-        in_channels, h, w  = input_shape
+        in_channels, h, w = input_shape
         activation_layer = activation_layers[activation]()
         for channel in channels:
             layers.append(nn.Conv2d(in_channels, channel, kernel,
@@ -753,7 +755,7 @@ class Encoder(nn.Module):
             prior_means = torch.zeros(num_labels, latent_dim)
             for i in range(num_labels):
                 prior_means[i, i] = 1
-                
+
         else:
             prior_means = latent_prior_means * torch.randn(num_labels, latent_dim)
 
@@ -765,10 +767,10 @@ class Encoder(nn.Module):
                            learned_variance=learned_latent_prior_variance)
 
         logging.debug('Built %s', self.prior)
-        
+
     def eval(self, *a):
         print('eval', *a)
-    
+
     @property
     def sampling_size(self):
         return self._sampling_size
@@ -786,10 +788,10 @@ class Encoder(nn.Module):
         # K = self.latent_dim
         C = self.num_labels
         # E = np.exp(1)
-    
+
         cdm = torch.cdist(m, m)
         I = np.log(C) - 1 / C * torch.exp(-cdm.pow(2)/4).sum(0).log().sum()
-        # + K/2 * np.log(2 / E) 
+        # + K/2 * np.log(2 / E)
 
         return I
 
@@ -800,7 +802,7 @@ class Encoder(nn.Module):
 
         max_norm = dictionary.norm(dim=1).max()
         diag = 2 * max_norm * torch.eye(C, device=dictionary.device)
-        
+
         dist = torch.cdist(dictionary, dictionary) + diag
 
         return dist.min()
@@ -822,8 +824,8 @@ class Encoder(nn.Module):
         else:
             pass
             # print('*** v_l:319', 'x:', *x.shape)
-            
-        u = x if y is None else torch.cat((x, y), dim=-1) 
+
+        u = x if y is None else torch.cat((x, y), dim=-1)
 
         # print('**** vl l 242', 'y mean', y.mean().item())
 
@@ -845,7 +847,7 @@ class Encoder(nn.Module):
             for p in self.dense_projs.parameters():
                 print(torch.isnan(p).sum().item(), 'nans in',
                       'parameters of size',
-                       *p.shape)  
+                      *p.shape)
             # raise ValueError('ERROR')
 
         z_mean = self.dense_mean(u)
@@ -909,7 +911,7 @@ class ConvDecoder(nn.Module):
         output_dim = out.shape[1:]
         return out.view(*batch_shape, *output_dim)
 
-    def _makelayer(self, first_shape, channels, output_activation, batch_norm ):
+    def _makelayer(self, first_shape, channels, output_activation, batch_norm):
 
         layers = []
 
@@ -918,15 +920,54 @@ class ConvDecoder(nn.Module):
             layers += [nn.ConvTranspose2d(input_channels, output_channels,
                                           4, stride=2, padding=1)]
             if batch_norm:
-                       layers.append(nn.BatchNorm2d(output_channels)),
+                layers.append(nn.BatchNorm2d(output_channels)),
             layers.append(nn.ReLU(inplace=True))
             input_channels = output_channels
 
         layers[-1] = activation_layers.get(output_activation, nn.Identity)()
-        
+
         return layers
 
-        
+
+class VGGDecoder(ConvDecoder):
+
+    def __init__(self, ivgg_name, input_dim, first_shape, image_channel=None, channels=None, **kw):
+
+        channels = ivgg_cfg.get(ivgg_name, channels)
+        assert channels is not None
+        assert -1 not in channels or image_channel is not None
+        channels = [image_channel if _ == -1 else _ for _ in channels]
+            
+        super(VGGDecoder, self).__init__(input_dim, first_shape, channels,
+                                         **kw)
+
+    def _makelayer(self, first_shape, channels, output_activation, batch_norm):
+
+        layers = []
+
+        input_channels = first_shape[0]
+        for x in channels:
+
+            if x == 'U':
+                layers.append(nn.UpsamplingNearest2d(scale_factor=2))
+                print('*** U')
+            else:
+                print('***', input_channels, x)
+                layers.append(nn.ConvTranspose2d(input_channels, x,
+                                                 3, stride=1, padding=1))
+                input_channels = x
+
+                if batch_norm:
+                    layers.append(nn.BatchNorm2d(x)),
+                    print('*** bn', x)
+                layers.append(nn.ReLU(inplace=True))
+                print('*** ReLU')
+            
+        layers[-1] = activation_layers.get(output_activation, nn.Identity)()
+
+        return layers
+    
+
 class Decoder(nn.Module):           #
     """
     - input: N1 x N2 x ... Ng x K
@@ -975,7 +1016,7 @@ class Decoder(nn.Module):           #
             h = self.activation(l(h))
         return self.output_activation(self.output_layer(h))
 
-    
+
 class Classifier(nn.Sequential):
     """Classifer
 
@@ -991,7 +1032,7 @@ class Classifier(nn.Sequential):
                  name='classifier',
                  activation='relu',
                  **kwargs):
-        
+
         activation_layer = activation_layers[activation]()
         layers = []
         input_dim = latent_dim
@@ -999,12 +1040,12 @@ class Classifier(nn.Sequential):
             layers.append(nn.Linear(input_dim, d))
             layers.append(activation_layer)
             input_dim = d
-            
+
         layers.append(nn.Linear(input_dim, num_labels))
         # layers.append(nn.Softmax(dim=-1))
         super().__init__(*layers, **kwargs)
         self.name = name
-        
+
 
 if __name__ == '__main__':
 

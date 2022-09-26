@@ -9,7 +9,7 @@ from module.losses import x_loss, kl_loss, mse_loss
 from utils.save_load import LossRecorder, available_results, develop_starred_methods
 from utils.save_load import DeletedModelError, NoModelError
 from utils.misc import make_list
-from module.vae_layers import VGGFeatures, ConvDecoder, Encoder, Classifier, ConvFeatures, Sigma
+from module.vae_layers import VGGFeatures, ConvDecoder, VGGDecoder, Encoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import ResOrDenseNetFeatures
 from module.vae_layers import onehot_encoding, Hsv2rgb, Rgb2hsv
 import tempfile
@@ -320,12 +320,23 @@ class ClassificationVariationalNetwork(nn.Module):
                     upsampler_dict = torch.load(pretrained_upsampler)
                 else:
                     upsampler_dict = None
-                self.imager = ConvDecoder(imager_input_dim,
-                                          upsampler_first_shape,
-                                          upsampler_channels,
-                                          upsampler_dict=upsampler_dict,
-                                          batch_norm=batch_norm_decoder,
-                                          output_activation=output_activation)
+
+                c0 = upsampler_channels[0]
+                if isinstance(c0, str) and c0.startswith('ivgg'):
+                    self.imager = VGGDecoder(c0, imager_input_dim,
+                                             upsampler_first_shape,
+                                             image_channel=input_shape[0],
+                                             channels=upsampler_channels[1:],
+                                             upsampler_dict=upsampler_dict,
+                                             batch_norm=batch_norm_decoder,
+                                             output_activation=output_activation)
+                else:
+                    self.imager = ConvDecoder(imager_input_dim,
+                                              upsampler_first_shape,
+                                              upsampler_channels,
+                                              upsampler_dict=upsampler_dict,
+                                              batch_norm=batch_norm_decoder,
+                                              output_activation=output_activation)
 
             else:
                 upsampler_channels = None

@@ -557,8 +557,21 @@ vgg_cfg = {
               512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
-ivgg_cfg = {'ivgg19': ['U', 512, 512, 512, 'U', 512, 512, 512, 512, 'U',
-                       256, 256, 256, 256, 'U', 128, 128, 'U', 64, 64, -1], }
+
+ivgg_cfg = {}
+
+# ivgg_cfg = {'ivgg19_': ['U', 512, 512, 512, 'U', 512, 512, 512, 512,
+#                         'U', 256, 256, 256, 256, 'U', 128, 128, 'U',
+#                         64, 64, -1], }
+
+for c in vgg_cfg:
+    ivgg_cfg['i' + c] = ['U' if _ == 'M' else _ for _ in vgg_cfg[c][-1::-1]]
+    ivgg_cfg['i' + c].append(-1)
+
+vgg_cfg_a = {}
+for cfg in vgg_cfg:
+    vgg_cfg_a[cfg + '-a'] = ['A' if _ == 'M' else _ for _ in vgg_cfg[cfg]]
+vgg_cfg.update(vgg_cfg_a)
 
 
 class VGGFeatures(nn.Sequential):

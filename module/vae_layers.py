@@ -568,6 +568,7 @@ for c in vgg_cfg:
     ivgg_cfg['i' + c] = ['U' if _ == 'M' else _ for _ in vgg_cfg[c][-1::-1]]
     ivgg_cfg['i' + c].append(-1)
 
+    
 vgg_cfg_a = {}
 for cfg in vgg_cfg:
     vgg_cfg_a[cfg + '-a'] = ['A' if _ == 'M' else _ for _ in vgg_cfg[cfg]]
@@ -586,7 +587,7 @@ class VGGFeatures(nn.Sequential):
 
         self.pretrained = pretrained
         if pretrained:
-            model_name = vgg_name + ('_bn' if batch_norm else '')
+            model_name = vgg_name.split('-')[0] + ('_bn' if batch_norm else '')
             if hasattr(models, model_name):
                 pretrained_vgg = getattr(models, model_name)(pretrained=True)
                 feat_to_inject = pretrained_vgg.features.state_dict()

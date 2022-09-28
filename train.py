@@ -171,16 +171,17 @@ if __name__ == '__main__':
                      encoder_layer_sizes=args.encoder,
                      encoder_forced_variance=args.forced_encoder_variance,
                      latent_dim=args.latent_dim,
-                     latent_prior_variance=args.latent_prior_variance,
+                     latent_prior_means=args.prior_means,
+                     latent_prior_variance=args.prior_variance,
+                     learned_latent_prior_variance=args.prior_variance != 'scalar',
+                     learned_latent_prior_means=args.learned_prior_means,
                      latent_sampling=args.latent_sampling,
                      test_latent_sampling=args.test_latent_sampling,
                      decoder_layer_sizes=args.decoder,
                      upsampler_channels=args.upsampler,
                      classifier_layer_sizes=args.classifier,
-                     dictionary_variance=args.dictionary_variance,
                      beta=args.beta,
                      gamma=args.gamma,
-                     coder_means=args.coder_means,
                      sigma=sigma,
                      representation=representation,
                      output_activation=args.output_activation)
@@ -251,7 +252,10 @@ if __name__ == '__main__':
     if args.resume:
         with open(os.path.join(resumed_from, 'RESUMED'), 'w') as f:
             f.write(str(job_number) + '\n')
-    
+
+    if not os.path.exists(job_dir):
+        os.makedirs(job_dir)
+        
     with open(os.path.join(job_dir, f'number-{hostname}'), 'w') as f:
         f.write(str(job_number + 1) + '\n')
 

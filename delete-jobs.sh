@@ -1,7 +1,13 @@
 #!/bin/bash
 force=
+script_abs_path=$(realpath "$0")
+root_directory=$(dirname "$script_abs_path")
+
 directory="$(dirname "$0")"/jobs
 light=
+out_dir="$root_directory"/jobs/out
+log_dir="$root_directory"/jobs/out/log
+
 while :; do
     case $1 in
 	-f )
@@ -39,8 +45,6 @@ do
 	done
 	scancel "$job" 2> /dev/null
 	echo "$dir" 'will be deleted'
-	rm log/train.log.$job 2> /dev/null && echo Log file deleted || echo No log file found
-	rm out/train-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
 	if [ "$light" ]
 	then
 	    touch "$dir"/deleted
@@ -50,5 +54,8 @@ do
     else
 	echo "$job" 'not found'
     fi
+
+    rm "$log_dir"/train.log.$job 2> /dev/null && echo Log file deleted || echo No log file found
+    rm "$out_dir"/train-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
 
 done

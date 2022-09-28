@@ -123,17 +123,18 @@ class EpochOutput:
         
         num_format = {'default': '{' + f':{cell_width-1}.2e' + '} ',
                       'odin': '{' + f':>{cell_width}' + '}',
-                      'snr': '{' + f':{cell_width-4}.1f' + '} dB '}
+                      'dB': '{' + f':{cell_width-4}.1f' + '} dB '}
 
         kept_metrics = {}
         for k in metrics:
-            kept = True
-            for k_ in best_of:
-                if k.startswith(k_):
-                    kept_metrics[k_] = None
-                    kept = False
-            if kept:
-                kept_metrics[k] = None
+            if '-a-' not in k and not k.endswith('-2s'):
+                kept = True
+                for k_ in best_of:
+                    if k.startswith(k_):
+                        kept_metrics[k_] = None
+                        kept = False
+                if kept:
+                    kept_metrics[k] = None
         metrics = list(kept_metrics)
 
         kept_accuracies = {}
@@ -286,49 +287,33 @@ class Time(float):
     def __str__(self, max=2):
 
         t = self
-        i = 0
+
+        units = ['d', 'h', 'm', 's', 'ms', 'mus', 'ns']
+        qs = [24 * 3600, 3600, 60, 1, 1e-3, 1e-6, 1e-9]
 
         if t == 0:
             return '0s'
         
         str = '-' if t < 0 else ''
         t = abs(t)
-        
-        d = int(t / (24 * 60 * 60))
-        if d > 0:
-            str += f'{d}d'
-            i += 1
-            t -= d * 24 * 60 * 60
 
-        h = int(t / 3600)
-        if h > 0:
-            str += f'{h}h'
-            i +=1
-            t -= h * 3600
+        break_loop = False
 
-        m = int(t / 60)
-        if m > 0 and i < max:
-            str += f'{m}m'
-            i += 1
-            t -= m * 60
+        coarser = None
+        for i, (unit, q) in enumerate(zip(units, qs)):
 
-        s = int(t)
-        if s > 0 and i < max:
-            str += f'{s}s'
-            i += 1
-            t -= s
-
-        m = int(1e3 * t)
-        mu = int(1e6 * t - 1000 * m)
-        
-        if i < max - 1 and mu > 0:
-            if m > 0:
-                str += f'{m}ms{mu:03d}'
+            if coarser is not None and i - coarser >= max - 1:
+                n = int(np.round(t / q))
+                break_loop = True
             else:
-                str += f'{mu}us'
-                
-        elif i < max and m > 0:
-            str += f'{m}ms'
+                n = int(t / q)
+            if n:
+                str += f'{n}{unit}'
+                if coarser is None:
+                    coarser = i
+            t -= q * n
+            if break_loop:
+                break
 
         return str
         

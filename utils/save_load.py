@@ -211,6 +211,10 @@ def print_architecture(o, sigma=False, sampling=False,
 
     arch = ObjFromDict(o.architecture, features=None)
     training = ObjFromDict(o.training_parameters)
+
+    # for d, _d in zip((o.architecture, o.training_parameters), ('ARCH', 'TRAIN')):
+    #     print('\n\n***', _d, '***')
+    #     print('\n'.join('*** {:18} : {}'.format(*_) for _ in d.items()))
     
     def _l2s(l, c='-', empty='.'):
         if l:
@@ -308,7 +312,13 @@ def option_vector(o, empty=' ', space=' '):
 
     if arch.type == 'cvae':
         w = 'c:'
-        w += {'random': 'r', 'learned':'l', 'onehot':'1'}[training.coder_means]
+        if training.learned_latent_prior_means:
+            w += 'l'
+        elif arch.latent_prior_means == 'onehot':
+            w += '1'
+        else:
+            w += 'r'
+        
         v_.append(w)
 
     return space.join(v_)
@@ -1046,7 +1056,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'optim_str': f'{empty_optimizer:3}',
             'optim': empty_optimizer.kind,
             'lr': empty_optimizer.init_lr,
-    }
+            }
 
 
 def register_models(models, *keys):

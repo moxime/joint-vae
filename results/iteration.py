@@ -190,6 +190,9 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         x = {_: samples[s]['x'][samples_i[s][_]][:n_images] for _ in (True, False)}
         x_ = {_: samples[s]['x_'][:, 0, samples_i[s][_]][:, :n_images] for _ in (True, False)}
 
+        # print('**** x False', *x[False].shape)
+        # print('**** x True', *x[True].shape)
+        
         y_ = {_: y_pred[:, samples_idx[s]][:, samples_i[s][_]][:, :n_images] for _ in (True, False)}
 
         y = {_: samples[s]['y'][samples_i[s][_]][:n_images] for _ in (True, False)}
@@ -246,12 +249,13 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                 image_dir = os.path.join(result_dir, 'samples', title[_])
                 if not os.path.exists(image_dir):
                     os.makedirs(image_dir)
-                for i in range(n_images):
+                for i in range(min(n_images, x[_].shape[1])):
                     tex_file = os.path.join(image_dir, 'image_{}.tex'.format(i))
                     with open(tex_file, 'w') as f:
 
                         for k in range(len(model) + 1):
 
+                            # print('***', _, 'k,i', k, i, 'x:', *x[_].shape)
                             image = x[_][k][i]
                             image_name = 'x_{}_{}.png'.format(i, k)
                             save_image(image, os.path.join(image_dir, image_name))

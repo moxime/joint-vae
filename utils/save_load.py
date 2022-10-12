@@ -965,23 +965,31 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     sigma_size = 'S' if sigma.sdim == 1 else 'M' 
         
     if architecture.type == 'cvae':
-        coder_dict = model.training_parameters['coder_means']
-        if coder_dict == 'learned':
+        learned_prior_means = model.training_parameters['learned_latent_prior_means']
+        learned_prior_variance = model.training_parameters['learned_latent_prior_variance']
+        latent_prior_variance = architecture.latent_prior_variance
+        latent_means = architecture.latent_prior_means
+        latent_prior = 'l' if learned_prior_means else 'TK'
+        latent_prior += latent_prior_variance[0]
+        if forced_var:
+            latent_prior += 'F'
+        else:
+            latent_prior += '-'
+        if learned_prior_means:
             if history['train_measures']:
                 # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
-                dict_var = history['train_measures'][-1]['ld-norm']
-            else:
-                dict_var = model.training_parameters['dictionary_variance']
-        else:
-            dict_var = model.training_parameters['dictionary_variance']
+                latent_means = history['train_measures'][-1]['ld-norm']
     else:
-        coder_dict = None
-        dict_var = 0.
+        latent_prior = None
+        latent_means = 0.
+        latent_prior_variance = 'scalar'
+        learned_prior_variance = False
+        learned_prior_means = False
 
     empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
     depth = (1 + len(architecture.encoder)
              + len(architecture.decoder))
-             # + len(architecture.classifier))
+    # + len(architecture.classifier))
 
     width = (architecture.latent_dim +
              sum(architecture.encoder) +
@@ -1006,8 +1014,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'is_resumed': model.is_resumed,
             'type': architecture.type,
             'arch': arch,
-            'dict_var': dict_var,
-            'coder_dict': coder_dict,
+            'learned_prior_means': learned_prior_means,
+            'learned_prior_variance': learned_prior_variance,
+            'latent_prior_variance': latent_prior_variance,
+            'latent': latent_prior,
             'forced_var': forced_var,
             'gamma': model.training_parameters['gamma'],
             'arch_code': arch_code,
@@ -1049,7 +1059,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'warmup': training.warmup,
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),
-            'batch_norm': architecture.batch_norm,
+            'batch_norm': architecture.batch_norm or None,
             'depth': depth,
             'width': width,
             'options': model.option_vector(),

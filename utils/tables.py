@@ -133,8 +133,8 @@ def test_results_df(nets,
         'options',
         'batch_norm',
         'optim_str',
-        'coder_dict',
-        'forced_var',
+        'latent',
+        #        'forced_var',
         'L',
         'sigma_train',
         'sigma',
@@ -145,7 +145,7 @@ def test_results_df(nets,
 
     indices = arch_index + train_index
 
-    indices_replacement = {'batch_norm': 'bn'}
+    indices_replacement = {'batch_norm': 'bn', 'latent': 'z', 'sigma_train': 'sigma~'}
 
     # acc_cols = ['best_accuracy', 'accuracies']
     # ood_cols = ['ood_fpr', 'ood_fprs']

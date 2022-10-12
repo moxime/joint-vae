@@ -338,15 +338,17 @@ if __name__ == '__main__':
     
     pd.set_option('max_colwidth', 15)
 
+    first_set = True
     for s, d in df.items():
 
-        # print('**********', d.reset_index().columns)  # 
+        try:
+            args.remove_index.remove('auto')
+            auto_removed_index = True
+        except ValueError:
+            auto_remove_index = False
+            
         texify_test_results_df(d, s, tex_file, tab_file, tab_code=tab_code)
         
-        # d.index = d.index.droplevel(('sigma_train', 'beta_sigma', 'features'))
-        # d.index = d.index.droplevel(('sigma_train', 'sigma', 'features'))
-        # d.index = d.index.droplevel(('sigma', 'features'))
-        # d.index = d.index.droplevel(('features'))
         d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('NaN'))
         
         if tex_file:
@@ -357,8 +359,7 @@ if __name__ == '__main__':
 
         if args.remove_index is not None:
             removable_index = ['L', 'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var']
-            if 'auto' in args.remove_index:
-                args.remove_index.remove('auto')
+            if auto_removed_index:
                 removed_index = [i for i, l in enumerate(d.index.levels)
                                  if len(l) < 2 and l.name in removable_index]
             else:
@@ -416,6 +417,11 @@ if __name__ == '__main__':
         
         d_str = d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
 
+        if not first_set:
+            print('\n')
+        else:
+            first_set = False
+
         width = len(d_str.split('\n')[0])
         print(f'{s.upper():=^{width}}')
 
@@ -442,5 +448,5 @@ if __name__ == '__main__':
         if print_sorting_keys:
             print('Possible sorting keys :', *d.index.names)
 
-        for _ in range(0):
+        for _ in range(1):
             print('=' * width)

@@ -21,7 +21,7 @@ def tex_architecture(net_dict, filename='arch.tex', directory=os.path.join(DEFAU
     arch = net.architecture
     empty_optimizer = Optimizer([torch.nn.Parameter(torch.Tensor())], **net.training_parameters['optim'])
     oftype = net.architecture['type']
-    dict_var = net.training_parameters['dictionary_variance'] if oftype == 'cvae' else 0
+    latent_prior_means = net.architecture['latent_prior_means'] if oftype == 'cvae' else 0
     beta = net.training_parameters['beta']
     trainset = net.training_parameters['set']
     sigmabeta = r'\ensuremath\sigma=' +f'{net.sigma}'.upper()
@@ -53,7 +53,7 @@ def tex_architecture(net_dict, filename='arch.tex', directory=os.path.join(DEFAU
         features=arch.get('features', {}).get('name', 'none'),
         sigma='{:x}'.format(net.sigma),
         beta=beta,
-        dictvar=dict_var,
+        prior_means=latent_prior_means,
         optimizer='{:3x}'.format(empty_optimizer),
         betasigma=sigmabeta,
         )

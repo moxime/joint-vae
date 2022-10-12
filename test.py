@@ -344,7 +344,7 @@ if __name__ == '__main__':
         try:
             args.remove_index.remove('auto')
             auto_removed_index = True
-        except ValueError:
+        except (ValueError, AttributeError):
             auto_remove_index = False
             
         texify_test_results_df(d, s, tex_file, tab_file, tab_code=tab_code)

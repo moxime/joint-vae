@@ -1335,6 +1335,13 @@ class ClassificationVariationalNetwork(nn.Module):
         if recording:
             logging.debug('Saving examples in' + ', '.join(sample_dirs))
 
+            for d in sample_dirs:
+
+                f = os.path.join(d, f'record-{testset.name}.pth')
+                logging.debug(f'Saving recorder in {f}')
+                recorder.save(f)
+
+        if not recorded:
             saved_dict = {
                 'losses': {m: batch_losses[m][:MAX_SAMPLE_SAVE] for m in batch_losses},
                 'measures': measures,
@@ -1350,10 +1357,6 @@ class ClassificationVariationalNetwork(nn.Module):
             for d in sample_dirs:
                 f = os.path.join(d, f'sample-{testset.name}.pth')
                 torch.save(saved_dict, f)
-
-                f = os.path.join(d, f'record-{testset.name}.pth')
-                logging.debug(f'Saving recorder in {f}')
-                recorder.save(f)
 
         for m in predict_methods:
             mresults = self.testing.get(epoch)

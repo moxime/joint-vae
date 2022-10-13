@@ -99,10 +99,10 @@ if __name__ == '__main__':
                 
                 acc = model.accuracy(batch_size=args.batch_size,
                                      num_batch=args.num_batch,
+                                     sample_dirs=[sample_dir],
                                      from_where=('compute'),
                                      print_result='ACC',
                                      update_self_testing=False,
-                                     sample_dirs=['/tmp/{}'.format(job)]
                                      )
 
                 ood = model.ood_detection_rates(batch_size=batch_size,
@@ -111,5 +111,4 @@ if __name__ == '__main__':
                                                 sample_dirs=[sample_dir],
                                                 update_self_ood=False,
                                                 recorders=recorders,
-                                                sample_dirs=['/tmp/{}'.format(job)],
                                                 from_where=('compute'))

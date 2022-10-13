@@ -143,10 +143,17 @@ if __name__ == '__main__':
 
         sdim = input_shape if args.sigma_per_dim else 1
 
-        sigma_is_learned = args.sigma == 'learned'
-        sigma_is_coded = args.sigma == 'coded'
-        sigma_is_rmse = args.sigma == 'rmse'
-        sigma_value = args.sigma if isinstance(args.sigma, (float, int)) else 1.
+        if isinstance(args.sigma, str):
+            sigma_is_learned = args.sigma.startswith('learned')
+            sigma_is_coded = args.sigma == 'coded'
+            sigma_is_rmse = args.sigma == 'rmse'
+            sigma_value = float(args.sigma.split('--')[-1])
+        else:
+            assert  isinstance(args.sigma, (float, int))
+            sigma_value = args.sigma
+            sigma_is_learned = False
+            sigma_is_coded = False
+            sigma_is_rmse = False
 
         batch_norm = args.batch_norm if args.batch_norm != 'none' else None
         

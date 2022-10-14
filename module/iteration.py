@@ -302,9 +302,9 @@ if __name__ == '__main__':
             # for k in losses:
             #     print('***', k, *losses[k].shape)
             n_samples = args.saved_samples_per_batch
-            concat_dim = {'x': 0, 'x_': 2, 'y': 0}
+            concat_dim = {'x': 0, 'x_': 1, 'y': 0}
             samples['x'].append(x[:n_samples].to('cpu'))
-            samples['x_'].append(x_[:, :2, :n_samples].to('cpu'))
+            samples['x_'].append(x_[:, 0, :n_samples].to('cpu'))
             samples['y'].append(y[:n_samples].to('cpu'))
 
             save_image(x_[0, 0, 0].to('cpu'), f'/tmp/iter/out_{i}.png')

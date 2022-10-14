@@ -11,6 +11,7 @@ import numpy as np
 import logging
 from utils.parameters import gethostname
 import time
+from torchvision.utils import save_image
 
 
 class IteratedModels(M):
@@ -306,6 +307,8 @@ if __name__ == '__main__':
             samples['x_'].append(x_[:, :2, :n_samples].to('cpu'))
             samples['y'].append(y[:n_samples].to('cpu'))
 
+            save_image(x_[1, 0, 0], f'/tmp/iter/out_{i}.png')
+            
         for k in ('x', 'x_', 'y'):
             samples[k] = torch.cat(samples[k], dim=concat_dim[k])
 

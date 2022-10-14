@@ -257,6 +257,9 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
                             # print('***', _, 'k,i', k, i, 'x:', *x[_].shape)
                             image = x[_][k][i]
+                            # print('*** image out {k} n° {i} in [{m:.2f} {M:.2f}]'.format(k=k, i=i,
+                            #                                                              m=image.min(),
+                            #                                                              M=image.max()))
                             image_name = 'x_{}_{}.png'.format(i, k)
                             save_image(image, os.path.join(image_dir, image_name))
                         f.write(r'\def\yin{{{}}}'.format(classes[0][y[_][0][i]]).replace('_', '-'))

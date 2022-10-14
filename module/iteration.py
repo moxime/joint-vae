@@ -24,7 +24,7 @@ class IteratedModels(M):
     
     def __init__(self, *models):
 
-        assert len(models) > 1
+        assert len(models) > 1 or True # DEBUG
         self._modules = {str(_): m for _, m in enumerate(models)}
         self._models = models
         self.predict_methods = ['iter']
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     
     logging.getLogger().setLevel(40 - 10 * args.v)
 
-    if len(args.jobs) < 2:
+    if len(args.jobs) < 2 and False: # DEBUG
         logging.error('At least two jobs (%d provided)', len(args.jobs))
         sys.exit(1)
     

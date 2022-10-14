@@ -147,7 +147,10 @@ if __name__ == '__main__':
             sigma_is_learned = args.sigma.startswith('learned')
             sigma_is_coded = args.sigma == 'coded'
             sigma_is_rmse = args.sigma == 'rmse'
-            sigma_value = float(args.sigma.split('--')[-1])
+            try:
+                sigma_value = float(args.sigma.split('--')[-1])
+            except ValueError:
+                sigma_value = 1.
         else:
             assert  isinstance(args.sigma, (float, int))
             sigma_value = args.sigma

@@ -188,7 +188,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
         y_pred = y_pred_[s]
         x = {_: samples[s]['x'][samples_i[s][_]][:n_images] for _ in (True, False)}
-        x_ = {_: samples[s]['x_'][:, 0, samples_i[s][_]][:, :n_images] for _ in (True, False)}
+        x_ = {_: samples[s]['x_'][:, 1, samples_i[s][_]][:, :n_images] for _ in (True, False)}
 
         print('**** x_', *x_[True].shape)
         

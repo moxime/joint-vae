@@ -969,7 +969,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         learned_prior_variance = model.training_parameters['learned_latent_prior_variance']
         latent_prior_variance = architecture.latent_prior_variance
         latent_means = architecture.latent_prior_means
-        latent_prior = 'l' if learned_prior_means else {'onehot': 1, 'random': 'r'}.get(latent_means, latent_means)
+        latent_prior = 'l' if learned_prior_means else {'onehot': '1', 'random': 'r'}.get(latent_means, latent_means)
         latent_prior += latent_prior_variance[0]
         if forced_var:
             latent_prior += 'F'

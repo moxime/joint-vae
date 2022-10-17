@@ -966,14 +966,20 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         
     if architecture.type == 'cvae':
         learned_prior_means = model.training_parameters['learned_latent_prior_means']
+        # done =  model.train_history['epochs']
+        # if done >= 10:
+        #     print('*** {:1} {:4} {}'.format(learned_prior_means, done, directory))
         learned_prior_variance = model.training_parameters['learned_latent_prior_variance']
         latent_prior_variance = architecture.latent_prior_variance
         latent_means = architecture.latent_prior_means
         if learned_prior_means:
+            latent_means = 'random'
             latent_prior = 'l'
         elif latent_means == 'onehot':
             latent_prior = '1'
+            latent_means = 'onehot'
         else:
+            latent_means = 'random'
             latent_prior = 'r'
         latent_prior += latent_prior_variance[0]
         if forced_var:
@@ -983,10 +989,11 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         if learned_prior_means:
             if history['train_measures']:
                 # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
-                latent_means = history['train_measures'][-1]['ld-norm']
+                # latent_means = history['train_measures'][-1]['ld-norm']
+                pass
     else:
         latent_prior = None
-        latent_means = 0.
+        latent_means = None
         latent_prior_variance = 'scalar'
         learned_prior_variance = False
         learned_prior_means = False
@@ -1022,6 +1029,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'learned_prior_means': learned_prior_means,
             'learned_prior_variance': learned_prior_variance,
             'latent_prior_variance': latent_prior_variance,
+            'latent_prior_means': latent_means,
             'latent': latent_prior,
             'forced_var': forced_var,
             'gamma': model.training_parameters['gamma'],

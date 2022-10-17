@@ -974,7 +974,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         if forced_var:
             latent_prior += 'F'
         else:
-            latent_prior += '-'
+            latent_prior += ''
         if learned_prior_means:
             if history['train_measures']:
                 # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])

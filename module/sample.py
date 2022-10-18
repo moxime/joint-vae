@@ -23,7 +23,7 @@ import sys
 
 def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), directory='test',
            N=20, L=10, iteration=False):
-    r"""Creates a grid of output images. If x is None tuhe output images
+    r"""Creates a grid of output images. If x is None the output images
     are the ones created when the decoder is fed with prior z"""
 
     if x is not None:
@@ -102,7 +102,7 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
         z = torch.randn(L, N, K, device=net.device)
 
         if net.is_cvae:
-            z = z + net.encoder.latent_dictionary.unsqueeze(0)
+            z = z + net.encoder.prior.mean.unsqueeze(0)
 
         x_grid = {'name': f'grid-{N}x{L}.png',
                   'tensor': torch.zeros((D, 0, L * W), device=net.device)}
@@ -241,6 +241,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
 
     parser.add_argument('--job-dir', default=DEFAULT_JOBS_DIR)
+    parser.add_argument('--last', type=int, default=0)
     parser.add_argument('-m', '--batch-size', type=int, default=256)
     parser.add_argument('-W', '--grid-width', type=int, default=0)
     parser.add_argument('--total-width', type=int, default=30)
@@ -275,7 +276,7 @@ if __name__ == '__main__':
 
     set_log(args.verbose, args.debug, os.path.join(DEFAULT_JOBS_DIR, 'log'), name='results')
 
-    models = fetch_models(args.job_dir, filter=filters)
+    models = fetch_models(args.job_dir, filter=filters)[-args.last:]
 
     L = args.grid_width
     N = args.grid_height
@@ -359,7 +360,7 @@ if __name__ == '__main__':
         oodsets = test_dataset.same_size
 
         for o in oodsets:
-            _, ood_dataset = tl.get_dataset(o, transformer=transformer)
+            _, ood_dataset = tl.get_dataset(o, transformer=transformer, splits=['test'])
             x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=max(z_sample, N))
 
         if not L:
@@ -396,4 +397,4 @@ if __name__ == '__main__':
                 list_of_images = sample(model, root=root,
                                         directory='generate', N=N, L=L)
 
-            loss_comparisons(model, root=root, plot=args.plot, bins=args.bins)
+            # loss_comparisons(model, root=root, plot=args.plot, bins=args.bins)

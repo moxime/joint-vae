@@ -65,3 +65,8 @@ rsync -a "${opt[@]}" --exclude "log/*" --exclude "out/*" $@ $from $to | tee /tmp
 grep architecture.json /tmp/downloaded-$remote
 duration=$SECONDS
 echo "Files retrieved in $(($duration / 60))m$(($duration % 60))s"
+
+if [ -z $push ]
+then
+    rm "$target"/models-*.json
+fi

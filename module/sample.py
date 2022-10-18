@@ -36,7 +36,8 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
 
         if any(~i_true):
             list_of_images += sample(net, x=x[~i_true], y=y[~i_true], root=root, N=N, L=L, directory='incorrect')
-    
+
+        return list_of_images
     if x is not None:
         N = min(N, len(x))
     elif net.is_cvae:

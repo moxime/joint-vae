@@ -891,7 +891,7 @@ class ClassificationVariationalNetwork(nn.Module):
             out += (mu, log_var, z)
         return out
 
-    def predict(self, x, method='mean', **kw):
+    def predict(self, x, method=None, **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
 
         creates a x of size C * N1, ..., D1, ...., Dt)
@@ -905,6 +905,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         _, logits, batch_losses, measures = self.evaluate(x)
 
+        if not method:
+            method = self.predict_methods[0]
         # print('cvae l. 192', x.device, batch_losses.device)
         return self.predict_after_evaluate(logits, batch_losses, method=method)
 

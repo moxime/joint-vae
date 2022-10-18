@@ -22,10 +22,21 @@ import sys
 
 
 def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), directory='test',
-           N=20, L=10, iteration=False):
+           N=20, L=10):
     r"""Creates a grid of output images. If x is None the output images
     are the ones created when the decoder is fed with prior z"""
 
+    print('***', directory)
+    if directory == '?correct':
+        with torch.no_grad():
+            y_ = net.predict(x)
+
+        i_true = y == y_
+        list_of_images =  sample(net, x=x[i_true], y=y[i_true], root=root, N=N, L=L, directory='correct')
+
+        if any(~i_true):
+            list_of_images += sample(net, x=x[~i_true], y=y[~i_true], root=root, N=N, L=L, directory='incorrect')
+    
     if x is not None:
         N = min(N, len(x))
     elif net.is_cvae:
@@ -56,40 +67,31 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
                   'tensor': torch.zeros((D, 0, L * W), device=x.device)}
 
         with torch.no_grad():
-            x_, y_, mu, log_var, z = net(x, y)
+            x_, y_, mu, log_var, z = net(x, None)
 
         list_of_images = [x_grid]
 
         for row in range(len(x)):
+            
             x_row = torch.zeros((D, H, 0), device=x.device)
-            list_of_images.append({'name': f'x{row:0{wN}}_in.png',
+            list_of_images.append({'name': f'x_{row:0{wN}}_in.png',
                                    'tensor': x[row]})
             x_row = torch.cat([x_row, x[row]], 2)
 
-            list_of_images.append({'name': f'x{row:0{wN}}_out_mean.png',
+            list_of_images.append({'name': f'x_{row:0{wN}}_out_mean.png',
                                    'tensor': x_[0][row]})
             x_row = torch.cat([x_row, x_[0][row]], 2)
 
-            if not iteration:
-                list_of_images.append({'name': f'x{row:0{wN}}_out_average.png',
-                                       'tensor': x_[1:].mean(0)[row]})
+            list_of_images.append({'name': f'x_{row:0{wN}}_out_average.png',
+                                   'tensor': x_[1:].mean(0)[row]})
 
-                x_row = torch.cat([x_row, x_[1:].mean(0)[row]], 2)
+            x_row = torch.cat([x_row, x_[1:].mean(0)[row]], 2)
 
-                for l_ in range(1, L-2):
-                    list_of_images.append({'name':
-                                           f'x{row:0{wN}}_out_{l_:0{wL}}.png',
-                                           'tensor': x_[l_, row]})
-                    x_row = torch.cat([x_row, x_[l_, row]], 2)
-
-            else:
-
-                for l_ in range(1, L-1):
-                    x_, y_, mu, log_var, z = net(x_, y)
-                    list_of_images.append({'name':
-                                           f'x{row:0{wN}}_out_{l_:0{wL}}.png',
-                                           'tensor': x_[0, row]})
-                    x_row = torch.cat([x_row, x_[0, row]], 2)
+            for l_ in range(1, L-2):
+                list_of_images.append({'name':
+                                       f'x_{row:0{wN}}_out_{l_:0{wL}}.png',
+                                       'tensor': x_[l_, row]})
+                x_row = torch.cat([x_row, x_[l_, row]], 2)
 
             if row < N:
                 x_grid['tensor'] = torch.cat([x_grid['tensor'], x_row], 1)
@@ -357,6 +359,8 @@ if __name__ == '__main__':
         x[testset], y[testset] = tl.get_batch(test_dataset, device=device,
                                               batch_size=max(z_sample, N))
 
+        x['?correct'], y['?correct'] = x[testset], y[testset]
+        
         oodsets = test_dataset.same_size
 
         for o in oodsets:
@@ -383,11 +387,12 @@ if __name__ == '__main__':
                 logging.info('sampling %s', s)
 
                 if N:
-                    list_of_images = sample(model, x[s][:N], root=root,
+                    N_ = batch_size if s == '?correct' else N
+                    list_of_images = sample(model, x[s][:N_], y[s][:N_], root=root,
                                             directory=s,
                                             N=N, L=L)
 
-                if z_sample:
+                if z_sample and s != '?correct':
 
                     zsample(x[s][:z_sample], model, y=y[s][:z_sample],
                             batch_size=m,

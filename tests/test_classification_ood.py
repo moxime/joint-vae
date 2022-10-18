@@ -3,7 +3,7 @@ import sys
 import argparse
 from utils.save_load import LossRecorder, load_json, needed_remote_files
 from utils.torch_load import get_same_size_by_name, get_classes_by_name
-from utils.parameters import parse_filters
+from utils.parameters import create_filter_parser
 import numpy as np
 from cvae import ClassificationVariationalNetwork as M
 from utils.filters import DictOfListsOfParamFilters
@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     args, ra = parser.parse_known_args(None if sys.argv[0] else args_from_file)
     
-    filter_parser = parse_filters()
+    filter_parser = create_filter_parser()
     filter_args = filter_parser.parse_args(ra)
     
     # sys.exit()

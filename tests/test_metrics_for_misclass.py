@@ -3,7 +3,7 @@ import sys
 import os
 import argparse
 import logging
-from utils.parameters import parse_filters
+from utils.parameters import create_filter_parser
 from utils.filters import DictOfListsOfParamFilters
 from utils.save_load import load_json, needed_remote_files, LossRecorder
 from utils.torch_load import get_classes_by_name
@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
     logging.getLogger().setLevel(40 - 10 * args.v)
     
-    filter_parser = parse_filters()
+    filter_parser = create_filter_parser()
     filter_args = filter_parser.parse_args(ra)
 
     filters = DictOfListsOfParamFilters()

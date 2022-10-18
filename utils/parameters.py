@@ -463,7 +463,7 @@ def get_args_for_test(argv=None):
 
     args.filters = DictOfListsOfParamFilters()
     
-    filter_parser = parse_filters(parents=[parser])
+    filter_parser = create_filter_parser(parents=[parser])
 
     filter_args = filter_parser.parse_args(ra)
 
@@ -475,7 +475,7 @@ def get_args_for_test(argv=None):
     return args
 
 
-def parse_filters(default_ini_file='utils/filters.ini', **kw):
+def create_filter_parser(default_ini_file='utils/filters.ini', **kw):
 
     parser = argparse.ArgumentParser(**kw)
     
@@ -523,6 +523,21 @@ def parse_filters(default_ini_file='utils/filters.ini', **kw):
     return parser
 
 
+def add_filters_to_parsed_args(parser, args, ra):
+
+    filter_parser_for_help = create_filter_parser(parents=[parser])
+    filter_parser = create_filter_parser(add_help=False)
+
+    filter_parser_for_help.parse_args()
+    filter_args = filter_parser.parse_args(ra)
+
+    args.filters = DictOfListsOfParamFilters()
+    for _ in filter_args.__dict__:
+        args.filters.add(_, filter_args.__dict__[_])
+
+    return args.filters
+
+        
 class NewEntryDictofLists(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):

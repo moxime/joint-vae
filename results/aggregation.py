@@ -4,7 +4,7 @@ import logging
 import argparse
 import numpy as np
 from utils.save_load import load_json, needed_remote_files, LossRecorder
-from utils.parameters import parse_filters
+from utils.parameters import create_filter_parser
 from cvae import ClassificationVariationalNetwork as M
 from utils.filters import DictOfListsOfParamFilters
 from utils.texify import tex_command, TexTab
@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
     logging.getLogger().setLevel(40 - 10 * args.v)
 
-    filter_parser = parse_filters()
+    filter_parser = create_filter_parser()
     filter_args = filter_parser.parse_args(ra)
 
     filters = DictOfListsOfParamFilters()

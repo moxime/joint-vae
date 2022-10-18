@@ -35,9 +35,9 @@ def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False, iter
                 directory = kw.get(arg)
             else:
                 directory = a[arg]
-            # print('***', directory[-10:], 'a:', *a, 'k:', *kw, '***')  
+            # print('***', directory[-10:], 'a:', *a, 'k:', *kw, '***')
             out = func(*a, **kw)
-        
+
             if out is not None or keep_none:
                 yield out
             try:
@@ -93,7 +93,7 @@ def create_file_for_job(number, directory, filename, mode='w'):
     if not os.path.exists(directory):
         os.makedirs(directory)
     filepath = os.path.join(directory, filename)
-    
+
     return open(filepath, mode)
 
 
@@ -196,7 +196,7 @@ def model_directory(model, *subdirs):
 
     return os.path.join(directory, *subdirs)
 
-        
+
 class ObjFromDict:
 
     def __init__(self, d, **defaults):
@@ -205,7 +205,7 @@ class ObjFromDict:
         for k, v in d.items():
             setattr(self, k, v)
 
-            
+
 def print_architecture(o, sigma=False, sampling=False,
                        excludes=[], short=False):
 
@@ -215,7 +215,7 @@ def print_architecture(o, sigma=False, sampling=False,
     # for d, _d in zip((o.architecture, o.training_parameters), ('ARCH', 'TRAIN')):
     #     print('\n\n***', _d, '***')
     #     print('\n'.join('*** {:18} : {}'.format(*_) for _ in d.items()))
-    
+
     def _l2s(l, c='-', empty='.'):
         if l:
             return c.join(str(_) for _ in l)
@@ -252,10 +252,10 @@ def print_architecture(o, sigma=False, sampling=False,
     s += s_('classifier') + f'={_l2s(arch.classifier)}--'
 
     # TK s += s_('variance') + f'={arch.latent_prior_variance:.1f}'
-    
+
     if sigma and 'sigma' not in excludes:
         s += '--' + s_('sigma') + f'={o.sigma}'
-    
+
     if sampling and 'sampling' not in excludes:
         s += '--'
         s += s_('sampling')
@@ -264,7 +264,7 @@ def print_architecture(o, sigma=False, sampling=False,
     return s
 
 
-def option_vector(o, empty=' ', space=' '): 
+def option_vector(o, empty=' ', space=' '):
 
     arch = ObjFromDict(o.architecture, features=None)
     training = ObjFromDict(o.training_parameters, transformer='default')
@@ -273,9 +273,9 @@ def option_vector(o, empty=' ', space=' '):
         w = ''
         w += 'p:'
         if training.pretrained_features:
-            w+= 'f'
+            w += 'f'
         else:
-            w+= empty
+            w += empty
 
         if arch.upsampler:
             if training.pretrained_upsampler:
@@ -300,7 +300,8 @@ def option_vector(o, empty=' ', space=' '):
     for m in ('flip', 'crop'):
         if m in training.data_augmentation:
             w += m[0]
-        else: w += empty
+        else:
+            w += empty
     v_.append(w)
 
     w = 'w:'
@@ -318,7 +319,7 @@ def option_vector(o, empty=' ', space=' '):
             w += '1'
         else:
             w += 'r'
-        
+
         v_.append(w)
 
     return space.join(v_)
@@ -329,7 +330,7 @@ class Shell:
     print_architecture = print_architecture
     option_vector = option_vector
 
-    
+
 class LossRecorder:
 
     def __init__(self,
@@ -344,23 +345,22 @@ class LossRecorder:
 
         self._num_batch = 0
         self._samples = 0
-        
+
         self.batch_size = batch_size
 
         self._tensors = {}
 
         self.device = device
 
-
         if tensors:
             self._create_tensors(num_batch, device=device, **tensors)
-            
+
     def _create_tensors(self, num_batch, device=None, **tensors):
 
         assert not self._tensors
         self._num_batch = num_batch
         self._samples = num_batch * self.batch_size
-        
+
         if not device and not self.device:
             device = next(iter(tensors.values())).device
 
@@ -388,16 +388,16 @@ class LossRecorder:
 
     def init_seed_for_dataloader(self):
 
-        self._initial_seed = torch.seed() 
+        self._initial_seed = torch.seed()
         seed = self._seed
         torch.manual_seed(seed)
-        
+
     def restore_seed(self):
         torch.manual_seed(self._initial_seed)
-            
+
     def keys(self):
         return self._tensors.keys()
-    
+
     def __len__(self):
         return self._recorded_batches
 
@@ -406,7 +406,6 @@ class LossRecorder:
                 + ' '.join([str(k) for k in self.keys()]))
 
     def save(self, file_path, cut=True):
-
         """dict_ = self.__dict__.copy()
         tensors = dict.pop('_tensors')
         """
@@ -429,7 +428,7 @@ class LossRecorder:
         num_batch = dict_of_params['_num_batch']
         batch_size = dict_of_params['batch_size']
         tensors = dict_of_params['_tensors']
-        
+
         r = LossRecorder(batch_size, num_batch, **tensors)
 
         for k in ('_seed', '_tensors', '_recorded_batches'):
@@ -442,7 +441,7 @@ class LossRecorder:
         if device:
             for k in r._tensors:
                 if r._tensors[k].device != device:
-                    r._tensors[k] =  r._tensors[k].to('cpu')
+                    r._tensors[k] = r._tensors[k].to('cpu')
         return r
 
     @classmethod
@@ -453,8 +452,8 @@ class LossRecorder:
 
         """
 
-        outputs = lambda p: LossRecorder.load(path, **kw) if output.startswith('record') else p
-        
+        def outputs(p): return LossRecorder.load(path, **kw) if output.startswith('record') else p
+
         r = {}
 
         if not w:
@@ -467,7 +466,7 @@ class LossRecorder:
                 if regexp_match:
                     path = os.path.join(dir_path, f)
                     r[regexp_match.group('name')] = outputs(path)
-                
+
         for word in w:
             f = file_name.format(w=word)
             path = os.path.join(dir_path, f)
@@ -475,23 +474,23 @@ class LossRecorder:
                 r[word] = outputs(path)
             else:
                 logging.warning(f'{f} not found')
-                
+
         return r
-    
+
     @property
     def num_batch(self):
         return self._num_batch
-    
+
     @num_batch.setter
     def num_batch(self, n):
 
         if not self._tensors:
             return
-        
+
         first_tensor = next(iter(self._tensors.values()))
         height = first_tensor.shape[-1]
         n_sample = n * self.batch_size
-        
+
         if n_sample > height:
             d_h = n_sample - height
             for k in self._tensors:
@@ -502,30 +501,30 @@ class LossRecorder:
                                 dtype=t.dtype,
                                 device=self.device)
                 self._tensors[k] = torch.cat([t, z], axis=-1)
-                    
+
         self._num_batch = n
         self._samples = n * self.batch_size
         self._recorded_batches = min(n, self._recorded_batches)
-                
+
     def has_batch(self, number):
         r""" number starts at 0
         """
 
         return number < self._recorded_batches
-    
+
     def get_batch(self, i, *which, device=None):
-        
+
         if not which:
             return self.get_batch(i, *self.keys())
-            
+
         if len(which) > 1:
             return {w: self.get_batch(i, w) for w in which}
 
         if not self.has_batch(i):
             raise IndexError(f'{i} >= {len(self)}')
-        
+
         start = i * self.batch_size
-        
+
         w = which[0]
         if i == len(self) - 1:
             end = start + self.last_batch_size[w]
@@ -535,14 +534,14 @@ class LossRecorder:
         t = self._tensors[w]
         if device:
             t = t.to(device)
-            
+
         return t[..., start:end]
-    
+
     def append_batch(self, extend=True, **tensors):
 
         if not self._tensors:
             self._create_tensors(1, **tensors)
-            
+
         start = self._recorded_batches * self.batch_size
         end = start + self.batch_size
 
@@ -551,7 +550,7 @@ class LossRecorder:
                 self.num_batch *= 2
             else:
                 raise IndexError
-        
+
         for k in tensors:
             if k not in self.keys():
                 raise KeyError(k)
@@ -563,14 +562,14 @@ class LossRecorder:
                 end = start + batch_size
             self.last_batch_size[k] = batch_size
             self._tensors[k][..., start:end] = tensors[k]
-                                                    
+
         self._recorded_batches += 1
 
 
 def last_samples(model):
 
     directory = model_directory(model, 'samples')
-    
+
     samples = [int(d) for d in os.listdir(directory) if d.isnumeric()]
 
     return max(samples)
@@ -579,7 +578,7 @@ def last_samples(model):
 def average_ood_results(ood_results):
 
     ood = [s for s in ood_results if not s.endswith('90')]
-    
+
     mean_keys = {'auc': 'val', 'fpr': 'list'}
     min_keys = {'epochs': 'val', 'n': 'val'}
     same_keys = {'tpr', 'thresholds'}
@@ -590,7 +589,7 @@ def average_ood_results(ood_results):
 
     else:
         return None
-        
+
     avge_res = {m: {} for m in methods}
 
     for m in methods:
@@ -608,7 +607,7 @@ def average_ood_results(ood_results):
 
         for k in same_keys:
             avge_res[m][k] = ood_results[ood[0]][m][k]
-            
+
     return avge_res
 
 
@@ -621,7 +620,7 @@ def clean_results(results, methods, **zeros):
 
 
 def develop_starred_methods(methods, methods_params, inplace=True):
-    
+
     if not inplace:
         methods = methods.copy()
     starred_methods = []
@@ -633,7 +632,7 @@ def develop_starred_methods(methods, methods_params, inplace=True):
     for m in starred_methods:
         methods.remove(m)
         pass
-        
+
     return methods
 
 
@@ -649,7 +648,7 @@ def needed_components(*methods):
 
     ncd.update({_: (_,) for _ in ('kl', 'fisher_rao', 'mahala', 'kl_rec')})
     ncd.update({'soft' + _: (_,) for _ in ('kl', 'mahala', 'zdist')})
-    
+
     for k in total:
         ncd[k] = ('total',)
 
@@ -695,7 +694,7 @@ def available_results(model,
     for _l in (predict_methods, ood_methods, misclass_methods):
         develop_starred_methods(_l, model.methods_params)
 
-    if testset == 'trained':    
+    if testset == 'trained':
         testset = model.training_parameters['set']
     # print('***', testset)
     # print('*** testset', testset)
@@ -710,7 +709,7 @@ def available_results(model,
 
     min_samples = {}
     samples_available_by_compute = {}
-    
+
     for s in sets:
         C = get_shape_by_name(s)[-1]
         if not C:
@@ -720,7 +719,7 @@ def available_results(model,
 
     # print(*min_samples.values())
     # print(*samples_available_by_compute.values())
-        
+
     methods = {testset: [(m,) for m in predict_methods]}
     methods[testset] += [(pm, mm) for mm in misclass_methods for pm in predict_methods]
     methods[testset] += [(m, ) for m in ood_methods]
@@ -732,17 +731,17 @@ def available_results(model,
         sample_sub_dirs = {int(_): _ for _ in os.listdir(sample_dir) if _.isnumeric()}
     else:
         sample_sub_dirs = {}
-        
+
     epochs = set(sample_sub_dirs)
-    
+
     epochs.add(model.trained)
     # print('****', *epochs, '/', *test_results, '/', *ood_results)
     epochs = sorted(set.union(epochs, set(test_results), set(ood_results)))
 
     if wanted_epoch:
         epochs = [_ for _ in epochs if abs(_ - wanted_epoch) <= epoch_tolerance]
-    
-    test_results = {_: clean_results(test_results.get(_, {}), predict_methods) for _ in epochs} 
+
+    test_results = {_: clean_results(test_results.get(_, {}), predict_methods) for _ in epochs}
 
     results = {}
 
@@ -753,18 +752,18 @@ def available_results(model,
             misclass_results = clean_results(test_results[e][pm], misclass_methods)
             test_results[e].update({pm + '-' + m: misclass_results[m] for m in misclass_results})
         results[e][testset].update({m: test_results[e][m] for m in test_results[e]})
-    
+
     available = {e: {s: {'json': {m: results[e][s][m]['n']
                                   for m in results[e][s]}}
                      for s in results[e]}
                  for e in results}
-                 
+
     # print(available['json'])
 
     for e in available:
         for s in available[e]:
             for w in ('recorders', 'compute'):
-                available[e][s][w] = {'-'.join(m): 0 for m in methods[s]} 
+                available[e][s][w] = {'-'.join(m): 0 for m in methods[s]}
 
     for epoch in results:
         rec_dir = os.path.join(sample_dir, sample_sub_dirs.get(epoch, 'false_dir'))
@@ -822,11 +821,11 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
                            pretrained_upsampler=None)
 
     logging.debug(f'net found in {shorten_path(directory)}')
-    arch =  model.print_architecture(excludes=('latent_dim', 'batch_norm'))
+    arch = model.print_architecture(excludes=('latent_dim', 'batch_norm'))
     arch_code = hashlib.sha1(bytes(arch, 'utf-8')).hexdigest()[:6]
     # arch_code = hex(hash(arch))[2:10]
-    pretrained_features =  (None if not architecture.features
-                            else training.pretrained_features)
+    pretrained_features = (None if not architecture.features
+                           else training.pretrained_features)
     pretrained_upsampler = training.pretrained_upsampler
     batch_size = training.batch_size
     if not batch_size:
@@ -844,7 +843,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
 
     if wanted_epoch == 'last':
         wanted_epoch = max(model.testing)
-            
+
     testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
     ood_results = model.ood_results.get(wanted_epoch, {}).copy()
@@ -853,14 +852,14 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     forced_var = architecture.encoder_forced_variance
     if not forced_var:
         forced_var = None
-    
+
     if training_set in ood_results:
         ood_results.pop(training_set)
-    
+
     if model.testing.get(wanted_epoch) and model.predict_methods:
         # print('*** model.testing', *model.testing.keys())
         # print('*** model.predict_methods', model.architecture['type'], *model.predict_methods)
-        accuracies['first'] = accuracies[model.predict_methods[0]] 
+        accuracies['first'] = accuracies[model.predict_methods[0]]
         best_accuracy = max(testing_results[m]['accuracy'] for m in testing_results)
         tested_epoch = min(testing_results[m]['epochs'] for m in testing_results)
         n_tested = min(testing_results[m]['n'] for m in testing_results)
@@ -881,7 +880,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         all_ood_sets = torchdl.get_same_size_by_name(training_set)
 
     heldout = tuple(sorted(heldout))
-    
+
     average_ood = average_ood_results(ood_results)
     if average_ood:
         ood_results['average'] = average_ood
@@ -909,7 +908,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             if params_max_auc:
                 ood_results_s[m] = _r[params_max_auc]
             ood_results_s[m]['params'] = params_max_auc
-            
+
         for m in ood_results_s:
             fpr_ = ood_results_s[m]['fpr']
             tpr_ = ood_results_s[m]['tpr']
@@ -951,7 +950,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         beta_sigma = sigma.value * np.sqrt(beta)
     elif sigma.coded:
         sigma_train = 'coded'
-        beta_sigma = sigma.value * np.sqrt(beta)        
+        beta_sigma = sigma.value * np.sqrt(beta)
     elif sigma.is_rmse:
         sigma_train = 'rmse'
         beta_sigma = rmse * np.sqrt(beta)
@@ -962,8 +961,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
         sigma_train = 'constant'
         beta_sigma = sigma.value
 
-    sigma_size = 'S' if sigma.sdim == 1 else 'M' 
-        
+    sigma_size = 'S' if sigma.sdim == 1 else 'M'
+
     if architecture.type == 'cvae':
         learned_prior_means = model.training_parameters['learned_latent_prior_means']
         # done =  model.train_history['epochs']
@@ -1006,7 +1005,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
     width = (architecture.latent_dim +
              sum(architecture.encoder) +
              sum(architecture.decoder) +
-             sum(architecture.classifier)) 
+             sum(architecture.classifier))
 
     # print('TBR', architecture.type, model.job_number, *loss_['test'].keys())
 
@@ -1045,7 +1044,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             'train_batch_size': train_batch_size,
             'sigma': sigma.value if sigma_train == 'constant' else np.nan,
             'beta_sigma': beta_sigma,
-            'sigma_train': sigma_train,  #[:5],
+            'sigma_train': sigma_train,  # [:5],
             'beta': beta,
             'done': model.train_history['epochs'],
             'epochs': model.training_parameters['epochs'],
@@ -1082,7 +1081,11 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', **kw):
             }
 
 
-def register_models(models, *keys):
+def _register_models(models, *keys):
+    """
+    Register the models in a dictionary that will be later recorded in a json file
+
+    """
     d = {}
     for m in models:
         d[m['dir']] = {_: m[_] for _ in keys}
@@ -1094,7 +1097,14 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
                  load_net=False,
                  show_debug=False,
                  **kw):
+    """Fetches models matching filter.
 
+    Params:
+
+    -- flash: if True, takes the models from registered_models_file.
+    -- kw: args pushed to load function (eg. load_state)
+
+    """
     if not registered_models_file:
         registered_models_file = 'models-{}.json'.format(gethostname())
     if flash:
@@ -1102,26 +1112,26 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
         try:
             rmodels = load_json(search_dir, registered_models_file)
             with turnoff_debug(turnoff=not show_debug):
-                return gather_registered_models(rmodels, filter, load_net=load_net, **kw)
-                
+                return _gather_registered_models(rmodels, filter, load_net=load_net, **kw)
+
         except (FileNotFoundError, NoModelError) as e:
             logging.warning('%s not found, will recollect networks', e)
             flash = False
-            
-    if not flash:    
+
+    if not flash:
         logging.debug('Collecting networks')
         with turnoff_debug(turnoff=not show_debug):
             list_of_networks = collect_models(search_dir,
                                               load_net=False,
                                               **kw)
         filter_keys = get_filter_keys()
-        rmodels = register_models(list_of_networks, *filter_keys)
+        rmodels = _register_models(list_of_networks, *filter_keys)
         save_json(rmodels, search_dir, registered_models_file)
         return fetch_models(search_dir, registered_models_file, filter=filter, flash=True,
                             load_net=load_net, **kw)
 
 
-def gather_registered_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='last', **kw):
+def _gather_registered_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='last', **kw):
 
     from cvae import ClassificationVariationalNetwork
 
@@ -1133,11 +1143,11 @@ def gather_registered_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='last
 
     return mlist
 
-                         
+
 @iterable_over_subdirs(0, iterate_over_subdirs=list)
 def collect_models(directory,
-                     wanted_epoch='last',
-                     load_state=True, tpr_for_max=0.95, **default_load_paramaters):
+                   wanted_epoch='last',
+                   load_state=True, tpr_for_max=0.95, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
 
@@ -1145,22 +1155,22 @@ def collect_models(directory,
         return
 
     assert wanted_epoch == 'last' or not load_state
-    
+
     try:
         logging.debug(f'Loading net in: {directory}')
         model = ClassificationVariationalNetwork.load(directory,
                                                       load_state=load_state,
                                                       **default_load_paramaters)
 
-        return make_dict_from_model(model, directory, tpr=tpr_for_max, wanted_epoch=wanted_epoch) 
+        return make_dict_from_model(model, directory, tpr=tpr_for_max, wanted_epoch=wanted_epoch)
 
-    except (FileNotFoundError, PermissionError, NoModelError) as e:    
+    except (FileNotFoundError, PermissionError, NoModelError) as e:
         pass
 
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
         logging.debug(f'Load error: {e}')
-    
+
 
 def is_derailed(model, load_model_for_check=False):
     from cvae import ClassificationVariationalNetwork
@@ -1176,7 +1186,7 @@ def is_derailed(model, load_model_for_check=False):
 
     if os.path.exists(os.path.join(directory, 'derailed')):
         return True
-    
+
     elif load_model_for_check:
         try:
             model = ClassificationVariationalNetwork.load(directory)
@@ -1187,7 +1197,7 @@ def is_derailed(model, load_model_for_check=False):
         except ValueError:
             return True
 
-    return False            
+    return False
 
 
 def find_by_job_number(*job_numbers, job_dir='jobs',
@@ -1201,11 +1211,11 @@ def find_by_job_number(*job_numbers, job_dir='jobs',
     models = fetch_models(job_dir, filter=filter, **kw)
     for m in models:
         d[m['job']] = m
-        
+
     return d if len(job_numbers) > 1 or force_dict else d.get(job_numbers[0])
 
 
-def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
+def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, missing_file_stream=None):
     r""" list missing recorders to be fetched on a remote
 
     -- mdirs: list of directories
@@ -1221,7 +1231,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
     """
 
     assert not state or epoch == 'last'
-    
+
     from cvae import ClassificationVariationalNetwork as M
 
     for d in mdirs:
@@ -1232,7 +1242,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
             epoch_ = m.training_parameters.get('early-min-loss', 'last')
         if epoch_ == 'last':
             epoch_ = max(m.testing)
-            
+
         if isinstance(epoch_, int):
             epoch_ = '{:04d}'.format(epoch_)
 
@@ -1247,9 +1257,9 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
             sets.append(testset)
             if which_rec_ == 'all':
                 sets += get_same_size_by_name(testset)
-                for _ in [_ for _ in recs_to_exclude if _ in  sets]:
+                for _ in [_ for _ in recs_to_exclude if _ in sets]:
                     sets.remove(_)
-                    
+
         for s in sets:
             sdir = os.path.join(d, 'samples', epoch_, 'record-{}.pth'.format(s))
             if not os.path.exists(sdir):
@@ -1258,22 +1268,23 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False):
         if state:
             sdir = os.path.join(d, 'state.pth')
             if not os.path.exists(sdir):
+                if missing_file_stream:
+                    missing_file_stream.write(sdir + '\n')
                 yield d, sdir
 
-        
-    
+
 if __name__ == '__main__':
 
     dim = {'A': (10,), 'B': (1,), 'I': (3, 32, 32)}
     batch_size = 512
     device = 'cuda'
-    
+
     tensors = {k: torch.randn(*dim[k], 7, device=device) for k in dim}
-    
-    r = LossRecorder(batch_size)  # , **tensors)    
+
+    r = LossRecorder(batch_size)  # , **tensors)
     r.num_batch = 4
     r.epochs = 10
-    
+
     for _ in range(3):
         r.append_batch(**{k: torch.randn(*dim[k], batch_size) for k in dim})
 

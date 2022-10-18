@@ -1,15 +1,11 @@
 from functools import partial
-from cvae import ClassificationVariationalNetwork as Net
-from utils.parameters import set_log
-import argparse, configparser
-import sys, os
+import argparse
+import configparser
+import sys
+import os
 import logging
 import pandas as pd
-from utils.save_load import LossRecorder, fetch_models, make_dict_from_model
-from utils import torch_load as tl
-from utils.sample import zsample, sample
-from utils.inspection import loss_comparisons
-import matplotlib.pyplot as plt
+from utils.save_load import fetch_models, make_dict_from_model
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
 from utils.tables import agg_results, test_results_df
 from pydoc import locate
@@ -26,7 +22,7 @@ def expand_row(row_format, *a, col_sep=' & '):
     return col_sep.join([col_sep.join([k + '_' + _ for _ in a]) for k in ks])
 
 
-def bold_best_values(data, value, format_string='{:.1f}', prec=1, highlight = '\\bfseries ', max_value=99.9):
+def bold_best_values(data, value, format_string='{:.1f}', prec=1, highlight='\\bfseries ', max_value=99.9):
 
     if round(data, prec) == round(value, prec):
         return highlight + format_string.format(min(data, max_value))
@@ -55,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--filters', default='utils/filters.ini')
     parser.add_argument('--tpr', default=95, type=int)
     parser.add_argument('--register', dest='flash', action='store_false')
-    
+
     args = parser.parse_args(None if sys.argv[0] else args_from_file)
 
     root = args.results_dir
@@ -70,7 +66,7 @@ if __name__ == '__main__':
     if args.texify:
         texify = configparser.ConfigParser()
         texify.read(args.texify)
-            
+
     else:
         texify = {}
 
@@ -81,7 +77,7 @@ if __name__ == '__main__':
     all_models = fetch_models(args.job_dir, registered_models_file, load_net=False, flash=flash)
 
     filter_keys = get_filter_keys(args.filters, by='key')
-    
+
     for config_file in args.config_files:
         config = configparser.ConfigParser()
         config.read(config_file)
@@ -98,9 +94,9 @@ if __name__ == '__main__':
         ini_file_name = os.path.splitext(os.path.split(config_file)[-1])[0]
         tab_file = default_config.get('file', ini_file_name + '-ood-tab.tex')
         tab_file = os.path.join(root, tab_file)
-        
+
         logging.info('Tab for {} will be saved in file {}'.format(dataset, tab_file))
-        
+
         filters = {}
 
         logging.info('Keys in config file: %s', ' '.join(which))
@@ -119,7 +115,7 @@ if __name__ == '__main__':
                     dest = filter_keys[_]['dest']
                     ftype = filter_keys[_]['type']
                     filters[k].add(dest, ParamFilter.from_string(arg_str=config[k][_],
-                                                              type=locate(ftype or 'str')))
+                                                                 type=locate(ftype or 'str')))
 
         for k in filters:
             logging.debug('| filters for %s', k)
@@ -161,7 +157,7 @@ if __name__ == '__main__':
             # print("***", k, '\n', df[df.columns[:3]].to_string())
             agg_df[k] = df.groupby(level=idx).agg('mean')
             agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
-            
+
         for k in which_from_csv:
             csv_file = config[k]['from_csv']
             logging.info('results for {} from csv file {}'.format(k, csv_file))
@@ -176,7 +172,7 @@ if __name__ == '__main__':
             agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
 
         average = default_config.get('average')
-                    
+
         kept_cols = {}
         kept_oods = []
 
@@ -191,7 +187,7 @@ if __name__ == '__main__':
                             for _ in kept_methods_to_be_splited}
 
             agg_df[k].rename(columns=kept_methods, level='method', inplace=True)
-            
+
             kept_index = config[k].get('kept_index', '').split()
 
             cols = agg_df[k].columns
@@ -213,7 +209,7 @@ if __name__ == '__main__':
             for k in which:
                 for m in config[k]['ood_methods'].split():
                     cols.append((w, k, m.split(':')[-1].strip()))
-        
+
         fpr_cols = [_ for _ in cols if 'fpr' in _]
         auc_cols = [_ for _ in cols if 'auc' in _]
 
@@ -224,18 +220,18 @@ if __name__ == '__main__':
         # print('*** new cols:', cols)
 
         # print(*cols)
-        # print('*** results_df cols', *results_df.columns)  # 
+        # print('*** results_df cols', *results_df.columns)  #
         results_df = results_df[cols]
 
         cols = results_df.columns
-        
+
         print(dataset)
         print(results_df.to_string())
         multi_index = results_df.index.nlevels > 1
         # print('*** index:\n', results_df.index)
         # print('***', *kept_oods)
         if 'set' in results_df.index.names:
-            results_df = results_df.reindex(kept_oods, level='set' if multi_index else None) 
+            results_df = results_df.reindex(kept_oods, level='set' if multi_index else None)
         # print('*** index:\n', results_df.index)
         best_values['fpr'] = results_df[fpr_cols].min(axis=1)
         best_values['auc'] = results_df[auc_cols].max(axis=1)
@@ -257,14 +253,14 @@ if __name__ == '__main__':
         # cols = cols.set_levels([_f(_) for _ in cols.levels[-1]], level=-1)
 
         n_methods = len(cols) // 2
-        methods = [c[-1] for c in results_df.columns] [:n_methods]
+        methods = [c[-1] for c in results_df.columns][:n_methods]
         _row = '&\\multicolumn{{{n}}}c{{{fpr}}} & \\multicolumn{{{n}}}c{{{auc}}} \\\\\n'
         tex_header = _row.format(n=n_methods,
                                  fpr='\\text{\\acron{fpr}@' + default_config['tpr'] + '}',
                                  auc='\\text{\\acron{auroc}}')
         tex_header += '\\midrule'
         tex_header += '\gls{{ood}}&\\multicolumn{{{n}}}c{{{methods}}} \\\\'.format(n=n_methods*2,
-                                                                                   methods= '/'.join(methods))
+                                                                                   methods='/'.join(methods))
         header = True
 
         cols = results_df.columns
@@ -273,7 +269,7 @@ if __name__ == '__main__':
         for i, r in results_df.iterrows():
 
             f_.write('%%%%%%% {}\n'.format(i))
-            
+
             formatters = {c: partial(bold_best_values,
                                      value=best_values['fpr' if 'fpr' in c[0] else 'auc'][i]) for c in cols}
 
@@ -298,7 +294,7 @@ if __name__ == '__main__':
 
             if n_index == 1:
                 i = (i,)
-                
+
             tex_code = '\n'.join([('{} & ' * n_index).format(*i) + r for r in tex_code_[i0:i1]])
             f_.write(tex_code)
             last_lines = '\n'.join(tex_code_[i1:])
@@ -309,7 +305,3 @@ if __name__ == '__main__':
 
         f_.close()
         logging.info('{} done'.format(dataset))
-
-
-    
-

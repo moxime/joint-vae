@@ -66,12 +66,12 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
                   'tensor': torch.zeros((D, 0, L * W), device=x.device)}
 
         with torch.no_grad():
-            x_, logits, batch_losses, measures, mu, log_var, z = net.evaluate(x, None, z_output=True)
+            x_, logits, batch_losses, measures, mu, log_var, z = net.evaluate(x[:N], None, z_output=True)
             y_ = net.predict_after_evaluate(logits, batch_losses)
 
         list_of_images = [x_grid]
 
-        for row in range(len(x)):
+        for row in range(N):
             
             x_row = torch.zeros((D, H, 0), device=x.device)
             list_of_images.append({'name': f'x_{row:0{wN}}_in',

@@ -252,9 +252,11 @@ def comparison(x, *nets, batch_size=128, root=os.path.join(DEFAULT_RESULTS_DIR, 
 
 if __name__ == '__main__':
 
+    root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples')
+    
     parser = argparse.ArgumentParser(add_help=False)
 
-    parser.add_argument('--job-dir', default=DEFAULT_JOBS_DIR)
+    parser.add_argument('--job-dir', default=root)
     parser.add_argument('--last', type=int, default=0)
     parser.add_argument('-m', '--batch-size', type=int, default=256)
     parser.add_argument('--num-batch-for-test', type=int, default=1)

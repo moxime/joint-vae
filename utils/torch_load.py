@@ -61,6 +61,9 @@ def letters_getter(**kw):
     return datasets.EMNIST(split='letters',  **kw)
 
 
+target_transforms = {'y-1': lambda y: y-1}
+
+
 class ImageFolderWithClassesInFile(datasets.ImageFolder):
 
     def __init__(self, root, classes_file, *a, **kw):
@@ -159,7 +162,7 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
         p['labels'] = 0 if not p['classes'] else len(p['classes'])
 
         if all_keys:
-            keys = ('default_transform', 'pre_transform', 'folder', 'kw_for_split',
+            keys = ('default_transform', 'pre_transform', 'target_transform', 'folder', 'kw_for_split',
                     'root', 'classes_from_file', 'downloadable')
         else:
             keys = ()
@@ -187,10 +190,11 @@ def get_dataset(dataset='mnist',
     if rotated:
         dataset = dataset[:-2]
 
-    target_transform = None
     parent_set, heldout_classes = get_heldout_classes_by_name(dataset)
 
     set_props = dataset_properties(conf_file=conf_file, all_keys=True)[parent_set]
+
+    first_target_transform = target_transforms.get(set_props.get('target_transform'), lambda y: y)
     
     if heldout_classes:
         dataset = parent_set
@@ -198,7 +202,10 @@ def get_dataset(dataset='mnist',
         heldin = [_ for _ in range(C) if _ not in heldout_classes]
         d = {c: i for (i, c) in enumerate(heldin)}
         d.update({_: -1 for _ in heldout_classes})
-        target_transform = d.get
+        target_transform = lambda y: d.get(first_target_transform(y))
+
+    else:
+        target_transform = first_target_transform
         
     same_size = get_same_size_by_name(get_name_by_heldout_classes(dataset, *heldout_classes))
 
@@ -513,6 +520,9 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
 
 def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
 
+    if isinstance(imageset, str):
+        imageset = get_dataset(imageset)[1]
+    
     batch_size = num
     loader = torch.utils.data.DataLoader(imageset,
                                          shuffle=shuffle,

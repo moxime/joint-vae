@@ -21,23 +21,19 @@ import argparse
 import sys
 
 
+class DefaultClasses(object):
+
+    def __getitem__(self, k):
+        return k
+
+    
 def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), directory='test',
+           in_classes=DefaultClasses(), out_classes=DefaultClasses(),
            N=20, L=10):
+    
     r"""Creates a grid of output images. If x is None the output images
     are the ones created when the decoder is fed with prior z"""
 
-    print('***', directory)
-    if directory == '?correct':
-        with torch.no_grad():
-            y_ = net.predict(x)
-
-        i_true = y == y_
-        list_of_images =  sample(net, x=x[i_true], y=y[i_true], root=root, N=N, L=L, directory='correct')
-
-        if any(~i_true):
-            list_of_images += sample(net, x=x[~i_true], y=y[~i_true], root=root, N=N, L=L, directory='incorrect')
-
-        return list_of_images
     if x is not None:
         N = min(N, len(x))
     elif net.is_cvae:
@@ -60,38 +56,50 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
     ftable.write(' '.join(f'x_out_{l_:0{wL}} mse_out_{l_:0{wL}}' for l_ in range(l_, L)))
     """
 
+    defy = r'\def\y{{{}}}'
+    
     if x is not None:
 
         (D, H, W) = net.input_shape[-3:]
 
-        x_grid = {'name': f'grid-{N}x{L}.png',
+        x_grid = {'name': f'grid-{N}x{L}',
                   'tensor': torch.zeros((D, 0, L * W), device=x.device)}
 
         with torch.no_grad():
-            x_, y_, mu, log_var, z = net(x, None)
+            x_, logits, batch_losses, measures, mu, log_var, z = net.evaluate(x, None, z_output=True)
+            y_ = net.predict_after_evaluate(logits, batch_losses)
 
         list_of_images = [x_grid]
 
         for row in range(len(x)):
             
             x_row = torch.zeros((D, H, 0), device=x.device)
-            list_of_images.append({'name': f'x_{row:0{wN}}_in.png',
-                                   'tensor': x[row]})
+            list_of_images.append({'name': f'x_{row:0{wN}}_in',
+                                   'tensor': x[row],
+                                   'tex': defy.format(in_classes[y[row]])
+                                   })
+
             x_row = torch.cat([x_row, x[row]], 2)
 
-            list_of_images.append({'name': f'x_{row:0{wN}}_out_mean.png',
-                                   'tensor': x_[0][row]})
+            list_of_images.append({'name': f'x_{row:0{wN}}_out_mean',
+                                   'tensor': x_[0][row],
+                                   'tex': defy.format(out_classes[y_[row]])
+                                   })
             x_row = torch.cat([x_row, x_[0][row]], 2)
 
-            list_of_images.append({'name': f'x_{row:0{wN}}_out_average.png',
-                                   'tensor': x_[1:].mean(0)[row]})
+            list_of_images.append({'name': f'x_{row:0{wN}}_out_average',
+                                   'tensor': x_[1:].mean(0)[row],
+                                   'tex': defy.format(out_classes[y_[row]])
+                                   })
 
             x_row = torch.cat([x_row, x_[1:].mean(0)[row]], 2)
 
             for l_ in range(1, L-2):
                 list_of_images.append({'name':
-                                       f'x_{row:0{wN}}_out_{l_:0{wL}}.png',
-                                       'tensor': x_[l_, row]})
+                                       f'x_{row:0{wN}}_out_{l_:0{wL}}',
+                                       'tensor': x_[l_, row],
+                                       'tex': defy.format(out_classes[y_[row]])
+                                       })
                 x_row = torch.cat([x_row, x_[l_, row]], 2)
 
             if row < N:
@@ -107,7 +115,7 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
         if net.is_cvae:
             z = z + net.encoder.prior.mean.unsqueeze(0)
 
-        x_grid = {'name': f'grid-{N}x{L}.png',
+        x_grid = {'name': f'grid-{N}x{L}',
                   'tensor': torch.zeros((D, 0, L * W), device=net.device)}
         list_of_images = [x_grid]
 
@@ -120,7 +128,7 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
 
             for l_ in range(L):
                 list_of_images.append(
-                    {'name': f'x{row:0{wN}}_out_{l_:0{wL}}.png',
+                    {'name': f'x{row:0{wN}}_out_{l_:0{wL}}',
                      'tensor': x_[l_, row]})
 
                 x_row = torch.cat([x_row, x_[l_, row]], 2)
@@ -137,9 +145,14 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
 
     for image in list_of_images:
 
-        path = os.path.join(dir_path, image['name'])
+        path = os.path.join(dir_path, image['name'] + '.png')
         logging.debug('Saving image in %s', path)
         save_image(image['tensor'], path)
+        if 'tex' in image:
+            path = os.path.join(dir_path, image['name'] + '.tex')
+            with open(path, 'w') as f:
+                f.write(image['tex'])
+                # f.write('\n')
 
     return list_of_images
 
@@ -170,7 +183,6 @@ def zsample(x, net, y=None, batch_size=128, root=os.path.join(DEFAULT_RESULTS_DI
 
     var_z = log_var_z.exp()
 
-    print('*** net.type', net.type)
     if net.is_cvae:
 
         encoder_dictionary = net.encoder.latent_dictionary
@@ -246,11 +258,12 @@ if __name__ == '__main__':
     parser.add_argument('--job-dir', default=DEFAULT_JOBS_DIR)
     parser.add_argument('--last', type=int, default=0)
     parser.add_argument('-m', '--batch-size', type=int, default=256)
+    parser.add_argument('--num-batch-for-test', type=int, default=1)
     parser.add_argument('-W', '--grid-width', type=int, default=0)
     parser.add_argument('--total-width', type=int, default=30)
     parser.add_argument('-N', '--grid-height', type=int, default=0)
     parser.add_argument('-D', '--directory', default=DEFAULT_RESULTS_DIR)
-    parser.add_argument('--seed', type=int, const=1, nargs='?')
+    parser.add_argument('--seed', type=int, const=1, nargs='?', default=False)
     parser.add_argument('--z-sample', type=int, default=0)
     parser.add_argument('--bins', type=int, default=20)
     parser.add_argument('--look-for-missed', type=int, default=0)
@@ -261,8 +274,8 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--plot', nargs='?', const='all')
 
     jobs = [
-        224389,
-        224384,
+        224383,
+        224385,
     ]
 
     args_from_file = ['-D', '/tmp/%j/samples',
@@ -270,7 +283,9 @@ if __name__ == '__main__':
                       # '--list',
                       # '--debug',
                       '-vv',
-                      '-m', '64',
+                      '--seed',
+                      '-m', '32',
+                      '--num-batch', '100',
                       '--job-num'] + [str(j) for j in jobs]
 
     args, ra = parser.parse_known_args(None if sys.argv[0] else args_from_file)
@@ -289,6 +304,8 @@ if __name__ == '__main__':
     bins = args.bins
     # cross_sample = args.compare
 
+    m = max(m, N, z_sample)
+    
     device = tl.choose_device()
     logging.debug(device)
 
@@ -356,18 +373,21 @@ if __name__ == '__main__':
                      testset, transformer, len(list_of_nets))
         x, y = dict(), dict()
 
+        out_classes = tl.get_classes_by_name(testset)
         _, test_dataset = tl.get_dataset(testset, transformer=transformer)
-        x[testset], y[testset] = tl.get_batch(test_dataset, device=device,
-                                              batch_size=max(z_sample, N))
 
-        x['?correct'], y['?correct'] = x[testset], y[testset]
-        
+        num_batch = args.num_batch_for_test
+        x[testset], y[testset] = tl.get_batch(test_dataset, device=device, shuffle=args.seed,
+                                              batch_size=m * num_batch)
+
         oodsets = test_dataset.same_size
 
+        in_classes = {}
         for o in oodsets:
             _, ood_dataset = tl.get_dataset(o, transformer=transformer, splits=['test'])
-            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=max(z_sample, N))
-
+            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=m)
+            in_classes[o] = tl.get_classes_by_name(o)
+            
         if not L:
             L = args.total_width // (1 + len(x))
 
@@ -380,24 +400,53 @@ if __name__ == '__main__':
             logging.info('done')
             logging.info('Compute max batch size')
 
-            batch_size = min(m, model.compute_max_batch_size(batch_size=m, which='test'))
+            batch_size = min(m, model.compute_max_batch_size(batch_size=2*m, which='test'))
             logging.info(f'done ({batch_size})')
 
-            for s in x:
+            completed = {_: 0 for _ in ('correct', 'incorrect')}
 
+            for _ in completed:
+
+                x_correct_or_not = []
+                y_correct_or_not = []
+
+                for b in range(num_batch):
+                    if completed[_] >= N:
+                        break
+                    i0 = b * batch_size
+                    with torch.no_grad():
+                        x_batch = x[testset][i0: i0 + batch_size]
+                        y_batch = y[testset][i0: i0 + batch_size]
+                        y_ = model.predict(x_batch)
+                        i_ = (y_ == y_batch) ^ (_ == 'incorrect')
+                        completed[_] += i_.sum().item()
+                        x_correct_or_not.append(x_batch[i_])
+                        y_correct_or_not.append(y_batch[i_])
+                _s = 'Collected {n} images for {w} amongst {b} images'
+                logging.info(_s.format(n=completed[_], w=_, b=b*batch_size))
+
+                x[_] = torch.cat(x_correct_or_not)
+                y[_] = torch.cat(y_correct_or_not)
+
+            for s in x:
                 logging.info('sampling %s', s)
 
                 if N:
-                    N_ = batch_size if s == '?correct' else N
-                    list_of_images = sample(model, x[s][:N_], y[s][:N_], root=root,
+                    # N_ = batch_size if s == '?correct' else N
+                    list_of_images = sample(model,
+                                            x[s][:N],
+                                            y[s][:N],
+                                            root=root,
                                             directory=s,
+                                            in_classes=in_classes.get(s, out_classes),
+                                            out_classes=out_classes,
                                             N=N, L=L)
 
-                if z_sample and s != '?correct':
+                    if z_sample and not s.endswith('correct'):
 
-                    zsample(x[s][:z_sample], model, y=y[s][:z_sample],
-                            batch_size=m,
-                            root=root, bins=args.bins, directory=s)
+                        zsample(x[s][:z_sample], model, y=y[s][:z_sample],
+                                batch_size=m,
+                                root=root, bins=args.bins, directory=s)
 
             if N:
                 list_of_images = sample(model, root=root,

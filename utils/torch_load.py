@@ -367,6 +367,12 @@ def get_cifar10(**kw):
 
 def get_batch(dataset, shuffle=True, batch_size=100, device=None):
 
+    manual_seed = False
+    if not isinstance(shuffle, bool):
+        initial_seed = torch.seed()
+        torch.manual_seed(shuffle) 
+        manual_seed = True
+        shuffle = True
     loader = torch.utils.data.DataLoader(dataset,
                                          shuffle=shuffle,
                                          batch_size=batch_size)
@@ -374,6 +380,9 @@ def get_batch(dataset, shuffle=True, batch_size=100, device=None):
     data = next(iter(loader))
 
     device = choose_device(device)
+
+    if manual_seed:
+        torch.manual_seed(initial_seed)
     
     return data[0].to(device), data[1].to(device)
 

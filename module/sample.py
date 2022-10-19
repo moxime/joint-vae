@@ -256,14 +256,14 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(add_help=False)
 
-    parser.add_argument('--job-dir', default=root)
+    parser.add_argument('--job-dir', default=DEFAULT_JOBS_DIR)
     parser.add_argument('--last', type=int, default=0)
     parser.add_argument('-m', '--batch-size', type=int, default=256)
     parser.add_argument('--num-batch-for-test', type=int, default=1)
     parser.add_argument('-W', '--grid-width', type=int, default=0)
     parser.add_argument('--total-width', type=int, default=30)
     parser.add_argument('-N', '--grid-height', type=int, default=0)
-    parser.add_argument('-D', '--directory', default=DEFAULT_RESULTS_DIR)
+    parser.add_argument('-D', '--directory', default=root)
     parser.add_argument('--seed', type=int, const=1, nargs='?', default=False)
     parser.add_argument('--z-sample', type=int, default=0)
     parser.add_argument('--bins', type=int, default=20)

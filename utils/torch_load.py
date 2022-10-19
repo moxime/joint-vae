@@ -335,12 +335,13 @@ def get_dataset(dataset='mnist',
                     s.name = s.name + '+' + '+'.join(str(_) for _ in range(C) if _ not in heldout_classes)
 
             if s.target_transform:
-                y = torch.tensor([s.target_transform(int(_)) for _ in s.targets], dtype=int)
-                s.data = s.data[y >= 0]
                 for attr in ('targets', 'labels'):
                     if hasattr(s, attr):
                         labels = getattr(s, attr)
-                        if isinstance(labels, torch.Tensor):
+                        y = torch.tensor([s.target_transform(int(_)) for _ in labels], dtype=int)
+                        s.data = s.data[y >= 0]
+
+                        if isinstance(labels, (torch.Tensor, np.ndarray)):
                             setattr(s, attr, labels[y >= 0])
                         elif isinstance(labels, list):
                             setattr(s, attr, [_ for _ in labels if s.target_transform(_) >= 0])

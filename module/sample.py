@@ -375,7 +375,7 @@ if __name__ == '__main__':
                      testset, transformer, len(list_of_nets))
         x, y = dict(), dict()
 
-        out_classes = tl.get_classes_by_name(testset)
+        out_classes = tl.get_classes_by_name(testset, texify=True)
         _, test_dataset = tl.get_dataset(testset, transformer=transformer)
 
         num_batch = args.num_batch_for_test
@@ -388,7 +388,7 @@ if __name__ == '__main__':
         for o in oodsets:
             _, ood_dataset = tl.get_dataset(o, transformer=transformer, splits=['test'])
             x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=m)
-            in_classes[o] = tl.get_classes_by_name(o)
+            in_classes[o] = tl.get_classes_by_name(o, texify=True)
             
         if not L:
             L = args.total_width // (1 + len(x))

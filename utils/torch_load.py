@@ -458,8 +458,13 @@ def get_same_size_by_name(set_name, rotated=False, conf_file='data/sets.ini'):
     return same_size
 
 
-def get_classes_by_name(dataset):
+def get_classes_by_name(dataset, texify=False):
 
+    if texify:
+        t = lambda k: str(k).replace('_', '-')
+    else:
+        t = lambda k: k
+    
     if dataset.endswith('90'):
         return get_classes_by_name(dataset[:-2])
         # return [_ + '-90' for _ in get_classes_by_name(dataset[:-2])]
@@ -469,7 +474,7 @@ def get_classes_by_name(dataset):
     
     parent_classes = dp.get('classes') or [parent_set]
 
-    return [_ for i, _ in enumerate(parent_classes) if i not in ho]
+    return [t(_) for i, _ in enumerate(parent_classes) if i not in ho]
 
 
 def get_heldout_classes_by_name(dataset):

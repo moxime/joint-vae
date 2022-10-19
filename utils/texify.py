@@ -32,12 +32,16 @@ def tex_architecture(net_dict, filename='arch.tex', directory=os.path.join(DEFAU
     parent_classes = torchdl.dataset_properties()[parent_set]['classes']
     classes = [c for (i, c) in enumerate(parent_classes) if i not in heldout]
     ood_results = net.ood_results.get(epoch, {})
+    ood_sets = list(ood_results)
+    ood_sets.remove(trainset)
     exported_values = dict(
         oftype=oftype,
         dataset=trainset,
         numclasses=arch['labels'],
         classes=','.join(classes),
-        oodsets=','.join(ood_results.keys()),
+        oodsets=','.join(ood_sets),
+        allsets=','.join([trainset, *ood_sets]),
+        allsetssepcorrect=','.join(['correct', 'incorrect', *ood_sets]),        
         noodsets=len(ood_results),
         texoodsets=', '.join(['\\' + o.rstrip(string.digits) for o in ood_results.keys()]),
         epochs=net.train_history['epochs'],

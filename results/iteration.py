@@ -61,9 +61,11 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
     k_with_y = {_: _ for _ in ('kl', 'zdist', 'iws', 'loss')}
     k_with_y_moving = {_ + '_': _ for _ in k_with_y}
 
+    k_with_y_delta = {_ + '__': _ for _ in k_with_y}
+
     k_without_y = {'mse': 'mse'}
 
-    k_all = dict(**k_without_y, **k_with_y, **k_with_y_moving)
+    k_all = dict(**k_without_y, **k_with_y, **k_with_y_moving, **k_with_y_delta)
 
     signs = {_: 1 for _ in k_all}
     signs['iws'] = -1
@@ -92,7 +94,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
         beta = np.prod(get_shape_by_name(s)[0]) / 1e-3
         t['loss'] = t['kl'] + beta * t['mse'][i_mse].unsqueeze(-2)
-        
+
         y_pred = kl.argmin(1)
         y_pred_[s] = y_pred
 
@@ -120,6 +122,11 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                 if k in k_with_y:
                     index_y = torch.ones_like(t[k_all[k]], dtype=int) * y_pred[0]
                     t_y[k] = t[k_all[k]].gather(1, index_y)[:, 0]
+                    print('*** t_y', k, *t_y[k].shape)
+
+                elif k in k_with_y_delta:
+                    t_y[k] = t[k_all[k]].gather(1, index_y)[:, 0]
+                    t_y[k][1:] = t_y[k][1:] - t_y[k][0]
 
                 elif k in k_with_y_moving:
 
@@ -152,6 +159,10 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                     index_y = torch.ones_like(t[k_all[k]], dtype=int) * y_pred[0]
                     t_y[k] = t[k_all[k]].gather(1, index_y)[:, 0]
 
+                elif k in k_with_y_delta:
+                    t_y[k] = t[k_all[k]].gather(1, index_y)[:, 0]
+                    t_y[k][1:] = t_y[k][1:] - t_y[k][0]
+
                 elif k in k_with_y_moving:
                     t_y[k] = which_y(t[k_all[k]], k, dim=1)
 
@@ -161,6 +172,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                 t_y[k] *= signs[k]
 
                 pr[s][k] = torch.zeros(len(model))
+
                 for m in range(len(model)):
                     pr[s][k][m] = (t_y[k][m] <= thr[k][m]).sum() / len(y_pred[0])
 
@@ -190,8 +202,6 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         x = {_: samples[s]['x'][samples_i[s][_]][:n_images] for _ in (True, False)}
         x_ = {_: samples[s]['x_'][:, 1, samples_i[s][_]][:, :n_images] for _ in (True, False)}
 
-        print('**** x_', *x_[True].shape)
-        
         y_ = {_: y_pred[:, samples_idx[s]][:, samples_i[s][_]][:, :n_images] for _ in (True, False)}
 
         y = {_: samples[s]['y'][samples_i[s][_]][:n_images] for _ in (True, False)}
@@ -211,6 +221,11 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
         for k in k_with_y_moving:
             t[k] = which_y(t[k_all[k]], k, dim=1)
+
+        for k in k_with_y_delta:
+            index = torch.ones_like(t[k_all[k]], dtype=int) * y_pred[0]
+            t[k] = t[k_all[k]].gather(1, index)[:, 0, ]
+            t[k][1:] = t[k][1:] - t[k][0]
 
         for k in k_with_y:
             index = torch.ones_like(t[k_all[k]], dtype=int) * y_pred[0]
@@ -273,6 +288,12 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
                         f.write('\n')
 
     if tex:
+
+        tex_names = {_: r'\acron{{{}}}'.format(_.strip('_')) for _ in k_all}
+        tex_names['zdist'] = r'distance \(\|\mu-\my\|^2\)'
+        tex_names['zdist_'] = r'distance \(\|\mu-\my\|^2\)'
+        tex_names['zdist__'] = r'distance \(\|\mu-\my\|^2\)'
+
         """ MSE tex file """
         # tab_width = len(model) * 3
         first_row = True
@@ -325,15 +346,21 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
         with open(os.path.join(result_dir, 'mse.tex'), 'w') as f:
             tab.render(f)
-            f.write('\\def\\msefactor{{{}}}'.format('{:1.0f}'.format(-mse_factor)))
+            f.write('\\def\\metricsfactor{{{}}}'.format('{:1.0f}'.format(-mse_factor)))
+            f.write('\n')
+            f.write(r'\def\metricsname{{{}}}'.format(tex_names['mse']))
+            f.write('\n')
+            f.write(r'\metricswithyfalse')
 
         """ ZDisT / KL tex file """
-        for k in [*k_with_y, *k_with_y_moving]:
+        for k in [*k_with_y, *k_with_y_moving, *k_with_y_delta]:
+
+            cols = [*range(k in k_with_y_delta, len(model))]
 
             first_row = True
 
-            max_k = max([max(output[_][k].abs()) for _ in output])
-            min_k = min([min(output[_][k].abs()) for _ in output])
+            max_k = max([max(output[_][k][cols].abs()) for _ in output])
+            min_k = min([min(output[_][k][cols].abs()) for _ in output])
             min_k_exp = np.floor(np.log10(min_k))
 
             # print('*** MIN / MAX {} = {:.2e} ({}) / {:.2e}'.format(k, min_k, min_k_exp, max_k))
@@ -347,21 +374,24 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
             swidth = k_factor + max_k_exp + 1
 
-            col_format = ['l'] + ['s{}.3'.format(swidth), 's2.1'] * len(model)
+            col_format = ['l'] + ['s{}.3'.format(swidth), 's2.1'] * len(cols)
             tab = TexTab(*col_format)
-            for m in range(len(model)):
+            for m in range(len(cols)):
                 tab.add_col_sep(2 + 2 * m, ' (')
-                tab.add_col_sep(3 + 2 * m, '\\%)' + ' ' * (m < len(model) - 1))
+                tab.add_col_sep(3 + 2 * m, '\\%)' + ' ' * (m < len(cols) - 1))
 
             tab.append_cell('', row='header')
-            for j in range(len(model)):
-                tab.append_cell('M{}'.format(j + 1), width=2, multicol_format='c', row='header')
+            for j in cols:
+                if k in k_with_y_delta:
+                    tab.append_cell('M{} - M1'.format(j + 1), width=2, multicol_format='c', row='header')
+                else:
+                    tab.append_cell('M{}'.format(j + 1), width=2, multicol_format='c', row='header')
 
             for _ in output:
                 tab.append_cell(_.capitalize() if _.endswith('correct') else tex_command('makecommand', _),
                                 row=_)
 
-                for j in range(len(model)):
+                for j in cols:
 
                     tab.append_cell(output[_][k][j] * 10 ** k_factor, row=_, formatter='{:.3f}')
                     tab.append_cell(100 * pr[_][k][j], row=_, formatter='{:.1f}')
@@ -372,7 +402,11 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
             with open(os.path.join(result_dir, '{}.tex'.format(k)), 'w') as f:
                 tab.render(f)
-                f.write('\\def\\{}factor{{{}}}\n'.format(k, '{:1.0f}'.format(-k_factor)))
+                f.write(r'\def\metricsname{{{}}}'.format(tex_names[k]))
+                f.write('\\def\\metricsfactor{{{}}}\n'.format('{:1.0f}'.format(-k_factor)))
+                f.write(r'\metricswithytrue')
+                f.write(r'\metricsmovingwithy{}'.format(str(k in k_with_y_moving).lower()))
+                f.write(r'\metricsdelta{}'.format(str(k in k_with_y_delta).lower()))
 
         """ Agreement """
         col_format = ['l'] + ['s2.1'] * len(model)
@@ -400,8 +434,7 @@ if __name__ == '__main__':
                       '--png '
                       # '--plot '
                       '--tex '
-                      'iterated-jobs/svhn/199384-203528-203529 '
-                      # 'iterated-jobs/cifar10/173277-173278-173279 '
+                      'iterated-jobs/fashion/222484/222759/222760 '
                       ).split()
 
     args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)

@@ -765,7 +765,6 @@ class Encoder(nn.Module):
         self.sampling = Sampling(latent_dim, sampling_size, sampling)
 
         if latent_prior_means == 'onehot':
-            logging.error('K={} C={}'.format(latent_dim, num_labels))
             assert latent_dim >= num_labels, logging.error('K={} C={}'.format(latent_dim, num_labels))
             prior_means = torch.zeros(num_labels, latent_dim)
             for i in range(num_labels):

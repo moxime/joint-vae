@@ -159,6 +159,9 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
         else:
             p['classes'] = None
 
+        if p['classes']:
+            p['classes'] = [_.replace('_', ' ') for _ in p['classes']]
+            
         p['labels'] = 0 if not p['classes'] else len(p['classes'])
 
         if all_keys:

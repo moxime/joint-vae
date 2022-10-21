@@ -13,7 +13,7 @@ N = 50
 labels = 10
 
 var_per_dim = torch.stack([torch.ones(K) for i in range(labels)])
-mu_per_dim = torch.randn(labels, K) 
+mu_per_dim = torch.randn(labels, K)
 
 priors = {}
 
@@ -50,7 +50,7 @@ for var_type in var_types:
 
         if var_type == 'scalar':
             for p in params_to_be_modified:
-                pass # p.data = torch.tensor(0.5)
+                pass  # p.data = torch.tensor(0.5)
 
         z = torch.randn(N, K)
         z0 = z[0]
@@ -77,7 +77,7 @@ for var_type in var_types:
         print('||z|| of shape', *d.shape)
         d0 = (u0 - m0).pow(2).sum()
         print('||.|| err={:.2e}'.format(d[0] - d0))
-        
+
         print()
         tr = prior.trace_prod_by_var(v, y)
 

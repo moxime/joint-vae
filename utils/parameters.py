@@ -4,7 +4,8 @@ import logging
 from pydoc import locate
 from logging import FileHandler
 from logging.handlers import RotatingFileHandler
-import re, numpy as np
+import re
+import numpy as np
 from socket import gethostname as getrawhostname
 from utils.filters import ParamFilter, FilterAction, DictOfListsOfParamFilters, get_filter_keys
 import os
@@ -25,7 +26,7 @@ def gethostname():
         return 'home'
 
     return raw_host.split('.')[0]
-    
+
 
 def in_list_with_starred(k, list_with_starred):
 
@@ -38,7 +39,7 @@ def in_list_with_starred(k, list_with_starred):
 
 
 def set_log(verbose, debug, log_dir, name='train', job_number=0, tmp_dir='/tmp'):
-    
+
     log = logging.getLogger('')
     log.setLevel(0)
     if (log.hasHandlers()):
@@ -49,24 +50,24 @@ def set_log(verbose, debug, log_dir, name='train', job_number=0, tmp_dir='/tmp')
 
     if not os.path.isdir(log_dir):
         log_dir = '/tmp'
-        
+
     h_formatter = logging.Formatter('%(asctime)s [%(levelname).1s] %(message)s')
     formatter = logging.Formatter('[%(levelname).1s] %(message)s')
     stream_handler = logging.StreamHandler()
 
     if job_number:
-        fn = os.path.join(log_dir, f'{name}.log.{job_number}') 
+        fn = os.path.join(log_dir, f'{name}.log.{job_number}')
         file_handler = FileHandler(fn)
-                                           
+
     else:
-        fn = os.path.join(log_dir, f'{name}.log') 
+        fn = os.path.join(log_dir, f'{name}.log')
         file_handler = RotatingFileHandler(fn,
                                            maxBytes=5000000,
                                            backupCount=10)
         file_handler.doRollover()
 
     fn = os.path.join(log_dir, 'dump.log')
-    dump_file_handler = RotatingFileHandler(fn, 
+    dump_file_handler = RotatingFileHandler(fn,
                                             maxBytes=1, backupCount=20)
     log_level = logging.ERROR
     if verbose == 1:
@@ -95,7 +96,7 @@ def set_log(verbose, debug, log_dir, name='train', job_number=0, tmp_dir='/tmp')
         r = record.getMessage().startswith('DUMPED')
         # print('dump filter', r)
         # if r:
-        #    logging.error('An error has been dumped somewhere')  
+        #    logging.error('An error has been dumped somewhere')
         return r
 
     def no_dump_filter(record):
@@ -105,15 +106,14 @@ def set_log(verbose, debug, log_dir, name='train', job_number=0, tmp_dir='/tmp')
 
     for h in (stream_handler, file_handler):
         h.addFilter(no_dump_filter)
-        pass #
+        pass
 
     dump_file_handler.addFilter(dump_filter)
-    
 
     # log.error('not an error, just showing what logs look like')
     # log.info('Verbose is on')
     # log.debug(f'Debug is on')
-    
+
     return log
 
 
@@ -131,15 +131,15 @@ def str2bool(s):
 
     return s.lower() in ['true', 'yes', 't', '1']
 
-        
+
 def list_of_alphanums(string):
 
     return [alphanum(a) for a in string.split()]
 
 
-def get_args(what_for='train', *a ,**kw):
+def get_args(what_for='train', *a, **kw):
 
-    if what_for=='train':
+    if what_for == 'train':
         return get_args_for_train(*a, **kw)
 
     return get_args_for_test(*a, **kw)
@@ -152,7 +152,7 @@ def get_args_for_train(argv=None):
     conf_parser.add_argument('--verbose', '-v', action='count', default=0)
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--config', '-c', default='DEFAULT')
-    
+
     conf_args, remaining_args = conf_parser.parse_known_args(argv)
 
     config = configparser.ConfigParser()
@@ -165,9 +165,9 @@ def get_args_for_train(argv=None):
                 'test_sample_size': 1024,
                 'validation': 8192,
                 'features': 'none',
-                'epochs':100, 
+                'epochs': 100,
                 'job_dir': DEFAULT_JOBS_DIR}
-    
+
     defaults.update(config_params)
 
     alphanum_keys = ('encoder',
@@ -178,7 +178,7 @@ def get_args_for_train(argv=None):
                      'classifier')
 
     bool_keys = ('learned_prior_means',)
-    
+
     for k in alphanum_keys:
         p = defaults.get(k, '')
         defaults[k] = list_of_alphanums(p)
@@ -186,7 +186,7 @@ def get_args_for_train(argv=None):
     for k in bool_keys:
         p = defaults.get(k, '')
         defaults[k] = str2bool(p)
-        
+
     parser = argparse.ArgumentParser(parents=[conf_parser],
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -217,15 +217,15 @@ def get_args_for_train(argv=None):
                         help='will show you what it would do')
 
     parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae', 'xvae'])
-    
+
     parser.add_argument('--sigma', '-s',
                         # type = float,
                         type=alphanum,
                         metavar='S',
                         help='Value of sigma (float) or in [\'learned\', \'rmse\', \'coded\']'
-                        ) #,
-                        # nargs='*',
-                        # help='several values can be provided for several trainings')
+                        )  # ,
+    # nargs='*',
+    # help='several values can be provided for several trainings')
 
     # parser.add_argument('--sigma-reach',
     #                     type=float,
@@ -240,7 +240,7 @@ def get_args_for_train(argv=None):
     # parser.add_argument('--sigma-max-step',
     #                     type=float,
     #                     default=None)
-    
+
     # parser.add_argument('--sigma-learned',
     #                     action='store_true',)
 
@@ -250,14 +250,14 @@ def get_args_for_train(argv=None):
     parser.add_argument('--sigma-per-dim', action='store_true')
 
     # parser.add_argument('--sigma-coded', action='store_true')
-    
+
     parser.add_argument('--beta', type=float, default=1.0,
                         help='Beta-(C)VAE',
                         metavar='ß')
 
     parser.add_argument('--gamma', type=float,
                         default=0.)
-    
+
     parser.add_argument('--prior-means',
                         type=alphanum,
                         default=0,
@@ -269,11 +269,11 @@ def get_args_for_train(argv=None):
     parser.add_argument('--static-prior-means',
                         dest='learned_prior_means',
                         action='store_false')
-    
+
     parser.add_argument('--prior-variance',
                         choices=['scalar', 'diag', 'full'],
                         default='scalar')
-    
+
     parser.add_argument('-K', '--latent-dim', metavar='K',
                         type=int)
 
@@ -282,9 +282,9 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--hsv', action='store_true')
     parser.add_argument('--representation')
-    
+
     parser.add_argument('--features', metavar='NAME',)
-                        # choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none',])
+    # choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none',])
 
     parser.add_argument('--pretrained-features', metavar='feat.pth', nargs='?', const='online')
     parser.add_argument('--no-features', action='store_true')
@@ -293,7 +293,7 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--fine-tuning', action='store_true')
     parser.add_argument('--warmup', type=int, default=0)
-    
+
     parser.add_argument('--encoder', type=alphanum, metavar='W', nargs='*')
     parser.add_argument('--features-channels', type=alphanum, metavar='C', nargs='*')
     parser.add_argument('--conv-padding', type=alphanum, metavar='P')
@@ -302,9 +302,9 @@ def get_args_for_train(argv=None):
     parser.add_argument('--classifier', type=alphanum, nargs='*', metavar='W')
 
     parser.add_argument('--forced-encoder-variance', type=float, default=False, nargs='?', const=1.0)
-    
-    parser.add_argument('--dataset',) 
-                        # choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10', 'letters'])
+
+    parser.add_argument('--dataset',)
+    # choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10', 'letters'])
 
     parser.add_argument('--transformer',
                         choices=['simple', 'normal', 'default', 'crop'],
@@ -316,7 +316,7 @@ def get_args_for_train(argv=None):
                         nargs='*')
 
     parser.add_argument('--force-cross-y', type=float, nargs='?', const=1.0, default=0.)
-    
+
     parser.add_argument('--batch-norm',
                         choices=['encoder', 'both', 'none'],
                         nargs='?',
@@ -327,15 +327,15 @@ def get_args_for_train(argv=None):
     parser.add_argument('--wd', default=0, type=float, dest='weight_decay')
 
     parser.add_argument('--lr-decay', default=0, type=float)
-    
+
     help = 'Find by job number and resume begun training'
     parser.add_argument('-R', '--resume', default=None,
-                        help=help, metavar='#') 
-    
+                        help=help, metavar='#')
+
     help = 'save train(ing|ed) network in DIR/<architecture/#>'
 
     parser.add_argument('--full-test-every', type=int, default=10)
-    
+
     parser.add_argument('--job-dir', metavar='DIR/',
                         help=help)
 
@@ -348,22 +348,21 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--show', action='store_true',
                         help='Show network structure and exit')
-    
+
     parser.add_argument('--where', action='store_true',
                         help='Print saving dir and exit')
 
     parser.set_defaults(**defaults)
 
-    
     args = parser.parse_args(remaining_args)
-        
+
     args.debug = conf_args.debug
     args.verbose = conf_args.verbose
     args.config_file = conf_args.config_file
     args.config = conf_args.config
-    
+
     if args.features.lower() == 'none' or args.no_features:
-        args.features=None
+        args.features = None
 
     return args
 
@@ -389,7 +388,7 @@ def get_args_for_test(argv=None):
                         default=None)
 
     parser.add_argument('-J', '--job-dir', default=DEFAULT_JOBS_DIR)
-    
+
     parser.add_argument('-M', '--batch-size', type=int, metavar='M')
 
     help = 'Num of samples to compute test accuracy'
@@ -412,7 +411,7 @@ def get_args_for_test(argv=None):
     parser.add_argument('--cautious', action='store_true')
 
     parser.add_argument('--early-stopping')
-    
+
     parser.add_argument('--device')
     parser.add_argument('--compute',
                         nargs='?',
@@ -425,12 +424,12 @@ def get_args_for_test(argv=None):
                         help='will show you what it would do')
 
     parser.add_argument('--list-jobs-and-quit', action='store_true')
-    
+
     parser.add_argument('--results-file')
     parser.add_argument('--results-directory', default=DEFAULT_RESULTS_DIR)
-    
+
     parser.add_argument('--show', action='store_true')
-    
+
     parser.add_argument('--latex', action='store_true')
 
     parser.add_argument('--expand', '-x', action='count', default=1)
@@ -444,7 +443,7 @@ def get_args_for_test(argv=None):
 
     parser.add_argument('--hide-average', action='store_false', dest='average')
     parser.add_argument('--only-average', action='store_true')
-    
+
     parser.add_argument('--job-id', type=int, default=0)
 
     parser.add_argument('--sets', action='append', nargs='+')
@@ -462,13 +461,13 @@ def get_args_for_test(argv=None):
     args, ra = parser.parse_known_args(argv)
 
     args.filters = DictOfListsOfParamFilters()
-    
+
     filter_parser = create_filter_parser(parents=[parser])
 
     filter_args = filter_parser.parse_args(ra)
 
     filter_keys = get_filter_keys()
-    
+
     for _ in filter_keys:
         args.filters.add(_, filter_args.__dict__[_])
 
@@ -478,7 +477,7 @@ def get_args_for_test(argv=None):
 def create_filter_parser(default_ini_file='utils/filters.ini', **kw):
 
     parser = argparse.ArgumentParser(**kw)
-    
+
     config = configparser.ConfigParser()
 
     config.read(default_ini_file)
@@ -537,7 +536,7 @@ def add_filters_to_parsed_args(parser, args, ra):
 
     return args.filters
 
-        
+
 class NewEntryDictofLists(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
@@ -553,7 +552,7 @@ class NewEntryDictofLists(argparse.Action):
 
         d[values[0]] = d.get(values[0], []) + values[1:]
 
-            
+
 if __name__ == '__main__':
 
     cli = '--upsampler vgg19 4 5'.split()
@@ -561,16 +560,15 @@ if __name__ == '__main__':
 
     print(arg.upsampler)
 
-    
     # arg = get_args_for_test()
     # for k in arg.filters:
-        # if not arg.filters[k].always_true:
-        # print('{:20} {} of type {}'.format(k, arg.filters[k], arg.filters[k].type.__name__))
+    # if not arg.filters[k].always_true:
+    # print('{:20} {} of type {}'.format(k, arg.filters[k], arg.filters[k].type.__name__))
 
     # m = {'done': 4, 'job': 45, 'batch_norm': ['decoder', 'encoder'], 'type': 'cvae'}
-    
+
     # for k, v in arg.filters.items():
 
     #     print(k, *v, *[f.filter(m[k]) for f in v])
-        
+
     # print(match_filters(m, arg.filters))

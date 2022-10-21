@@ -1,6 +1,7 @@
 import torch
 from torch.nn import functional as F
-import time, logging
+import time
+import logging
 import numpy as np
 
 
@@ -17,11 +18,11 @@ def compare_dims(small_dim, large_dim):
     print('Is ', small_dim, ' in ', large_dim, '?')
     if len(small_dim) == 0:
         return 0, len(large_dim), True
-    
+
     if small_dim[0] == 1:
         f, t, ok = compare_dims(small_dim[1:], large_dim[1:])
         if ok:
-            return f + 1, l , ok
+            return f + 1, l, ok
 
     if large_dim[0] == small_dim[0]:
         f, t, ok = compare_dims(small_dim[1:], large_dim[1:])
@@ -67,16 +68,16 @@ def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
     output_dims_ = tuple(_ for _ in range(x_output.dim()))
     batch_dims_ = output_dims_[-x_target.dim():-ndim]
     input_dims_ = output_dims_[-ndim:]
-    
+
     mean_dims = input_dims_
 
     # print('****', mean_dims)
 
     if batch_mean:
         return F.mse_loss(x_output,
-                          x_target.expand_as(x_output)) # + 1e-8 # * torch.randn_like(x_output))
+                          x_target.expand_as(x_output))  # + 1e-8 # * torch.randn_like(x_output))
     return F.mse_loss(x_output, x_target.expand_as(x_output),
-                      reduction='none').mean(mean_dims) # + 1e-8
+                      reduction='none').mean(mean_dims)  # + 1e-8
     # return (x_target - x_output).pow(2).mean(mean_dims)
 
 
@@ -138,7 +139,6 @@ def kl_loss(mu_z, log_var_z,
 
 
 def x_loss(y_target, logits, batch_mean=True):
-
     """ Cross entropy
 
     - y_target of dims N1 x....x Ng(x1)
@@ -147,7 +147,7 @@ def x_loss(y_target, logits, batch_mean=True):
     """
 
     # print('losses:118', type(y_target), 'logits:', *logits.shape)
-    
+
     if y_target is None:
 
         log_p = (logits.softmax(dim=-1) + 1e-6).log()
@@ -155,18 +155,18 @@ def x_loss(y_target, logits, batch_mean=True):
         # print('*** losses:125 target is none', *logits.shape[1:], '->', *permutation)
         # print(*[p.item() for p in log_p.mean(0)[0, :]])
         if log_p.shape[0] > 1:
-            return -log_p[1:].mean(0).permute(permutation) # .max(-1)[0]
+            return -log_p[1:].mean(0).permute(permutation)  # .max(-1)[0]
         else:
-            return -log_p[0].permute(permutation) # .max(-1)[0]
-    
+            return -log_p[0].permute(permutation)  # .max(-1)[0]
+
     C = logits.shape[-1]
     L = logits.shape[0]
 
     y_ = y_target.reshape(1, -1).repeat(L, 1).reshape(-1)
     logits_ = logits.reshape(-1, C)
 
-    # print('losses:134 L=', L, 'C=', C, 'shapes', 'L', *logits_.shape, 'T', *y_.shape) 
-    
+    # print('losses:134 L=', L, 'C=', C, 'shapes', 'L', *logits_.shape, 'T', *y_.shape)
+
     if batch_mean:
         return F.cross_entropy(logits_, y_)
 
@@ -175,7 +175,7 @@ def x_loss(y_target, logits, batch_mean=True):
                            y_,
                            reduction='none').reshape(shape).mean(0)
 
-    
+
 def x_loss_pushy(y_target, y_output, sampling_dims=1, batch_mean=True):
     """
 
@@ -188,12 +188,14 @@ def x_loss_pushy(y_target, y_output, sampling_dims=1, batch_mean=True):
 
     one_dim = ()
     L_1 = ()
-    for _ in s_y : one_dim += (1,)
-    for _ in L_: L_1 += (1,)
+    for _ in s_y:
+        one_dim += (1,)
+    for _ in L_:
+        L_1 += (1,)
     y_in_repeated = y_input.reshape(*L_1, *s_y).repeat(*L_, *one_dim)
 
     dims = tuple(_ for _ in range(y_output.dim()))
-    out_perm_dims = (0,) + (-1,) + dims[1:-1] # from LxN1...xNgxC to LxCxN1...xNgxC
+    out_perm_dims = (0,) + (-1,) + dims[1:-1]  # from LxN1...xNgxC to LxCxN1...xNgxC
 
     if batch_mean:
         return F.nll_loss(y_output.permute(out_perm_dims).log(),
@@ -225,6 +227,7 @@ def x_loss_pushy(y_target, y_output, sampling_dims=1, batch_mean=True):
 #
 #
 
+
 if __name__ == '__main__':
 
     force_cpu = False
@@ -234,9 +237,9 @@ if __name__ == '__main__':
     test_mse = False
     test_xent = True
     test_grad = True
-    
+
     print(device)
-    
+
     L = (3,)
     N = (4,)
     # N = (10, 200)
@@ -272,7 +275,7 @@ if __name__ == '__main__':
         loss = mse_loss(x_target, x_output, sampling_dims=2, ndim=len(D), batch_mean=False)
 
         print(loss.shape)
-        
+
     if test_xent:
 
         y_target = torch.randint(C, N)
@@ -288,6 +291,3 @@ if __name__ == '__main__':
         if test_grad:
 
             loss.backward()
-        
-
-    

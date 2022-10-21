@@ -44,7 +44,7 @@ def mean_posterior(*p_x_y, axis=0, temps=TEMPS):
 def voting_posterior(*y, temps=[None]):
 
     one_hot_ = [one_hot(_).T for _ in y]
-    
+
     p_y_x = sum(one_hot_) / len(y)
 
     return {t: p_y_x for t in temps}

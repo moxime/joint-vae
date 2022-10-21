@@ -29,7 +29,7 @@ if __name__ == '__main__':
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
 
     logging.getLogger().setLevel(40 - 10 * args.v)
-    
+
     filter_parser = create_filter_parser()
     filter_args = filter_parser.parse_args(ra)
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
             f.write(sdir + '\n')
 
     print(len(mdirs), 'complete model' + ('s' if len(mdirs) > 1 else ''), 'over', total_models)
-    
+
     if not mdirs:
         logging.warning('Exiting, load files')
         logging.warning('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
@@ -60,11 +60,11 @@ if __name__ == '__main__':
         testset = model.training_parameters['set']
 
         oodsets = []
-        
+
         epoch = 'last'
 
         epoch_str = '{:0>4}'.format(epoch)
-        
+
         print('__', model.job_number, testset,
               '@',  model.training_parameters.get('early-min-loss'))
 
@@ -74,5 +74,3 @@ if __name__ == '__main__':
         is_testset = True
 
         classes_ = get_classes_by_name(testset)  # + ['OOD']
-
-        

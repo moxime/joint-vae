@@ -1,11 +1,12 @@
-import shutil, os
+import shutil
+import os
 
 directory = 'jobs/out'
 
 
 for fn in os.scandir(directory):
     if fn.name.endswith('.out'):
-        
+
         filename = fn.path
         old_filename = filename + '.old'
         shutil.copy(filename, old_filename)
@@ -17,4 +18,3 @@ for fn in os.scandir(directory):
                 penultians = set()
                 for i, l in enumerate(f.readlines()):
                     f_.write(l.split(b'\r')[-1].decode())
-

@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 from collections import OrderedDict
 from utils.save_load import create_file_for_job as create_file
 from utils.tables import create_printout
@@ -24,7 +25,7 @@ def tex_architecture(net_dict, filename='arch.tex', directory=os.path.join(DEFAU
     latent_prior_means = net.architecture['latent_prior_means'] if oftype == 'cvae' else 0
     beta = net.training_parameters['beta']
     trainset = net.training_parameters['set']
-    sigmabeta = r'\ensuremath\sigma=' +f'{net.sigma}'.upper()
+    sigmabeta = r'\ensuremath\sigma=' + f'{net.sigma}'.upper()
     if net.sigma.is_rmse:
         sigmabeta += f' (\\ensuremath\\beta=\\num{{{beta}}})'
 
@@ -41,7 +42,7 @@ def tex_architecture(net_dict, filename='arch.tex', directory=os.path.join(DEFAU
         classes=','.join(classes),
         oodsets=','.join(ood_sets),
         allsets=','.join([trainset, *ood_sets]),
-        allsetssepcorrect=','.join(['correct', 'incorrect', *ood_sets]),        
+        allsetssepcorrect=','.join(['correct', 'incorrect', *ood_sets]),
         noodsets=len(ood_results),
         texoodsets=', '.join(['\\' + o.rstrip(string.digits) for o in ood_results.keys()]),
         epochs=net.train_history['epochs'],
@@ -60,8 +61,8 @@ def tex_architecture(net_dict, filename='arch.tex', directory=os.path.join(DEFAU
         prior_means=latent_prior_means,
         optimizer='{:3x}'.format(empty_optimizer),
         betasigma=sigmabeta,
-        )
-        
+    )
+
     for cmd, k in exported_values.items():
         printout(f'\def\\net{cmd}{{{k}}}')
 
@@ -83,7 +84,7 @@ def texify_test_results(net,
     """ 
     which: 'ood' or 'test' or 'all'
     method: 'first' or 'all' or a specific method (default, first)
-    
+
     """
     def _pcf(x):
         if x is None:
@@ -92,8 +93,9 @@ def texify_test_results(net,
 
     if filename:
         f = create_file(net['job'], directory, filename)
-    else: f = None
-    
+    else:
+        f = None
+
     printout = create_printout(file_id=f, std=stdout)
 
     show_ood = which in ('all', 'ood')
@@ -102,7 +104,7 @@ def texify_test_results(net,
 
     ood_methods = net['net'].ood_methods
     accuracies = net['accuracies']
-    
+
     if not accuracies:
         printout('no result')
         return
@@ -111,7 +113,7 @@ def texify_test_results(net,
         show_ood = False
     elif not list(net['ood_fpr'].values())[0]:
         show_ood = False
-    
+
     header = dict()
 
     if show_test:
@@ -123,14 +125,14 @@ def texify_test_results(net,
         for dataset in net['ood_fprs']:
             fprs = net['ood_fprs'][dataset]
             header[dataset] = len(tpr) * ((len(fprs) - 1) if all_methods else 1)
-            
+
     n_cols = sum(c for c in header.values())
     col_style = 'l'
     printout('\\begin{tabular}')
     printout(f'{{{col_style * n_cols}}}')
     printout('\\toprule')
     printout(' & '.join(f'\\multicolumn{cols}c{{{dataset}}}'
-                      for dataset, cols in header.items()))
+                        for dataset, cols in header.items()))
     printout('\\\\ \\midrule')
     if all_methods:
         if show_test:
@@ -138,16 +140,16 @@ def texify_test_results(net,
         if show_ood:
             printout(' & '.join(
                 ' & '.join(f'\\multicolumn{len(tpr)}c{{{_}}}' for _ in ood_methods)
-                           for s in ood_sets))
+                for s in ood_sets))
         printout('\\\\')
     if show_ood and len(tpr) > 1:
         printout('    &' * header[net['set']], end=' ')
         printout(' & '.join(' & '.join(' & '.join(str(t) for t in tpr)
                                        for _ in range(header[dataset] // len(tpr)))
-                 for dataset in ood_sets))
+                            for dataset in ood_sets))
         printout('\\\\ \\midrule')
     if show_test:
-        acc = list(accuracies.values())[:-1] if all_methods else [accuracies['first']] 
+        acc = list(accuracies.values())[:-1] if all_methods else [accuracies['first']]
         printout(' & '.join(_pcf(a) for a in acc), end=' & ' if show_ood else '\n')
     if show_ood:
         ood_ = []
@@ -169,15 +171,15 @@ def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
 
     datasets = torchdl.get_same_size_by_name(dataset)
     datasets.append(dataset)
-    
+
     replacement_dict = {'sigma': r'$\sigma$',
                         'optim_str': 'Optim',
                         'auc': r'\acron{auc}',
                         'measures': '',
                         'rmse': r'\acron{rmse}',
                         'rate': '',
-    }
-    
+                        }
+
     def _r(w, macros=datasets, rdict=replacement_dict):
 
         if w in macros:
@@ -194,14 +196,13 @@ def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
 
     tex_cols = pd.MultiIndex.from_tuples([tuple(_r(w) for w in c) for c in cols])
 
-    tab_cols = ['-'.join([str(c) for c in col if c]).replace('_', '-') for col in cols] 
-
+    tab_cols = ['-'.join([str(c) for c in col if c]).replace('_', '-') for col in cols]
 
     oodsets = [c[:-4] for c in tab_cols if c.endswith('-auc')]
-    
+
     # print(cols, tab_cols)
     # return tab_cols
-    
+
     to_string_args = dict(sparsify=False, index=False)
 
     tab_df = df.copy()
@@ -210,7 +211,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
     # print('*** tab_df.cols', *tab_df.columns)
     tab_df.columns = [texify_str(c, underscore='-') for c in tab_df.columns]
     tab_df = tab_df.applymap(lambda x: texify_str(x, space='-', num=True))
-    
+
     if 'job' in tab_df.columns:
         tab_df = tab_df.set_index('job').reset_index()
 
@@ -232,7 +233,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
                 f.write(r'\def\oodset{')
                 f.write(oodsets[0])
                 f.write(r'}')
-                f.write('\n')                
+                f.write('\n')
 
             f.write(r'\def\noodsets{')
             f.write(str(len(oodsets)))
@@ -267,7 +268,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
                 f.write(r'}')
                 f.write('\n')
 
-            if 'sigma' in tab_df: 
+            if 'sigma' in tab_df:
                 unique_sigmas = sorted(tab_df['sigma'].unique(), key=lambda x: (str(type(x)), x))
                 f.write(r'\def\tabsigmas{')
                 f.write(','.join(str(a) for a in unique_sigmas))
@@ -298,23 +299,24 @@ def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
     if tab_file:
         with open(tab_file, 'w') as f:
             tab_df.to_string(buf=f, **to_string_args)
-        
+
 
 def pgfplotstable_preambule(df, dataset, file, mode='a'):
     replacement_dict = {'rmse': 'RMSE'}
+
     def _r(s, f=string.capwords):
         return replacement_dict.get(s, f(s))
 
     oodsets = torchdl.get_same_size_by_name(dataset)
-    
+
     with open(file, mode) as f:
         f.write('\pgfplotstableset{%\n')
         cols = {c: {} for c in df.columns}
         for c in df.columns:
             if c.startswith('measures'):
                 cols[c] = {'style': 'sci num',
-                           'name': ' '.join(_r(w) for w in  c.split('-')[1:])}
-            elif c.startwith(dataset):           
+                           'name': ' '.join(_r(w) for w in c.split('-')[1:])}
+            elif c.startwith(dataset):
                 cols[c] = {'style': 'fixed num',
                            'name': '\\' + dataset.rstrip(string.digits)}
             elif c.startswith(tuple(oodsets)):
@@ -328,7 +330,7 @@ def pgfplotstable_preambule(df, dataset, file, mode='a'):
                         pass
 
                 cols[c] = {'style': 'fixed num',
-                            'name': ' '.join(w_)}
+                           'name': ' '.join(w_)}
 
 
 def tex_command(command, *args):
@@ -361,12 +363,12 @@ def tabular_env(formats, col_seps, env='tabular', reduce_space=True):
     col_formats += col_seps_tex[-1] + '%\n'
 
     if env:
-        begin_env = tex_command('begin', env, col_formats) 
+        begin_env = tex_command('begin', env, col_formats)
         end_env = tex_command('end', env)
         return begin_env, end_env
 
     return col_formats
-    
+
 
 def tabular_rule(where, start=0, end=-1, tab_width=None):
 
@@ -418,7 +420,7 @@ class TexCell(object):
     @property
     def width(self):
         return self._width
-        
+
     def __repr__(self):
 
         of_width = 'of width {} '.format(self.width) if self.width > 1 else ''
@@ -428,7 +430,7 @@ class TexCell(object):
 
         if self._value is None:
             return self.na_rep
-        
+
         return self._formatted_str.format(self._value)
 
     def __format__(self, spec):
@@ -438,26 +440,26 @@ class TexCell(object):
         if tex:
             tex = True
             spec = spec[:-1]
-        
+
         if self._multicol and tex:
             s += r'\multicolumn{{{}}}{{{}}}'.format(self.width, self._multicol)
             s += '{'
 
         s += str(self).__format__(spec)
-            
+
         if self._multicol and tex:
             s += '}'
 
         return s
-    
-                
+
+
 class TexRow(list):
 
     def __init__(self, *a, col_format=[]):
 
         super().__init__(*a)
         self._col_formats = col_format
-    
+
     def __len__(self):
 
         return sum(_.width for _ in self)
@@ -471,7 +473,7 @@ class TexRow(list):
         tex = spec.endswith('x')
         if tex:
             spec = spec[-1]
-            
+
         sep = '& ' if tex else ' '
 
         if '-' in spec:
@@ -482,10 +484,10 @@ class TexRow(list):
                 c_w = sum(str_w[i0:i0 + c.width + 1])
                 # c_f = ''
                 row_str += '{:{}}'.format(c, c_w)
-        
+
         return sep.join(_.__format__(spec) for _ in self)
-    
-    
+
+
 class TexTab(object):
 
     def __init__(self, *col_format, environment='tabular', float_format='{}',
@@ -498,16 +500,16 @@ class TexTab(object):
         self._col_sep = ['' for _ in col_format] + ['']
 
         self._has_to_be_float = [_.startswith('f') for _ in col_format]
-        
+
         self.width = len(col_format)
-        
+
         self._rows = OrderedDict()
         self._rules = {'top': True, 'bottom': True, 'mid': {}}
 
         self.na_rep = na_rep
         self.float_format = float_format
         self.default_multicol_format = multicol_format
-        
+
     def __repr__(self):
 
         return 'TeX tab of format {} with {} rows'.format(self._col_format, len(self._rows))
@@ -515,7 +517,7 @@ class TexTab(object):
     def __str__(self):
 
         return '\n'.join(str(self[_]) for _ in self)
-    
+
     def __len__(self):
 
         return len(self._rows)
@@ -533,7 +535,7 @@ class TexTab(object):
 
         if row_id is None:
             return 0
-        
+
         if isinstance(row_id, int):
             return row_id+1
 
@@ -544,7 +546,7 @@ class TexTab(object):
                 splitted_id[-1] = str(k + 1)
             except ValueError:
                 splitted_id.append('1')
-                
+
             return '-'.join(splitted_id)
 
     def _new_row(self, row_id=None):
@@ -555,7 +557,7 @@ class TexTab(object):
         else:
             self._rows[row_id] = TexRow(col_format=self._col_format)
             return row_id
-        
+
     def _make_cell(self, a, width=1, multicol_format=None, formatter=None, has_to_be_float=None):
 
         try:
@@ -568,18 +570,18 @@ class TexTab(object):
         multicol_format = multicol_format or self.default_multicol_format
 
         return TexCell(a, width=width,
-                       multicol_format= multicol_format if is_multicol else None,
+                       multicol_format=multicol_format if is_multicol else None,
                        na_rep=self.na_rep,
                        formatter=formatter or (self.float_format if is_float else '{}'))
 
     def get(self, *a, **kw):
 
         return self._rows.get(*a, **kw)
-    
+
     def add_col_sep(self, before_col, sep=''):
 
         self._col_sep[before_col] = sep
-        
+
     def render(self, io=sys.stdout):
 
         col_formats = []
@@ -590,7 +592,7 @@ class TexTab(object):
                 col_formats.append(f)
 
         begin_env, end_env = tabular_env(col_formats, self._col_sep, env=self._env)
-        
+
         io.write(begin_env)
         io.write('\n')
 
@@ -612,7 +614,7 @@ class TexTab(object):
         io.write(bottom)
         io.write(end_env)
         io.write('\n')
-            
+
     def append_cell(self, a, row=None, width=1, multicol_format=None, formatter=None):
         """if row is None will create a new row"""
 
@@ -638,21 +640,20 @@ class TexTab(object):
 
         if start > end or end > self.width - 1:
             raise IndexError(max(start, end))
-        
+
         if row not in self._rules['mid']:
             self._rules['mid'][row] = []
 
         rules = self._rules['mid'][row]
-        
+
         if not rules or end < rules[0][0]:
             rules.insert(0, (start, end))
             return
-        
-        for i, (s,e) in enumerate(rules):
+
+        for i, (s, e) in enumerate(rules):
             if start > e:
                 rules.insert(i + 1, (start, end))
                 break
         else:
             raise IndexError('Can\'t insert midrule {} -- {} '
                              'with already existing {} -- {}'.format(start, end, s, e))
-                

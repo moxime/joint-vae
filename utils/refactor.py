@@ -8,17 +8,19 @@ from utils.save_load import iterable_over_subdirs
 import numpy as np
 from datetime import date
 
+
 def delete_job(directory, msg=''):
     deleted_file = os.path.join(directory, 'deleted')
     with open(deleted_file, 'a') as f:
         f.write(str(msg) + '\n')
+
 
 @iterable_over_subdirs(0, iterate_over_subdirs=list)
 def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
 
     name = os.path.join(directory, 'train.json')
     # print(directory)
-    
+
     if not os.path.exists(name):
         return
 
@@ -32,7 +34,7 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
             return
 
     if 'learned_coder' not in t:
-        return 
+        return
     if t.get('learned_coder'):
         t['coder_means'] = 'learned'
     else:
@@ -41,7 +43,7 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
     delete = False
 
     if t.get('dictionary_min_dist', 0) and t['coder_capacity_regularization']:
-        delete=True
+        delete = True
 
     if t.get('rho'):
         delete = True
@@ -50,14 +52,14 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
         delete_job(directory, msg=date.today().strftime('%Y-%m-%d'))
 
     pre = 'D' if delete else ' '
-    if t.get('rho') or True: # and t.get('rho_temp') < np.inf:
+    if t.get('rho') or True:  # and t.get('rho_temp') < np.inf:
         print('{pre} {dir} -- learned: {l} min dist:{d:4g} reg:{r}'
               ' rho:{rho:6g}, {rho_temp:4g}'
               '-> means:{m_:7} {pre}'.format(
                   pre=pre,
                   dir=directory[-6:],
                   rho=t.get('rho') or 0,
-                  rho_temp=t.get('rho_temp', np.inf) or  np.inf,
+                  rho_temp=t.get('rho_temp', np.inf) or np.inf,
                   l='yes' if t['learned_coder'] else 'no ',
                   d=t.get('dictionary_min_dist', 0) or 0,
                   r='yes' if t.get('coder_capacity_regularization') else 'no ',
@@ -67,7 +69,7 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
     for _ in ('learned_coder', 'coder_capacity_regularization', 'dictionary_min_dist', 'rho', 'rho_temp'):
         if _ in t:
             t.pop(_)
-        
+
     if write_json:
 
         copyfile(name, name + '.' + old_suffix)
@@ -75,8 +77,8 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
         for k in sorted(t):
             print('|_{:30}: {}'.format(k, t[k]))
         with open(name, 'w') as f:
-             print('write')
-             json.dump(t, f)
+            print('write')
+            json.dump(t, f)
 
 
 @iterable_over_subdirs('directory')
@@ -96,7 +98,7 @@ def verify_has_valid(directory='jobs/'):
                 print(directory.split('/')[-1])
                 # print(*files)
 
-                
+
 def refactor_from_log_file(json_file,
                            key,
                            ktype=int,
@@ -106,8 +108,8 @@ def refactor_from_log_file(json_file,
                            write_json=False):
 
     to_follow = {}
-    
-    log_files = [f for f in os.listdir(log_directory) if f.startswith(log_file_pre)] 
+
+    log_files = [f for f in os.listdir(log_directory) if f.startswith(log_file_pre)]
 
     for f in log_files:
 
@@ -125,10 +127,11 @@ def refactor_from_log_file(json_file,
                 if '[I] ' + vals['job_dir'] in line:
                     directory = line.strip('\n').split('[I] ')[-1]
                     # print(directory)
-                            
+
             if vals[key] is not None and directory:
                 # print(f_.name, directory, ':', key, '=', vals[key])
-                load_and_save_json(directory, json_file, key, new_value=vals[key], recursive=False, write_json=write_json)
+                load_and_save_json(directory, json_file, key,
+                                   new_value=vals[key], recursive=False, write_json=write_json)
                 f_r = os.path.join(directory, 'RESUMED')
                 if os.path.exists(f_r):
                     with open(f_r, 'r') as f_r_:
@@ -143,9 +146,9 @@ def refactor_from_log_file(json_file,
 
         directory = nets[j]['dir']
         val = to_follow[j]
-        print('\n***',j, ':', val, '***')
+        print('\n***', j, ':', val, '***')
         load_and_save_json(directory, json_file, key, new_value=val, recursive=False, write_json=write_json)
-            
+
 
 def load_and_save_json(directory,
                        json_file,
@@ -177,19 +180,20 @@ def load_and_save_json(directory,
                 if t.get(key, None) == old_value:
                     print(' ->', new_value, '*' if write_json else '')
                     t[key] = new_value
-                else: print()
+                else:
+                    print()
                 # print('r', write_json, name, '\n', t)
             if new_key:
                 v = t.pop(key)
                 t[new_key] = v
-                print(' ->', new_key,':', t[new_key], '*' if write_json else '')
+                print(' ->', new_key, ':', t[new_key], '*' if write_json else '')
             if write_json:
                 copyfile(name, name + '.bak')
                 print('w', name, '\n', t)
                 with open(name, 'w') as f:
                     json.dump(t, f)
 
-    if recursive: 
+    if recursive:
         rel_paths = os.listdir(directory)
         paths = [os.path.join(directory, p) for p in rel_paths]
         dirs = [d for d in paths if os.path.isdir(d)]
@@ -209,10 +213,10 @@ def beta_to_dict(directory, write_json=False):
         if f is not None:
             return f'{f:{k}.3f}'
         return '.' * k
-    
+
     file_paths = {n: os.path.join(directory, n+'.json') for n in ('train', 'history')}
 
-    t = {n: None for n in file_paths}    
+    t = {n: None for n in file_paths}
     for n in file_paths:
         if os.path.exists(file_paths[n]):
             with open(file_paths[n], 'rb') as f:
@@ -223,53 +227,53 @@ def beta_to_dict(directory, write_json=False):
 
     if t['train'] and t['history']:
 
-            sigma = t['train']['sigma']
-            reach = t['train'].get('sigma_reach', None)
-            decay = t['train'].get('sigma_decay', None)
-            sigma0 = t['train'].get('sigma0', None)
+        sigma = t['train']['sigma']
+        reach = t['train'].get('sigma_reach', None)
+        decay = t['train'].get('sigma_decay', None)
+        sigma0 = t['train'].get('sigma0', None)
 
-            if type(sigma) != dict:
-                
-                print(f'|   s: {_f(sigma)} '
-                      f' r: {_f(reach)} '
-                      f' d: {_f(decay)} '
-                      f' 0: {_f(sigma0)}  |')
+        if type(sigma) != dict:
 
-                if reach and not decay:
-                    decay = 0.1
-                if not reach:
-                    reach = 1
-                    decay = 0
+            print(f'|   s: {_f(sigma)} '
+                  f' r: {_f(reach)} '
+                  f' d: {_f(decay)} '
+                  f' 0: {_f(sigma0)}  |')
 
-                if not decay and not sigma0:
+            if reach and not decay:
+                decay = 0.1
+            if not reach:
+                reach = 1
+                decay = 0
+
+            if not decay and not sigma0:
+                sigma0 = sigma
+
+            if not sigma0:
+                try:
+                    sigma0 = t['history']['train_measures'][0]['sigma']
+                except IndexError:
                     sigma0 = sigma
 
-                if not sigma0:
-                    try:
-                        sigma0 = t['history']['train_measures'][0]['sigma']
-                    except IndexError:
-                        sigma0 = sigma
+            print(f'|   v: {_f(sigma)} '
+                  f' r: {_f(reach)} '
+                  f' d: {_f(decay)} '
+                  f' 0: {_f(sigma0)}  |')
 
-                print(f'|   v: {_f(sigma)} '
-                      f' r: {_f(reach)} '
-                      f' d: {_f(decay)} '
-                      f' 0: {_f(sigma0)}  |')
+            t_ = t['train'].copy()
+            k_ = [k for k in t_.keys() if 'sigma' in k]
+            for k in k_:
+                t_.pop(k, None)
+            t_['sigma'] = dict(value=sigma, reach=reach, decay=decay, sigma0=sigma0)
+            sigma = Sigma(**t_['sigma'])
+            k_ = [k for k in t_.keys() if 'sigma' in k]
+            print('| ', ' '.join(k_))
+            print('|_', sigma, f'{sigma:f}')
+            if write_json:
+                with open(file_paths['train'], 'w') as f:
+                    json.dump(t_, f)
 
-                t_ = t['train'].copy()
-                k_ = [k for k in t_.keys() if 'sigma' in k]
-                for k in k_:
-                    t_.pop(k, None)
-                t_['sigma'] = dict(value=sigma, reach=reach, decay=decay, sigma0=sigma0)
-                sigma = Sigma(**t_['sigma'])
-                k_ = [k for k in t_.keys() if 'sigma' in k]
-                print('| ', ' '.join(k_))
-                print('|_', sigma, f'{sigma:f}')
-                if write_json:
-                    with open(file_paths['train'], 'w') as f:
-                        json.dump(t_, f)
-
-            else:
-                print(f'[ {Sigma(**sigma)} : {sigma} ]')
+        else:
+            print(f'[ {Sigma(**sigma)} : {sigma} ]')
 
     rel_paths = os.listdir(directory)
     paths = [os.path.join(directory, p) for p in rel_paths]
@@ -279,7 +283,7 @@ def beta_to_dict(directory, write_json=False):
 
         beta_to_dict(d, write_json=write_json)
 
-    
+
 def strip_json(directory, write_json=False):
 
     name = os.path.join(directory, 'test.json')
@@ -308,7 +312,7 @@ def strip_json(directory, write_json=False):
 
     for d in dirs:
 
-        strip_json(d,write_json=write_json)
+        strip_json(d, write_json=write_json)
 
 
 def json_pretrained_from_params_to_train(directory, write_json=False):
@@ -334,7 +338,7 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
             except json.JSONDecodeError:
                 print(params_json, 'not loaded')
                 loaded = False
-                
+
         if loaded:
 
             if 'features' in params.keys():
@@ -351,7 +355,7 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
                     with open(params_json, 'w') as f:
                         json.dump(params, f)
                         print('w', params_json)
-                
+
     rel_paths = os.listdir(directory)
     paths = [os.path.join(directory, p) for p in rel_paths]
     dirs = [d for d in paths if os.path.isdir(d)]
@@ -362,7 +366,6 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
 
 if __name__ == '__main__':
 
-
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('job_dir', default='jobs')
@@ -372,5 +375,3 @@ if __name__ == '__main__':
 
     print('Working on', args.job_dir)
     modify_train_file_coder(args.job_dir, write_json=args.write, old_suffix='before-reg')
-    
-    

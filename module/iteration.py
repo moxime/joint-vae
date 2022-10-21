@@ -20,37 +20,37 @@ class IteratedModels(M):
 
         m = models[-1].copy()
         m.__class__ = cls
-        
+
         return m
-    
+
     def __init__(self, *models):
 
-        assert len(models) > 1 or True # DEBUG
+        assert len(models) > 1 or True  # DEBUG
         self._modules = {str(_): m for _, m in enumerate(models)}
         self._models = models
         self.predict_methods = ['iter']
         self.ood_results = {}
         self.testing = {}
         # self.training_parameters = self._models.training_parameters
-        
+
     def __len__(self):
         return len(self._models)
 
     def to(self, device):
         for m in self._models:
             m.to(device)
-    
+
     def save(self, dir_name=None):
         if dir_name is None:
             trainset = self.training_parameters['set']
             dir_name = os.path.join('iterated-jobs', trainset, '-'.join(str(_.job_number) for _ in self._models))
         architecture = {_: m.saved_dir for _, m in enumerate(self._models)}
-            
+
         save_load.save_json(architecture, dir_name, 'params.json')
         save_load.save_json(self.testing, dir_name, 'test.json')
         save_load.save_json(self.ood_results, dir_name, 'ood.json')
         self.saved_dir = dir_name
-        
+
     @classmethod
     def load(cls, dir_name, *a, **kw):
 
@@ -70,7 +70,7 @@ class IteratedModels(M):
             pass
 
         m.saved_dir = dir_name
-        
+
         return m
 
     def evaluate(self, x,
@@ -132,14 +132,14 @@ class IteratedModels(M):
             output_measures[k] = torch.tensor([_[k] for _ in measures_])
 
         output_losses['mse'] = torch.stack(mse_)
-            
+
         return x_, y_, output_losses, output_measures
 
     def predict_after_evaluate(self, logits, losses, method='iter'):
 
         if method == 'iter':
             return logits[-1].max(axis=0)
-        
+
         return self._models[-1].predict_after_evaluate(logits[-1], losses[-1], **kw)
 
     def batch_dist_measures(self):
@@ -147,7 +147,6 @@ class IteratedModels(M):
 
 
 def iterate_with_prior(logp_x_y):
-
     """Args:
 
     -- p_x_y is a tensor of dim MxCxN with M the number of models, C
@@ -196,21 +195,21 @@ if __name__ == '__main__':
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
     rmodels = load_json(args.job_dir, 'models-{}.json'.format(gethostname()))
     wanted = args.when
-    
+
     logging.getLogger().setLevel(40 - 10 * args.v)
 
-    if len(args.jobs) < 2 and False: # DEBUG
+    if len(args.jobs) < 2 and False:  # DEBUG
         logging.error('At least two jobs (%d provided)', len(args.jobs))
         sys.exit(1)
-    
-    mdirs_ = {rmodels[_]['job']: _  for _ in rmodels if rmodels[_]['job'] in args.jobs}
-    
+
+    mdirs_ = {rmodels[_]['job']: _ for _ in rmodels if rmodels[_]['job'] in args.jobs}
+
     if len(mdirs_) < len(set(args.jobs)):
         logging.error('Jobs not found')
         sys.exit(1)
 
     mdirs = [mdirs_[j] for j in args.jobs]
-        
+
     if len(set(rmodels[_]['set'] for _ in mdirs)) > 1:
         logging.error('Not all jobs trained on the same set')
         sys.exit(1)
@@ -218,11 +217,11 @@ if __name__ == '__main__':
     total_models = len(mdirs)
     logging.info('{} models found'.format(total_models))
     removed = False
-    
+
     with open('/tmp/files', 'w') as f:
 
         opt = dict(which_rec='none', state=True)
-        
+
         for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, **opt):
             logging.debug('{} for {}'.format(sdir[-30:], wanted))
             if mdir in mdirs:
@@ -232,7 +231,7 @@ if __name__ == '__main__':
             f.write(sdir + '\n')
 
     logging.info('{} model{} over {}'.format(len(mdirs), 's' if len(mdirs) > 1 else '', total_models))
-    
+
     if removed:
         logging.error('Exiting, load files')
         logging.error('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
@@ -250,7 +249,7 @@ if __name__ == '__main__':
     model.to(device)
 
     logging.debug('Model sent to {} (device wanted: {})'.format(next(iter(model.parameters())), device))
-    
+
     testset = model.training_parameters['set']
     allsets = [testset]
     allsets.extend(get_same_size_by_name(testset))
@@ -317,5 +316,3 @@ if __name__ == '__main__':
         torch.save(samples, f)
 
     logging.info('Model saved in %s', model.saved_dir)
-
-

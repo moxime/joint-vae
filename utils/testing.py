@@ -18,12 +18,12 @@ def early_stopping(model, strategy='min', which='loss', full_valid=10):
 
     if valid_k + '_loss' not in history:
         return None
-    
+
     measures = history[valid_k + '_measures']
     losses = history[valid_k + '_loss']
 
     metrics = {}
-    
+
     kl = np.array([_['kl'] for _ in history[valid_k + '_loss']])
     metrics['loss'] = np.array([_['total'] for _ in history[valid_k + '_loss']])
     if mtype in ('cvae', 'vae'):
@@ -31,15 +31,15 @@ def early_stopping(model, strategy='min', which='loss', full_valid=10):
         metrics['mse'] = np.array([_['mse'] for _ in history[valid_k + '_measures']])
 
     validation = metrics[which]
-    epoch = {} 
+    epoch = {}
 
     if not len(validation[::full_valid]):
         return None
-    
+
     epoch['min'] = validation[::full_valid].argmin() * full_valid
 
     return epoch[strategy]
-                        
+
 
 if __name__ == '__main__':
 

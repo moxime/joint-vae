@@ -8,4 +8,3 @@ x = torch.randn(*shape)
 for _ in ('cuda', 'cpu', 'cuda:0', 'cuda:1'):
 
     print(_, x.to(_).device)
-

@@ -12,6 +12,7 @@ from torchvision.utils import save_image
 import configparser
 from matplotlib import pyplot as plt
 
+
 class LoggerAsfile(object):
 
     def write(self, s):
@@ -46,7 +47,7 @@ def choose_device(device=None):
     """if device is None, returns cuda or cpu if not available.
     else returns device
 
-    """    
+    """
 
     if device is None:
 
@@ -57,7 +58,7 @@ def choose_device(device=None):
 
 
 def letters_getter(**kw):
-    
+
     return datasets.EMNIST(split='letters',  **kw)
 
 
@@ -72,7 +73,7 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         self.root = root
         self._classes_file = classes_file
         self._compile_dict()
-        
+
         super().__init__(root, *a, **kw)
 
     def _compile_dict(self):
@@ -91,10 +92,10 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
                     self.idx_to_class[i] = classi
                     self.idx_to_node[i] = node
                     i += 1
-                    
-            self.classes = [self.idx_to_class[i] for i in range(len(self.idx_to_class))]             
-            self.nodes = [self.idx_to_node[i] for i in range(len(self.idx_to_class))]             
-            
+
+            self.classes = [self.idx_to_class[i] for i in range(len(self.idx_to_class))]
+            self.nodes = [self.idx_to_node[i] for i in range(len(self.idx_to_class))]
+
     def find_classes(self, directory):
 
         classes = self.nodes
@@ -106,7 +107,7 @@ def create_image_dataset(classes_file):
     class Dataset(ImageFolderWithClassesInFile):
 
         def __init__(self, root, *a, **kw):
-             super().__init__(root, classes_file, *a, **kw)
+            super().__init__(root, classes_file, *a, **kw)
 
     return Dataset
 
@@ -146,7 +147,7 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
                     if not line.startswith('#'):
                         splitted_line = line.split()
                         p['classes'].append(' '.join(splitted_line[1:]))
-                                            
+
         elif 'classes' in p_:
             classes = p_.get('classes', '')
             if classes.startswith('$'):
@@ -161,7 +162,7 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
 
         if p['classes']:
             p['classes'] = [_.replace('_', ' ') for _ in p['classes']]
-            
+
         p['labels'] = 0 if not p['classes'] else len(p['classes'])
 
         if all_keys:
@@ -171,13 +172,13 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
             keys = ()
         for k in keys:
             p[k] = p_.getboolean(k) if k in bool_keys else p_.get(k)
-            
+
         properties[s] = p
 
     return properties
 
 
-def get_dataset(dataset='mnist', 
+def get_dataset(dataset='mnist',
                 transformer='default',
                 data_augmentation=[],
                 conf_file='data/sets.ini',
@@ -187,9 +188,9 @@ def get_dataset(dataset='mnist',
                 **kw):
 
     dataset = dataset.lower()
-    
+
     rotated = dataset.endswith('90')
-    
+
     if rotated:
         dataset = dataset[:-2]
 
@@ -198,24 +199,24 @@ def get_dataset(dataset='mnist',
     set_props = dataset_properties(conf_file=conf_file, all_keys=True)[parent_set]
 
     first_target_transform = target_transforms.get(set_props.get('target_transform'), lambda y: y)
-    
+
     if heldout_classes:
         dataset = parent_set
         C = get_shape_by_name(parent_set)[-1]
         heldin = [_ for _ in range(C) if _ not in heldout_classes]
         d = {c: i for (i, c) in enumerate(heldin)}
         d.update({_: -1 for _ in heldout_classes})
-        target_transform = lambda y: d.get(first_target_transform(y))
+        def target_transform(y): return d.get(first_target_transform(y))
 
     else:
         target_transform = first_target_transform
-        
+
     same_size = get_same_size_by_name(get_name_by_heldout_classes(dataset, *heldout_classes))
 
     pre_transforms = []
     train_transforms = []
     post_transforms = []
-    
+
     if rotated:
         pre_transforms.append(transforms.Lambda(lambda img: transforms.functional.rotate(img, 90)))
 
@@ -270,8 +271,8 @@ def get_dataset(dataset='mnist',
         getter = getters[dataset]
 
     root = set_props['root']
-    directory = root # os.path.join(root, parent_set)
-    
+    directory = root  # os.path.join(root, parent_set)
+
     train_kw = {}
     test_kw = {}
 
@@ -279,7 +280,7 @@ def get_dataset(dataset='mnist',
         root = set_props['folder']
         kw_ = (set_props.get('kw_for_split') or 'root {}/train {}/test').format(root, root).split()
         train_kw[kw_[0]] = kw_[1]
-        test_kw[kw_[0]] = kw_[2] 
+        test_kw[kw_[0]] = kw_[2]
 
     elif set_props.get('kw_for_split'):
         kw_ = set_props['kw_for_split'].split()
@@ -317,7 +318,7 @@ def get_dataset(dataset='mnist',
         for s in returned_sets:
             if s is not None:
                 s.classes_file = set_props['classes_from_file']
-        
+
     for s in returned_sets:
         if s is not None:
             s.name = dataset + ('90' if rotated else '')
@@ -327,7 +328,7 @@ def get_dataset(dataset='mnist',
             # if not hasattr(s, 'classes'):
             C = set_props['labels']
             s.classes = set_props.get('classes', [str(i) for i in range(C)])
-                
+
             s.heldout = []
             if heldout_classes:
                 s.heldout = heldout_classes
@@ -350,7 +351,7 @@ def get_dataset(dataset='mnist',
                             setattr(s, attr, [_ for _ in labels if s.target_transform(_) >= 0])
                         else:
                             raise TypeError
-                
+
     return returned_sets
 
 
@@ -364,12 +365,12 @@ def get_fashion_mnist(**kw):
     with suppress_stdout():
         print('get it')
         return get_dataset(dataset='fashion', **kw)
-    
+
 
 def get_svhn(**kw):
 
     return get_dataset(dataset='svhn', **kw)
-    
+
 
 def get_cifar10(**kw):
 
@@ -381,7 +382,7 @@ def get_batch(dataset, shuffle=True, batch_size=100, device=None):
     manual_seed = False
     if not isinstance(shuffle, bool):
         initial_seed = torch.seed()
-        torch.manual_seed(shuffle) 
+        torch.manual_seed(shuffle)
         manual_seed = True
         shuffle = True
     loader = torch.utils.data.DataLoader(dataset,
@@ -394,7 +395,7 @@ def get_batch(dataset, shuffle=True, batch_size=100, device=None):
 
     if manual_seed:
         torch.manual_seed(initial_seed)
-    
+
     return data[0].to(device), data[1].to(device)
 
 
@@ -406,37 +407,37 @@ def get_shape(dataset):
     data = next(iter(loader))
 
     num_labels = len(dataset.classes)
-    
+
     return tuple(data[0][0].shape), num_labels
 
 
 def get_shape_by_name(set_name, transform='default', conf_file='data/sets.ini'):
 
     set_props = dataset_properties(conf_file)
-    
+
     if set_name.endswith('90'):
         shape, labels = get_shape_by_name(set_name[:-2])
         shape = (shape[0], shape[2], shape[1])
         return shape, labels
-        
+
     set_name, heldout = get_heldout_classes_by_name(set_name)
 
     if set_name not in set_props:
         return None, None
-        
+
     shape = set_props[set_name]['shape']
     num_labels = set_props[set_name]['labels'] - len(heldout)
     if transform != 'pad':
         return set_props[set_name]['shape'], num_labels
     p = 2
-    if len(shape)==3:
+    if len(shape) == 3:
         return (shape[0], shape[1] + 2 * p, shape[2] + 2 * p), num_labels
 
 
 def get_same_size_by_name(set_name, rotated=False, conf_file='data/sets.ini'):
 
     set_props = dataset_properties(conf_file=conf_file)
-    
+
     if set_name.endswith('-?'):
         return [set_name[:-2] + '+?']
 
@@ -448,7 +449,7 @@ def get_same_size_by_name(set_name, rotated=False, conf_file='data/sets.ini'):
         C = get_shape_by_name(parent_set)[-1]
         new_heldout = [_ for _ in range(C) if _ not in heldout]
         return [get_name_by_heldout_classes(parent_set, *new_heldout)]
-        
+
     if set_name not in set_props:
         return []
 
@@ -457,24 +458,24 @@ def get_same_size_by_name(set_name, rotated=False, conf_file='data/sets.ini'):
     if not rotated:
         same_size.remove(set_name)
         same_size.append(set_name + '90')
-    
+
     return same_size
 
 
 def get_classes_by_name(dataset, texify=False):
 
     if texify:
-        t = lambda k: str(k).replace('_', '-')
+        def t(k): return str(k).replace('_', '-')
     else:
-        t = lambda k: k
-    
+        def t(k): return k
+
     if dataset.endswith('90'):
         return get_classes_by_name(dataset[:-2])
         # return [_ + '-90' for _ in get_classes_by_name(dataset[:-2])]
     parent_set, ho = get_heldout_classes_by_name(dataset)
 
     dp = dataset_properties()[parent_set]
-    
+
     parent_classes = dp.get('classes') or [parent_set]
 
     return [t(_) for i, _ in enumerate(parent_classes) if i not in ho]
@@ -504,12 +505,12 @@ def get_name_by_heldout_classes(dataset, *heldout):
         return dataset
     C = get_shape_by_name(dataset)[-1]
     heldout = sorted(heldout)
-    
+
     if len(heldout) / C > 0.5:
         return dataset + '+' + '+'.join(str(_) for _ in range(C) if _ not in heldout)
 
     return dataset + '-' + '-'.join(str(_) for _ in heldout)
-    
+
 
 def get_dataset_from_dict(dict_of_sets, set_name, transformer):
 
@@ -525,13 +526,13 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
             dict_of_sets[set_name] = {}
         dict_of_sets[set_name][transformer] = sets
     return sets
- 
+
 
 def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
 
     if isinstance(imageset, str):
         imageset = get_dataset(imageset)[1]
-    
+
     batch_size = num
     loader = torch.utils.data.DataLoader(imageset,
                                          shuffle=shuffle,
@@ -540,15 +541,15 @@ def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
     x, y = next(iter(loader))
 
     nrows = int(np.ceil(num / ncols))
-    
+
     fix, axs = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False)
-    
+
     for i, image in enumerate(x):
         r = i // ncols
         c = i - r * ncols
         img = transforms.functional.to_pil_image(image)
         axs[r, c].imshow(np.asarray(img))
-    
+
         try:
             label = imageset.classes[y[i]]
         except (AttributeError, TypeError):
@@ -559,21 +560,22 @@ def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
     fix.show()
 
     nrows = int(np.ceil(num / ncols))
-    
+
     fix, axs = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False)
-    
+
     for i, image in enumerate(x):
         r = i // ncols
         c = i - r * ncols
         img = transforms.functional.to_pil_image(image)
         axs[r, c].imshow(np.asarray(img))
-    
+
         try:
             label = imageset.classes[y[i]]
         except (AttributeError, TypeError):
             label = str(y[i].numpy())
         axs[r, c].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[], title=label)
     fix.show()
+
 
 def export_png(imageset, directory, by_class=False):
 
@@ -583,17 +585,17 @@ def export_png(imageset, directory, by_class=False):
         os.makedirs(directory)
 
     classes = imageset.classes
-        
+
     if by_class:
         for c in classes:
             try:
                 os.makedirs(os.path.join(directory, c))
             except FileExistsError:
                 pass
-                
+
     i = 0
     for x, y in loader:
-        
+
         for image_tensor, c in zip(x, y):
             image_dir = os.path.join(directory, classes[c]) if by_class else directory
             if not os.path.isdir(image_dir):
@@ -603,7 +605,7 @@ def export_png(imageset, directory, by_class=False):
             save_image(image_tensor, filename)
             i += 1
 
-            
+
 if __name__ == '__main__':
 
     import time
@@ -612,7 +614,7 @@ if __name__ == '__main__':
     dset = 'letters'
     splits = ['train', 'test']
     splits = ['test']
-    
+
     logging.getLogger().setLevel(logging.DEBUG)
     logging.debug('Going to build dataset')
     t0 = time.time()
@@ -626,5 +628,3 @@ if __name__ == '__main__':
     if 'test' in splits:
         plt.figure()
         show_images(test, num=36, ncols=6)
-        
-        

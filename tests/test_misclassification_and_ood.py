@@ -49,7 +49,7 @@ try:
     reload = net.job_number != j and not a.direct_load
 except NameError:
     reload = True
-    
+
 if reload:
     net = find_by_job_number(j, load_state=False)['net']
 
@@ -57,8 +57,8 @@ dir_path = os.path.join(net.saved_dir, 'samples', 'last')
 testset = net.training_parameters['set']
 
 if net.type == 'vib':
-    pass # a.plot = False
-    
+    pass  # a.plot = False
+
 if a.soft == 'default':
     if net.type == 'cvae':
         a.soft = 'iws'
@@ -90,13 +90,13 @@ for s in [testset] + oodsets:
 
     sign_for_ood = 1
     sign_for_mis = 1
-    
+
     if a.hard == 'odin*':
         metrics_for_ood = [k for k in losses if k.startswith('odin')]
         metrics_for_mis = [k for k in losses if k.startswith('odin')]
         ndim_of_losses = dict(ood=1, mis=1)
         sign_for_mis = 1
-                
+
     else:
         metrics_for_mis = [a.hard or a.soft]
         default_metrics = 'iws' if net.type == 'cvae' else metrics_for_mis[0]
@@ -107,15 +107,15 @@ for s in [testset] + oodsets:
         ndim_of_losses = dict(ood=2, mis=2)
 
     _s = '*** metrics {}{} of dim {} (ood) {}{}{} of dim {} (miss)'
-    print(_s.format('' if sign_for_ood==1 else '-',
+    print(_s.format('' if sign_for_ood == 1 else '-',
                     metrics_for_ood[0],
                     ndim_of_losses['ood'],
-                    '' if sign_for_mis==1 else '-',
+                    '' if sign_for_mis == 1 else '-',
                     '' if a.hard else 'soft-',
                     metrics_for_mis[0],
                     ndim_of_losses['mis']
-    ))
-    
+                    ))
+
     y = losses.pop('y_true')
     logits = losses['logits'].T
 
@@ -129,8 +129,6 @@ for s in [testset] + oodsets:
         correct = (y != y)
         missed = (y == y)
 
-        
-    
     mis_fpr_at_tpr = []
     for m_for_ood, m_for_mis in zip(metrics_for_ood, metrics_for_mis):
 
@@ -143,7 +141,7 @@ for s in [testset] + oodsets:
         n_correct = correct.sum().item()
         accuracy = n_correct / len(y)
 
-        if s == testset:        
+        if s == testset:
 
             if a.two_sided:
                 around = logp_x_y_max.mean()
@@ -185,9 +183,8 @@ for s in [testset] + oodsets:
                   'm': p_y_x[missed].mean(),
                   'm_': p_y_x[missed].std()}
             _s = 'Metrics mean for {s} correct: {c:.4g} +- {c_:.4g} missed: {m:4g} +- {m_:.4g}'
-            
+
             print(_s.format(**_d))
-        
 
             if s == testset:
                 _p = 5.1
@@ -205,20 +202,19 @@ for s in [testset] + oodsets:
                 idx_d = {'tp': pos_d, 'fn': ~pos_d}
 
                 #                       Correctly detected as Ind Correctly
-                cols = {'tptp': 'TP', # y                     y   y
-                        'tpfn': 'FN', # y                     y   n
-                        'tpfp': 'FP', # n                     y   y
-                        'tptn': 'TN', # n                     y   n
-                        'fntp': 'FN', # y                     n   y => n
-                        'fnfn': 'FN', # y                     n   n
-                        'fnfp': 'TN', # n                     n   y => n
-                        'fntn': 'TN'} # n                     n   n
+                cols = {'tptp': 'TP',  # y                     y   y
+                        'tpfn': 'FN',  # y                     y   n
+                        'tpfp': 'FP',  # n                     y   y
+                        'tptn': 'TN',  # n                     y   n
+                        'fntp': 'FN',  # y                     n   y => n
+                        'fnfn': 'FN',  # y                     n   n
+                        'fnfp': 'TN',  # n                     n   y => n
+                        'fntn': 'TN'}  # n                     n   n
 
                 totals = {_: None for _ in set(cols.values())}
 
                 _n = len(misclass_thresholds)
                 _i = [_ * _n // 100 for _ in range(10)]
-
 
                 print('|{:_^8}'.format('t'), end='|')
                 print('|'.join([f'{_:_^6}' for _ in cols]), end='|')
@@ -242,7 +238,7 @@ for s in [testset] + oodsets:
                         for misclass_test in ('tp', 'fn', 'fp', 'tn'):
 
                             idx = idx_d[ood_test] * idx_m[misclass_test]
-                            num_of[ood_test + misclass_test] = idx.sum().item()  
+                            num_of[ood_test + misclass_test] = idx.sum().item()
 
                     for n in totals:
                         totals[n] = sum(num_of[_] for _ in cols if cols[_] == n)
@@ -261,7 +257,8 @@ for s in [testset] + oodsets:
                         print('|'.join('{:6d}'.format(num_of[_]) for _ in num_of), end='|')
                         print('|'.join('{:6.1f}%'.format(100 * _) for _ in (TPR, P, FPR)), end='|\n')
 
-                    if found_fpr_at_tpr : break
+                    if found_fpr_at_tpr:
+                        break
 
                 if not found_fpr_at_tpr:
                     mis_fpr_at_tpr.append((FPR, P))
@@ -290,7 +287,7 @@ for s in [testset] + oodsets:
                 plt.show(block=False)
 
     best_fpr = 1
-    
+
     for m in metrics_for_mis:
         for T in a.T:
             FPR, P = mis_fpr_at_tpr.pop(0)
@@ -302,14 +299,14 @@ for s in [testset] + oodsets:
 
     dP = best_P - accuracy
     print('{:16} {:4} at TPR {:.1f} : FPR={:.1f} P={:.1f} ({:.1f}{:+.1f})'.format(best_m,
-                                                                                   best_T,
-                                                                                   100 * mis_tpr,
-                                                                                   100 * best_fpr,
-                                                                                   100 * best_P,
-                                                                                   100 * accuracy,
-                                                                                   100 * dP
-                                                                                   ))
-                        
+                                                                                  best_T,
+                                                                                  100 * mis_tpr,
+                                                                                  100 * best_fpr,
+                                                                                  100 * best_P,
+                                                                                  100 * accuracy,
+                                                                                  100 * dP
+                                                                                  ))
+
 if a.plot:
     input()
 
@@ -323,7 +320,7 @@ if a.plot:
     # fpr = fp / (tn + fp)
 
     # print('Acc: {:.2f}% -> {:.2f}%'.format(accuracy * 100, accuracy_id * 100),
-    #       'FPR: {:.2f}'.format(fpr * 100), 
+    #       'FPR: {:.2f}'.format(fpr * 100),
     #       'Prec: {:.2f}'.format(precision * 100),
     #       'Rec:{:.2f}'.format(recall * 100))
 
@@ -341,5 +338,3 @@ if a.plot:
     #         aucpr[k][w] = auc(r[k][w], p[k][w])
 
     #     print(f'AUCPR {k:3}:', ' '.join(['{}: {:.1f}'.format(w, 100 * aucpr[k][w]) for w in ('correct', 'error')]))
-
-

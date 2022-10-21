@@ -21,7 +21,7 @@ if compute:
 
     load_dir = find_by_job_number('./jobs', j, load_net=False)[j]['dir']
 
-    print('Load net', end='') 
+    print('Load net', end='')
     net = ClassificationVariationalNetwork.load(load_dir, load_state=True)
     print(' to gpu')
     net.to('cuda')
@@ -32,7 +32,6 @@ if compute:
     trainset, testset = dl.get_dataset(trainset_name, transformer=net.training['transformer'])
     oodsets = [dl.get_dataset(n)[1] for n in testset.same_size]
     oodset = oodsets[0]
-
 
     batch_size = 200
     n_batch = 1000 // batch_size
@@ -84,4 +83,3 @@ for i, ax in enumerate(a_):
     ax.set_title(f'{var[k]:g}')
 
 plt.show(block=False)
-

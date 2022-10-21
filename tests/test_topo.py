@@ -7,7 +7,7 @@ from tensorflow.keras.utils import plot_model, to_categorical
 from tensorflow.keras.losses import mse, binary_crossentropy, categorical_crossentropy
 # from tensorflow.keras.utils import to_categorical
 import data.generate as dg
-from utils import save_load 
+from utils import save_load
 import utils.mutual_information as mi
 import numpy as np
 import tensorflow.keras.backend as K
@@ -19,9 +19,11 @@ M1 = 10
 M = 20
 T = 11
 
+
 def f(x1, A):
 
     return np.dot(x1, np.random.rand(M1, M))
+
 
 x_input = Input(shape=M)
 y_input = Input(shape=C)
@@ -59,19 +61,18 @@ def my_loss(net, type='mix', beta=1):
             return K.mean(binary_crossentropy(y, y_))
 
         elif type is 'vae':
-            return K.mean(mse(x, x_) 
+            return K.mean(mse(x, x_)
                           + beta*binary_crossentropy(y, y_)
                           + beta*K.sum(K.exp(z_log_var)
                                        + K.square(z_mu)
                                        - z_log_var))
-        
+
         else:
             return K.mean(mse(x, x_))
-        
-
 
     return loss
-    
+
+
 def_u = False or True
 if def_u:
     u = np.random.rand(M)
@@ -90,7 +91,7 @@ epochs = 40
 
 net.compile(optimizer='Adam', loss=my_loss(net, 'vae', beta=1))
 net.fit([x_train, y_train], [x_train, y_train],
-        validation_data = ([x_test, y_test], [x_test, y_test]),
+        validation_data=([x_test, y_test], [x_test, y_test]),
         epochs=epochs)
 
 
@@ -98,4 +99,3 @@ net.fit([x_train, y_train], [x_train, y_train],
 
 print('mmse: ', mse(x_, x_test).numpy().mean())
 print('mxe: ', binary_crossentropy(y_test, y_).numpy().mean())
-

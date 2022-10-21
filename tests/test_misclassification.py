@@ -56,7 +56,7 @@ if __name__ == '__main__':
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
 
     logging.getLogger().setLevel(40 - 10 * args.v)
-    
+
     metrics_for_mis = args.metrics
 
     filter_parser = create_filter_parser()
@@ -78,7 +78,7 @@ if __name__ == '__main__':
             f.write(sdir + '\n')
 
     print(len(mdirs), 'complete model' + ('s' if len(mdirs) > 1 else ''), 'over', total_models)
-    
+
     if not mdirs:
         logging.warning('Exiting, load files')
         logging.warning('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
@@ -87,27 +87,27 @@ if __name__ == '__main__':
     confs = []
 
     for mdir in mdirs:
-        
+
         model = M.load(mdir, load_state=False)
         testset = model.training_parameters['set']
 
         model.misclassification_detection_rate(predict_methods='first', wanted_epoch='min-loss')
 
         continue
-    
+
         oodsets = []
 
         if wanted == 'min-loss':
             epoch = model.training_parameters.get('early-min-loss', 'last')
         else:
             epoch = 'last'
-        
+
         epoch_str = '{:0>4}'.format(epoch)
 
         print('__', model.job_number, testset,
               '@',  epoch, metrics_for_mis)
 
-        sample_dir =  os.path.join(mdir, 'samples')
+        sample_dir = os.path.join(mdir, 'samples')
         record_dir = os.path.join(sample_dir, epoch_str)
         recorders = LossRecorder.loadall(record_dir)
 
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         #     model.accuracy(batch_size=64, print_result='REC',
         #                    epoch=epoch, from_where='compute',
         #                    sample_dirs=[sample_dir])
-            
+
         is_testset = True
 
         classes_ = get_classes_by_name(testset)  # + ['OOD']
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         else:
             _c = ('correct', 'missed', prec_rec)
             print(' ', f'{" ":{str_col_width}}', ' '.join(f'{_:{str_col_width}}' for _ in _c))
-            
+
         thresholds = (-np.inf, np.inf)
         for dset in [testset] + oodsets:
 
@@ -168,19 +168,19 @@ if __name__ == '__main__':
                 which_threshold = 0
 
             classification_metrics = sign * (sign * metrics_tensor).max(axis=0)[0].cpu()
-                
+
             if is_testset:
 
                 y_correct = y_true == y_pred
                 correct_metrics = classification_metrics[y_correct].sort()[0]
 
                 n_correct = len(correct_metrics)
-                
+
                 if which_threshold == 1:
                     thresholds = -np.inf, correct_metrics[int(n_correct * tpr)]
                 else:
                     thresholds = correct_metrics[-int(n_correct * tpr)], np.inf
-                
+
                 sorted_iws = iws.sort()[0]
                 n = len(sorted_iws)
                 ood_thresholds = (sorted_iws[n * 4 // 100], sorted_iws[-n * 1 // 100])
@@ -203,7 +203,7 @@ if __name__ == '__main__':
             correct = y_pred == y_true
             missed = y_pred != y_true
             is_ood = not is_testset
-            
+
             for y, y_, o, m in zip(y_true, y_pred, as_ood, as_misclass):
                 c = classes[y]
                 i_y = y_true == y
@@ -211,10 +211,10 @@ if __name__ == '__main__':
 
                 for c, i_y in zip((classes[y], 'set'), (y_true == y, torch.ones_like(y_true, dtype=bool))):
 
-                    # Classfication, misclassification rates 
+                    # Classfication, misclassification rates
                     confusion_matrix[dset][c][c_][True] += 1. / i_y.sum()
                     if m:
-                            # Detected as misclassified
+                        # Detected as misclassified
                         confusion_matrix[dset][c][c_][False] += 1. / (i_y & (y_pred == y_)).sum()
                     if y_ == y:
                         # Accuracy

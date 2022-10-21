@@ -2,7 +2,6 @@ import signal
 import logging
 
 
-
 class SIGHandler:
 
     def __init__(self, *sigs):
@@ -17,13 +16,12 @@ class SIGHandler:
 
         self.sig = sig
         logging.warning(f'Catching signal {self}, crossing fingers')
-    
+
     @classmethod
     def create(cls, *sigs):
         h = SIGHandler(*sigs)
 
         return h
-
 
     def __str__(self, *a, **kw):
         if self.sig:

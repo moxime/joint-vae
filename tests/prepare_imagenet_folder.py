@@ -1,4 +1,5 @@
-import os, shutil
+import os
+import shutil
 import torch
 from scipy.io import loadmat
 
@@ -27,6 +28,7 @@ def create_list_of_nodes(directory='data/ImageNet12'):
 
     return nodes
 
+
 def create_small_train_folder(directory='data/ImageNet12', target='tmp', source='train', num=2):
 
     source_directory = os.path.join(directory, source)
@@ -37,7 +39,7 @@ def create_small_train_folder(directory='data/ImageNet12', target='tmp', source=
     for n in nodes_:
         if os.path.isdir(os.path.realpath(os.path.join(source_directory, n))):
             nodes.append(n)
-        
+
     for node in nodes:
 
         print('***', node)
@@ -52,11 +54,11 @@ def create_small_train_folder(directory='data/ImageNet12', target='tmp', source=
             print('{} -> {}'.format(image_path, target_dir))
             shutil.copy(image_path, target_dir)
 
-            
+
 def create_validation_folder(directory='data/ImageNet12', target='val', source='tmp'):
 
     dev_kit_folder = 'ILSVRC2012_devkit_t12/data'
-    
+
     meta_file = os.path.join(directory, dev_kit_folder, 'meta.mat')
 
     meta_data = loadmat(meta_file)
@@ -66,7 +68,7 @@ def create_validation_folder(directory='data/ImageNet12', target='val', source='
     ids = {}
     for s in synsets:
         ids[s[0][0][0][0]] = s[0][1][0]
-        
+
     ground_truth_file = os.path.join(directory, dev_kit_folder, 'ILSVRC2012_validation_ground_truth.txt')
 
     source_dir = os.path.join(directory, source)
@@ -87,7 +89,7 @@ def create_validation_folder(directory='data/ImageNet12', target='val', source='
                 # print(image, node)
             else:
                 images_not_found.append(image)
-                
+
     if images_not_found:
         print('*** IMAGE NOT FOUND ***')
         print(','.join(images_not_found))
@@ -101,8 +103,9 @@ def create_validation_folder(directory='data/ImageNet12', target='val', source='
         src_file = os.path.join(source_dir, image)
         print('{} -> {}'.format(src_file, tdir))
         shutil.copy(src_file, tdir)
-            
+
     return nodes_by_file
+
 
 # m = create_validation_folder()
 # create_small_train_folder()

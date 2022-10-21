@@ -45,6 +45,6 @@ available = available_results(model,
 
 # plan = testing_plan(model, predict_methods=[], misclass_methods=[], wanted_epoch=30)
 # ood = model.ood_detection_rates(epoch=2000)
-    
+
 # acc = model.accuracy(epoch=1980, print_result=True, sample_dirs=['/tmp'])
 mdict = make_dict_from_model(model, model.saved_dir, wanted_epoch=240)

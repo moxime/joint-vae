@@ -20,11 +20,11 @@ if __name__ == '__main__':
     # sys.argv[0] = 'training'
     # setproctitle.setproctitle(' '.join(sys.argv))
     setproctitle.setproctitle('training')
-    
+
     hostname = gethostname()
-    
+
     args = get_args(what_for='train')
-    
+
     debug = args.debug
     verbose = args.verbose
 
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     if not job_number:
         try:
             with open(os.path.join(job_dir, f'number-{hostname}')) as f:
-                job_number = int(f.read())    
+                job_number = int(f.read())
         except FileNotFoundError:
             log.warning(f'File number-{hostname} not found in {job_dir}')
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
         wanted_device = 'cpu'
     else:
         wanted_device = args.device
-        
+
     if wanted_device == 'cpu' or not torch.cuda.is_available():
         device = torch.device('cpu')
         log.info(f'Used device: {device}')
@@ -74,11 +74,11 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     test_sample_size = args.test_sample_size
     test_batch_size = args.test_batch_size
-    dry_run = args.dry_run    
+    dry_run = args.dry_run
     resume = args.resume
 
     representation = args.representation or (args.hsv and 'hsv') or 'rgb'
-   
+
     if resume:
         try:
             job_TBR_num = int(resume)
@@ -132,9 +132,9 @@ if __name__ == '__main__':
         args.optim_params = {
             'optim_type': args.optimizer,
             'lr': args.lr,
-            'lr_decay':args.lr_decay,
-            'weight_decay':args.weight_decay
-            }
+            'lr_decay': args.lr_decay,
+            'weight_decay': args.weight_decay
+        }
 
         input_shape, num_labels = torchdl.get_shape_by_name(args.dataset, args.transformer)
         _shape = '-'.join(map(str, input_shape + (num_labels,)))
@@ -152,14 +152,14 @@ if __name__ == '__main__':
             except ValueError:
                 sigma_value = 1.
         else:
-            assert  isinstance(args.sigma, (float, int))
+            assert isinstance(args.sigma, (float, int))
             sigma_value = args.sigma
             sigma_is_learned = False
             sigma_is_coded = False
             sigma_is_rmse = False
 
         batch_norm = args.batch_norm if args.batch_norm != 'none' else None
-        
+
         sigma = Sigma(sigma_value,
                       sdim=sdim,
                       input_dim=input_shape if sigma_is_coded else False,
@@ -199,29 +199,28 @@ if __name__ == '__main__':
     if args.show:
         print(jvae)
         sys.exit(0)
-        
+
     if resume:
-        dataset, transformer = jvae.training_parameters['set'], jvae.training_parameters['transformer'] 
+        dataset, transformer = jvae.training_parameters['set'], jvae.training_parameters['transformer']
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
         validation = jvae.training_parameters['validation']
-        
+
         oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
-        
+
         data_augmentation = jvae.training_parameters['data_augmentation']
         latent_sampling = jvae.training_parameters['latent_sampling']
-        
+
     else:
 
         dataset, transformer = args.dataset, args.transformer
-        trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)  # 
+        trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)  #
         validation = args.validation
         oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
 
         data_augmentation = args.data_augmentation
         latent_sampling = args.latent_sampling
-
 
     log.debug(f'{trainset.name} dataset loaded')
 
@@ -236,7 +235,7 @@ if __name__ == '__main__':
                                  jvae.print_architecture(sampling=False),
                                  f'sigma={jvae.sigma}' +
                                  f'--optim={jvae.optimizer}' +
-                                 f'--sampling={latent_sampling}'+
+                                 f'--sampling={latent_sampling}' +
                                  _augment)
 
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
@@ -244,13 +243,13 @@ if __name__ == '__main__':
     if args.where:
         print(save_dir)
         sys.exit(0)
-    
+
     output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
 
     log.debug(f'Outputs registered in {output_file}')
     outputs = EpochOutput()
     outputs.add_file(output_file)
-    
+
     while os.path.exists(save_dir):
         log.debug(f'{save_dir} exists')
         job_number += 1
@@ -258,14 +257,14 @@ if __name__ == '__main__':
 
     jvae.job_number = job_number
     jvae.saved_dir = save_dir
-    
+
     if args.resume:
         with open(os.path.join(resumed_from, 'RESUMED'), 'w') as f:
             f.write(str(job_number) + '\n')
 
     if not os.path.exists(job_dir):
         os.makedirs(job_dir)
-        
+
     with open(os.path.join(job_dir, f'number-{hostname}'), 'w') as f:
         f.write(str(job_number + 1) + '\n')
 
@@ -278,7 +277,7 @@ if __name__ == '__main__':
     jvae.to(device)
 
     # print('*** .device', jvae.device)
-    
+
     x, y = torchdl.get_batch(trainset, device=device, batch_size=8)
 
     if debug:
@@ -289,7 +288,7 @@ if __name__ == '__main__':
                   x.mean().item(),
                   x.std().item())
         outs = jvae(x, y if jvae.y_is_coded else None)
-        log.debug(' -- '.join(map(str,([tuple(u.shape) for u in outs]))))
+        log.debug(' -- '.join(map(str, ([tuple(u.shape) for u in outs]))))
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -324,4 +323,3 @@ if __name__ == '__main__':
             log.info('No need to train %s', jvae.print_architecture())
     else:
         log.info('Dry-run %s', jvae.print_training(epochs=epochs, set=trainset.name))
-

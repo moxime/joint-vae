@@ -16,16 +16,16 @@ for i in range(N // 2):
                     'color': choose(colors),
                     'habitat': choose(habitats),
                     'size': {'legs': np.random.rand(),
-                            'head': np.random.rand()}})
+                             'head': np.random.rand()}})
 
     animals.append({'specy': choose(species),
                     'color': choose(colors),
                     'habitat': choose(habitats),
                     'size': {'paw': np.random.rand()}})
 
-    
+
 df = pd.DataFrame.from_records(animals, columns=('specy', 'color', 'habitat', 'size'))
-    
+
 
 df2 = df.drop('size', axis=1).join(pd.DataFrame(df['size'].values.tolist()))
 

@@ -53,7 +53,7 @@ for ntype in types:
     nets[ntype] = n
     # n.compute_max_batch_size(batch_size=1024)
     # print(n.max_batch_sizes)
-    
+
     if n.y_is_coded:
         pass
 
@@ -74,7 +74,7 @@ for o, _y in zip((out, out_y), ('*', 'y')):
         print(t, _y, 'logits:', *logits.shape)
         x_ = o[t][0]
         print(t, _y, 'x_:', *x_.shape)
-        
+
         print('=' * 30)
     print('=' * 30)
 
@@ -83,7 +83,6 @@ if 'vib' in nets:
     x_, logits, mu, log_var, z = nets['vib'](x)
 
 y_ = torch.cat([c * torch.ones((1,) + N, dtype=int) for c in range(C)])
-x_ent = x_loss(None, logits, batch_mean=False) 
+x_ent = x_loss(None, logits, batch_mean=False)
 dictionary = nets['cvae'].encoder.latent_dictionary
 # kl = kl_loss(mu, log_var, y=y_, latent_dictionary=dictionary, batch_mean=False)
-

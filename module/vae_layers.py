@@ -568,7 +568,7 @@ for c in vgg_cfg:
     ivgg_cfg['i' + c] = ['U' if _ == 'M' else _ for _ in vgg_cfg[c][-1::-1]]
     ivgg_cfg['i' + c].append(-1)
 
-    
+
 vgg_cfg_a = {}
 for cfg in vgg_cfg:
     vgg_cfg_a[cfg + '-a'] = ['A' if _ == 'M' else _ for _ in vgg_cfg[cfg]]
@@ -951,7 +951,7 @@ class VGGDecoder(ConvDecoder):
         assert channels is not None
         assert -1 not in channels or image_channel is not None
         channels = [image_channel if _ == -1 else _ for _ in channels]
-            
+
         super(VGGDecoder, self).__init__(input_dim, first_shape, channels,
                                          **kw)
 
@@ -964,7 +964,7 @@ class VGGDecoder(ConvDecoder):
 
             if x == 'U':
                 layers.append(nn.UpsamplingNearest2d(scale_factor=2))
-          
+
             else:
                 layers.append(nn.ConvTranspose2d(input_channels, x,
                                                  3, stride=1, padding=1))
@@ -979,7 +979,7 @@ class VGGDecoder(ConvDecoder):
         layers[-1] = activation_layers.get(output_activation, nn.Identity)()
 
         return layers
-    
+
 
 class Decoder(nn.Module):           #
     """

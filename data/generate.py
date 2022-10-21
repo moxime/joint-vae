@@ -5,22 +5,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 mnist = None
+
+
 def get_fashion_mnist(**kwargs):
 
     return get_image_dataset(fashion_mnist, **kwargs)
+
 
 def get_mnist(**kwargs):
 
     return get_image_dataset(dataset=mnist, **kwargs)
 
+
 def get_image_dataset(dataset=mnist, ood=None):
-    
+
     (train_images, train_labels), (test_images, test_labels) = \
-        dataset.load_data()       
-    
+        dataset.load_data()
+
     num_train = len(train_labels)
     num_test = len(test_labels)
-    
+
     one_hot_train_labels = to_categorical(train_labels)
     one_hot_test_labels = to_categorical(test_labels)
 
@@ -32,10 +36,10 @@ def get_image_dataset(dataset=mnist, ood=None):
 
     if ood is None:
         return train_images, one_hot_train_labels, test_images, one_hot_test_labels
-    elif ood=='mnist':
+    elif ood == 'mnist':
         _, _, x_ood, y_ood = get_image_dataset(mnist)
     else:
-        x_ood_ = test_images[None] # expand dims
+        x_ood_ = test_images[None]  # expand dims
         y_ood_ = one_hot_test_labels[None]
         perms = [np.random.permutation(test_images.shape[0]) for i in range(3)]
 
@@ -63,7 +67,7 @@ def gaussian_shell(N, dim, mean, var):
     def normed(x):
         n = np.sqrt((x**2).sum(axis=0))
         return (x / n)
-        
+
     return (normed(gb) * dists).T
 
 
@@ -72,7 +76,7 @@ def generate_labels(batch_sizes, batch_labels):
     containing 100 '0', 50 '1' and 50 '0'
 
     """
-    
+
     num_cat = max(batch_labels) + 1
     Y = np.zeros((sum(batch_sizes), num_cat))
     n0 = 0
@@ -90,7 +94,7 @@ def generate_random_means_covar(dim, num_parameters,
                                 sigma_A=1):
     """
     Generates parameters for a mixture of gaussians of dim dim.
-    
+
     Parameters: 
     * dim: dimension of data 
     * N: number of parameters
@@ -103,7 +107,7 @@ def generate_random_means_covar(dim, num_parameters,
     * mu_: the list of len N of mean-vectors
     * cov_: the list of covariance matrices 
     (cov = A.T*A is a covariance matrix)
-    
+
     """
     cov_ = []
     mu_ = []
@@ -124,7 +128,7 @@ def generate_random_means_covar(dim, num_parameters,
 def generate_gaussian_mixture(dim, sizes, mean_vectors, covariance_matrices=None):
     """
     Generates a mixture of gaussians of dim dim.
-    
+
     Parameters: 
     * dim: dimension of data 
     * sizes: list of integers, e.g. [10, 30, 5]
@@ -136,7 +140,7 @@ def generate_gaussian_mixture(dim, sizes, mean_vectors, covariance_matrices=None
     * X: a N*dim matrix (N=sum(sizes)) X[ni:ni+sizes[i],:]
     is a stack of gaussian sizes[i] vectors of mean mu_[i], and covar
     matrix cov_mat[i]
-    
+
     """
     if covariance_matrices is None:
         covariance_matrices = []
@@ -156,8 +160,6 @@ def generate_gaussian_mixture(dim, sizes, mean_vectors, covariance_matrices=None
     return X
 
 
-
-
 def data_generator(input_dim, output_dim, layer_dims, output_var=0., activation='relu'):
     """ creates a network that will take a gaussian random variable z=N(0, I)
     as an input and generate x = N(f(z), \sigma^2 I) as aan output
@@ -165,20 +167,20 @@ def data_generator(input_dim, output_dim, layer_dims, output_var=0., activation=
 
     input = Input(shape=(input_dim,))
     x = input
-    
+
     for i, d in enumerate(layer_dims):
         x = Dense(d, activation=activation, name=f'intermediate-{i}',
                   bias_initializer='random_uniform',
                   kernel_initializer='random_uniform')(x)
 
     x = Dense(output_dim, name='mean')(x)
-    
+
     class SamplingLayer(Layer):
 
         def __init__(self, var=0., *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.var = var
-            
+
         def call(self, input):
             z_mean = input
             batch = tf.shape(z_mean)[0]
@@ -187,12 +189,9 @@ def data_generator(input_dim, output_dim, layer_dims, output_var=0., activation=
             epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
             return z_mean + self.var * epsilon
 
-        
     s = SamplingLayer(var=output_var)(x)
 
     return Model(inputs=input, outputs=s)
-
-
 
 
 if __name__ == '__main__':
@@ -210,13 +209,13 @@ if __name__ == '__main__':
         x = net(z)
 
         for p in range(P):
-            plt.scatter(x[:,2*p], x[:,2*p+1], marker='.', s=4, alpha=10000/N)
+            plt.scatter(x[:, 2*p], x[:, 2*p+1], marker='.', s=4, alpha=10000/N)
 
         m = x.numpy().mean(axis=0)
         std = x.numpy().std(axis=0)
-        
+
         print(f'layers are {layers}\nx is of mean {m} and std {std}')
-        
+
         plt.show()
 
         return x, z, net, layers

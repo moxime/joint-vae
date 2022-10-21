@@ -60,15 +60,15 @@ class Khi(Model):
             # print('='*80, mse(i, o),'\n'*5)
             self.add_loss(mse(i, o))
         return outs
-    
-        
+
+
 M_ = [100, 200, 50, 300]
 N = int(1e5)
 
 x_ = []
 
 for M in M_:
-    x_.append(np.random.randn(N, M))   
+    x_.append(np.random.randn(N, M))
 
 print('\n'*40)
 net = Khi(M_)

@@ -41,14 +41,16 @@ job_numbers = [75]
 job_numbers = [37]
 job_numbers = [112152, 112410, 112267]
 
+
 def showable(x):
-    
+
     if x.shape[0] == 1:
         x_ = x.expand((3,) + x.shape[1:]).detach().cpu()
     else:
         x_ = x.detach().cpu()
 
     return x_.permute(1, 2, 0)
+
 
 def show_grid(net, x_in, x_out, order, axes, y_in=None, y_out=None):
 
@@ -74,9 +76,9 @@ def show_grid(net, x_in, x_out, order, axes, y_in=None, y_out=None):
         axis.imshow(showable(image))
         snr = (x0_ - x0).pow(2).mean() / x0.pow(2).mean()
         snr_db = - 10 * np.log10(snr.item())
-        _db = f' {snr_db:.1f}dB' if which else '' # f' (i={im})'
-        class_= testset.classes[_y] if _y > -1 else ''
-        axis.set_title(class_ + _db) #, y=0, pad=25, verticalalignment="top")
+        _db = f' {snr_db:.1f}dB' if which else ''  # f' (i={im})'
+        class_ = testset.classes[_y] if _y > -1 else ''
+        axis.set_title(class_ + _db)  # , y=0, pad=25, verticalalignment="top")
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
 
@@ -91,18 +93,18 @@ def show_examples(net, x_in, x_out, order, ax_matrix, y_in=None, y_out=None):
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
         axis.set_title('var[^X]={:.3g}'.format(x_out[1:, c].var(0).mean()))
-        
+
         axis.imshow(showable(x_in[c]))
 
         axis = ax_matrix[1, c]
         axis.get_xaxis().set_visible(False)
         axis.get_yaxis().set_visible(False)
-        
+
         _x = x_out[1:, c].mean(0)
         axis.imshow(showable(_x))
-        
+
         axis.set_title('rmse={:.3g}'.format((_x - x_in[c]).pow(2).mean()))
-        
+
         for r in range(2, rows):
 
             axis = ax_matrix[r, c]
@@ -112,8 +114,8 @@ def show_examples(net, x_in, x_out, order, ax_matrix, y_in=None, y_out=None):
             _x = x_out[r - 2, c]
             axis.imshow(showable(_x))
             axis.set_title('rmse={:.3g}'.format((_x - x_in[c]).pow(2).mean()))
-        
-        
+
+
 reload = True
 reload = False
 recompute = True
@@ -127,11 +129,11 @@ try:
 except (NameError, KeyError):
     print('Loading jobs')
     reload = True
-    recompute=True
-    
+    recompute = True
+
 if reload:
     jobs = find_by_job_number(search_dir, *job_numbers, load_state=False)
-    #, json_file='networks-lss.json')
+    # , json_file='networks-lss.json')
 
     to_be_removed = []
     for job_number in jobs:
@@ -141,7 +143,8 @@ if reload:
             print(f'Error loading {job_number}')
             to_be_removed.append(job_number)
 
-    for job_number in to_be_removed: jobs.pop(job_number)
+    for job_number in to_be_removed:
+        jobs.pop(job_number)
 
 fgrid = {}
 fexamples = {}
@@ -237,7 +240,7 @@ for job_number in jobs:
     print(f'Creating grid of outputs for {job_number}')
     f, aex = plt.subplots(6, 10)
     fexamples[job_number] = f
-    
+
     f, aoex = plt.subplots(6, 10)
     foodexamples[job_number] = f
 
@@ -245,7 +248,7 @@ for job_number in jobs:
     fo, aood = plt.subplots(4, 6)
     food[job_number] = fo
     aood_ = aood.reshape(-1)
-    
+
     if net.type != 'vae':
         y_ = net.predict(x['test'], method='esty' if net.is_vib else 'loss')
     else:
@@ -269,12 +272,11 @@ for job_number in jobs:
     show_grid(net, x['test'], x_['test'], order, a_, y_in=y['test'], y_out=y_)
 
     show_examples(net, x['test'], x_['test'], order, aex, y_in=y['test'], y_out=y_)
-        
+
     order = np.random.permutation(batch_size)[:n]
     show_grid(net, x['ood'], x_['ood'], order, aood_, y_out=y_)
     show_examples(net, x['ood'], x_['ood'], order, aoex, y_in=y['test'], y_out=y_)
 
-    
     _n = jobs[job_number]
     net_type = _n['type']
     K = _n['K']
@@ -288,7 +290,7 @@ for job_number in jobs:
         os.makedirs(result_dir)
     grid_png = os.path.join('results', f'{job_number:06d}', 'grid.png')
     f.savefig(grid_png)
-    
+
     with torch.no_grad():
         if net.is_cvae or net.is_xvae:
             mu_y = net.encoder.latent_dictionary.index_select(0, y['test'][_true]).cpu()
@@ -311,7 +313,7 @@ for job_number in jobs:
     print(f'Creating latent quartiles for {job_number}')
     f, a = plt.subplots(1)
     fmuvar[job_number] = f
-    
+
     a.errorbar(_mu, var_, _var_, fmt='o')
     acc = 0
     if net.predict_methods:
@@ -342,7 +344,7 @@ for job_number in jobs:
     a_.set_ylabel('Moyenne sur un batch des variances par dimension')
     a_.set_xlim(0, 3.5)
     a_.set_ylim(0, 1.2)
-    
+
     with torch.no_grad():
         a_ = a[0, 1]
         a_.plot(mu_z[0].view(-1).cpu(), var_z[0].view(-1).cpu(), '.')
@@ -364,7 +366,7 @@ for job_number in jobs:
         a_ = a[1, 0]
         a_.hist(var_z.view(-1).cpu(), bins=100)
         a_.set_title('Histogramme des variances sur le batch')
-        a_.set_xlim(0, 1.2)        
+        a_.set_xlim(0, 1.2)
 
         a_ = a[1, 1]
 
@@ -374,7 +376,7 @@ for job_number in jobs:
         a_.semilogy(ratio[sorting_index])
         # a_.semilogy(qratio[0][sorting_index], '--')
         # a_.semilogy(qratio[1][sorting_index], '--')
-        
+
         a_.set_title('Moyenne sur le batch du rapport mu_z(x)^2 / var_z(x) par dimension')
 
         a_ = a[1, 2]
@@ -385,7 +387,6 @@ for job_number in jobs:
         a_.set_title('Moyenne sur le batch de var_z(x)'
                      ' / variance sur le batch de mu_z(x), par dimension')
 
-        
         print(f'Generating artificial images for {job_number}')
         classes = data_dict[job_number]['classes']
         C = len(classes)
@@ -394,7 +395,7 @@ for job_number in jobs:
 
         vae = jobs[job_number]['net']
         K = vae.latent_dim
-        z = torch.randn(a.shape+ (K,), device=device)
+        z = torch.randn(a.shape + (K,), device=device)
         mu_y = torch.zeros_like(z)
         if net.is_cvae:
             for c in range(C):
@@ -404,17 +405,15 @@ for job_number in jobs:
         x_gen = vae.imager(vae.decoder(z + mu_y))
         for c in range(C):
             for i, axis in enumerate(a[c]):
-                image = x_gen[c][i] 
+                image = x_gen[c][i]
                 axis.imshow(showable(image))
                 axis.get_xaxis().set_visible(False)
                 axis.get_yaxis().set_visible(False)
- 
+
         _s = jobs[job_number]['sigma']
         f.suptitle(f'{job_number} is a {vae.type} K={vae.latent_dim} sigma={_s}')
 
-        
 
-    
 def do_show_fig(grid=False, examples=False, ood=False, muvar=False, gen=False, hist=False):
     for j in jobs:
         if grid:
@@ -430,7 +429,8 @@ def do_show_fig(grid=False, examples=False, ood=False, muvar=False, gen=False, h
             fx_[j].show()
         if hist:
             fhist[j].show()
-        
+
+
 show_fig = False
 show_fig = True
 
@@ -449,10 +449,8 @@ show_muvar = False
 show_gen = True
 show_gen = False
 
-show_hist= False
+show_hist = False
 show_hist = True
-
-
 
 
 if show_fig:
@@ -467,4 +465,3 @@ if show_fig:
     input('Press any button to close figs\n')
     print('Closing')
     plt.close('all')
-    

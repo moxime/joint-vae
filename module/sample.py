@@ -26,11 +26,10 @@ class DefaultClasses(object):
     def __getitem__(self, k):
         return k
 
-    
+
 def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), directory='test',
            in_classes=DefaultClasses(), out_classes=DefaultClasses(),
            N=20, L=10):
-    
     r"""Creates a grid of output images. If x is None the output images
     are the ones created when the decoder is fed with prior z"""
 
@@ -57,7 +56,7 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
     """
 
     defy = r'\def\y{{{}}}'
-    
+
     if x is not None:
 
         (D, H, W) = net.input_shape[-3:]
@@ -72,7 +71,7 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
         list_of_images = [x_grid]
 
         for row in range(N):
-            
+
             x_row = torch.zeros((D, H, 0), device=x.device)
             list_of_images.append({'name': f'x_{row:0{wN}}_in',
                                    'tensor': x[row],
@@ -252,8 +251,8 @@ def comparison(x, *nets, batch_size=128, root=os.path.join(DEFAULT_RESULTS_DIR, 
 
 if __name__ == '__main__':
 
-    root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples')
-    
+    root = os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples')
+
     parser = argparse.ArgumentParser(add_help=False)
 
     parser.add_argument('--job-dir', default=DEFAULT_JOBS_DIR)
@@ -307,7 +306,7 @@ if __name__ == '__main__':
     # cross_sample = args.compare
 
     m = max(m, N, z_sample)
-    
+
     device = tl.choose_device()
     logging.debug(device)
 
@@ -389,7 +388,7 @@ if __name__ == '__main__':
             _, ood_dataset = tl.get_dataset(o, transformer=transformer, splits=['test'])
             x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=m)
             in_classes[o] = tl.get_classes_by_name(o, texify=True)
-            
+
         if not L:
             L = args.total_width // (1 + len(x))
 

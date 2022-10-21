@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import logging
 
 
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--last', default=0, type=int)
@@ -40,10 +39,10 @@ if __name__ == '__main__':
                       ).split()
 
     args, ra = parser.parse_known_args(None if sys.argv[0] else args_from_file)
-    
+
     filter_parser = create_filter_parser()
     filter_args = filter_parser.parse_args(ra)
-    
+
     # sys.exit()
 
     filters = DictOfListsOfParamFilters()
@@ -73,7 +72,7 @@ if __name__ == '__main__':
                 model['oods'] = get_same_size_by_name(tset)
             ood_rec_files = ['record-' + _ + '.pth' for _ in model['oods']]
             ind_rec_file = 'record-' + model['ind'] + '.pth'
-               
+
             rec_files = [os.path.join(mdir, 'samples', 'last', _) for _ in ood_rec_files + [ind_rec_file]]
             append = True
             for rec_file in rec_files:
@@ -146,4 +145,3 @@ if __name__ == '__main__':
 
             is_testset = False
     pass
-

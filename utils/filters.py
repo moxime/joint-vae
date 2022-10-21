@@ -1,5 +1,8 @@
-import argparse, configparser
-import re, os, sys
+import argparse
+import configparser
+import re
+import os
+import sys
 import numpy as np
 import logging
 from pydoc import locate
@@ -23,10 +26,10 @@ class ParamFilter():
         self.is_interval = False
         self.any_value = False
         self.always_true = False
-        
+
         if interval:
-            self.is_interval=True
-            self.interval=interval
+            self.is_interval = True
+            self.interval = interval
             self.arg_str = 'in [' + '...'.join(str(_) for _ in interval) + ']'
 
         elif values is not None:
@@ -34,27 +37,27 @@ class ParamFilter():
             self.arg_str = 'in ' + ', '.join(str(_) for _ in values)
 
         elif any_value:
-            
+
             self.any_value = True
             self.arg_str = 'any'
-            
+
         elif always_true:
             self.always_true = True
             self.arg_str = 'always true'
-            
+
         else:
             raise ValueError('Nothin given for filtering')
 
         if neg:
             self.arg_str = 'not ' + self.arg_str
-            
+
     @classmethod
     def from_string(cls, arg_str='',
                     type=str):
 
         if arg_str is None:
             return cls(always_true=True, type=type)
-        
+
         arg_str_ = arg_str.split()
         neg = bool(arg_str_) and arg_str_[0].lower() == 'not'
 
@@ -62,7 +65,7 @@ class ParamFilter():
         values = None
         any_value = False
         always_true = False
-        
+
         if neg:
             arg_str_ = arg_str_[1:]
 
@@ -75,7 +78,7 @@ class ParamFilter():
         list_regex = '[\s\,]+\s*'
         is_list = re.search(re.compile(list_regex),
                             arg_str)
-        
+
         if is_interval:
 
             endpoints = re.split(interval_regex, arg_str)
@@ -113,21 +116,21 @@ class ParamFilter():
         harddebug(self, value)
         if self.always_true:
             return not self.neg
-        
+
         if type(value) is list:
             if self.neg:
                 return np.all([self.filter(v) for v in value])
             else:
                 return np.any([self.filter(v) for v in value])
-                              
+
         if self.any_value:
 
             return isinstance(value, self.type) ^ self.neg
-            
+
         if self.is_interval:
             try:
                 a, b = self.interval
-                in_ =  a <= value <= b
+                in_ = a <= value <= b
                 return in_ ^ self.neg
             except TypeError as e:
                 return self.neg
@@ -136,7 +139,7 @@ class ParamFilter():
                               value, type(value),
                               self)
                 raise(e)
-            
+
         in_ = value in self.values
         return in_ ^ self.neg
 
@@ -147,7 +150,7 @@ class ListOfParamFilters(list):
         super(list).__init__(*a, **kw)
         assert not fragile or len(self) <= 1
         self._fragile = fragile
-    
+
     @property
     def type(self):
         if not self:
@@ -157,7 +160,7 @@ class ListOfParamFilters(list):
     @property
     def always_true(self):
         return all(_.always_true for _ in self)
-    
+
     def append(self, a):
 
         if self.type and a.type != self.type:
@@ -168,7 +171,7 @@ class ListOfParamFilters(list):
             self._fragile = False
         else:
             super().append(a)
-        
+
     def filter(self, value):
 
         return all(_.filter(value) for _ in self)
@@ -198,8 +201,8 @@ class DictOfListsOfParamFilters(dict):
     def __str__(self):
 
         return '\n'.join('{k}: {f}'.format(k=k, f=self[k]) for k in self)
-    
-    
+
+
 class FilterAction(argparse.Action):
 
     def __init__(self, option_strings, dest, type=str, **kwargs):
@@ -211,7 +214,7 @@ class FilterAction(argparse.Action):
         # print('$$$', default_filter.type, type)
 
         # print('FilterAction init', *option_strings, 'filter', str(self.default), 'for', type.__name__)
-        
+
     def __call__(self, parser, namespace, values, option_string=None):
 
         # print('namespace', namespace)
@@ -220,7 +223,7 @@ class FilterAction(argparse.Action):
         filter = ParamFilter.from_string(type=self._of_type, arg_str=' '.join(values))
         getattr(namespace, self.dest).append(filter)
 
-        
+
 def get_filter_keys(from_file=os.path.join('utils', 'filters.ini'), by='dest'):
 
     filters = configparser.ConfigParser()
@@ -231,20 +234,20 @@ def get_filter_keys(from_file=os.path.join('utils', 'filters.ini'), by='dest'):
     abbrvs = dict(filters['abbr'])
 
     if by == 'dest':
-        return {dests.get(_, _): {'type':types[_],
-                                  'key': [_]} 
+        return {dests.get(_, _): {'type': types[_],
+                                  'key': [_]}
                 for _ in types}
     else:
         return {_: {'dest': dests.get(_, _), 'type': types[_]} for _ in types}
 
-        
+
 if __name__ == '__main__':
 
     argv = '--my-int not 0'
     argv_ = argv.split()
-    
+
     argv = argv_ if not sys.argv[0] else None
-    
+
     parser = argparse.ArgumentParser(add_help=False)
 
     parser.add_argument('--my-int', action=FilterAction, nargs='*', default='')
@@ -259,5 +262,3 @@ if __name__ == '__main__':
         filters.add(_, args.__dict__[_])
 
     print(filters)
-
-        

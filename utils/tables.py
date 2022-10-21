@@ -17,9 +17,9 @@ def printout(s='', file_id=None, std=True, end='\n'):
     if std:
         sys.stdout.write(s + end)
 
-        
+
 def create_printout(file_id=None, std=True, end='\n'):
-    return functools.partial(printout, file_id=file_id, std=std, end=end) 
+    return functools.partial(printout, file_id=file_id, std=std, end=end)
 
 
 def export_losses(net_dict, which='loss',
@@ -41,26 +41,26 @@ def export_losses(net_dict, which='loss',
         valid_w = 'validation'
     else:
         valid_w = 'test'
-        
+
     sets = ['train', valid_w]
 
     if type(which) == str:
         which = ['loss', 'measures', 'accuracy'] if which == 'all' else [which]
 
-    entries = [f'{s}_{w}' for w in which for s in sets] 
+    entries = [f'{s}_{w}' for w in which for s in sets]
 
     epochs = history['epochs']
     columns = {'epochs': [e + 1 for e in range(epochs)]}
-    
+
     for entry in entries:
         if history.get(entry, []):
             for k in history[entry][0].keys():
                 columns[f'{entry}_{k}'.replace('_', '-')] = [v.get(k, np.nan)
                                                              for v in history[entry]]
-            
+
     col_width = max(col_width, 7)
     col_width = {c: max(len(c), col_width) for c in columns}
-                    
+
     type_of_net = net.architecture['type']
     arch = net.print_architecture(excludes=['type'])
     training_set = net.training_parameters['set']
@@ -76,7 +76,7 @@ def export_losses(net_dict, which='loss',
             printout(f'  {columns[c][epoch]:{col_width[c]}.6g}', end='')
 
         printout()
-        
+
     f.close()
 
 
@@ -119,7 +119,7 @@ def test_results_df(nets,
                                    tpr=tpr, tnr=tnr,
                                    sorting_keys=sorting_keys) for s in testsets}
 
-    arch_index = ['h/o']  if dataset.endswith('-?') else []
+    arch_index = ['h/o'] if dataset.endswith('-?') else []
     arch_index += ['type',
                    'rep',
                    'depth',
@@ -145,8 +145,6 @@ def test_results_df(nets,
 
     indices = arch_index + train_index
 
-    indices_replacement = {'batch_norm': 'bn', 'latent': 'z', 'sigma_train': 'sigma~'}
-
     # acc_cols = ['best_accuracy', 'accuracies']
     # ood_cols = ['ood_fpr', 'ood_fprs']
 
@@ -165,19 +163,16 @@ def test_results_df(nets,
                                    columns=columns)
 
     df['batch_norm'] = df['batch_norm'].apply(lambda x: x[0] if x else x)
-    df.rename(columns=indices_replacement, inplace=True)
 
-    indices = [indices_replacement.get(_, _) for _ in indices]
-    
     df.set_index(indices, inplace=True)
-    
+
     acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
     acc_df.columns = pd.MultiIndex.from_product([acc_df.columns, ['rate']])
     ood_df = pd.DataFrame(df['ood_fprs'].values.tolist(), index=df.index)
     meas_df = df[meas_cols]
     # print(meas_df.columns)
     meas_df.columns = pd.MultiIndex.from_product([[''], meas_df.columns])
-    
+
     # return acc_df
     # return ood_df
     d_ = {dataset: acc_df}
@@ -194,7 +189,8 @@ def test_results_df(nets,
             for v in v_:
                 if type(v) is dict:
                     _v.append(v)
-                else: _v.append({})
+                else:
+                    _v.append({})
             d_s_[m] = pd.DataFrame(_v, index=df.index)
         if d_s_:
             d_[s] = pd.concat(d_s_, axis=1)
@@ -226,14 +222,14 @@ def test_results_df(nets,
 
         # print('*** kept', s, *shown_columns, '\n', *d_[s].columns)
         d_[s] = d_[s][cols[shown_columns * kept_columns]]
-            
+
     if show_measures:
         d_['measures'] = meas_df
 
     df = pd.concat(d_, axis=1)
 
     df.columns.rename(['set', 'method', 'metrics'], inplace=True)
-    
+
     cols = df.columns
 
     if False:
@@ -245,14 +241,14 @@ def test_results_df(nets,
         elif type == 'tuple':
             return '-'.join(str(_) for _ in x)
         return x
-        
+
     col_format = {c: _f for c in df.columns}
     for c in df.columns[df.columns.isin(['measures'], level=0)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
     index_format = {}
-    index_format['heldout'] = lambda x: 'H' # _f(x, 'tuple')
-    
+    index_format['heldout'] = lambda x: 'H'  # _f(x, 'tuple')
+
     sorting_index = []
 
     if sorting_keys:
@@ -286,7 +282,7 @@ def test_results_df(nets,
 
     return df.apply(col_format)
 
-    
+
 @printdebug(False)
 def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
     """ 
@@ -313,7 +309,7 @@ def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_d
         harddebug('*** before stack\n', df)
         df = df.stack('set')
         harddebug('*** stack:\n', df)
-        
+
         df_dict[k] = df.groupby(['set'] + kept_levels).agg('mean')
 
         harddebug(f'*** df[{k}]\n', df)
@@ -326,7 +322,7 @@ def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_d
 
     # large_df = large_df.groupby(['which', 'set'] + kept_levels).agg('mean')
     large_df = large_df.groupby(['set'] + kept_levels).agg('mean')
-    
+
     level = large_df.index.nlevels - 1
 
     if level:
@@ -347,13 +343,13 @@ def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_d
         large_df.loc[average] = large_df.mean()
     return large_df.reorder_levels(['metrics', 'which', 'method'], axis=1)
 
-    
-def digest_table(*jobs, 
+
+def digest_table(*jobs,
                  tpr=0.95, precision=1,
                  tex_acron=r'\acron{%t}',
                  cols=['sigma'],
                  highlight=r'\bfseries',
-                 empty= r'\text{--}',
+                 empty=r'\text{--}',
                  stdout=True,
                  directory=os.path.join(DEFAULT_RESULTS_DIR, '%j'),
                  filename='row.tex',
@@ -365,18 +361,18 @@ def digest_table(*jobs,
     replacement_dict = {'learned': r'$\nabla$',
                         'constant': r'--',
                         'coded': r'$c(x)$'}
-    
+
     f = {j: create_file(j, directory, filename) if filename else None for j in jobs}
     printouts = {j: create_printout(file_id=f[j], std=stdout, end='') for j in jobs}
-        
+
     models = find_by_job_number(*jobs, tpr_for_max=tpr, load_net=False, force_dict=True)
     for j in jobs:
 
         printout = printouts[j]
         logging.debug('Job # %d', j)
         #         printout(' \\\\  % job # {}\n'.format(j))
-        printout('% job # {} @TPR {:2}\n'.format(j, 100 * tpr ))
-        
+        printout('% job # {} @TPR {:2}\n'.format(j, 100 * tpr))
+
         m = models[j]
         testset = m['set']
         mtype = m['type']
@@ -392,10 +388,10 @@ def digest_table(*jobs,
             if c == 'sigma':
                 s = replacement_dict[m['sigma_train']]
                 printout(s + ' & ')
-        
+
         predict_method = methods[0] if methods[0] != 'none' else None
         ood_methods = [_ if _.lower() != 'none' else None for _ in methods[1:]]
-        
+
         if predict_method and predict_method in test_results:
             acc = 100 * test_results[predict_method]['accuracy']
             logging.debug('%s %.2f', predict_method, acc)
@@ -405,7 +401,7 @@ def digest_table(*jobs,
         else:
             printout(f'{empty} & ')
             logging.debug('No predict method')
-            
+
         list_of_fpr = []
         for o in oodsets:
 
@@ -413,7 +409,7 @@ def digest_table(*jobs,
             logging.debug('OOD methods for %s %s:',
                           o, _m)
             for m in ood_methods:
-            
+
                 highlighted = highlight + ' ' if m in ours.get(mtype, []) else ''
                 if m and o in ood_results and m in ood_results[o]:
                     fpr_ = ood_results[o][m]
@@ -424,17 +420,23 @@ def digest_table(*jobs,
                         fpr = empty
                 else:
                     fpr = empty
-                    
+
                 list_of_fpr.append(fpr)
 
                 logging.debug(' '.join([o, m, fpr]))
-                
+
         printout(' & '.join(list_of_fpr))
         printout('\n')
-            
+
 
 def format_df_index(df, float_format='{:.3g}', int_format='{}',
                     na_rep='-', na_reps=['NaN'],
+                    indices_replacement={'batch_norm': 'bn',
+                                         'latent': 'z',
+                                         'sigma_train': 'sigma~',
+                                         'arch_code': 'arch',
+                                         'optim_str': 'optim'
+                                         },
                     inplace=False,
                     ):
 
@@ -442,6 +444,7 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
         df_ = df.copy()
     else:
         df_ = df
+
     def return_as_type(x):
         if isinstance(x, str):
             if x in na_reps:
@@ -455,53 +458,54 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
             return float_format.format(x)
 
     index_df = df.index.to_frame().applymap(return_as_type)
-    
+
     # df.reset_index(inplace=True)
     # df_.index = index_.set_levels([idx.format(formatter=return_as_type) for idx in index_.levels])
     df_.index = pd.MultiIndex.from_frame(index_df)
 
-    
+    df.index.names = [indices_replacement.get(_, _)for _ in df.index.names]
+
     if not inplace:
         return df_
 
-        
+
 if __name__ == '__main__':
-    
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('jobs', nargs='+', type=int)
 
     parser.add_argument('--debug', '-d', action='store_true')
-                       
+
     for k in ('sets', 'methods'):
         parser.add_argument('--' + k, action='append', nargs='+')
 
     parser.add_argument('--tpr', type=int, default=98)
     parser.add_argument('--empty', type=str, default=' ')
     parser.add_argument('--texfile', default='row')
-    
+
     args = parser.parse_args()
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.INFO)
-        
+
     method_and_set_dict = {}
 
     for s_ in args.sets:
-        for s in s_:                       
+        for s in s_:
             method_and_set_dict[s] = [_ for _ in s_ if _ != s]
 
     for m_ in args.methods:
         method_and_set_dict[m_[0]] = m_[1:]
-                       
+
     logging.info('Jobs : ' + ', '.join(str(_) for _ in args.jobs))
 
     for k in method_and_set_dict:
 
         logging.info(k + ' : ' + ' - '.join(method_and_set_dict[k]))
-    
+
     digest_table(*args.jobs, tpr=args.tpr / 100,
                  empty=f'\\text{{{args.empty}}}',
                  filename=args.texfile + '.tex',

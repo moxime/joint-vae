@@ -35,7 +35,7 @@ job_dir = DEFAULT_JOBS_DIR
 
 file_ini = None
 
-args_from_file = ['-vv', '--config', 'jobs/results/tabs/mnist-debug.ini']
+args_from_file = ['-vv', '--config', 'jobs/results/tabs/mnist.ini']
 
 tex_output = sys.stdout
 
@@ -94,8 +94,11 @@ if __name__ == '__main__':
 
         default_config = config['DEFAULT']
         dataset = default_config.get('dataset')
+        kept_index = default_config.get('kept_index', '').split()
+
         ini_file_name = os.path.splitext(os.path.split(config_file)[-1])[0]
-        tab_file = default_config.get('file', ini_file_name + '-ood-tab.tex')
+
+        tab_file = default_config.get('file', ini_file_name + '-tab.tex')
         tab_file = os.path.join(root, tab_file)
 
         logging.info('Tab for {} will be saved in file {}'.format(dataset, tab_file))
@@ -144,13 +147,14 @@ if __name__ == '__main__':
                         n = make_dict_from_model(n['net'], n['dir'], wanted_epoch=epoch)
                     models_by_type[k].append(n)
 
+        tpr = float(default_config['tpr']) / 100
         raw_df = {}
         for k in which_from_filters:
             logging.info('{} models for {}'.format(len(models_by_type[k]), k))
             df_ = test_results_df(models_by_type[k],
                                   predict_methods='all',
                                   ood_methods='all',
-                                  tpr=[float(default_config['tpr']) / 100])
+                                  tpr=[tpr])
             df = next(iter(df_.values()))
             df.index = pd.MultiIndex.from_frame(df.index.to_frame().fillna('NaN'))
 
@@ -160,6 +164,7 @@ if __name__ == '__main__':
             # print("***", k, '\n', df[df.columns[:3]].to_string())
             raw_df[k] = df.groupby(level=idx).agg('mean')
             raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
+            raw_df[k].rename(columns={tpr: 'rate'}, level='metrics', inplace=True)
 
         for k in which_from_csv:
             csv_file = config[k]['from_csv']
@@ -176,15 +181,18 @@ if __name__ == '__main__':
 
         average = default_config.get('average')
 
-        kept_cols = {}
         kept_oods = set()
 
-        what = ('ood', 'acc')
+        what = ('acc', 'ood')
 
         col_idx = {}
         sets = {}
-        
+
+        agg_df = {}
+        kept_methods = {}
+
         for k in which:
+            agg_df[k] = pd.DataFrame()
             kept_ood = config[k]['ood'].split()
             for o in kept_ood:
                 kept_oods.add(o)
@@ -192,58 +200,26 @@ if __name__ == '__main__':
             sets['acc'] = [dataset]
             sets['ood'] = kept_ood
 
-            kept_methods_to_be_split = {_: config[k]['{}_methods'.format(_)].split() for _ in what}
+            kept_methods_to_be_split = {_: config[k].get('{}_methods'.format(_), '').split() for _ in what}
 
-            kept_methods = {w: {m.split(':')[0].strip(): m.split(':')[-1].strip()
-                                for m in kept_methods_to_be_split[w]} for w in what}
+            kept_methods[k] = {w: {m.split(':')[0].strip(): m.split(':')[-1].strip()
+                                   for m in kept_methods_to_be_split[w]} for w in what}
 
-            duplicate_columns = []
             for w in what:
-                rename_dict = {}
-                for m in kept_methods[w]:
-                    if kept_methods[w][m] not in rename_dict:
-                        rename_dict[kept_methods[w][m]] = m
-                    else:
-                        duplicate_columns.append((w, rename_dict[kept_methods[w][m]], m))
-                print('***', rename_dict)
-                raw_df[k].rename(columns=rename_dict, level='method', inplace=True)
+                df = raw_df[k]
+                cols = df.columns
+                filtered_auc_metrics = True if args.keep_auc else ~cols.isin(['auc'], level='metrics')
+                cols = cols[cols.isin(sets[w], level='set') & filtered_auc_metrics]
+                df = df[cols]
+                for m in kept_methods[k][w]:
+                    cols_m = cols[cols.isin([kept_methods[k][w][m]], level='method')]
+                    agg_df[k] = agg_df[k].append(df[cols_m].rename(columns={kept_methods[k][w][m]: m},
+                                                                   level='method'))
 
-            kept_index = config[k].get('kept_index', '').split()
+        results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
 
-            cols = raw_df[k].columns
-
-            filtered_auc_metrics = True if args.keep_auc else ~cols.isin(['auc'], level='metrics')
-            col_idx = {w: (filtered_auc_metrics &
-                           cols.isin(sets[w], level='set'))
-                       for w in what}
-
-            for (w, m, m_) in duplicate_columns:
-                dcols = cols[col_idx[w] & cols.isin([m], level='method')]
-                duplicated_df = raw_df[k][dcols].rename(columns={m: m_}, level='method')
-                raw_df[k][duplicated_df.columns] = duplicated_df
-
-            cols = raw_df[k].columns
-            filtered_auc_metrics = True if args.keep_auc else ~cols.isin(['auc'], level='metrics')
-            col_idx = {w: (filtered_auc_metrics &
-                           cols.isin(sets[w], level='set'))
-                       for w in what}
-
-            kept_col_idx = False
-            for w in what:
-                kept_col_idx = kept_col_idx | (col_idx[w] & cols.isin(kept_methods[w].keys(), level='method'))
-
-            kept_cols[k] = cols[kept_col_idx]
-            print('*** kept', *kept_cols[k])
-            print(raw_df[k][kept_cols[k]].to_string(float_format='{:2.1f}'.format))
-            
-        results_df = agg_results(raw_df, kept_cols=kept_cols, kept_levels=kept_index, average=average)
-
-        # print([*kept_methods[w] for w in what])
-        # if max([len(kept_ood_methods[_]) for _ in kept_ood_methods):
-        if not args.keep_auc:
-            results_df = results_df.droplevel('metrics', axis='columns')
-
-        print(results_df.to_string(float_format='{:2.1f}'.format))
+        # if not args.keep_auc:
+        #     results_df = results_df.droplevel('metrics', axis='columns')
 
         def keep_number(df):
 
@@ -252,65 +228,54 @@ if __name__ == '__main__':
             return np.max(df)
 
         results_df = results_df.groupby(results_df.columns, axis=1).agg(np.max)
-        print(results_df.to_string(float_format='{:2.1f}'.format))
-        print(results_df.columns)
-        raise StopIteration
+        results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'which', 'levels'])
+
+        results_df = results_df.reindex(sum((sets[w] for w in what), []))
+        results_df.rename({dataset: 'acc'}, inplace=True)
 
         best_values = {}
-        for tpr in [_ / 100 for _ in range(100)]:
-            results_df.rename(columns={tpr: 'fpr'}, inplace=True)
-            results_df.rename(columns={str(tpr): 'fpr'}, inplace=True)
 
         cols = []
 
-        for w in ('fpr', 'auc'):
+        meta_cols = ('rate', 'auc') if args.keep_auc else ('rate',)
+        for w in meta_cols:
             for k in which:
-                for m in config[k]['ood_methods'].split():
-                    cols.append((w, k, m.split(':')[-1].strip()))
+                for m in sum((list(kept_methods[k][w]) for w in what), []):
+                    if (w, k, m) not in cols:
+                        cols.append((w, k, m))
 
-        fpr_cols = [_ for _ in cols if 'fpr' in _]
+        rate_cols = [_ for _ in cols if 'rate' in _]
         auc_cols = [_ for _ in cols if 'auc' in _]
 
-        # results_df = pd.concat([results_df[fpr_cols], results_df[auc_cols]], axis=1)
-        # print('*** cols', *cols)
-
-        # print('*** results cols:', results_df.columns)
-        # print('*** new cols:', cols)
-
-        # print(*cols)
-        # print('*** results_df cols', *results_df.columns)  #
         results_df = results_df[cols]
 
         cols = results_df.columns
 
         print(dataset)
-        print(results_df.to_string())
-        multi_index = results_df.index.nlevels > 1
-        # print('*** index:\n', results_df.index)
-        # print('***', *kept_oods)
-        if 'set' in results_df.index.names:
-            results_df = results_df.reindex(kept_oods, level='set' if multi_index else None)
-        # print('*** index:\n', results_df.index)
-        best_values['fpr'] = results_df[fpr_cols].min(axis=1)
+        print(results_df.to_string(float_format='{:2.1f}'.format))
+
+        best_values['rate'] = results_df[rate_cols].min(axis=1)
+        best_values['rate']['acc'] = results_df[rate_cols].loc['acc'].max()
+
         best_values['auc'] = results_df[auc_cols].max(axis=1)
 
         n_index = results_df.index.nlevels
-        n_methods = len(cols) // 2
+        n_methods = len(rate_cols)
+        method_sep = '@{/}' if auc_cols else ''
         column_format = ('@{}' + 'l' * n_index + '%\n'
-                         + '@{/}'.join(['S[table-format=2.1]%\n'] * n_methods) * 2 + '@{}')
+                         + method_sep.join(['S[table-format=2.1]%\n'] * n_methods) * len(meta_cols) + '@{}')
 
         cols = cols.droplevel('which')
-
+        if not args.keep_auc:
+            cols.droplevel('metrics')
+            
         renames = dict(**texify['datasets'], **texify['methods'], **texify['metrics'])
         results_df.rename(renames, inplace=True)
 
         for _ in best_values:
             best_values[_].rename(renames, inplace=True)
         results_df.rename(columns=renames, inplace=True)
-        # cols = cols.set_levels(['\\acron{fpr}', '\\acron{auroc}'], level=0)
-        # cols = cols.set_levels([_f(_) for _ in cols.levels[-1]], level=-1)
 
-        n_methods = len(cols) // 2
         methods = [c[-1] for c in results_df.columns][:n_methods]
         _row = '&\\multicolumn{{{n}}}c{{{fpr}}} & \\multicolumn{{{n}}}c{{{auc}}} \\\\\n'
         tex_header = _row.format(n=n_methods,

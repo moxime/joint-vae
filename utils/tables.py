@@ -284,7 +284,7 @@ def test_results_df(nets,
 
 
 @printdebug(False)
-def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
+def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
     """ 
     df_dict : dict of dataframe
     kept_cols: either a list or a dict (with the same keys as df_dict
@@ -301,8 +301,9 @@ def agg_results(df_dict, kept_cols, kept_levels=[], tex_file=None, replacement_d
 
         harddebug('*** index:', df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
 
-        df = df[kept_cols[k]]
-
+        if kept_cols[k] is not None:
+            df = df[kept_cols[k]]
+            
         # harddebug('*** kept cols', *df.columns, '\n', df)
         # harddebug('*** kept cols', kept_cols[k])
 

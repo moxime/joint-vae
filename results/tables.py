@@ -5,6 +5,7 @@ import sys
 import os
 import logging
 import pandas as pd
+import numpy as np
 from utils.save_load import fetch_models, make_dict_from_model
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
 from utils.tables import agg_results, test_results_df
@@ -34,9 +35,10 @@ job_dir = DEFAULT_JOBS_DIR
 
 file_ini = None
 
-args_from_file = ['-vv', '--config', 'cifar10.ini']
+args_from_file = ['-vv', '--config', 'jobs/results/tabs/mnist-debug.ini']
 
 tex_output = sys.stdout
+
 
 if __name__ == '__main__':
 
@@ -51,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--filters', default='utils/filters.ini')
     parser.add_argument('--tpr', default=95, type=int)
     parser.add_argument('--register', dest='flash', action='store_false')
+    parser.add_argument('--keep-auc', action='store_true')
 
     args = parser.parse_args(None if sys.argv[0] else args_from_file)
 
@@ -141,7 +144,7 @@ if __name__ == '__main__':
                         n = make_dict_from_model(n['net'], n['dir'], wanted_epoch=epoch)
                     models_by_type[k].append(n)
 
-        agg_df = {}
+        raw_df = {}
         for k in which_from_filters:
             logging.info('{} models for {}'.format(len(models_by_type[k]), k))
             df_ = test_results_df(models_by_type[k],
@@ -155,8 +158,8 @@ if __name__ == '__main__':
             if 'job' in idx:
                 idx.remove('job')
             # print("***", k, '\n', df[df.columns[:3]].to_string())
-            agg_df[k] = df.groupby(level=idx).agg('mean')
-            agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
+            raw_df[k] = df.groupby(level=idx).agg('mean')
+            raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
 
         for k in which_from_csv:
             csv_file = config[k]['from_csv']
@@ -168,35 +171,90 @@ if __name__ == '__main__':
             if df.index.nlevels > 1:
                 df.index = df.index.set_levels([_.astype(str) for _ in df.index.levels])
 
-            agg_df[k] = df.groupby(level=df.index.names).agg('mean')
-            agg_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
+            raw_df[k] = df.groupby(level=df.index.names).agg('mean')
+            raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
 
         average = default_config.get('average')
 
         kept_cols = {}
-        kept_oods = []
+        kept_oods = set()
 
+        what = ('ood', 'acc')
+
+        col_idx = {}
+        sets = {}
+        
         for k in which:
             kept_ood = config[k]['ood'].split()
             for o in kept_ood:
-                if o not in kept_oods:
-                    kept_oods.append(o)
-            kept_methods_to_be_splited = config[k]['ood_methods'].split()
+                kept_oods.add(o)
 
-            kept_methods = {_.split(':')[0].strip(): _.split(':')[-1].strip()
-                            for _ in kept_methods_to_be_splited}
+            sets['acc'] = [dataset]
+            sets['ood'] = kept_ood
 
-            agg_df[k].rename(columns=kept_methods, level='method', inplace=True)
+            kept_methods_to_be_split = {_: config[k]['{}_methods'.format(_)].split() for _ in what}
+
+            kept_methods = {w: {m.split(':')[0].strip(): m.split(':')[-1].strip()
+                                for m in kept_methods_to_be_split[w]} for w in what}
+
+            duplicate_columns = []
+            for w in what:
+                rename_dict = {}
+                for m in kept_methods[w]:
+                    if kept_methods[w][m] not in rename_dict:
+                        rename_dict[kept_methods[w][m]] = m
+                    else:
+                        duplicate_columns.append((w, rename_dict[kept_methods[w][m]], m))
+                print('***', rename_dict)
+                raw_df[k].rename(columns=rename_dict, level='method', inplace=True)
 
             kept_index = config[k].get('kept_index', '').split()
 
-            cols = agg_df[k].columns
+            cols = raw_df[k].columns
 
-            kept_cols[k] = cols[cols.isin(kept_ood, level='set') &
-                                cols.isin(kept_methods.values(), level='method')]
-            # print('*** cols', k, ':', *kept_cols[k])
+            filtered_auc_metrics = True if args.keep_auc else ~cols.isin(['auc'], level='metrics')
+            col_idx = {w: (filtered_auc_metrics &
+                           cols.isin(sets[w], level='set'))
+                       for w in what}
 
-        results_df = agg_results(agg_df, kept_cols=kept_cols, kept_levels=kept_index, average=average)
+            for (w, m, m_) in duplicate_columns:
+                dcols = cols[col_idx[w] & cols.isin([m], level='method')]
+                duplicated_df = raw_df[k][dcols].rename(columns={m: m_}, level='method')
+                raw_df[k][duplicated_df.columns] = duplicated_df
+
+            cols = raw_df[k].columns
+            filtered_auc_metrics = True if args.keep_auc else ~cols.isin(['auc'], level='metrics')
+            col_idx = {w: (filtered_auc_metrics &
+                           cols.isin(sets[w], level='set'))
+                       for w in what}
+
+            kept_col_idx = False
+            for w in what:
+                kept_col_idx = kept_col_idx | (col_idx[w] & cols.isin(kept_methods[w].keys(), level='method'))
+
+            kept_cols[k] = cols[kept_col_idx]
+            print('*** kept', *kept_cols[k])
+            print(raw_df[k][kept_cols[k]].to_string(float_format='{:2.1f}'.format))
+            
+        results_df = agg_results(raw_df, kept_cols=kept_cols, kept_levels=kept_index, average=average)
+
+        # print([*kept_methods[w] for w in what])
+        # if max([len(kept_ood_methods[_]) for _ in kept_ood_methods):
+        if not args.keep_auc:
+            results_df = results_df.droplevel('metrics', axis='columns')
+
+        print(results_df.to_string(float_format='{:2.1f}'.format))
+
+        def keep_number(df):
+
+            for i, row in df.iterrows():
+                assert len(row) - row.isna().sum() <= 1
+            return np.max(df)
+
+        results_df = results_df.groupby(results_df.columns, axis=1).agg(np.max)
+        print(results_df.to_string(float_format='{:2.1f}'.format))
+        print(results_df.columns)
+        raise StopIteration
 
         best_values = {}
         for tpr in [_ / 100 for _ in range(100)]:

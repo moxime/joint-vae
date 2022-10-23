@@ -35,7 +35,7 @@ job_dir = DEFAULT_JOBS_DIR
 
 file_ini = None
 
-args_from_file = ['-vv', '--config', 'jobs/results/tabs/mnist.ini']
+args_from_file = ['-vv', '--config', 'jobs/results/tabs/mnist.ini', '--keep-auc']
 
 tex_output = sys.stdout
 
@@ -82,6 +82,7 @@ if __name__ == '__main__':
     filter_keys = get_filter_keys(args.filters, by='key')
 
     for config_file in args.config_files:
+        print('****', config_file)
         config = configparser.ConfigParser()
         config.read(config_file)
         which = args.which
@@ -278,11 +279,14 @@ if __name__ == '__main__':
 
         methods = [c[-1] for c in results_df.columns][:n_methods]
         _row = '&\\multicolumn{{{n}}}c{{{fpr}}} & \\multicolumn{{{n}}}c{{{auc}}} \\\\\n'
+        # tex_header = _row.format(n=n_methods,
+        #                          fpr='\\text{\\acron{fpr}@' + default_config['tpr'] + '}',
+        #                          auc='\\text{\\acron{auroc}}')
         tex_header = _row.format(n=n_methods,
-                                 fpr='\\text{\\acron{fpr}@' + default_config['tpr'] + '}',
+                                 fpr='\\text{\\acron{fpr}@' + default_config['tpr'] + ' ou acc.}',
                                  auc='\\text{\\acron{auroc}}')
         tex_header += '\\midrule'
-        tex_header += '\gls{{ood}}&\\multicolumn{{{n}}}c{{{methods}}} \\\\'.format(n=n_methods*2,
+        tex_header += '&\\multicolumn{{{n}}}c{{{methods}}} \\\\'.format(n=n_methods*2,
                                                                                    methods='/'.join(methods))
         header = True
 
@@ -294,7 +298,7 @@ if __name__ == '__main__':
             f_.write('%%%%%%% {}\n'.format(i))
 
             formatters = {c: partial(bold_best_values,
-                                     value=best_values['fpr' if 'fpr' in c[0] else 'auc'][i]) for c in cols}
+                                     value=best_values['rate' if 'rate' in c[0] else 'auc'][i]) for c in cols}
 
             tex_code = results_df.loc[[i]].to_latex(formatters=formatters,
                                                     header=False,

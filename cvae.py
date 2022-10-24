@@ -2663,7 +2663,6 @@ class ClassificationVariationalNetwork(nn.Module):
                     vae.loss_components += ('cross_y',)
 
                 vae.testing = {}
-                # print('*** sigma loaded from', train_params['sigma'], vae.job_number)
                 if isinstance(train_params['sigma'], dict):
                     vae.sigma = Sigma(**train_params['sigma'])
                 else:

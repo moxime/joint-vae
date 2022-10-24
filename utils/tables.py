@@ -315,9 +315,9 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
 
         harddebug(f'*** df[{k}]\n', df)
 
-    large_df = pd.concat(df_dict, axis=1)
+    large_df = pd.concat(df_dict.values(), axis=1)
 
-    large_df.columns.rename({None: 'which'}, inplace=True)
+    # # # large_df.columns.rename({None: 'which'}, inplace=True)
 
     # large_df = large_df.stack('which')
 
@@ -342,7 +342,7 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
 
     if average:
         large_df.loc[average] = large_df.mean()
-    return large_df.reorder_levels(['metrics', 'which', 'method'], axis=1)
+    return large_df.reorder_levels(['metrics', 'method'], axis=1)
 
 
 def digest_table(*jobs,

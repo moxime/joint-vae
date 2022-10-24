@@ -82,7 +82,7 @@ if __name__ == '__main__':
     filter_keys = get_filter_keys(args.filters, by='key')
 
     for config_file in args.config_files:
-        print('****', config_file)
+
         config = configparser.ConfigParser()
         config.read(config_file)
         which = args.which
@@ -201,10 +201,7 @@ if __name__ == '__main__':
             sets['acc'] = [dataset]
             sets['ood'] = kept_ood
 
-            kept_methods_to_be_split = {_: config[k].get('{}_methods'.format(_), '').split() for _ in what}
-
-            kept_methods[k] = {w: {m.split(':')[0].strip(): m.split(':')[-1].strip()
-                                   for m in kept_methods_to_be_split[w]} for w in what}
+            kept_methods[k] = {w: config[k].get('{}_method'.format(w), '').strip() for w in what}
 
             for w in what:
                 df = raw_df[k]
@@ -212,16 +209,13 @@ if __name__ == '__main__':
                 filtered_auc_metrics = True if args.keep_auc else ~cols.isin(['auc'], level='metrics')
                 cols = cols[cols.isin(sets[w], level='set') & filtered_auc_metrics]
                 df = df[cols]
-                for m in kept_methods[k][w]:
-                    cols_m = cols[cols.isin([kept_methods[k][w][m]], level='method')]
-                    agg_df[k] = agg_df[k].append(df[cols_m].rename(columns={kept_methods[k][w][m]: m},
-                                                                   level='method'))
+                cols_m = cols[cols.isin([kept_methods[k][w]], level='method')]
+                agg_df[k] = agg_df[k].append(df[cols_m].rename(columns={kept_methods[k][w]: k},
+                                                               level='method'))
 
         results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
 
-        # if not args.keep_auc:
-        #     results_df = results_df.droplevel('metrics', axis='columns')
-
+        
         def keep_number(df):
 
             for i, row in df.iterrows():
@@ -229,7 +223,7 @@ if __name__ == '__main__':
             return np.max(df)
 
         results_df = results_df.groupby(results_df.columns, axis=1).agg(np.max)
-        results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'which', 'levels'])
+        results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'methods'])
 
         results_df = results_df.reindex(sum((sets[w] for w in what), []))
         results_df.rename({dataset: 'acc'}, inplace=True)
@@ -241,9 +235,8 @@ if __name__ == '__main__':
         meta_cols = ('rate', 'auc') if args.keep_auc else ('rate',)
         for w in meta_cols:
             for k in which:
-                for m in sum((list(kept_methods[k][w]) for w in what), []):
-                    if (w, k, m) not in cols:
-                        cols.append((w, k, m))
+                    if (w, k) not in cols:
+                        cols.append((w, k))
 
         rate_cols = [_ for _ in cols if 'rate' in _]
         auc_cols = [_ for _ in cols if 'auc' in _]
@@ -266,7 +259,6 @@ if __name__ == '__main__':
         column_format = ('@{}' + 'l' * n_index + '%\n'
                          + method_sep.join(['S[table-format=2.1]%\n'] * n_methods) * len(meta_cols) + '@{}')
 
-        cols = cols.droplevel('which')
         if not args.keep_auc:
             cols.droplevel('metrics')
             

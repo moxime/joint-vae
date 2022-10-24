@@ -2696,6 +2696,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       optimizer=train_params['optim'],
                       upsampler_channels=params['upsampler'],
                       output_activation=params['output'],
+                      encoder_forced_variance=params['encoder_forced_variance'],
                       pretrained_features=train_params['pretrained_features'],
                       pretrained_upsampler=train_params['pretrained_upsampler'],
                       representation=params['representation'],

@@ -927,25 +927,59 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         epochs_ood[s] = min(ood_results_s[m]['epochs'] for m in ood_results_s)
         n_ood[s] = min(ood_results_s[m]['n'] for m in ood_results_s)
 
-    if misclass_on_method == 'first':
-        misclass_on_method = model.predict_methods[0]
+    prefix = 'errors-'
+    misclass_fprs = {prefix + _: {} for _ in accuracies}
+    misclass_fpr = {prefix + _: None for _ in accuracies}
+    best_auc = {prefix + _: None for _ in accuracies}
+    best_method = {prefix + _: None for _ in accuracies}
+    n_misclass = {prefix + _: 0 for _ in accuracies}
+    epochs_misclass = {prefix + _: 0 for _ in accuracies}
 
-    if model.testing.get(wanted_epoch, {}).get(misclass_on_method) and model.misclass_methods:
-        testing_results = model.testing[wanted_epoch][misclass_on_method]
-        
-        misclass_results_s = clean_results(testing_results, model.misclass_methods, fpr=[], tpr=[], auc=None)
-        starred_methods = [m for m in misclass_results_s if m.endswith('*')]
+    misclass_rates = {}
+
+    #### TK ####
+    for pm in accuracies:
+        pm_ = pm
+        if pm == 'first':
+            pm_ = pm
+            
+        testing_results = model.testing.get(wanted_epoch, {}).get(pm_, {})
+
+        # in miclass_methods: starred methods
+        misclass_results_pm = clean_results(testing_results, model.misclass_methods, fpr=[], tpr=[], auc=None)
+        starred_methods = [m for m in misclass_results_pm if m.endswith('*')]
         _r = testing_results
         for m in starred_methods:
             methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr)
                                    for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
             params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
             if params_max_auc:
-                misclass_results_s[m] = _r[params_max_auc]
-                misclass_results_s[m]['params'] = params_max_auc
-        developped_methods = develop_starred_methods(testing_results, model.methods_params)
-        misclass_results_s.update(clean_results(testing_results, developped_methods, fpr=[], tpr=[], auc=None))
+                misclass_results_pm[m] = _r[params_max_auc]
+                misclass_results_pm[m]['params'] = params_max_auc
+
+        develop_starred_methods(starred_methods, model.methods_params)
+        misclass_results_pm.update(clean_results(testing_results, starred_methods, fpr=[], tpr=[], auc=None))
+
+        for m in misclass_results_pm:
+            fpr_ = misclass_results_pm[m]['fpr']
+            tpr_ = misclass_results_pm[m]['tpr']
+            auc = misclass_results_pm[m]['auc']
+            if auc and (not best_auc[s] or auc > best_auc[s]):
+                best_auc[s] = auc
+                best_method[s] = m
+            res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
+            res_by_method['auc'] = auc
+            res_by_set[m] = res_by_method
+        res_by_set['first'] = res_by_set[model.ood_methods[0]]
+        misclass_fprs[s] = res_by_set
+        if best_method[s]:
+            misclass_fpr[s] = res_by_set[best_method[s]]
+
+        epochs_misclass[s] = min(misclass_results_pm[m]['epochs'] for m in misclass_results_pm)
+        n_missclass[s] = min(misclass_results_pm[m]['n'] for m in misclass_results_pm)
         
+        
+
     history = model.train_history
     if history.get('test_measures', {}):
         mse = model.train_history['test_measures'][-1].get('mse', np.nan)
@@ -1097,7 +1131,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'optim_str': f'{empty_optimizer:3}',
             'optim': empty_optimizer.kind,
             'lr': empty_optimizer.init_lr,
-            'misclassTK': misclass_results_s
+            'misclassTK': misclass_results_pm
             }
 
 

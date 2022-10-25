@@ -297,6 +297,9 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
     if not isinstance(kept_cols, dict):
         kept_cols = {k: kept_cols for k in df_dict}
 
+    if 'sets' not in kept_levels:
+        kept_levels = ['sets'] + kept_levels
+        
     for k, df in df_dict.items():
 
         harddebug('*** index:', df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
@@ -331,7 +334,7 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         level_names_ = [level_names[-1]] + level_names[:-1]
 
         harddebug('*** large_df\n', large_df)
-        large_df = large_df.reorder_levels(level_names_)
+        # large_df = large_df.reorder_levels(level_names_)
         harddebug('*** reorder\n', large_df)
 
         removed_index = [i for i, l in enumerate(large_df.index.levels) if len(l) < 2]

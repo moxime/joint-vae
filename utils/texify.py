@@ -333,6 +333,9 @@ def pgfplotstable_preambule(df, dataset, file, mode='a'):
                            'name': ' '.join(w_)}
 
 
+tex_faces = {'it': r'\itshape ', 'bf': r'\bfseries '}
+
+
 def tex_command(command, *args):
 
     c = r'\{}'.format(command)
@@ -403,7 +406,7 @@ def tabular_multicol(width, cell_format, s):
 
 class TexCell(object):
 
-    def __init__(self, a, width=1, multicol_format=None, formatter='{}', na_rep='na'):
+    def __init__(self, a, width=1, multicol_format=None, formatter='{}', na_rep='na', face=None):
 
         assert width == 1 or multicol_format
 
@@ -412,6 +415,7 @@ class TexCell(object):
         self._width = width
         self._formatted_str = formatter
         self.na_rep = na_rep
+        self._face = face
 
     @property
     def value(self):
@@ -421,6 +425,15 @@ class TexCell(object):
     def width(self):
         return self._width
 
+    @property
+    def face(self):
+        return self._face
+
+    @face.setter
+    def face(self, f):
+        assert f in tex_faces
+        self._face = f
+    
     def __repr__(self):
 
         of_width = 'of width {} '.format(self.width) if self.width > 1 else ''
@@ -444,6 +457,9 @@ class TexCell(object):
         if self._multicol and tex:
             s += r'\multicolumn{{{}}}{{{}}}'.format(self.width, self._multicol)
             s += '{'
+
+        if tex:
+            s += tex_faces.get(self._face, '')
 
         s += str(self).__format__(spec)
 
@@ -494,17 +510,24 @@ class TexTab(object):
                  na_rep='--',
                  multicol_format='c'):
 
+        try:
+            float_format.format(4.54)
+        except (IndexError, ValueError):
+            raise ValueError(float_format + ' is not a valid float format')
+        
         self._env = environment
         self._col_format = col_format
 
         self._col_sep = ['' for _ in col_format] + ['']
 
-        self._has_to_be_float = [_.startswith('f') for _ in col_format]
+        self._has_to_be_float = [_.startswith('s') for _ in col_format]
 
         self.width = len(col_format)
 
         self._rows = OrderedDict()
         self._rules = {'top': True, 'bottom': True, 'mid': {}}
+
+        self._comments = {}
 
         self.na_rep = na_rep
         self.float_format = float_format
@@ -550,7 +573,11 @@ class TexTab(object):
             return '-'.join(splitted_id)
 
     def _new_row(self, row_id=None):
-
+        """
+        if row_id = -1: will throw an error
+        """
+        assert row_id != -1, 'Please choose a row_id that is not {}'.format(row_id)
+        
         if row_id is None or row_id in self._rows:
             return self._new_row(self._next_row(row_id))
 
@@ -558,7 +585,7 @@ class TexTab(object):
             self._rows[row_id] = TexRow(col_format=self._col_format)
             return row_id
 
-    def _make_cell(self, a, width=1, multicol_format=None, formatter=None, has_to_be_float=None):
+    def _make_cell(self, a, width=1, multicol_format=None, formatter=None, has_to_be_float=None, face=None):
 
         try:
             float(a)
@@ -572,6 +599,7 @@ class TexTab(object):
         return TexCell(a, width=width,
                        multicol_format=multicol_format if is_multicol else None,
                        na_rep=self.na_rep,
+                       face=face,
                        formatter=formatter or (self.float_format if is_float else '{}'))
 
     def get(self, *a, **kw):
@@ -583,6 +611,10 @@ class TexTab(object):
         self._col_sep[before_col] = sep
 
     def render(self, io=sys.stdout):
+
+        for comment in self._comments.get(None, []):
+            io.write(comment)
+            io.write('\n')
 
         col_formats = []
         for i, f in enumerate(self._col_format):
@@ -605,6 +637,10 @@ class TexTab(object):
             body += '{:x}'.format(self[r])
             body += '\\\\\n'
 
+            for comment in self._comments.get(r, []):
+                body += comment
+                body += '\n'
+            
         bottom = tabular_rule('bottom') if self._rules['bottom'] else ''
         top = tabular_rule('top') if self._rules['top'] else ''
 
@@ -615,7 +651,11 @@ class TexTab(object):
         io.write(end_env)
         io.write('\n')
 
-    def append_cell(self, a, row=None, width=1, multicol_format=None, formatter=None):
+        for comment in self._comments.get(-1, []):
+            io.write(comment)
+            io.write('\n')
+
+    def append_cell(self, a, row=None, width=1, multicol_format=None, formatter=None, face=None):
         """if row is None will create a new row"""
 
         if row not in self:
@@ -628,6 +668,7 @@ class TexTab(object):
         has_to_be_float = self._has_to_be_float[row_width]
         self[row].append(self._make_cell(a, width=width,
                                          multicol_format=multicol_format,
+                                         face=face,
                                          formatter=formatter,
                                          has_to_be_float=has_to_be_float))
         return row
@@ -657,3 +698,15 @@ class TexTab(object):
         else:
             raise IndexError('Can\'t insert midrule {} -- {} '
                              'with already existing {} -- {}'.format(start, end, s, e))
+
+    def comment(self, s, row=None):
+        """ if row is None, will be added before header, if ==-1, added after footer """
+
+        if row not in self._comments:
+            self._comments[row] = []
+            
+        self._comments[row].append('% ' + s.strip('\n'))
+
+    @classmethod
+    def from_dataframe(df):
+        raise NotImplementedError('TexTab.from_dataframe(df)')

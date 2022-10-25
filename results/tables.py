@@ -13,7 +13,7 @@ from pydoc import locate
 import re
 from utils.print_log import turnoff_debug
 from utils.parameters import gethostname, DEFAULT_RESULTS_DIR, DEFAULT_JOBS_DIR
-
+from utils.texify import TexTab
 
 def expand_row(row_format, *a, col_sep=' & '):
 
@@ -35,7 +35,10 @@ job_dir = DEFAULT_JOBS_DIR
 
 file_ini = None
 
-args_from_file = ['-vv', '--config', 'jobs/results/tabs/mnist.ini', '--keep-auc']
+args_from_file = ['-vv', '--config',
+                  'jobs/results/tabs/mnist-params.ini',
+                  #                  '--keep-auc'
+                  ]
 
 tex_output = sys.stdout
 
@@ -150,8 +153,14 @@ if __name__ == '__main__':
 
         tpr = float(default_config['tpr']) / 100
         raw_df = {}
+        job_list = {}
         for k in which_from_filters:
-            logging.info('{} models for {}'.format(len(models_by_type[k]), k))
+            job_list[k] = [_['job'] for _ in models_by_type[k]]
+            job_list_str = ' '.join(str(_) for _ in job_list[k])
+            logging.info('{} models for {}: {}'.format(len(models_by_type[k]), k, job_list_str))
+            if not models_by_type[k]:
+                logging.warning('Skipping {}'.format(k))
+                continue
             df_ = test_results_df(models_by_type[k],
                                   predict_methods='all',
                                   ood_methods='all',
@@ -192,7 +201,7 @@ if __name__ == '__main__':
         agg_df = {}
         kept_methods = {}
 
-        for k in which:
+        for k in raw_df:
             agg_df[k] = pd.DataFrame()
             kept_ood = config[k]['ood'].split()
             for o in kept_ood:
@@ -214,8 +223,8 @@ if __name__ == '__main__':
                                                                level='method'))
 
         results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
+        raise StopIteration
 
-        
         def keep_number(df):
 
             for i, row in df.iterrows():
@@ -234,9 +243,9 @@ if __name__ == '__main__':
 
         meta_cols = ('rate', 'auc') if args.keep_auc else ('rate',)
         for w in meta_cols:
-            for k in which:
-                    if (w, k) not in cols:
-                        cols.append((w, k))
+            for k in raw_df:
+                if (w, k) not in cols:
+                    cols.append((w, k))
 
         rate_cols = [_ for _ in cols if 'rate' in _]
         auc_cols = [_ for _ in cols if 'auc' in _]
@@ -255,13 +264,12 @@ if __name__ == '__main__':
 
         n_index = results_df.index.nlevels
         n_methods = len(rate_cols)
-        method_sep = '@{/}' if auc_cols else ''
-        column_format = ('@{}' + 'l' * n_index + '%\n'
-                         + method_sep.join(['S[table-format=2.1]%\n'] * n_methods) * len(meta_cols) + '@{}')
 
         if not args.keep_auc:
             cols.droplevel('metrics')
-            
+
+        cols = results_df.columns
+
         renames = dict(**texify['datasets'], **texify['methods'], **texify['metrics'])
         results_df.rename(renames, inplace=True)
 
@@ -270,57 +278,46 @@ if __name__ == '__main__':
         results_df.rename(columns=renames, inplace=True)
 
         methods = [c[-1] for c in results_df.columns][:n_methods]
-        _row = '&\\multicolumn{{{n}}}c{{{fpr}}} & \\multicolumn{{{n}}}c{{{auc}}} \\\\\n'
-        # tex_header = _row.format(n=n_methods,
-        #                          fpr='\\text{\\acron{fpr}@' + default_config['tpr'] + '}',
-        #                          auc='\\text{\\acron{auroc}}')
-        tex_header = _row.format(n=n_methods,
-                                 fpr='\\text{\\acron{fpr}@' + default_config['tpr'] + ' ou acc.}',
-                                 auc='\\text{\\acron{auroc}}')
-        tex_header += '\\midrule'
-        tex_header += '&\\multicolumn{{{n}}}c{{{methods}}} \\\\'.format(n=n_methods*2,
-                                                                                   methods='/'.join(methods))
-        header = True
 
-        cols = results_df.columns
+        col_fmt = ['l']
+        for _ in meta_cols:
+            col_fmt.extend(['s2.1'] * n_methods)
+        tab = TexTab(*col_fmt, float_format='{:2.1f}')
 
-        f_ = open(tab_file, 'w')
-        for i, r in results_df.iterrows():
+        meta_headers = {'rate': r'\acron{fpr}@' + default_config['tpr'] + ' ou acc.',
+                        'auc': r'\acron{auc}'}
+        
+        if len(meta_cols) > 1:
+            tab.append_cell('', row='meta_header')
+            tab.append_cell('', row='header')
+            for _ in meta_cols:
+                tab.append_cell(meta_headers[_], row='meta_header', width=n_methods)
+            tab.append_cell('/'.join(methods), row='header', width=len(cols))
+        else:
+            tab.append_cell('', row='header')
+            for m in methods:
+                tab.append_cell(m, row='header')
 
-            f_.write('%%%%%%% {}\n'.format(i))
+        tab.add_midrule(row='header')
 
+        for idx, r in results_df.iterrows():
+
+            tab.append_cell(idx, row=idx)
+            for i, c in enumerate(r):
+                best = best_values['auc' if 'auc' in cols[i] else 'rate'][idx]
+                face = 'bf' if abs(best - c) < 0.05 else None
+                tab.append_cell(c, row=idx, face=face)
+            continue
             formatters = {c: partial(bold_best_values,
-                                     value=best_values['rate' if 'rate' in c[0] else 'auc'][i]) for c in cols}
+                                     value=best_values['rate' if 'rate' in c[0] else 'auc'][idx]) for c in cols}
 
-            tex_code = results_df.loc[[i]].to_latex(formatters=formatters,
-                                                    header=False,
-                                                    escape=False,
-                                                    index=False,
-                                                    multicolumn=False,
-                                                    na_rep='\\text{--}',
-                                                    column_format=None)
-            i0 = 2
-            i1 = -3
-            tex_code_ = tex_code.split('\n')
-            f_.write('%%%%%% FIRST LINE\n')
-            if header:
-                f_.write('\\begin{tabular}{%\n')
-                f_.write(column_format)
-                f_.write('}\n')
-                f_.write('\\toprule\n')
-                f_.write(tex_header + '\n')
-            f_.write('\\midrule\n')
+        tab.add_midrule(row=texify['datasets']['acc'])
 
-            if n_index == 1:
-                i = (i,)
+        for k in job_list:
+            tab.comment('{:2} models for {:12}: {}'.format(len(job_list[k]), k,
+                                                           ' '.join(str(_) for _ in job_list[k])))
+        
+        with open(tab_file, 'w') as f:
+            tab.render(f)
 
-            tex_code = '\n'.join([('{} & ' * n_index).format(*i) + r for r in tex_code_[i0:i1]])
-            f_.write(tex_code)
-            last_lines = '\n'.join(tex_code_[i1:])
-            column_format = None
-            header = False
-        f_.write('%%%%% END OF TAB\n')
-        f_.write(last_lines)
-
-        f_.close()
         logging.info('{} done'.format(dataset))

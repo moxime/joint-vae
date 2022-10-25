@@ -15,6 +15,7 @@ from utils.print_log import turnoff_debug
 from utils.parameters import gethostname, DEFAULT_RESULTS_DIR, DEFAULT_JOBS_DIR
 from utils.texify import TexTab
 
+
 def expand_row(row_format, *a, col_sep=' & '):
 
     reg = '{%(.*?)}'
@@ -36,8 +37,8 @@ job_dir = DEFAULT_JOBS_DIR
 file_ini = None
 
 args_from_file = ['-vv', '--config',
-                  'jobs/results/tabs/mnist-params.ini',
-                  #                  '--keep-auc'
+                  'jobs/results/manuscrit/tabs/mnist-params.ini',
+                  '--keep-auc'
                   ]
 
 tex_output = sys.stdout
@@ -223,18 +224,18 @@ if __name__ == '__main__':
                                                                level='method'))
 
         results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
-        raise StopIteration
-
-        def keep_number(df):
-
-            for i, row in df.iterrows():
-                assert len(row) - row.isna().sum() <= 1
-            return np.max(df)
 
         results_df = results_df.groupby(results_df.columns, axis=1).agg(np.max)
+
         results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'methods'])
 
-        results_df = results_df.reindex(sum((sets[w] for w in what), []))
+        sorting_sets = {_: i for i, _ in enumerate(sum((sets[w] for w in what), []))}
+
+        def key_(idx):
+            return pd.Index([sorting_sets.get(_, -1) for _ in idx], name='set')
+
+        results_df = results_df.sort_index(level='set', key=key_)
+
         results_df.rename({dataset: 'acc'}, inplace=True)
 
         best_values = {}
@@ -282,23 +283,24 @@ if __name__ == '__main__':
         col_fmt = ['l']
         for _ in meta_cols:
             col_fmt.extend(['s2.1'] * n_methods)
-        tab = TexTab(*col_fmt, float_format='{:2.1f}')
+        tab = TexTab(*col_fmt, float_format='{:2.1f}', na_rep='')
 
         meta_headers = {'rate': r'\acron{fpr}@' + default_config['tpr'] + ' ou acc.',
                         'auc': r'\acron{auc}'}
-        
+
         if len(meta_cols) > 1:
             tab.append_cell('', row='meta_header')
             tab.append_cell('', row='header')
-            for _ in meta_cols:
+            for i, _ in enumerate(meta_cols):
                 tab.append_cell(meta_headers[_], row='meta_header', width=n_methods)
+                for _i in range(2, n_methods + 1):
+                    tab.add_col_sep(i * n_methods + _i, sep='/')
             tab.append_cell('/'.join(methods), row='header', width=len(cols))
+
         else:
             tab.append_cell('', row='header')
             for m in methods:
                 tab.append_cell(m, row='header')
-
-        tab.add_midrule(row='header')
 
         for idx, r in results_df.iterrows():
 
@@ -308,15 +310,14 @@ if __name__ == '__main__':
                 face = 'bf' if abs(best - c) < 0.05 else None
                 tab.append_cell(c, row=idx, face=face)
             continue
-            formatters = {c: partial(bold_best_values,
-                                     value=best_values['rate' if 'rate' in c[0] else 'auc'][idx]) for c in cols}
 
-        tab.add_midrule(row=texify['datasets']['acc'])
+        tab.add_midrule(row='header', after=True)
+        tab.add_midrule(row=texify['datasets']['acc'], after=True)
 
         for k in job_list:
             tab.comment('{:2} models for {:12}: {}'.format(len(job_list[k]), k,
                                                            ' '.join(str(_) for _ in job_list[k])))
-        
+
         with open(tab_file, 'w') as f:
             tab.render(f)
 

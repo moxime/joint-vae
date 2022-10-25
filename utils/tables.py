@@ -298,7 +298,7 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         kept_cols = {k: kept_cols for k in df_dict}
 
     if 'sets' not in kept_levels:
-        kept_levels = ['sets'] + kept_levels
+        kept_levels = ['set'] + kept_levels
         
     for k, df in df_dict.items():
 
@@ -314,24 +314,17 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         df = df.stack('set')
         harddebug('*** stack:\n', df)
 
-        df_dict[k] = df.groupby(['set'] + kept_levels).agg('mean')
+        df_dict[k] = df.groupby(kept_levels).agg('mean')
 
         harddebug(f'*** df[{k}]\n', df)
 
     large_df = pd.concat(df_dict.values(), axis=1)
 
-    # # # large_df.columns.rename({None: 'which'}, inplace=True)
-
-    # large_df = large_df.stack('which')
-
-    # large_df = large_df.groupby(['which', 'set'] + kept_levels).agg('mean')
-    large_df = large_df.groupby(['set'] + kept_levels).agg('mean')
+    # large_df = large_df.groupby(['set'] + kept_levels).agg('mean')
 
     level = large_df.index.nlevels - 1
 
     if level:
-        level_names = large_df.index.names
-        level_names_ = [level_names[-1]] + level_names[:-1]
 
         harddebug('*** large_df\n', large_df)
         # large_df = large_df.reorder_levels(level_names_)

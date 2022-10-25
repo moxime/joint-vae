@@ -8,6 +8,7 @@ import torch
 import utils.torch_load as torchdl
 import string
 import pandas as pd
+import numpy as np
 from utils.print_log import texify_str
 from datetime import datetime
 from utils.parameters import DEFAULT_RESULTS_DIR
@@ -441,6 +442,13 @@ class TexCell(object):
 
     def __str__(self):
 
+        # try:
+        #     is_nan = np.isnan(self._value)
+        #     if is_nan:
+        #         return self.na_rep
+        # except TypeError:
+        #     pass
+        
         if self._value is None:
             return self.na_rep
 
@@ -585,17 +593,24 @@ class TexTab(object):
             self._rows[row_id] = TexRow(col_format=self._col_format)
             return row_id
 
-    def _make_cell(self, a, width=1, multicol_format=None, formatter=None, has_to_be_float=None, face=None):
+    def _make_cell(self, a, width=1, multicol_format=None,
+                   formatter=None, has_to_be_float=None, face=None, seps=('', '')):
 
         try:
             float(a)
-            is_float = True
+            is_float = not np.isnan(a)
+            if np.isnan(a):
+                a = None
         except (ValueError, TypeError):
             is_float = False
 
         is_multicol = width > 1 or multicol_format or (has_to_be_float and not is_float) or a is None
         multicol_format = multicol_format or self.default_multicol_format
 
+        multicol_format = (('@{}' if seps[0] else '') +
+                           multicol_format +
+                           ('@{{{}}}'.format(seps[1]) if seps[1] else ''))
+        
         return TexCell(a, width=width,
                        multicol_format=multicol_format if is_multicol else None,
                        na_rep=self.na_rep,
@@ -666,16 +681,23 @@ class TexTab(object):
             raise IndexError('row {} already full'.format(row))
 
         has_to_be_float = self._has_to_be_float[row_width]
+        seps = (self._col_sep[row_width], self._col_sep[row_width+width])
         self[row].append(self._make_cell(a, width=width,
                                          multicol_format=multicol_format,
                                          face=face,
                                          formatter=formatter,
-                                         has_to_be_float=has_to_be_float))
+                                         has_to_be_float=has_to_be_float,
+                                         seps=seps))
         return row
 
-    def add_midrule(self, row, start=0, end=-1):
+    def add_midrule(self, row, start=0, end=-1, after=False):
 
         assert row in self._rows
+
+        if after:
+            row_list = list(self._rows)
+            row = row_list[row_list.index(row) + 1]
+        
         if end == -1:
             end = self.width - 1
 

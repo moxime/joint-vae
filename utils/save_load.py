@@ -893,10 +893,12 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     for pm in accuracies:
         pm_ = pm
         if pm == 'first':
-            pm_ = pm
+            pm_ = model.predict_methods[0]
         prefix = 'errors-'
-        in_out_results[prefix + pm] = model.testing.get(wanted_epoch, {}).get(pm_, {})
-        methods_for_in_out_rates[prefix + pm] = model.misclass_methods.copy()
+
+        if pm_ in model.testing.get(wanted_epoch, {}):
+            in_out_results[prefix + pm] = model.testing.get(wanted_epoch, {}).get(pm_, None)
+            methods_for_in_out_rates[prefix + pm] = model.misclass_methods.copy()
 
     # TO MERGE WITH MISCLASS
     # res_fmt: {'fpr': {0.9:.., 0.91:...}, 'P': {0.9:.., 0.91:...}, 'auc': 0.9}
@@ -915,20 +917,18 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         develop_starred_methods(methods_for_in_out_rates[s], model.methods_params)
 
         in_out_results_s = clean_results(in_out_results[s],
-                                         methods_for_in_out_rates[s],
+                                         methods_for_in_out_rates[s] + starred_methods,
                                          fpr=[], tpr=[], precision=[], auc=None)
-
         _r = in_out_results[s]
         for m in starred_methods:
-            # print('***', m)
             methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr)
                                    for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
             params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
-            if params_max_auc:
-                in_out_results_s[m] = _r[params_max_auc]
-                print('***', m, params_max_auc)
+            
+            if params_max_auc is not None:
+                in_out_results_s[m] = _r[params_max_auc].copy()
                 in_out_results_s[m]['params'] = params_max_auc
-
+                
         for m in in_out_results_s:
             res_by_method = {}
             fpr_ = in_out_results_s[m]['fpr']
@@ -942,7 +942,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             if 'precision' in in_out_results_s[m]:
                 prec_ = in_out_results_s[m]['precision']
                 res_by_method['P'] = {tpr: p for tpr, p in zip(tpr_, prec_)}
+            if params := in_out_results_s[m].get('params'):
+                res_by_method['params'] = params
             res_by_set[m] = res_by_method
+                
         res_by_set['first'] = res_by_set[first_method]
         in_out_rates[s] = res_by_set
         if best_method[s]:

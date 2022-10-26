@@ -295,7 +295,7 @@ if __name__ == '__main__':
     for n in models_to_be_kept:
         tex_architecture(n)
         export_losses(n, which='all')
-        texify_test_results(n)
+        # TK texify_test_results(n)
 
     all_methods = 'all' if args.expand > 1 else None
 

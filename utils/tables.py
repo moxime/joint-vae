@@ -80,7 +80,7 @@ def export_losses(net_dict, which='loss',
     f.close()
 
 
-def test_results_df(nets,
+def test_results_df(models,
                     predict_methods='first',
                     ood_methods='first',
                     ood={},
@@ -96,8 +96,8 @@ def test_results_df(nets,
     n['L']
     n['accuracies'] : {m: acc for m in methods}
     n['best_accuracy'] : best accuracy
-    n['ood_fpr'] : '{s: {tpr : fpr}}' for best method
-    n['ood_fprs'] : '{s: {m: {tpr: fpr} for m in methods}}
+    n['in_out_rate'] : '{s: {tpr : fpr}}' for best method
+    n['ood_in_out_rates'] : '{s: {m: {tpr: fpr} for m in methods}}
     n['options'] : vector of options
     n['optim_str'] : optimizer
     """
@@ -109,8 +109,8 @@ def test_results_df(nets,
         predict_methods = 'first'
 
     if not dataset:
-        testsets = {n['set'] for n in nets}
-        return {s: test_results_df(nets,
+        testsets = {n['set'] for n in models}
+        return {s: test_results_df(models,
                                    predict_methods=predict_methods,
                                    ood_methods=ood_methods,
                                    ood=ood.get(s),
@@ -149,7 +149,7 @@ def test_results_df(nets,
     # ood_cols = ['ood_fpr', 'ood_fprs']
 
     acc_cols = ['accuracies']
-    ood_cols = ['ood_fprs']
+    in_out_cols = ['in_out_rates']
 
     meas_cols = ['epoch', 'done', 'validation']
 
@@ -158,8 +158,8 @@ def test_results_df(nets,
                       'train_loss', 'test_loss',
                       'train_zdist', 'test_zdist']
 
-    columns = indices + acc_cols + ood_cols + meas_cols
-    df = pd.DataFrame.from_records([n for n in nets if n['set'] == dataset],
+    columns = indices + acc_cols + in_out_cols + meas_cols
+    df = pd.DataFrame.from_records([n for n in models if n['set'] == dataset],
                                    columns=columns)
 
     df['batch_norm'] = df['batch_norm'].apply(lambda x: x[0] if x else x)
@@ -168,9 +168,10 @@ def test_results_df(nets,
 
     acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
     acc_df.columns = pd.MultiIndex.from_product([acc_df.columns, ['rate']])
-    ood_df = pd.DataFrame(df['ood_fprs'].values.tolist(), index=df.index)
+    in_out_df = pd.DataFrame(df['in_out_rates'].values.tolist(), index=df.index)
+    in_out_df = in_out_df.applymap(lambda x: {} if pd.isnull(x) else x) 
+
     meas_df = df[meas_cols]
-    # print(meas_df.columns)
     meas_df.columns = pd.MultiIndex.from_product([[''], meas_df.columns])
 
     # return acc_df
@@ -179,9 +180,9 @@ def test_results_df(nets,
 
     # print('*** ood_df:', *ood_df, 'ood', ood)
     if ood is not None:
-        ood_df = {s: ood_df[s] for s in ood}
-    for s in ood_df:
-        d_s = pd.DataFrame(ood_df[s].values.tolist(), index=df.index)
+        in_out_df = {s: in_out_df[s] for s in ood}
+    for s in in_out_df:
+        d_s = pd.DataFrame(in_out_df[s].values.tolist(), index=df.index)
         d_s_ = {}
         for m in d_s:
             v_ = d_s[m].values.tolist()
@@ -468,42 +469,4 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('jobs', nargs='+', type=int)
-
-    parser.add_argument('--debug', '-d', action='store_true')
-
-    for k in ('sets', 'methods'):
-        parser.add_argument('--' + k, action='append', nargs='+')
-
-    parser.add_argument('--tpr', type=int, default=98)
-    parser.add_argument('--empty', type=str, default=' ')
-    parser.add_argument('--texfile', default='row')
-
-    args = parser.parse_args()
-
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-    method_and_set_dict = {}
-
-    for s_ in args.sets:
-        for s in s_:
-            method_and_set_dict[s] = [_ for _ in s_ if _ != s]
-
-    for m_ in args.methods:
-        method_and_set_dict[m_[0]] = m_[1:]
-
-    logging.info('Jobs : ' + ', '.join(str(_) for _ in args.jobs))
-
-    for k in method_and_set_dict:
-
-        logging.info(k + ' : ' + ' - '.join(method_and_set_dict[k]))
-
-    digest_table(*args.jobs, tpr=args.tpr / 100,
-                 empty=f'\\text{{{args.empty}}}',
-                 filename=args.texfile + '.tex',
-                 **method_and_set_dict)
+    pass

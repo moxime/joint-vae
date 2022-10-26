@@ -887,98 +887,69 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     all_ood_sets.append('average')
     tested_ood_sets = [s for s in ood_results if s in all_ood_sets]
 
-    ood_fprs = {s: {} for s in all_ood_sets}
-    ood_fpr = {s: None for s in all_ood_sets}
-    best_auc = {s: None for s in all_ood_sets}
-    best_method = {s: None for s in all_ood_sets}
-    n_ood = {s: 0 for s in all_ood_sets}
-    epochs_ood = {s: 0 for s in all_ood_sets}
+    methods_for_in_out_rates = {s: model.ood_methods.copy() for s in tested_ood_sets}
+    in_out_results = ood_results
 
-    for s in tested_ood_sets:
-        res_by_set = {}
-        ood_results_s = clean_results(ood_results[s], model.ood_methods, fpr=[], tpr=[], auc=None)
-
-        starred_methods = [m for m in ood_results_s if m.endswith('*')]
-
-        _r = ood_results[s]
-        for m in starred_methods:
-            methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr)
-                                   for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
-            params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
-            if params_max_auc:
-                ood_results_s[m] = _r[params_max_auc]
-            ood_results_s[m]['params'] = params_max_auc
-
-        for m in ood_results_s:
-            fpr_ = ood_results_s[m]['fpr']
-            tpr_ = ood_results_s[m]['tpr']
-            auc = ood_results_s[m]['auc']
-            if auc and (not best_auc[s] or auc > best_auc[s]):
-                best_auc[s] = auc
-                best_method[s] = m
-            res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
-            res_by_method['auc'] = auc
-            res_by_set[m] = res_by_method
-        res_by_set['first'] = res_by_set[model.ood_methods[0]]
-        ood_fprs[s] = res_by_set
-        if best_method[s]:
-            ood_fpr[s] = res_by_set[best_method[s]]
-
-        epochs_ood[s] = min(ood_results_s[m]['epochs'] for m in ood_results_s)
-        n_ood[s] = min(ood_results_s[m]['n'] for m in ood_results_s)
-
-    prefix = 'errors-'
-    misclass_fprs = {prefix + _: {} for _ in accuracies}
-    misclass_fpr = {prefix + _: None for _ in accuracies}
-    best_auc = {prefix + _: None for _ in accuracies}
-    best_method = {prefix + _: None for _ in accuracies}
-    n_misclass = {prefix + _: 0 for _ in accuracies}
-    epochs_misclass = {prefix + _: 0 for _ in accuracies}
-
-    misclass_rates = {}
-
-    #### TK ####
     for pm in accuracies:
         pm_ = pm
         if pm == 'first':
             pm_ = pm
-            
-        testing_results = model.testing.get(wanted_epoch, {}).get(pm_, {})
+        prefix = 'errors-'
+        in_out_results[prefix + pm] = model.testing.get(wanted_epoch, {}).get(pm_, {})
+        methods_for_in_out_rates[prefix + pm] = model.misclass_methods.copy()
 
-        # in miclass_methods: starred methods
-        misclass_results_pm = clean_results(testing_results, model.misclass_methods, fpr=[], tpr=[], auc=None)
-        starred_methods = [m for m in misclass_results_pm if m.endswith('*')]
-        _r = testing_results
+    # TO MERGE WITH MISCLASS
+    # res_fmt: {'fpr': {0.9:.., 0.91:...}, 'P': {0.9:.., 0.91:...}, 'auc': 0.9}
+    in_out_rates = {s: {} for s in in_out_results}
+    in_out_rate = {s: None for s in in_out_results}
+    best_auc = {s: None for s in in_out_results}
+    best_method = {s: None for s in in_out_results}
+    n_in_out = {s: 0 for s in in_out_results}
+    epochs_in_out = {s: 0 for s in in_out_results}
+
+    for s in in_out_results:
+        res_by_set = {}
+
+        starred_methods = [m for m in methods_for_in_out_rates[s] if m.endswith('*')]
+        first_method = methods_for_in_out_rates[s][0]
+        develop_starred_methods(methods_for_in_out_rates[s], model.methods_params)
+
+        in_out_results_s = clean_results(in_out_results[s],
+                                         methods_for_in_out_rates[s],
+                                         fpr=[], tpr=[], precision=[], auc=None)
+
+        _r = in_out_results[s]
         for m in starred_methods:
+            # print('***', m)
             methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr)
                                    for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
             params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
             if params_max_auc:
-                misclass_results_pm[m] = _r[params_max_auc]
-                misclass_results_pm[m]['params'] = params_max_auc
+                in_out_results_s[m] = _r[params_max_auc]
+                print('***', m, params_max_auc)
+                in_out_results_s[m]['params'] = params_max_auc
 
-        develop_starred_methods(starred_methods, model.methods_params)
-        misclass_results_pm.update(clean_results(testing_results, starred_methods, fpr=[], tpr=[], auc=None))
-
-        for m in misclass_results_pm:
-            fpr_ = misclass_results_pm[m]['fpr']
-            tpr_ = misclass_results_pm[m]['tpr']
-            auc = misclass_results_pm[m]['auc']
+        for m in in_out_results_s:
+            res_by_method = {}
+            fpr_ = in_out_results_s[m]['fpr']
+            tpr_ = in_out_results_s[m]['tpr']
+            auc = in_out_results_s[m]['auc']
             if auc and (not best_auc[s] or auc > best_auc[s]):
                 best_auc[s] = auc
                 best_method[s] = m
-            res_by_method = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
+            res_by_method['fpr'] = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
             res_by_method['auc'] = auc
+            if 'precision' in in_out_results_s[m]:
+                prec_ = in_out_results_s[m]['precision']
+                res_by_method['P'] = {tpr: p for tpr, p in zip(tpr_, prec_)}
             res_by_set[m] = res_by_method
-        res_by_set['first'] = res_by_set[model.ood_methods[0]]
-        misclass_fprs[s] = res_by_set
+        res_by_set['first'] = res_by_set[first_method]
+        in_out_rates[s] = res_by_set
         if best_method[s]:
-            misclass_fpr[s] = res_by_set[best_method[s]]
+            in_out_rate[s] = res_by_set[best_method[s]]
 
-        epochs_misclass[s] = min(misclass_results_pm[m]['epochs'] for m in misclass_results_pm)
-        n_missclass[s] = min(misclass_results_pm[m]['n'] for m in misclass_results_pm)
-        
-        
+        epochs_in_out[s] = min(in_out_results_s[m]['epochs'] for m in in_out_results_s)
+        n_in_out[s] = min(in_out_results_s[m]['n'] for m in in_out_results_s)
 
     history = model.train_history
     if history.get('test_measures', {}):
@@ -1109,9 +1080,9 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'epoch': tested_epoch,
             'accuracies': accuracies,
             'best_accuracy': best_accuracy,
-            'n_ood': n_ood,
-            'ood_fprs': ood_fprs,
-            'ood_fpr': ood_fpr,
+            'n_in_out': n_in_out,
+            'in_out_rates': in_out_rates,
+            'in_out_rate': in_out_rate,
             'recorders': recorders,
             'recorded_epoch': recorded_epoch,
             'rmse': rmse,
@@ -1131,7 +1102,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'optim_str': f'{empty_optimizer:3}',
             'optim': empty_optimizer.kind,
             'lr': empty_optimizer.init_lr,
-            'misclassTK': misclass_results_pm
             }
 
 

@@ -814,6 +814,11 @@ def available_results(model,
 
 def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', misclass_on_method='first', **kw):
 
+    try:
+        iter(tpr)
+    except TypeError:
+        tpr = [tpr]
+        
     architecture = ObjFromDict(model.architecture, features=None)
     training = ObjFromDict(model.training_parameters,
                            transformer='default',
@@ -898,6 +903,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
         if pm_ in model.testing.get(wanted_epoch, {}):
             in_out_results[prefix + pm] = model.testing.get(wanted_epoch, {}).get(pm_, None)
+            in_out_results[prefix + pm]['acc'] = accuracies[pm]
             methods_for_in_out_rates[prefix + pm] = model.misclass_methods.copy()
 
     # TO MERGE WITH MISCLASS
@@ -918,10 +924,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
         in_out_results_s = clean_results(in_out_results[s],
                                          methods_for_in_out_rates[s] + starred_methods,
-                                         fpr=[], tpr=[], precision=[], auc=None)
+                                         fpr=[], tpr=[], precision=[], auc=None, acc=None)
         _r = in_out_results[s]
         for m in starred_methods:
-            methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr)
+            methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr[0])
                                    for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
             params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
             
@@ -933,17 +939,30 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             res_by_method = {}
             fpr_ = in_out_results_s[m]['fpr']
             tpr_ = in_out_results_s[m]['tpr']
+            P_ = in_out_results_s[m].get('precision', [None for _ in tpr_])
             auc = in_out_results_s[m]['auc']
+            
             if auc and (not best_auc[s] or auc > best_auc[s]):
                 best_auc[s] = auc
                 best_method[s] = m
-            res_by_method['fpr'] = {tpr: fpr for tpr, fpr in zip(tpr_, fpr_)}
-            res_by_method['auc'] = auc
-            if 'precision' in in_out_results_s[m]:
-                prec_ = in_out_results_s[m]['precision']
-                res_by_method['P'] = {tpr: p for tpr, p in zip(tpr_, prec_)}
-            if params := in_out_results_s[m].get('params'):
-                res_by_method['params'] = params
+            
+            for target_tpr in tpr:
+                for (the_tpr, fpr, P) in zip(tpr_, fpr_, P_):
+                    if abs(the_tpr - target_tpr) < 1e-4:
+                        break
+                else:
+                    the_tpr = None
+
+                if the_tpr:
+                    suffix = '@{:.0f}'.format(100 * target_tpr)
+                    res_by_method['fpr'+suffix] = fpr
+                    res_by_method['auc'] = auc
+                    if P is not None:
+                        res_by_method['P'+suffix] = P
+                        # print('***', in_out_results_s[m].keys())
+                        # res_by_method['dP'] = P - in_out_results_s[m]['acc']
+                    # if params := in_out_results_s[m].get('params'):
+                    #     res_by_method['params'] = params
             res_by_set[m] = res_by_method
                 
         res_by_set['first'] = res_by_set[first_method]
@@ -1121,6 +1140,7 @@ def _register_models(models, *keys):
 
 
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
+                 tpr=0.95,
                  load_net=False,
                  show_debug=False,
                  **kw):
@@ -1139,10 +1159,11 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
         try:
             rmodels = load_json(search_dir, registered_models_file)
             with turnoff_debug(turnoff=not show_debug):
-                return _gather_registered_models(rmodels, filter, load_net=load_net, **kw)
+                return _gather_registered_models(rmodels, filter, tpr=tpr, load_net=load_net, **kw)
 
-        except (FileNotFoundError, NoModelError) as e:
-            logging.warning('%s not found, will recollect networks', e)
+        except FileNotFoundError as e:
+            # except (FileNotFoundError, NoModelError) as e:
+            logging.warning('{} not found, will recollect networks'.format(e.filename))
             flash = False
 
     if not flash:
@@ -1155,10 +1176,10 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
         rmodels = _register_models(list_of_networks, *filter_keys)
         save_json(rmodels, search_dir, registered_models_file)
         return fetch_models(search_dir, registered_models_file, filter=filter, flash=True,
-                            load_net=load_net, **kw)
+                            tpr=tpr, load_net=load_net, **kw)
 
 
-def _gather_registered_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='last', **kw):
+def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw):
 
     from cvae import ClassificationVariationalNetwork
 
@@ -1166,7 +1187,7 @@ def _gather_registered_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='las
     for _ in mdict:
         if filter is None or filter.filter(mdict[_]):
             m = ClassificationVariationalNetwork.load(_, **kw)
-            mlist.append(make_dict_from_model(m, _, tpr=tpr_for_max, wanted_epoch=wanted_epoch))
+            mlist.append(make_dict_from_model(m, _, tpr=tpr, wanted_epoch=wanted_epoch))
 
     return mlist
 
@@ -1174,7 +1195,7 @@ def _gather_registered_models(mdict, filter, tpr_for_max=0.95, wanted_epoch='las
 @iterable_over_subdirs(0, iterate_over_subdirs=list)
 def collect_models(directory,
                    wanted_epoch='last',
-                   load_state=True, tpr_for_max=0.95, **default_load_paramaters):
+                   load_state=True, tpr=0.95, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork
 
@@ -1189,11 +1210,11 @@ def collect_models(directory,
                                                       load_state=load_state,
                                                       **default_load_paramaters)
 
-        return make_dict_from_model(model, directory, tpr=tpr_for_max, wanted_epoch=wanted_epoch)
+        return make_dict_from_model(model, directory, tpr=tpr, wanted_epoch=wanted_epoch)
 
     except (FileNotFoundError, PermissionError, NoModelError) as e:
         pass
-
+    
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
         logging.debug(f'Load error: {e}')

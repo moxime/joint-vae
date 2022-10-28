@@ -169,7 +169,7 @@ def test_results_df(models,
     acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
     acc_df.columns = pd.MultiIndex.from_product([acc_df.columns, ['rate']])
     in_out_df = pd.DataFrame(df['in_out_rates'].values.tolist(), index=df.index)
-    in_out_df = in_out_df.applymap(lambda x: {} if pd.isnull(x) else x) 
+    in_out_df = in_out_df.applymap(lambda x: {} if pd.isnull(x) else x)
 
     meas_df = df[meas_cols]
     meas_df.columns = pd.MultiIndex.from_product([[''], meas_df.columns])
@@ -300,14 +300,14 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
 
     if 'sets' not in kept_levels:
         kept_levels = ['set'] + kept_levels
-        
+
     for k, df in df_dict.items():
 
         harddebug('*** index:', df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
 
         if kept_cols[k] is not None:
             df = df[kept_cols[k]]
-            
+
         # harddebug('*** kept cols', *df.columns, '\n', df)
         # harddebug('*** kept cols', kept_cols[k])
 
@@ -467,6 +467,119 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
         return df_
 
 
+def unfold_df_from_dict(df, depth=1, names=None, keep=None):
+
+    if not depth:
+        if isinstance(df, pd.Series):
+            return None if all(df.isna()) else df
+        cols = [_ for _ in df if not all(df[_].isna())]
+        return df[cols]
+
+    if names is None:
+        names = [_ for _ in range(depth)]
+
+    if keep is None:
+        keep = {_: None for _ in names}
+
+    name = names[0]
+
+    try:
+        current_keeper = keep.get(name)
+    except AttributeError:
+        current_keeper = keep
+
+    def keep_col(keeper, col, *cols):
+        is_in = []
+        startswith = []
+        endswith = []
+        str_cols = [_ for _ in cols if isinstance(_, str)]
+        starred = [_ for _ in str_cols if _.endswith('*')]
+        nonstarred = [_ for _ in str_cols if not any(_.startswith(s[:-1]) for s in starred)]
+        approx = []
+        if not keeper:
+            return True
+        for k in keeper:
+            if isinstance(k, str):
+                if '~' in k:
+                    v, a = k.split('~')
+                    v = float(v)
+                    if not a:
+                        a = v / 1000
+                    else:
+                        a = v * float(a)
+                    approx.append((v, a))
+                if k.startswith('?'):
+                    endswith.append(k[1:])
+                elif k.endswith('?'):
+                    startswith.append(k[:-1])
+                elif k == 'starred':
+                    is_in.extend(starred)
+                    is_in.extend(nonstarred)
+                else:
+                    is_in.append(k)
+            else:
+                is_in.append(k)
+
+        if isinstance(col, str):
+            is_kept = (col in is_in
+                       or any(col.startswith(_) for _ in startswith)
+                       or any(col.endswith(_) for _ in endswith))
+            return is_kept
+        elif isinstance(col, (float, int)):
+            return col in is_in or any(abs(col - v) < a for (v, a) in approx)
+        else:
+            return col in is_in
+
+    df_ = pd.DataFrame(df.values.tolist(), index=df.index)
+    non_null_cols = [_ for _ in df_.columns if not all(df_[_].isnull())]
+
+    def replace_floats(x):
+        if isinstance(x, dict):
+            return x
+        n = x.name
+        return {n[-1]: x}
+    if depth > 1:
+        df_ = df_[non_null_cols].applymap(lambda x: x if isinstance(x, dict) else {'val': x})
+        # df_ = df_[non_null_cols].apply(replace_floats, axis=1, result_type='broadcast')
+
+    unfolded = {_: unfold_df_from_dict(df_[_], depth=depth-1, names=names[1:], keep=keep)
+                for _ in df_.columns if keep_col(current_keeper, _, *df_.columns)}
+
+    try:
+        concatenated_df = pd.concat({_: unfolded[_] for _ in unfolded if unfolded[_] is not None},
+                                    axis=1, names=[names[0]])
+
+    except ValueError:
+        # if all are empty
+        return None
+    return concatenated_df
+
+
 if __name__ == '__main__':
 
-    pass
+    tpr = [0.95, 0.98]
+    from utils.save_load import fetch_models
+
+    models = fetch_models('jobs', tpr=tpr)
+
+    models = [m for m in models if m['set'] == 'mnist' and m['type'] == 'cvae']
+
+    df = pd.DataFrame.from_records(models, columns=['job', 'type', 'in_out_rates', 'accuracies'],
+                                   index=['type', 'job'])
+
+    which = 'acc'
+    which = 'in_out'
+
+    if which == 'acc':
+        unf_df = unfold_df_from_dict(df['accuracies'], depth=1, names=['method'])
+    else:
+        unf_df = unfold_df_from_dict(df['in_out_rates'], depth=3,
+                                     names=['set', 'method', 'metrics'],
+                                     keep={
+                                         'method': ['baseline?', 'starred']
+                                     }
+                                     )
+    cols = unf_df.columns
+    print(unf_df[cols[:8]].to_string(float_format='{:.1%}'.format))
+    print(unf_df[cols[-8:]].to_string(float_format='{:.1%}'.format))
+    

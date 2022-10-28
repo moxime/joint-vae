@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     list_of_networks = fetch_models(search_dir, registered_models_file, filter=filters,
                                     flash=flash,
-                                    tpr_for_max=args.tpr[0] / 100,
+                                    tpr=args.tpr[0] / 100,
                                     load_net=False,
                                     load_state=False)
 

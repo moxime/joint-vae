@@ -142,7 +142,7 @@ def get_args(what_for='train', *a, **kw):
     if what_for == 'train':
         return get_args_for_train(*a, **kw)
 
-    return get_args_for_test(*a, **kw)
+    return get_args_for_results(*a, **kw)
 
 
 def get_args_for_train(argv=None):
@@ -367,7 +367,7 @@ def get_args_for_train(argv=None):
     return args
 
 
-def get_args_for_test(argv=None):
+def get_args_for_results(argv=None):
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--debug', action='store_true')

@@ -14,7 +14,9 @@ from datetime import datetime
 from utils.parameters import DEFAULT_RESULTS_DIR
 
 
-def tex_architecture(net_dict, filename='arch.tex', directory=os.path.join(DEFAULT_RESULTS_DIR, '%j'), stdout=False,):
+def tex_architecture(net_dict, filename='arch.tex',
+                     directory=os.path.join(DEFAULT_RESULTS_DIR, '%j'),
+                     stdout=False,):
 
     net = net_dict['net']
     epoch = net_dict['epoch']
@@ -434,7 +436,11 @@ class TexCell(object):
     def face(self, f):
         assert f in tex_faces
         self._face = f
-    
+
+    def __eq__(self, other):
+
+        return self._value == other
+
     def __repr__(self):
 
         of_width = 'of width {} '.format(self.width) if self.width > 1 else ''
@@ -448,7 +454,7 @@ class TexCell(object):
         #         return self.na_rep
         # except TypeError:
         #     pass
-        
+
         if self._value is None:
             return self.na_rep
 
@@ -492,7 +498,10 @@ class TexRow(list):
 
         return ' '.join(str(_) for _ in self)
 
-    def __format__(self, spec):
+    def render(self, spec='x', prev_row_for_sparse=[]):
+
+        while len(prev_row_for_sparse) < len(self):
+            prev_row_for_sparse.append(None)
 
         tex = spec.endswith('x')
         if tex:
@@ -504,17 +513,23 @@ class TexRow(list):
             row_str = ''
             str_w = [int(_) for _ in spec.plits('-')]
             i0 = 0
-            for i, c in enumarate(self):
+            for i, c in enumerate(self):
                 c_w = sum(str_w[i0:i0 + c.width + 1])
                 # c_f = ''
                 row_str += '{:{}}'.format(c, c_w)
 
-        return sep.join(_.__format__(spec) for _ in self)
+        return sep.join(c.__format__(spec) if c != prev_row_for_sparse[i] else '' for i, c in enumerate(self))
+
+    def __format__(self, spec):
+
+        print('**** format spec:', spec)
+        return self.render(spec)
 
 
 class TexTab(object):
 
     def __init__(self, *col_format, environment='tabular', float_format='{}',
+                 sparse_index_width=0,
                  na_rep='--',
                  multicol_format='c'):
 
@@ -522,7 +537,7 @@ class TexTab(object):
             float_format.format(4.54)
         except (IndexError, ValueError):
             raise ValueError(float_format + ' is not a valid float format')
-        
+
         self._env = environment
         self._col_format = col_format
 
@@ -540,6 +555,8 @@ class TexTab(object):
         self.na_rep = na_rep
         self.float_format = float_format
         self.default_multicol_format = multicol_format
+
+        self._sparse_index_witdth = sparse_index_width
 
     def __repr__(self):
 
@@ -585,7 +602,7 @@ class TexTab(object):
         if row_id = -1: will throw an error
         """
         assert row_id != -1, 'Please choose a row_id that is not {}'.format(row_id)
-        
+
         if row_id is None or row_id in self._rows:
             return self._new_row(self._next_row(row_id))
 
@@ -610,7 +627,7 @@ class TexTab(object):
         multicol_format = (('@{}' if seps[0] else '') +
                            multicol_format +
                            ('@{{{}}}'.format(seps[1]) if seps[1] else ''))
-        
+
         return TexCell(a, width=width,
                        multicol_format=multicol_format if is_multicol else None,
                        na_rep=self.na_rep,
@@ -644,18 +661,21 @@ class TexTab(object):
         io.write('\n')
 
         body = ''
+        prev_row_for_sparse = []
         for r in self:
             if r in self._rules['mid']:
                 for (start, end) in self._rules['mid'][r]:
                     body += tabular_rule('mid', start=start, end=end, tab_width=self.width)
 
-            body += '{:x}'.format(self[r])
+            body += self[r].render('x', prev_row_for_sparse=prev_row_for_sparse)
+            prev_row_for_sparse = self[r][:self._sparse_index_witdth]
+
             body += '\\\\\n'
 
             for comment in self._comments.get(r, []):
                 body += comment
                 body += '\n'
-            
+
         bottom = tabular_rule('bottom') if self._rules['bottom'] else ''
         top = tabular_rule('top') if self._rules['top'] else ''
 
@@ -697,7 +717,7 @@ class TexTab(object):
         if after:
             row_list = list(self._rows)
             row = row_list[row_list.index(row) + 1]
-        
+
         if end == -1:
             end = self.width - 1
 
@@ -726,9 +746,36 @@ class TexTab(object):
 
         if row not in self._comments:
             self._comments[row] = []
-            
+
         self._comments[row].append('% ' + s.strip('\n'))
 
     @classmethod
     def from_dataframe(df):
         raise NotImplementedError('TexTab.from_dataframe(df)')
+
+
+if __name__ == '__main__':
+    from numpy import nan
+
+    tab = TexTab('l', 'r', 's3.1', 's3.1', float_format='{:.3f}', sparse_index_width=1)
+    tab.add_col_sep(2, '/')
+    tab.append_cell('', row=0)
+    tab.append_cell(None, row=0)
+    tab.append_cell('fg', row=0)
+    tab.append_cell(4.5)
+    tab.append_cell(nan, row=1, face='it')
+    tab.append_cell('fr', width=2, row=1)
+    tab.append_cell('fr', width=2, row=2)
+    tab.append_cell('fr', width=2, row=3)
+    tab.append_cell(1, row=3)
+    tab.add_midrule(1, start=1)
+    # tab.add_midrule(2, before=True)
+
+    # tab.comment('Generated')
+    # tab.comment('Does that work?', row=1)
+    # tab.comment('Does that work?', row=1)
+    # tab.comment('Last comment', row=-1)
+    # tab.comment('Last comment', row=-1)
+
+    print('\n**\n' * 5)
+    tab.render()

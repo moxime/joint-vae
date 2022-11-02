@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 from utils.save_load import fetch_models, make_dict_from_model
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
-from utils.tables import agg_results, test_results_df
+from utils.tables import agg_results, results_dataframe
 from pydoc import locate
 import re
 from utils.print_log import turnoff_debug
@@ -162,7 +162,7 @@ if __name__ == '__main__':
             if not models_by_type[k]:
                 logging.warning('Skipping {}'.format(k))
                 continue
-            df_ = test_results_df(models_by_type[k],
+            df_ = results_dataframe(models_by_type[k],
                                   predict_methods='all',
                                   ood_methods='all',
                                   tpr=[tpr])

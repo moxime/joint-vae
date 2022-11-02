@@ -13,7 +13,7 @@ from utils.save_load import make_dict_from_model, available_results, save_json
 from utils.save_load import fetch_models
 from utils.tables import export_losses
 from utils.texify import tex_architecture, texify_test_results, texify_test_results_df
-from utils.tables import test_results_df, format_df_index
+from utils.tables import results_dataframe, format_df_index
 from utils.testing import early_stopping
 
 
@@ -306,7 +306,7 @@ if __name__ == '__main__':
         sort.remove('print')
         print_sorting_keys = True
 
-    df = test_results_df(models_to_be_kept,
+    df = results_dataframe(models_to_be_kept,
                          ood_methods=args.ood_methods or all_methods,
                          predict_methods=args.predict_methods or all_methods,
                          ood=oodsets,

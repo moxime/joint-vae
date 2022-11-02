@@ -2,6 +2,7 @@ import sys
 import functools
 from utils.save_load import create_file_for_job as create_file, find_by_job_number
 from utils.print_log import harddebug, printdebug
+from utils.misc import make_list
 import numpy as np
 import pandas as pd
 import hashlib
@@ -80,12 +81,14 @@ def export_losses(net_dict, which='loss',
     f.close()
 
 
-def test_results_df(models,
-                    predict_methods='first',
-                    ood_methods='first',
-                    ood={},
-                    dataset=None, show_measures=True,
-                    tpr=[0.95], tnr=False, sorting_keys=[]):
+def results_dataframe(models,
+                      predict_methods='first',
+                      ood_methods='first',
+                      misclass_methods='starred',
+                      metrics='all',
+                      ood={},
+                      dataset=None, show_measures=True,
+                      tpr=[0.95], tnr=False, sorting_keys=[]):
     """
     nets : list of dicts n
     n['net'] : the network
@@ -102,22 +105,34 @@ def test_results_df(models,
     n['optim_str'] : optimizer
     """
 
-    if ood_methods is None:
-        ood_methods = 'first'
+    methods = {'ood': ood_methods, 'predict': predict_methods, 'misclass': misclass_methods}
 
-    if predict_methods is None:
-        predict_methods = 'first'
+    for _ in methods:
+        if methods[_] is None:
+            methods[_] = 'first'
+        if isinstance(methods[_], str):
+            methods[_] = [methods[_]]
+
+    metrics = make_list(metrics, ['acc', 'auc', 'fpr', 'P'])
+
+    for m in ('fpr', 'P'):
+        if m in metrics:
+            metrics.remove(m)
+            for _ in tpr:
+                metrics.append(m + '@{:.0f}'.format(100 * _))
 
     if not dataset:
         testsets = {n['set'] for n in models}
-        return {s: test_results_df(models,
-                                   predict_methods=predict_methods,
-                                   ood_methods=ood_methods,
-                                   ood=ood.get(s),
-                                   dataset=s,
-                                   show_measures=show_measures,
-                                   tpr=tpr, tnr=tnr,
-                                   sorting_keys=sorting_keys) for s in testsets}
+        return {s: results_dataframe(models,
+                                     predict_methods=predict_methods,
+                                     ood_methods=ood_methods,
+                                     misclass_methods=misclass_methods,
+                                     metrics=metrics,
+                                     ood=ood.get(s),
+                                     dataset=s,
+                                     show_measures=show_measures,
+                                     tpr=tpr, tnr=tnr,
+                                     sorting_keys=sorting_keys) for s in testsets}
 
     arch_index = ['h/o'] if dataset.endswith('-?') else []
     arch_index += ['type',
@@ -151,7 +166,10 @@ def test_results_df(models,
     acc_cols = ['accuracies']
     in_out_cols = ['in_out_rates']
 
-    meas_cols = ['epoch', 'done', 'validation']
+    meas_cols = []
+
+    if show_measures:
+        meas_cols = ['epoch', 'done', 'validation']
 
     if show_measures > 1:
         meas_cols += ['dict_var', 'beta_sigma', 'rmse',
@@ -166,89 +184,82 @@ def test_results_df(models,
 
     df.set_index(indices, inplace=True)
 
-    acc_df = pd.DataFrame(df['accuracies'].values.tolist(), index=df.index)
-    acc_df.columns = pd.MultiIndex.from_product([acc_df.columns, ['rate']])
-    in_out_df = pd.DataFrame(df['in_out_rates'].values.tolist(), index=df.index)
-    in_out_df = in_out_df.applymap(lambda x: {} if pd.isnull(x) else x)
+    col_names = ['set', 'method', 'metrics']
+
+    acc_df = unfold_df_from_dict(df['accuracies'], depth=1, names=['method'])
+    acc_df.columns = pd.MultiIndex.from_product([[dataset],
+                                                 acc_df.columns,
+                                                 ['acc']],
+                                                names=col_names)
+
+    # DEBUG
+    # print('ACC\n', acc_df.columns)
+    in_out_df = unfold_df_from_dict(df['in_out_rates'], depth=3,
+                                    names=col_names,
+                                    keep={'method': ['starred']})
+
+    # DEBUG
+    # print('INOUT\n', in_out_df.columns)
 
     meas_df = df[meas_cols]
-    meas_df.columns = pd.MultiIndex.from_product([[''], meas_df.columns])
+    meas_df.columns = pd.MultiIndex.from_product([['measures'], [''], meas_df.columns],
+                                                 names=col_names)
 
-    # return acc_df
-    # return ood_df
-    d_ = {dataset: acc_df}
+    # DEBUG
+    # print('MEAS\n', meas_df.columns)
 
-    # print('*** ood_df:', *ood_df, 'ood', ood)
-    if ood is not None:
-        in_out_df = {s: in_out_df[s] for s in ood}
-    for s in in_out_df:
-        d_s = pd.DataFrame(in_out_df[s].values.tolist(), index=df.index)
-        d_s_ = {}
-        for m in d_s:
-            v_ = d_s[m].values.tolist()
-            _v = []
-            for v in v_:
-                if type(v) is dict:
-                    _v.append(v)
-                else:
-                    _v.append({})
-            d_s_[m] = pd.DataFrame(_v, index=df.index)
-        if d_s_:
-            d_[s] = pd.concat(d_s_, axis=1)
-            # print(d_[s].columns)
-            # print('==')
+    df = pd.concat([acc_df, in_out_df, meas_df], axis=1)
 
-            if tnr:
-                cols_fpr = d_[s].columns[~d_[s].columns.isin(['auc'], level=-1)]
-                d_[s][cols_fpr] = d_[s][cols_fpr].transform(lambda x: 1 - x)
-
-        #d_[s] = pd.DataFrame(d_s.values.tolist(), index=df.index)
-
-    for s in d_:
-        show = predict_methods if s == dataset else ood_methods
-        cols = d_[s].columns
-        kept_columns = cols.isin(tpr + ['rate', 'auc'] + [str(_) for _ in tpr], level=1)
-        first_method_columns = cols.isin(['first'], level=0)
-        # print('*** 1st', *first_method_columns)
-
-        if show == 'first':
-            shown_columns = first_method_columns
-        elif show == 'all':
-            shown_columns = ~first_method_columns
-        else:
-            # print(show)
-            if isinstance(show, str):
-                show = [show]
-            shown_columns = cols.isin(show, level=0)
-
-        # print('*** kept', s, *shown_columns, '\n', *d_[s].columns)
-        d_[s] = d_[s][cols[shown_columns * kept_columns]]
-
-    if show_measures:
-        d_['measures'] = meas_df
-
-    df = pd.concat(d_, axis=1)
-
-    df.columns.rename(['set', 'method', 'metrics'], inplace=True)
+    # DEBUG
+    # print('DF\n', df.columns)
 
     cols = df.columns
 
-    if False:
-        df.columns = df.columns.droplevel(1)
+    misclass_cols_set_level = set([_[0] for _ in cols if _[0].startswith('errors-')])
+    in_out_cols_set_level = set([_[0] for _ in cols if _[-1] == 'auc'])
+    ood_cols_set_level = set.difference(in_out_cols_set_level, misclass_cols_set_level)
 
-    def _f(x, type='pc'):
-        if type == 'pc':
+    # print('MIS', *misclass_cols_set_level)
+    # print('OOD', *ood_cols_set_level)
+
+    acc_cols = cols.isin(['acc'], level='metrics') & cols.isin(methods['predict'], level='method')
+    ood_cols = cols.isin(ood_cols_set_level, level='set') & cols.isin(methods['ood'], level='method')
+
+    if ood is not None:
+        ood_cols = ood_cols & cols.isin(ood, level='set')
+
+    misclass_cols_set_level = ['errors-' + _ for _ in methods['predict']]
+    misclass_cols = cols.isin(misclass_cols_set_level, level='set') & cols.isin(methods['ood'], level='method')
+
+    measures_cols = cols.isin(['measures'], level='set')
+    metrics_cols = cols.isin(metrics, level='metrics')
+
+    kept_cols = cols[(metrics_cols & (acc_cols | ood_cols | misclass_cols)) | measures_cols]
+
+    # DEBUG
+    # print('KEPT:\n', *kept_cols)
+    df = df[kept_cols]
+
+    if len(methods['predict']) == 1:
+        df.rename(columns={'errors-{}'.format(methods['predict'][0]): 'errors'}, inplace=True)
+
+    # Drop method level
+    dropped_levels = []
+    for _, level in enumerate(df.columns.names):
+        levels = set(c[_] for c in df.columns if c[_] != '')
+        if len(levels) == 1:
+            dropped_levels.append(level)
+    for l_ in dropped_levels:
+        df.columns = df.columns.droplevel(l_)
+
+    def _f(x, type='%'):
+        if type == '%':
             return 100 * x
-        elif type == 'tuple':
-            return '-'.join(str(_) for _ in x)
         return x
 
     col_format = {c: _f for c in df.columns}
     for c in df.columns[df.columns.isin(['measures'], level=0)]:
         col_format[c] = lambda x: _f(x, 'measures')
-
-    index_format = {}
-    index_format['heldout'] = lambda x: 'H'  # _f(x, 'tuple')
 
     sorting_index = []
 
@@ -285,7 +296,7 @@ def test_results_df(models,
 
 
 @printdebug(False)
-def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
+def agg_raesults(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
     """ 
     df_dict : dict of dataframe
     kept_cols: either a list or a dict (with the same keys as df_dict
@@ -557,29 +568,33 @@ def unfold_df_from_dict(df, depth=1, names=None, keep=None):
 
 if __name__ == '__main__':
 
-    tpr = [0.95, 0.98]
+    tpr = [0.95]
     from utils.save_load import fetch_models
 
     models = fetch_models('jobs', tpr=tpr)
 
     models = [m for m in models if m['set'] == 'mnist' and m['type'] == 'cvae']
 
-    df = pd.DataFrame.from_records(models, columns=['job', 'type', 'in_out_rates', 'accuracies'],
-                                   index=['type', 'job'])
+    def test_unfold():
+        df = pd.DataFrame.from_records(models, columns=['job', 'type', 'in_out_rates', 'accuracies'],
+                                       index=['type', 'job'])
 
-    which = 'acc'
-    which = 'in_out'
+        which = 'acc'
+        which = 'in_out'
 
-    if which == 'acc':
-        unf_df = unfold_df_from_dict(df['accuracies'], depth=1, names=['method'])
-    else:
-        unf_df = unfold_df_from_dict(df['in_out_rates'], depth=3,
-                                     names=['set', 'method', 'metrics'],
-                                     keep={
-                                         'method': ['baseline?', 'starred']
-                                     }
-                                     )
-    cols = unf_df.columns
-    print(unf_df[cols[:8]].to_string(float_format='{:.1%}'.format))
-    print(unf_df[cols[-8:]].to_string(float_format='{:.1%}'.format))
-    
+        if which == 'acc':
+            unf_df = unfold_df_from_dict(df['accuracies'], depth=1, names=['method'])
+        else:
+            unf_df = unfold_df_from_dict(df['in_out_rates'], depth=3,
+                                         names=['set', 'method', 'metrics'],
+                                         keep={
+                                             'method': ['baseline?', 'starred']
+            }
+            )
+        cols = unf_df.columns
+        print(unf_df[cols[:8]].to_string(float_format='{:.1%}'.format))
+        print(unf_df[cols[-8:]].to_string(float_format='{:.1%}'.format))
+
+    def test_results_data_frame():
+        df = results_dataframe(models, metrics=['acc', 'fpr'], show_measures=False, ood={'mnist': ['average']})
+        return df

@@ -82,8 +82,8 @@ def export_losses(net_dict, which='loss',
 
 
 def results_dataframe(models,
-                      predict_methods='first',
-                      ood_methods='first',
+                      predict_methods=None,
+                      ood_methods=None,
                       misclass_methods='starred',
                       metrics='all',
                       ood={},
@@ -108,8 +108,8 @@ def results_dataframe(models,
     methods = {'ood': ood_methods, 'predict': predict_methods, 'misclass': misclass_methods}
 
     for _ in methods:
-        if methods[_] is None:
-            methods[_] = 'first'
+        # if methods[_] is None:
+        #    methods[_] = 'first'
         if isinstance(methods[_], str):
             methods[_] = [methods[_]]
 
@@ -222,14 +222,20 @@ def results_dataframe(models,
     # print('MIS', *misclass_cols_set_level)
     # print('OOD', *ood_cols_set_level)
 
-    acc_cols = cols.isin(['acc'], level='metrics') & cols.isin(methods['predict'], level='method')
-    ood_cols = cols.isin(ood_cols_set_level, level='set') & cols.isin(methods['ood'], level='method')
+    method_cols = {_: True for _ in methods}
+    for _ in method_cols:
+        if methods[_] is not None:
+            method_cols[_] = cols.isin(methods[_], level='method')
+
+    acc_cols = cols.isin(['acc'], level='metrics') & method_cols['predict']
+
+    ood_cols = cols.isin(ood_cols_set_level, level='set') & method_cols['ood']
 
     if ood is not None:
         ood_cols = ood_cols & cols.isin(ood, level='set')
 
     misclass_cols_set_level = ['errors-' + _ for _ in methods['predict']]
-    misclass_cols = cols.isin(misclass_cols_set_level, level='set') & cols.isin(methods['ood'], level='method')
+    misclass_cols = cols.isin(misclass_cols_set_level, level='set') & method_cols['misclass']
 
     measures_cols = cols.isin(['measures'], level='set')
     metrics_cols = cols.isin(metrics, level='metrics')
@@ -296,7 +302,7 @@ def results_dataframe(models,
 
 
 @printdebug(False)
-def agg_raesults(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
+def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
     """ 
     df_dict : dict of dataframe
     kept_cols: either a list or a dict (with the same keys as df_dict

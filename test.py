@@ -297,7 +297,7 @@ if __name__ == '__main__':
         export_losses(n, which='all')
         # TK texify_test_results(n)
 
-    all_methods = 'all' if args.expand > 1 else None
+    all_methods = 'all' if args.expand > 1 else 'first'
 
     tpr = [t/100 for t in args.tpr]
 

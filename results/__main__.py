@@ -36,7 +36,7 @@ job_dir = DEFAULT_JOBS_DIR
 
 file_ini = None
 
-args_from_file = ['-vv', '--config',
+args_from_file = ['-vv',
                   'jobs/results/manuscrit/tabs/mnist-params.ini',
                   '--keep-auc'
                   ]
@@ -49,15 +49,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--verbose', '-v', action='count', default=0)
-    parser.add_argument('--config-files', nargs='+', default=[file_ini])
     parser.add_argument('--which', '-c', nargs='*', default=['all'])
     parser.add_argument('--job-dir', default=job_dir)
-    parser.add_argument('--results-dir', default=root)
+    parser.add_argument('--results-dir', default='/tmp', const=root, nargs='?')
     parser.add_argument('--texify', default='utils/texify.ini')
     parser.add_argument('--filters', default='utils/filters.ini')
     parser.add_argument('--tpr', default=95, type=int)
     parser.add_argument('--register', dest='flash', action='store_false')
     parser.add_argument('--keep-auc', action='store_true')
+    parser.add_argument('config_files', nargs='+', default=[file_ini])
 
     args = parser.parse_args(None if sys.argv[0] else args_from_file)
 
@@ -163,16 +163,16 @@ if __name__ == '__main__':
                 logging.warning('Skipping {}'.format(k))
                 continue
             df_ = results_dataframe(models_by_type[k],
-                                  predict_methods='all',
-                                  ood_methods='all',
-                                  tpr=[tpr])
+                                    predict_methods=config[k].get('acc_method', '').split(),
+                                    ood_methods=config[k].get('ood_method', '').split(),
+                                    tpr=[tpr])
             df = next(iter(df_.values()))
             df.index = pd.MultiIndex.from_frame(df.index.to_frame().fillna('NaN'))
 
             idx = list(df.index.names)
             if 'job' in idx:
                 idx.remove('job')
-            # print("***", k, '\n', df[df.columns[:3]].to_string())
+            print("***", k, '\n', df[df.columns[:30]].to_string(float_format='{:.1f}'.format))
             raw_df[k] = df.groupby(level=idx).agg('mean')
             raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
             raw_df[k].rename(columns={tpr: 'rate'}, level='metrics', inplace=True)

@@ -75,6 +75,7 @@ def latent_mutual_info(m1, m2, x, y):
 if __name__ == '__main__':
 
     import sys
+    import time
     import logging
     import warnings
     import argparse
@@ -139,15 +140,21 @@ if __name__ == '__main__':
                                          batch_size=args.batch_size)
 
     n = 0
+    t0 = time.time()
     for x, y in loader:
 
         n += len(x)
-        print(*x.shape, *y.shape)
 
         if n >= args.N:
             break
         out = latent_mutual_info(*m_, x.to(device), y.to(device))
 
+        t1 = time.time()
+        t_per_i = (t1 - t0) / n
+        eta = (args.N - n) * t_per_i
+        print('{:4}/{:4} -- {:.3f} ms/i -- eta {:.0f}s   '.format(n, args.N, 1000 * t_per_i, eta), end='\r')
+
     else:
         logging.warning('Only {} images processed'.format(n))
 
+    print('Processed {} images in {:.0f}s ({:.0f}ms/i)'.format(n, t1 - t0, 1000 * (t1 - t0) / n))

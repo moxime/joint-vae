@@ -190,6 +190,7 @@ if __name__ == '__main__':
 
         n = 0
         t0 = time.time()
+        N = min(args.N, len(dataset))
         for x, y in loader:
 
             n += len(x)
@@ -203,9 +204,9 @@ if __name__ == '__main__':
 
             t1 = time.time()
             t_per_i = (t1 - t0) / n
-            eta = (args.N - n) * t_per_i
-            print('{:4}/{:4} -- {:.3f} ms/i -- eta {:.0f}s   '.format(n, args.N, 1000 * t_per_i, eta), end='\r')
-            if n >= args.N:
+            eta = (N - n) * t_per_i
+            print('{:4}/{:4} -- {:.3f} ms/i -- eta {:.0f}s   '.format(n, N, 1000 * t_per_i, eta), end='\r')
+            if n >= N:
                 break
 
         print('Processed {} images of {} in {:.0f}s ({:.0f}ms/i)'.format(n, s, t1 - t0, 1000 * (t1 - t0) / n))

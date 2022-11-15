@@ -110,6 +110,7 @@ if __name__ == '__main__':
 
     import os
     import sys
+    import gc
     import time
     import logging
     import warnings
@@ -181,7 +182,7 @@ if __name__ == '__main__':
 
     for s in sets:
 
-        recorder = LossRecorder(batch_size)
+        recorder = LossRecorder(batch_size, device='cpu')
 
         _, dataset = get_dataset(s, transformer=params['transformer'], splits=['test'])  #
         loader = torch.utils.data.DataLoader(dataset, shuffle=True,
@@ -193,16 +194,19 @@ if __name__ == '__main__':
 
             n += len(x)
 
-            if n >= args.N:
-                break
-            Im, y_ = latent_mutual_info(*m_, x.to(device), y.to(device))
+            with torch.no_grad():
+                Im, y_ = latent_mutual_info(*m_, x.to(device), y.to(device))
 
-            recorder.append_batch(Im=Im.rename(None), y_=y_.rename(None))
+            recorder.append_batch(Im=Im.rename(None).to('cpu'),
+                                  y_true=y.to('cpu'),
+                                  y_=y_.rename(None).to('cpu'))
 
             t1 = time.time()
             t_per_i = (t1 - t0) / n
             eta = (args.N - n) * t_per_i
             print('{:4}/{:4} -- {:.3f} ms/i -- eta {:.0f}s   '.format(n, args.N, 1000 * t_per_i, eta), end='\r')
+            if n >= args.N:
+                break
 
         print('Processed {} images of {} in {:.0f}s ({:.0f}ms/i)'.format(n, s, t1 - t0, 1000 * (t1 - t0) / n))
         recorder.save(os.path.join(dir_name, 'record-{}.pth'.format(s)))

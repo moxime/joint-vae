@@ -1087,6 +1087,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'rep': architecture.representation,
             # 'parent_set': parent_set,
             'data_augmentation': training.data_augmentation,
+            'transformer': training.transformer,
             'train_batch_size': train_batch_size,
             'sigma': sigma.value if sigma_train == 'constant' else np.nan,
             'beta_sigma': beta_sigma,

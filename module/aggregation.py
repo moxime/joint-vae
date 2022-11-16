@@ -49,7 +49,7 @@ def voting_posterior(*y, temps=[None]):
     return {t: p_y_x for t in temps}
 
 
-def latent_mutual_info(m1, m2, x, y):
+def latent_mutual_info(m1, m2, x, y, temps=[1]):
 
     assert m1.is_cvae
     assert m2.is_cvae
@@ -88,20 +88,21 @@ def latent_mutual_info(m1, m2, x, y):
         # names: 'y', thisL, 'M'
         logpzy = m.encoder.prior.log_density(z, stacked_y[_])
 
-        max_logpzy = logpzy.max(0)[0]
+        # max_logpzy = logpzy.max(0)[0]
+        # dlogpzy = logpzy - max_logpzy
+        # pyz[_] = {T: (dlogpzy / T).exp() / (dlogpzy / T).exp().sum(0) for T in temps}
 
-        dlogpzy = logpzy - max_logpzy
-        pyz[_] = dlogpzy.exp() / dlogpzy.exp().sum(0)
-
+        pyz[_] = {T: (logpzy / T).softmax(0) for T in temps}
         y_[_] = logpzy.mean(1).argmax(0)
 
         # print('{:.1%}'.format((y_[_] == y).sum() / len(y)))
 
-        pyz[_] = pyz[_].unsqueeze(1).expand(-1, sampling[other], -1, -1).rename('y', otherL, thisL, 'M')
+        pyz[_] = {T: pyz[_][T].unsqueeze(1).expand(-1, sampling[other], -1, -1).rename('y', otherL, thisL, 'M')
+                  for T in temps}
 
-    pyz[1] = pyz[1].align_as(pyz[0])
+    pyz[1] = {T: pyz[1][T].align_as(pyz[0][T]) for T in temps}
 
-    Im = (pyz[0] * pyz[1]).sum('y').log().mean(('L0', 'L1'))
+    Im = {T: (pyz[0][T] * pyz[1][T]).sum('y').log().mean(('L0', 'L1')) for T in temps}
 
     return Im, y_[0]
 
@@ -126,6 +127,8 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--batch-size', '-M', default=256, type=int)
     parser.add_argument('-N', default=2000, type=int)
+    parser.add_argument('-T', default=[1], type=float, nargs='+')
+    parser.add_argument('--no-ood', action='store_false', dest='ood')
 
     args_from_file = '-vv 226397 226180 -N 2000 -M 32 -N 1000'.split()
 
@@ -177,7 +180,8 @@ if __name__ == '__main__':
 
     sets = [params['set']]
 
-    sets.extend(get_same_size_by_name(params['set']))
+    if args.ood:
+        sets.extend(get_same_size_by_name(params['set']))
 
     batch_size = args.batch_size
 
@@ -200,14 +204,15 @@ if __name__ == '__main__':
             n += len(x)
 
             with torch.no_grad():
-                Im, y_ = latent_mutual_info(*m_, x.to(device), y.to(device))
+                Im, y_ = latent_mutual_info(*m_, x.to(device), y.to(device), temps=args.T)
 
             if s == sets[0]:
                 correct += (y == y_.to('cpu')).sum()
 
             accuracy = correct / n
 
-            recorder.append_batch(Im=Im.rename(None).to('cpu'),
+            dict_of_tensors = {'Im-{}'.format(_): Im[_].rename(None).to('cpu') for _ in Im}
+            recorder.append_batch(**dict_of_tensors,
                                   y_true=y.to('cpu'),
                                   y_=y_.rename(None).to('cpu'))
 

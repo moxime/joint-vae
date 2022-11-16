@@ -121,6 +121,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('jobs', nargs=2, type=int)
+    parser.add_argument('--job-dir', default='parallel-jobs')
     parser.add_argument('-v', action='count', default=0)
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--batch-size', '-M', default=256, type=int)
@@ -170,7 +171,7 @@ if __name__ == '__main__':
     for _ in m_:
         _.to(args.device)
 
-    dir_name = os.path.join('parallel-jobs', '|'.join(str(_) for _ in sorted(jobs)))
+    dir_name = os.path.join(args.job_dir, '|'.join(str(_) for _ in sorted(jobs)))
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
 
@@ -191,12 +192,20 @@ if __name__ == '__main__':
         n = 0
         t0 = time.time()
         N = min(args.N, len(dataset))
+
+        correct = 0
+
         for x, y in loader:
 
             n += len(x)
 
             with torch.no_grad():
                 Im, y_ = latent_mutual_info(*m_, x.to(device), y.to(device))
+
+            if s == sets[0]:
+                correct += (y == y_.to('cpu')).sum()
+
+            accuracy = correct / n
 
             recorder.append_batch(Im=Im.rename(None).to('cpu'),
                                   y_true=y.to('cpu'),
@@ -205,7 +214,12 @@ if __name__ == '__main__':
             t1 = time.time()
             t_per_i = (t1 - t0) / n
             eta = (N - n) * t_per_i
-            print('{:4}/{:4} -- {:.3f} ms/i -- eta {:.0f}s   '.format(n, N, 1000 * t_per_i, eta), end='\r')
+
+            res_str = '{n:4}/{N:4} -- {t:.3f} ms/i -- eta {T:.0f}s   '
+            if s == sets[0]:
+                res_str += 'acc: {a:.1%}'
+
+            print(res_str.format(n=n, N=N, t=1000*t_per_i, T=eta, a=accuracy), end='\r')
             if n >= N:
                 break
 

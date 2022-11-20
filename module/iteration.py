@@ -5,13 +5,10 @@ from cvae import ClassificationVariationalNetwork as M
 from utils import save_load
 import logging
 import argparse
-from utils.save_load import load_json, needed_remote_files, develop_starred_methods, LossRecorder
+from utils.save_load import load_json, needed_remote_files, LossRecorder
 from utils.torch_load import get_dataset, get_same_size_by_name
-import numpy as np
-import logging
 from utils.parameters import gethostname
 import time
-from torchvision.utils import save_image
 
 
 class IteratedModels(M):
@@ -85,6 +82,8 @@ class IteratedModels(M):
         losses_ = []
         measures_ = []
 
+        pzy_ = []
+
         mse_ = []
 
         for m in self._models:
@@ -108,6 +107,9 @@ class IteratedModels(M):
             y_.append(out[1])
             losses_.append(out[2])
             measures_.append(out[3])
+
+            if z_output:
+                z = out[-1]
 
         x_ = torch.stack(x_)
         y_ = torch.stack(y_)

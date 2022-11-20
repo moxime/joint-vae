@@ -88,14 +88,8 @@ def latent_mutual_info(m1, m2, x, y, temps=[1]):
         # names: 'y', thisL, 'M'
         logpzy = m.encoder.prior.log_density(z, stacked_y[_])
 
-        # max_logpzy = logpzy.max(0)[0]
-        # dlogpzy = logpzy - max_logpzy
-        # pyz[_] = {T: (dlogpzy / T).exp() / (dlogpzy / T).exp().sum(0) for T in temps}
-
         pyz[_] = {T: (logpzy / T).softmax(0) for T in temps}
         y_[_] = logpzy.mean(1).argmax(0)
-
-        # print('{:.1%}'.format((y_[_] == y).sum() / len(y)))
 
         pyz[_] = {T: pyz[_][T].unsqueeze(1).expand(-1, sampling[other], -1, -1).rename('y', otherL, thisL, 'M')
                   for T in temps}
@@ -174,11 +168,11 @@ if __name__ == '__main__':
     for _ in m_:
         _.to(args.device)
 
-    dir_name = os.path.join(args.job_dir, '|'.join(str(_) for _ in sorted(jobs)))
+    sets = [params['set']]
+
+    dir_name = os.path.join(args.job_dir, sets[0], '|'.join(str(_) for _ in sorted(jobs)))
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-
-    sets = [params['set']]
 
     if args.ood:
         sets.extend(get_same_size_by_name(params['set']))

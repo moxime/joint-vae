@@ -211,6 +211,8 @@ if __name__ == '__main__':
     parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
     parser.add_argument('--job-dir', default='./jobs')
 
+    parser.add_argument('-T', default=[1], type=float, nargs='+')
+    
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--num-batch', type=int, default=int(1e6))
     parser.add_argument('--device', default='cuda')
@@ -322,7 +324,7 @@ if __name__ == '__main__':
             y = y.to(device)
 
             with torch.no_grad():
-                x_, y_, losses, measures = model.evaluate(x)
+                x_, y_, losses, measures = model.evaluate(x, z_output=True, temps=args.T)
 
             losses.update(y_true=y, logits=y_.permute(0, 2, 1))
             recorder.append_batch(**losses)

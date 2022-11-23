@@ -3,6 +3,7 @@ import sys
 import torch
 from cvae import ClassificationVariationalNetwork as M
 from utils import save_load
+from module.aggregation import compute_latent_mutual_info
 import logging
 import argparse
 from utils.save_load import load_json, needed_remote_files, LossRecorder
@@ -83,7 +84,7 @@ class IteratedModels(M):
         losses_ = []
         measures_ = []
 
-        pyz_ = []
+        logpzy_ = []
 
         mse_ = []
 
@@ -113,12 +114,11 @@ class IteratedModels(M):
             if z_output:
                 z = out[-1]
                 y_in = y or torch.stack([c * torch.ones((m.latent_sampling, len(x)),
-                                                         dtype=int,
-                                                         device=x.device)
+                                                        dtype=int,
+                                                        device=x.device)
                                          for c in range(C)], dim=0)
 
-                logpzy = m.encoder.prior.log_density(z, y_in)
-                pyz_.append({T: (logpzy / T).softmax(0) for T in temps})
+                logpzy_.append(m.encoder.prior.log_density(z, y_in))
 
         x_ = torch.stack(x_)
         y_ = torch.stack(y_)
@@ -134,11 +134,19 @@ class IteratedModels(M):
                 mse_.append((x_i - x_j).pow(2).mean(input_dims))
 
         if z_output:
-            for i in range(len(self)):
-                for j in range(i):
-                    pyz = [pyz_[i], pyz_[j]]
-                    for k, other in zip([0, 1], [1, 0]):
-                        
+            Im = {T: [] for T in temps}
+
+            for T in temps:
+                for i in range(len(self)):
+                    for j in range(i):
+                        pyzs = [(logpzy_[_] / T).softmax(0) for _ in (i, j)]
+                        samplings = [self._models[_].latent_sampling for _ in n(i, j)]
+                        Im[T].append(compute_latent_mutual_info(*pyzs, *samplings))
+
+        """
+        pyz_.append({T: (logpzy / T).softmax(0) for T in temps})
+
+        """
 
         output_losses = {}
         output_measures = {}
@@ -150,6 +158,10 @@ class IteratedModels(M):
             output_measures[k] = torch.tensor([_[k] for _ in measures_])
 
         output_losses['mse'] = torch.stack(mse_)
+
+        if z_output:
+            for T in temps:
+                output_losses['Im-{}'.format(T)] = torch.stack(Im[T])
 
         return x_, y_, output_losses, output_measures
 

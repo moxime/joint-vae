@@ -49,6 +49,24 @@ def voting_posterior(*y, temps=[None]):
     return {t: p_y_x for t in temps}
 
 
+def compute_latent_mutual_info(pyz1, pyz2, sampling1, sampling2):
+
+    pyzs = [pyz1, pyz2]
+    samplings = [sampling1, sampling2]
+
+    for i1 in range(2):
+        i2 = (i1 + 1) % 2
+        L1 = 'L{}'.format(i1)
+        L2 = 'L{}'.format(i2)
+        pyzs[i1] = pyzs[i1].unsqueeze(1).expand(-1, samplings[i2], -1, -1).rename('y', L2, L1, 'M')
+
+    pyzs[1] = pyzs[1].align_as(pyzs[0])
+
+    Im = (pyzs[0] * pyzs[1]).sum('y').log().mean(('L0', 'L1'))
+
+    return Im
+
+
 def latent_mutual_info(m1, m2, x, y, temps=[1]):
 
     assert m1.is_cvae
@@ -73,9 +91,6 @@ def latent_mutual_info(m1, m2, x, y, temps=[1]):
 
     for _ in models:
         m = models[_]
-        other = (_ + 1) % 2
-        thisL = 'L' + str(_)
-        otherL = 'L' + str(other)
 
         outs = m.forward(x)
 
@@ -91,12 +106,7 @@ def latent_mutual_info(m1, m2, x, y, temps=[1]):
         pyz[_] = {T: (logpzy / T).softmax(0) for T in temps}
         y_[_] = logpzy.mean(1).argmax(0)
 
-        pyz[_] = {T: pyz[_][T].unsqueeze(1).expand(-1, sampling[other], -1, -1).rename('y', otherL, thisL, 'M')
-                  for T in temps}
-
-    pyz[1] = {T: pyz[1][T].align_as(pyz[0][T]) for T in temps}
-
-    Im = {T: (pyz[0][T] * pyz[1][T]).sum('y').log().mean(('L0', 'L1')) for T in temps}
+    Im = {T: compute_latent_mutual_info(pyz[0][T], pyz[1][T], sampling[0], sampling[1]) for T in temps}
 
     return Im, y_[0]
 

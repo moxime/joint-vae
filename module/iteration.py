@@ -73,6 +73,7 @@ class IteratedModels(M):
     def evaluate(self, x,
                  y=None,
                  z_output=False,
+                 temps=[1, 2, 5, 10],
                  **kw):
 
         input = {'x': x, 'y': y, 'z_output': z_output}
@@ -82,12 +83,13 @@ class IteratedModels(M):
         losses_ = []
         measures_ = []
 
-        pzy_ = []
+        pyz_ = []
 
         mse_ = []
 
-        for m in self._models:
+        for (i, m) in enumerate(self._models):
 
+            C = m.num_labels
             out = m.evaluate(**input, **kw)
             input['x'] = out[0][1]
             input['y'] = out[1].argmax(-1) if y else None
@@ -110,6 +112,13 @@ class IteratedModels(M):
 
             if z_output:
                 z = out[-1]
+                y_in = y or torch.stack([c * torch.ones((m.latent_sampling, len(x)),
+                                                         dtype=int,
+                                                         device=x.device)
+                                         for c in range(C)], dim=0)
+
+                logpzy = m.encoder.prior.log_density(z, y_in)
+                pyz_.append({T: (logpzy / T).softmax(0) for T in temps})
 
         x_ = torch.stack(x_)
         y_ = torch.stack(y_)
@@ -123,6 +132,13 @@ class IteratedModels(M):
                 x_j = x.unsqueeze(0) if not j else x_[j - 1][1:]
 
                 mse_.append((x_i - x_j).pow(2).mean(input_dims))
+
+        if z_output:
+            for i in range(len(self)):
+                for j in range(i):
+                    pyz = [pyz_[i], pyz_[j]]
+                    for k, other in zip([0, 1], [1, 0]):
+                        
 
         output_losses = {}
         output_measures = {}

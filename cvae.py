@@ -1167,11 +1167,11 @@ class ClassificationVariationalNetwork(nn.Module):
         shuffle = True
 
         if num_batch == 'all':
-            num_batch = len(testset) // batch_size
+            num_batch = int(np.ceil(len(testset) / batch_size))
             shuffle = False
 
-        if num_batch >= len(testset) // batch_size:
-            num_batch = len(testset) // batch_size
+        if num_batch >= int(np.ceil(len(testset) / batch_size)):
+            num_batch = int(np.ceil(len(testset) / batch_size))
             shuffle = False
 
         if epoch == 'last':
@@ -1438,10 +1438,10 @@ class ClassificationVariationalNetwork(nn.Module):
             recorders = {n: None for n in all_set_names}
 
         max_num_batch = num_batch
-        num_batch = {testset.name: max(len(testset) // batch_size, 1)}
+        num_batch = {testset.name: int(np.ceil(len(testset) / batch_size))}
         batch_size = {testset.name: batch_size}
         for o in oodsets:
-            num_batch[o.name] = max(len(o) // batch_size[testset.name], 1)
+            num_batch[o.name] = int(np.ceil(len(o) / batch_size[testset.name]))
             batch_size[o.name] = batch_size[testset.name]
 
         shuffle = {s: False for s in all_set_names}
@@ -2171,7 +2171,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                     self.ood_detection_rates(oodsets=oodsets, testset=testset,
                                              batch_size=test_batch_size,
-                                             num_batch=2 * len(testset) // test_batch_size,
+                                             num_batch='all',
                                              outputs=outputs,
                                              recorders=recorders,
                                              sample_dirs=sample_dirs,
@@ -2201,12 +2201,10 @@ class ClassificationVariationalNetwork(nn.Module):
                     test_loss = self.test_loss
                     test_measures = self._measures.copy()
 
-                num_batch = 'all' if full_test else max(1, validation_sample_size // test_batch_size)
-                # print('***', validationset.name)
                 if validation:
                     validation_accuracy = self.accuracy(validationset,
                                                         batch_size=test_batch_size,
-                                                        num_batch=num_batch,
+                                                        num_batch='all',
                                                         # device=device,
                                                         method=acc_methods,
                                                         # log=False,
@@ -2230,7 +2228,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 with torch.no_grad():
                     train_accuracy = self.accuracy(trainset,
                                                    batch_size=test_batch_size,
-                                                   num_batch=valid_num_batch,
+                                                   num_batch='all',
                                                    device=device,
                                                    method=acc_methods,
                                                    update_self_testing=False,
@@ -2361,7 +2359,7 @@ class ClassificationVariationalNetwork(nn.Module):
             with torch.no_grad():
                 self.ood_detection_rates(oodsets=oodsets, testset=testset,
                                          batch_size=test_batch_size,
-                                         num_batch=len(testset) // test_batch_size,
+                                         num_batch='all',
                                          outputs=outputs,
                                          recorders=recorders,
                                          sample_dirs=sample_dirs,
@@ -2383,8 +2381,6 @@ class ClassificationVariationalNetwork(nn.Module):
             with torch.no_grad():
                 test_accuracy = self.accuracy(testset,
                                               batch_size=test_batch_size,
-                                              # num_batch=num_batch,
-                                              # device=device,
                                               method=acc_methods,
                                               recorder=recorder,
                                               sample_dirs=sample_dirs,

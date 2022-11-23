@@ -38,10 +38,10 @@ class IteratedModels(M):
         for m in self._models:
             m.to(device)
 
-    def save(self, dir_name=None):
+    def save(self, job_dir='iterated-jobs', dir_name=None):
         if dir_name is None:
             trainset = self.training_parameters['set']
-            dir_name = os.path.join('iterated-jobs', trainset, '-'.join(str(_.job_number) for _ in self._models))
+            dir_name = os.path.join(job_dir, trainset, '-'.join(str(_.job_number) for _ in self._models))
         architecture = {_: m.saved_dir for _, m in enumerate(self._models)}
 
         save_load.save_json(architecture, dir_name, 'params.json')
@@ -112,11 +112,14 @@ class IteratedModels(M):
             measures_.append(out[3])
 
             if z_output:
-                z = out[-1]
+                z = out[-1][1:]
+                z = z.expand(C, *z.shape)
                 y_in = y or torch.stack([c * torch.ones((m.latent_sampling, len(x)),
                                                         dtype=int,
                                                         device=x.device)
                                          for c in range(C)], dim=0)
+
+                # print('*** z:', *z.shape, 'y:', *y_in.shape) 
 
                 logpzy_.append(m.encoder.prior.log_density(z, y_in))
 
@@ -140,13 +143,8 @@ class IteratedModels(M):
                 for i in range(len(self)):
                     for j in range(i):
                         pyzs = [(logpzy_[_] / T).softmax(0) for _ in (i, j)]
-                        samplings = [self._models[_].latent_sampling for _ in n(i, j)]
-                        Im[T].append(compute_latent_mutual_info(*pyzs, *samplings))
-
-        """
-        pyz_.append({T: (logpzy / T).softmax(0) for T in temps})
-
-        """
+                        samplings = [self._models[_].latent_sampling for _ in (i, j)]
+                        Im[T].append(compute_latent_mutual_info(*pyzs, *samplings).rename(None))
 
         output_losses = {}
         output_measures = {}
@@ -201,6 +199,9 @@ def iterate_with_prior(logp_x_y):
 
 if __name__ == '__main__':
 
+    import warnings
+    warnings.filterwarnings("ignore", category=UserWarning)
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--jobs', '-j', nargs='+', type=int, default=[])
@@ -210,6 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', nargs='?', const='p')
     parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
     parser.add_argument('--job-dir', default='./jobs')
+    parser.add_argument('--iterated-job-dir', default='iterated-jobs')
 
     parser.add_argument('-T', default=[1], type=float, nargs='+')
     
@@ -342,7 +344,7 @@ if __name__ == '__main__':
             samples[k] = torch.cat(samples[k], dim=concat_dim[k])
 
         print()
-        model.save()
+        model.save(job_dir=args.iterated_job_dir)
         recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
         f = os.path.join(model.saved_dir, 'sample-{}.pth'.format(s))
         torch.save(samples, f)

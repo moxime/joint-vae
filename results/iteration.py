@@ -65,11 +65,15 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
     k_without_y = {'mse': 'mse'}
 
+    k_without_y.update({_: _ for _ in recorders[dset].keys() if _.startswith('Im-')})
+
     k_all = dict(**k_without_y, **k_with_y, **k_with_y_moving, **k_with_y_delta)
 
     signs = {_: 1 for _ in k_all}
     signs['iws'] = -1
     signs['iws_'] = -1
+    for _ in [_ for _ in k_all if _.startswith('Im-')]:
+        signs[_] = -1
 
     def which_y(t, k, dim=0):
 
@@ -86,6 +90,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
         rec = recorders[s]
         t = rec._tensors
+
         kl = t['kl']
 
         i_mse = [0]
@@ -94,7 +99,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
         beta = np.prod(get_shape_by_name(s)[0]) / 1e-3
         t['loss'] = t['kl'] + beta * t['mse'][i_mse].unsqueeze(-2)
-
+        
         y_pred = kl.argmin(1)
         y_pred_[s] = y_pred
 
@@ -139,12 +144,11 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
                 i_tpr = int(len(y_true) * tpr)
                 thr[k] = t_y[k].sort()[0][..., i_tpr]
-
-                for w in ('correct', 'incorrect'):
-                    pr[w][k] = torch.zeros(len(model))
+                for w in ('correct', 'incorrect'):                    
+                    pr[w][k] = torch.zeros(len(thr[k]))
 
                 for i, w in zip((i_true, ~i_true), ['correct', 'incorrect']):
-                    for m in range(len(model)):
+                    for m in range(len(thr[k])):
                         mean = t_y[k][m][i].mean()
                         pr[w][k][m] = (t_y[k][m][i] <= thr[k][m]).sum() / i.sum()
                         print('*** {} {} {} {:.1%} {:.3e}'.format(w, k, m, pr[w][k][m], mean))
@@ -171,9 +175,9 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
                 t_y[k] *= signs[k]
 
-                pr[s][k] = torch.zeros(len(model))
+                pr[s][k] = torch.zeros(len(thr[k]))
 
-                for m in range(len(model)):
+                for m in range(len(thr[k])):
                     pr[s][k][m] = (t_y[k][m] <= thr[k][m]).sum() / len(y_pred[0])
 
         w = (True, False) if s == dset else (True,)
@@ -434,7 +438,7 @@ if __name__ == '__main__':
                       '--png '
                       # '--plot '
                       '--tex '
-                      'iterated-jobs/fashion/222484/222759/222760 '
+                      'iterated-jobs/fashion/226180-226397 '
                       ).split()
 
     args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)
@@ -457,7 +461,7 @@ if __name__ == '__main__':
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
 
-        output = do_what_you_gotta_do(model_dir, result_dir, n_images=n_images, png=args.png)
+        output = do_what_you_gotta_do(model_dir, result_dir, n_images=n_images, png=args.png, tex=args.tex)
 
         if args.plot:
             for s in output:

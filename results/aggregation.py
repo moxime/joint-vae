@@ -20,19 +20,20 @@ agg_type_letter = {'vote': '&', 'joint': ',', 'mean': '+', 'mean~': '~'}
 parser = argparse.ArgumentParser()
 
 
-parser.add_argument('--compute', action='store_true')
-parser.add_argument('--last', default=0, type=int)
-parser.add_argument('--method', default='iws-2s')
-parser.add_argument('--tpr', type=float, default=0.95)
 parser.add_argument('-v', action='count', default=0)
+parser.add_argument('--tex', action='store_true')
+parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--result-dir', default='/tmp')
+parser.add_argument('--device', default='cpu')
+parser.add_argument('--last', default=0, type=int)
+parser.add_argument('--method', default='iws')
+parser.add_argument('--tpr', type=float, default=0.95)
 parser.add_argument('--agg-type', nargs='*', choices=list(agg_type_letter), default=[])
 parser.add_argument('--when', default='last')
-parser.add_argument('--plot', nargs='?', const='p')
-parser.add_argument('--tex', action='store_true')
 parser.add_argument('--sets-to-exclude', nargs='*', default=[])
 parser.add_argument('--combos', nargs='+', type=int)
-parser.add_argument('--device', default='cpu')
+parser.add_argument('--compute', action='store_true')
+parser.add_argument('--min-models-to-keep-on', type=int, default=0)
 
 rmodels = load_json('jobs', 'models-{}.json'.format(gethostname()))
 
@@ -49,43 +50,59 @@ def diff(t):
     return t[..., 1:] - t[..., :-1]
 
 
+def kept_names_and_sets(y):
+    """
+    y is a dict of dict of labels: y[name][set] = 5, 4...
+
+    """
+
+    allsets = set.union(*(set(y[_]) for _ in y))
+
+    keys_set_name = {s: {n: (''.join('{}'.format(x) for x in y[n][s][:16]) if s in y[n] else None) for n in y}
+                     for s in allsets}
+
+    nums_set_key = {s: {k: sum(_ == k for _ in keys_set_name[s].values())
+                        for k in set(keys_set_name[s].values()) if k is not None}
+                    for s in allsets}
+
+    keys_set = {s: max(nums_set_key[s], key=nums_set_key[s].get) for s in allsets}
+
+    names_set = {s: [n for n in keys_set_name[s] if keys_set_name[s][n] == keys_set[s]] for s in allsets}
+
+    lengths_set = {s: min(len(y[n][s]) for n in names_set[s]) for s in names_set}
+
+    return lengths_set, names_set
+
+
 if __name__ == '__main__':
 
-    args_from_file = ('--dataset cifar10 '
+    args_from_file = ('-vv '
+                      '--tex '
+                      '--dataset fashion '
                       '--type cvae '
                       '--gamma 1000 '
-                      '--features vgg19 '
-                      '--representation rgb '
-                      '--sigma-train coded '
-                      '--coder-dict learned '
-                      # '--last 1 '
-                      '-vv '
-                      '--tex '
-                      '--method iws-a-4-1 '
-                      '--job-num 190000.. '
-                      # '--job-num 140000...144000 '
-                      '--when min-loss '
-                      '--sets-to-exclude cifar100 '
+                      '--features vgg11 '
+                      '--sigma-train learned '
+                      '--learned-prior-means true '
+                      '--latent-prior-variance scalar '
+                      '--forced-var not '
+                      '--data-augmentation not '
+                      # '--last 3 '
+                      # '--job-num 229000... '
+                      # '--method iws-a-4-1 '
+                      # '--when min-loss '
+                      # '--sets-to-exclude cifar100 '
                       '--agg-type mean joint mean~ '
-                      '--combos 3 5 '
+                      '--min-models-to-keep-on 0 '
+                      '--combos 3 '
                       '--compute '
                       ).split()
-
-    # args_from_file = ('-vvvv '
-    #                   '--job-num 193080 193082 '
-    #                   # '--job-num 169381 '
-    #                   '--when min-loss '
-    #                   ).split()
-
-    # args_from_file = '--job-num 192000... --when min-loss'.split()
 
     args, ra = parser.parse_known_args(None if len(sys.argv) > 1 else args_from_file)
     wanted = args.when
 
     args.agg_type.insert(0, 'vote')
     tpr = args.tpr
-
-    max_per_rep = 100
 
     logging.getLogger().setLevel(40 - 10 * args.v)
 
@@ -115,9 +132,9 @@ if __name__ == '__main__':
                 logging.info('{} is removed (files not found)'.format(mdir.split('/')[-1]))
             f.write(sdir + '\n')
 
-    # logging.info((len(mdirs), 'complete model' + ('s' if len(mdirs) > 1 else ''), 'over', total_models))
+    logging.info('{} complete model{} over {}'.format(len(mdirs), 's' if len(mdirs) > 1 else '', total_models))
 
-    if not mdirs:
+    if len(mdirs) < max(args.min_models_to_keep_on, max(args.combos)):
         logging.error('Exiting, load files')
         logging.error('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
         logging.error(' Or: %s', '$ . /tmp/rsync-files remote:dir/joint-vae')
@@ -132,10 +149,7 @@ if __name__ == '__main__':
 
     t = {_: {} for _ in ('iws', 'zdist')}
 
-    testset = None
     ind_thr = {}
-
-    n_by_rep = dict(hsv=0, rgb=0)
 
     as_in = {'ind': {}, 'correct': {}}
     pr = {'ind': {}, 'correct': {}}
@@ -145,24 +159,21 @@ if __name__ == '__main__':
     agreement = {}
     distribution = {}
 
-    y_true = None
+    testset = None
+    y_true = {}
+
+    recorders = {}
 
     for mdir in mdirs:
 
         model = M.load(mdir, load_net=False)
-        rep = model.architecture['representation']
-        name = rep.upper() + str(n_by_rep[rep])
         name = str(model.job_number)
 
-        n_by_rep[rep] += 1
         current_testset = model.training_parameters['set']
         if testset and current_testset != testset:
             continue
         else:
             testset = current_testset
-
-        if n_by_rep[rep] > max_per_rep:
-            continue
 
         if args.when == 'min-loss':
             epoch = model.training_parameters.get('early-min-loss', 'last')
@@ -170,42 +181,48 @@ if __name__ == '__main__':
         if args.when == 'last' or epoch == 'last':
             epoch = max(model.testing)
 
-        recorders = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)),
-                                         map_location=args.device)
-        current_y_true = recorders[testset]._tensors['y_true']
+        recorders[name] = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)),
+                                               map_location=args.device)
 
-        if y_true is not None and (y_true != current_y_true).any():
-            logging.debug('{} has a diffrent shuffle, can not use!'.format(name))
-            continue
-        else:
-            y_true = current_y_true
+        oodsets = [_ for _ in recorders[name] if (not _.startswith(testset) and _ not in args.sets_to_exclude)]
 
-        sets = [*recorders.keys()]
+        y_true[name] = {_: recorders[name][_]._tensors['y_true'] for _ in recorders[name]}
 
-        # exclude rotated set
-        oodsets = [_ for _ in sets if (not _.startswith(testset) and _ not in args.sets_to_exclude)]
-        # sets = [kept_testset, 'lsunr']  # + sets
-        sets = [testset] + oodsets
+    lengths_by_set, kept_names_by_set = kept_names_and_sets(y_true)
 
-        t['iws'][name] = {}
-        t['zdist'][name] = {}
+    y_true = {name: {s: y_true[name][s][:lengths_by_set[s]]
+                     for s in kept_names_by_set if name in kept_names_by_set[s]}
+              for name in y_true}
+    
+    kept_names = set.union(*[set(_) for _ in kept_names_by_set.values()])
 
-        as_in['ind'][name] = {}
+    _s = ', '.join(['{}: {} ({})'.format(s, len(kept_names_by_set[s]), lengths_by_set[s])
+                    for s in kept_names_by_set])
 
-        for _ in ('zdist', 'iws'):
-            for dset in sets:
-                t[_][name][dset] = recorders[dset]._tensors[_]
-                t[_][name][dset] = recorders[dset]._tensors[_]
+    logging.info('Kept models (images): {}'.format(_s))
+
+    for s in lengths_by_set:
+        t['iws'][s] = {}
+        t['zdist'][s] = {}
+        as_in['ind'][s] = {}
+        n = lengths_by_set[s]
+        for name in kept_names_by_set[s]:
+            for _ in ('zdist', 'iws'):
+                t[_][s][name] = recorders[name][s]._tensors[_][..., :n]
+                t[_][s][name] = recorders[name][s]._tensors[_][..., :n]
+
+    del recorders
 
     combo_lengths = sorted(args.combos)
     if 1 not in combo_lengths:
         combo_lengths.insert(0, 1)
 
     all_sets = [testset, 'correct', 'incorrect', *oodsets]
-
+    sets = [testset, *oodsets]
+    
     combos = []
     for _ in combo_lengths:
-        combos += [*itertools.combinations(sorted(as_in['ind']), _)]
+        combos += [*itertools.combinations(sorted(kept_names), _)]
 
     logging.info('Will work on {} combos'.format(len(combos)))
 
@@ -229,8 +246,6 @@ if __name__ == '__main__':
     if not os.path.exists(saved_dir):
         os.makedirs(saved_dir)
 
-    _ = os.listdir(saved_dir)
-
     nan_temp = -1
 
     temps_ = {_: [nan_temp, 1, 2, 5, 10, 20] for _ in wanted_aggs}
@@ -244,17 +259,24 @@ if __name__ == '__main__':
 
     for combo in combos:
 
+        sets = [s for s in kept_names_by_set if all(m in kept_names_by_set[s] for m in combo)]
+        oodsets = [s for s in sets if s != testset]
+        
+        all_sets = [testset, 'correct', 'incorrect', *oodsets]
+        
         logging.info('Working on {}'.format('--'.join(combo)))
 
         for _ in ('iws', 'zdist'):
-            t[_][combo] = {s: [t[_][m] for m in combo] for s in sets}
+            for s in sets:
+                if all(m in t[_][s] for m in combo):
+                    t[_][s][combo] = [t[_][s][m] for m in combo]
 
         if len(combo) == 1:
             combo_name = combo[0]
-            y_classif[combo_name] = {s: torch.argmax(t['iws'][combo_name][testset], dim=0)
+            y_classif[combo_name] = {s: torch.argmax(t['iws'][testset][combo_name], dim=0)
                                      for s in sets}
 
-        for w in (wanted_aggs if len(combo) >= 1 else ['vote']):
+        for w in (wanted_aggs if len(combo) > 1 else ['vote']):
 
             combo_name = agg_type_letter[w].join(combo)
             saved_pth = os.path.join(saved_dir, '{}.pth'.format(combo_name))
@@ -272,14 +294,14 @@ if __name__ == '__main__':
             if compute:
                 logging.info('Computing y|x for {}'.format(combo_name))
                 if w == 'joint':
-                    p_y_x[combo_name] = {s: joint_posterior(*[t['zdist'][_][s] for _ in combo], temps=temps)
+                    p_y_x[combo_name] = {s: joint_posterior(*[t['zdist'][s][_] for _ in combo], temps=temps)
                                          for s in sets}
                 elif w == 'mean':
-                    p_y_x[combo_name] = {s: mean_posterior(*[t['iws'][_][s] for _ in combo], temps=temps)
+                    p_y_x[combo_name] = {s: mean_posterior(*[t['iws'][s][_] for _ in combo], temps=temps)
                                          for s in sets}
 
                 elif w == 'mean~':
-                    p_y_x_ = {s: [posterior(t['iws'][_][s], temps=temps) for _ in combo] for s in sets}
+                    p_y_x_ = {s: [posterior(t['iws'][s][_], temps=temps) for _ in combo] for s in sets}
                     p_y_x[combo_name] = {s: {temp: sum([_[temp] for _ in p_y_x_[s]]) for temp in temps}
                                          for s in sets}
 
@@ -294,9 +316,8 @@ if __name__ == '__main__':
 
             y_classif[combo_name] = {s: p_y_x[combo_name][s][temps[0]].argmax(0) for s in sets}
 
-            acc = (y_classif[combo_name][testset].squeeze() == y_true).float().mean().item()
-            i_true = (y_classif[combo_name][testset] == y_true).squeeze()
-            accuracies[combo_name] = acc
+            i_true = (y_classif[combo_name][testset] == y_true[combo[0]][testset]).squeeze()
+            accuracies[combo_name] = i_true.float().mean().item()
 
             for s, i_ in zip(('correct', 'incorrect'), (i_true, ~i_true)):
                 p_y_x[combo_name][s] = {t: p_y_x[combo_name][testset][t][:, i_] for t in temps}
@@ -318,7 +339,7 @@ if __name__ == '__main__':
                     if compute:
                         logging.info('Computing x|y for {}'.format(combo_name))
 
-                        log_p_x_y[combo_name] = {s: log_mean_exp(*[t['iws'][_][s] for _ in combo]).max(0)[0]
+                        log_p_x_y[combo_name] = {s: log_mean_exp(*[t['iws'][s][_] for _ in combo]).max(0)[0]
                                                  for s in sets}
                         t_pth['log_p_x_y'] = log_p_x_y[combo_name]
 

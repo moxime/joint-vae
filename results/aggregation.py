@@ -88,10 +88,10 @@ if __name__ == '__main__':
                       '--forced-var not '
                       '--data-augmentation not '
                       # '--last 3 '
-                      # '--job-num 229000... '
+                      '--job-num 229000... '
                       # '--method iws-a-4-1 '
                       # '--when min-loss '
-                      # '--sets-to-exclude cifar100 '
+                      '--sets-to-exclude fashion90 '
                       '--agg-type mean joint mean~ '
                       '--min-models-to-keep-on 0 '
                       '--combos 3 '
@@ -193,7 +193,7 @@ if __name__ == '__main__':
     y_true = {name: {s: y_true[name][s][:lengths_by_set[s]]
                      for s in kept_names_by_set if name in kept_names_by_set[s]}
               for name in y_true}
-    
+
     kept_names = set.union(*[set(_) for _ in kept_names_by_set.values()])
 
     _s = ', '.join(['{}: {} ({})'.format(s, len(kept_names_by_set[s]), lengths_by_set[s])
@@ -204,7 +204,6 @@ if __name__ == '__main__':
     for s in lengths_by_set:
         t['iws'][s] = {}
         t['zdist'][s] = {}
-        as_in['ind'][s] = {}
         n = lengths_by_set[s]
         for name in kept_names_by_set[s]:
             for _ in ('zdist', 'iws'):
@@ -217,9 +216,9 @@ if __name__ == '__main__':
     if 1 not in combo_lengths:
         combo_lengths.insert(0, 1)
 
-    all_sets = [testset, 'correct', 'incorrect', *oodsets]
+    oodsets = [s for s in lengths_by_set if (lengths_by_set[s] and s != testset)]
     sets = [testset, *oodsets]
-    
+
     combos = []
     for _ in combo_lengths:
         combos += [*itertools.combinations(sorted(kept_names), _)]
@@ -235,7 +234,7 @@ if __name__ == '__main__':
     """
     wanted_aggs = args.agg_type
 
-    unwanted_aggs = {'acc': ['dist'], 'ood': ['dist', 'mean~', 'joint'], 'misclass': []}
+    unwanted_aggs = {'acc': [], 'ood': ['mean~', 'joint'], 'misclass': []}
 
     agg_types = {w: [_ for _ in wanted_aggs if _ not in unwanted_aggs[w]] for w in unwanted_aggs}
 
@@ -248,8 +247,8 @@ if __name__ == '__main__':
 
     nan_temp = -1
 
-    temps_ = {_: [nan_temp, 1, 2, 5, 10, 20] for _ in wanted_aggs}
-    temps_['dist'] = [nan_temp]
+    temps_ = {_: [nan_temp, 1, 2, 5, 10, 20, 50, 100, 200, 500] for _ in wanted_aggs}
+    temps_['vote'] = [nan_temp]
 
     p_y_x = {}
     log_p_x_y = {}
@@ -261,9 +260,9 @@ if __name__ == '__main__':
 
         sets = [s for s in kept_names_by_set if all(m in kept_names_by_set[s] for m in combo)]
         oodsets = [s for s in sets if s != testset]
-        
+
         all_sets = [testset, 'correct', 'incorrect', *oodsets]
-        
+
         logging.info('Working on {}'.format('--'.join(combo)))
 
         for _ in ('iws', 'zdist'):
@@ -276,7 +275,7 @@ if __name__ == '__main__':
             y_classif[combo_name] = {s: torch.argmax(t['iws'][testset][combo_name], dim=0)
                                      for s in sets}
 
-        for w in (wanted_aggs if len(combo) > 1 else ['vote']):
+        for w in (wanted_aggs if len(combo) > 1 else ['mean']):
 
             combo_name = agg_type_letter[w].join(combo)
             saved_pth = os.path.join(saved_dir, '{}.pth'.format(combo_name))
@@ -306,7 +305,7 @@ if __name__ == '__main__':
                                          for s in sets}
 
                 elif w == 'dist' or (w == 'vote'):  # and len(combo) == 1):
-                    p_y_x[combo_name] = {s: voting_posterior(*[y_classif[_][s] for _ in combo], temps=temps)
+                    p_y_x[combo_name] = {s: voting_posterior(*[y_classif[_][s] for _ in combo], temps=[nan_temp])
                                          for s in sets}
 
                 t_pth['p_y_x'] = p_y_x[combo_name]
@@ -320,9 +319,12 @@ if __name__ == '__main__':
             accuracies[combo_name] = i_true.float().mean().item()
 
             for s, i_ in zip(('correct', 'incorrect'), (i_true, ~i_true)):
-                p_y_x[combo_name][s] = {t: p_y_x[combo_name][testset][t][:, i_] for t in temps}
+                p_y_x[combo_name][s] = {t: p_y_x[combo_name][testset][t][:, i_]
+                                        for t in  p_y_x[combo_name][testset]}
 
-            max_py = {s: {t: p_y_x[combo_name][s][t].max(0)[0] for t in temps} for s in all_sets}
+            max_py = {s: {t: p_y_x[combo_name][s][t].max(0)[0] for t in
+                          p_y_x[combo_name][s]}
+                      for s in all_sets}
 
             in_set = {'ind': 'ood', 'correct': 'misclass'}
 
@@ -428,23 +430,33 @@ if __name__ == '__main__':
                 torch.save(t_pth, saved_pth)
 
     def make_dfs():
-        df_idx = {_: ['agg', 'T', 'l', 'name', 'tpr'] for _ in ('acc', 'ood', 'misclass')}
 
+        df_idx = {_: ['agg', 'T', 'l', 'name', 'tpr'] for _ in ('acc', 'ood', 'misclass')}
         df_idx['acc'].remove('tpr')
 
-        df_sets = {'acc': testset, 'ood': sets, 'misclass': [testset, 'correct', 'incorrect']}
+        oodsets = [s for s in lengths_by_set if (lengths_by_set[s] and s != testset)]
+        sets = [testset, *oodsets]
+
+        df_sets = {'acc': [testset], 'ood': sets, 'misclass': [testset, 'correct', 'incorrect']}
 
         df = {}
 
         for _ in df_idx:
-            df[_] = pd.DataFrame(columns=df_idx[_] + all_sets)
+            df[_] = pd.DataFrame(columns=df_idx[_] + df_sets[_])
 
             df[_].set_index(df_idx[_], inplace=True)
             df[_].columns.name = 'set'
 
         for w in args.agg_type:
             for combo in combos:
+                available_sets = [s for s in kept_names_by_set if (all(m in kept_names_by_set[s] for m in combo)
+                                                                   and s not in args.sets_to_exclude)]
+                if testset in available_sets:
+                    available_sets.remove(testset)
+                    all_sets = [testset, 'correct', 'incorrect', *available_sets]
+
                 combo_name = agg_type_letter[w].join(combo)
+
                 for T in temps_[w]:
                     i_df = (w, T, len(combo), combo_name)
                     if T is nan_temp:

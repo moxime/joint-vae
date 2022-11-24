@@ -15,7 +15,7 @@ import torch
 from torch.nn.functional import one_hot
 from module.aggregation import log_mean_exp, joint_posterior, mean_posterior, voting_posterior, posterior
 
-agg_type_letter = {'vote': '&', 'joint': ',', 'mean': '+', 'mean~': '~'}
+agg_type_letter = {'vote': '&', 'joint': ',', 'mean': '+', 'mean~': '~', 'sumprod': '.'}
 
 parser = argparse.ArgumentParser()
 
@@ -94,7 +94,19 @@ if __name__ == '__main__':
                       '--sets-to-exclude fashion90 '
                       '--agg-type mean joint mean~ '
                       '--min-models-to-keep-on 0 '
-                      '--combos 3 '
+                      '--combos 2 '
+                      '--compute '
+                      ).split()
+
+    args_from_file = ('-vv '
+                      '--tex '
+                      '--job-num 226180 226397 '
+                      # '--method iws-a-4-1 '
+                      # '--when min-loss '
+                      '--sets-to-exclude fashion90 '
+                      '--agg-type mean mean~ '
+                      '--min-models-to-keep-on 0 '
+                      '--combos 2 '
                       '--compute '
                       ).split()
 
@@ -143,11 +155,19 @@ if __name__ == '__main__':
             f.write('rsync -avP --files-from=/tmp/files $1 .\n')
         sys.exit(1)
 
-    key_loss = args.method.split('-')[0]
+    ood_method = args.method.split('-')
+    key_loss = ood_method[0]
+
+    if len(ood_method) > 1:
+        left = int(ood_method[-2])
+        right = int(ood_method[-1])
+        ind_balance = (left / (left + right), (right / left + right))
+    else:
+        ind_balance = (1, 0)
 
     p_y_x = {}
 
-    t = {_: {} for _ in ('iws', 'zdist')}
+    t = {_: {} for _ in ('iws', 'zdist', 'kl')}
 
     ind_thr = {}
 
@@ -202,11 +222,11 @@ if __name__ == '__main__':
     logging.info('Kept models (images): {}'.format(_s))
 
     for s in lengths_by_set:
-        t['iws'][s] = {}
-        t['zdist'][s] = {}
+        for _ in t:
+            t[_][s] = {}
         n = lengths_by_set[s]
         for name in kept_names_by_set[s]:
-            for _ in ('zdist', 'iws'):
+            for _ in t:
                 t[_][s][name] = recorders[name][s]._tensors[_][..., :n]
                 t[_][s][name] = recorders[name][s]._tensors[_][..., :n]
 
@@ -248,7 +268,7 @@ if __name__ == '__main__':
     nan_temp = -1
 
     temps_ = {_: [nan_temp, 1, 2, 5, 10, 20, 50, 100, 200, 500] for _ in wanted_aggs}
-    temps_['vote'] = [nan_temp]
+    # temps_['vote'] = [nan_temp]
 
     p_y_x = {}
     log_p_x_y = {}
@@ -265,7 +285,7 @@ if __name__ == '__main__':
 
         logging.info('Working on {}'.format('--'.join(combo)))
 
-        for _ in ('iws', 'zdist'):
+        for _ in t:
             for s in sets:
                 if all(m in t[_][s] for m in combo):
                     t[_][s][combo] = [t[_][s][m] for m in combo]
@@ -300,12 +320,13 @@ if __name__ == '__main__':
                                          for s in sets}
 
                 elif w == 'mean~':
-                    p_y_x_ = {s: [posterior(t['iws'][s][_], temps=temps) for _ in combo] for s in sets}
-                    p_y_x[combo_name] = {s: {temp: sum([_[temp] for _ in p_y_x_[s]]) for temp in temps}
+                    p_y_x_ = {s: [posterior(-t['kl'][s][_], temps=temps) for _ in combo] for s in sets}
+                    p_y_x[combo_name] = {s: {temp: torch.stack([_[temp] for _ in p_y_x_[s]]).mean(0)
+                                             for temp in temps}
                                          for s in sets}
 
                 elif w == 'dist' or (w == 'vote'):  # and len(combo) == 1):
-                    p_y_x[combo_name] = {s: voting_posterior(*[y_classif[_][s] for _ in combo], temps=[nan_temp])
+                    p_y_x[combo_name] = {s: voting_posterior(*[y_classif[_][s] for _ in combo], temps=temps)
                                          for s in sets}
 
                 t_pth['p_y_x'] = p_y_x[combo_name]
@@ -320,7 +341,7 @@ if __name__ == '__main__':
 
             for s, i_ in zip(('correct', 'incorrect'), (i_true, ~i_true)):
                 p_y_x[combo_name][s] = {t: p_y_x[combo_name][testset][t][:, i_]
-                                        for t in  p_y_x[combo_name][testset]}
+                                        for t in p_y_x[combo_name][testset]}
 
             max_py = {s: {t: p_y_x[combo_name][s][t].max(0)[0] for t in
                           p_y_x[combo_name][s]}
@@ -331,7 +352,7 @@ if __name__ == '__main__':
             if w != 'vote' and (w in agg_types['ood'] or w in agg_types['misclass']) or len(combo) == 1:
 
                 tprs = {_: {tpr: {t: tpr for t in temps}} for _ in ('ind', 'correct')}
-                thr_balance = {'ind': (4/5, 1/5), 'correct': (1, 0)}
+                thr_balance = {'ind': ind_balance, 'correct': (1, 0)}
                 if len(combo) > 1:
                     vote_combo = combo_name.replace(agg_type_letter[w], agg_type_letter['vote'])
                     for k in ('ind', 'correct'):
@@ -373,6 +394,12 @@ if __name__ == '__main__':
                         tpr_r = {t: 1 - thr_balance[k][1] * (1 - tprs[k][r][t]) for t in _temps}
                         i_l_r = {t: (int(n[t] * tpr_l[t]), int(n[t] * tpr_r[t]) - 1) for t in _temps}
 
+                        # print('**** {} {} {} {} {} ({}) {:.1%} {:.1%}'.format(w, k, combo_name,
+                        #                                                       *i_l_r[_temps[0]],
+                        #                                                       n[_temps[0]],
+                        #                                                       tpr_l[_temps[0]],
+                        #                                                       tpr_r[_temps[0]]))
+                        
                         thr = {t: (sorted(t_in_out[k][t])[i_l_r[t][0]], sorted(t_in_out[k][t])[i_l_r[t][1]])
                                for t in _temps}
 

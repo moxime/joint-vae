@@ -194,12 +194,13 @@ if __name__ == '__main__':
         recorder = LossRecorder(batch_size, device='cpu')
 
         _, dataset = get_dataset(s, transformer=params['transformer'], splits=['test'])  #
-        loader = torch.utils.data.DataLoader(dataset, shuffle=True,
+        N = min(args.N, len(dataset))
+        shuffle = N / len(dataset) < 0.9
+        loader = torch.utils.data.DataLoader(dataset, shuffle=shuffle,
                                              batch_size=batch_size)
 
         n = 0
         t0 = time.time()
-        N = min(args.N, len(dataset))
 
         correct = 0
 

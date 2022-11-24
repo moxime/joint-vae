@@ -3,15 +3,13 @@ import sys
 import torch
 from cvae import ClassificationVariationalNetwork as M
 from utils import save_load
+from module.aggregation import compute_latent_mutual_info
 import logging
 import argparse
-from utils.save_load import load_json, needed_remote_files, develop_starred_methods, LossRecorder
+from utils.save_load import load_json, needed_remote_files, LossRecorder
 from utils.torch_load import get_dataset, get_same_size_by_name
-import numpy as np
-import logging
 from utils.parameters import gethostname
 import time
-from torchvision.utils import save_image
 
 
 class IteratedModels(M):
@@ -40,10 +38,10 @@ class IteratedModels(M):
         for m in self._models:
             m.to(device)
 
-    def save(self, dir_name=None):
+    def save(self, job_dir='iterated-jobs', dir_name=None):
         if dir_name is None:
             trainset = self.training_parameters['set']
-            dir_name = os.path.join('iterated-jobs', trainset, '-'.join(str(_.job_number) for _ in self._models))
+            dir_name = os.path.join(job_dir, trainset, '-'.join(str(_.job_number) for _ in self._models))
         architecture = {_: m.saved_dir for _, m in enumerate(self._models)}
 
         save_load.save_json(architecture, dir_name, 'params.json')
@@ -76,6 +74,7 @@ class IteratedModels(M):
     def evaluate(self, x,
                  y=None,
                  z_output=False,
+                 temps=[1, 2, 5, 10],
                  **kw):
 
         input = {'x': x, 'y': y, 'z_output': z_output}
@@ -85,10 +84,13 @@ class IteratedModels(M):
         losses_ = []
         measures_ = []
 
+        logpzy_ = []
+
         mse_ = []
 
-        for m in self._models:
+        for (i, m) in enumerate(self._models):
 
+            C = m.num_labels
             out = m.evaluate(**input, **kw)
             input['x'] = out[0][1]
             input['y'] = out[1].argmax(-1) if y else None
@@ -109,6 +111,18 @@ class IteratedModels(M):
             losses_.append(out[2])
             measures_.append(out[3])
 
+            if z_output:
+                z = out[-1][1:]
+                z = z.expand(C, *z.shape)
+                y_in = y or torch.stack([c * torch.ones((m.latent_sampling, len(x)),
+                                                        dtype=int,
+                                                        device=x.device)
+                                         for c in range(C)], dim=0)
+
+                # print('*** z:', *z.shape, 'y:', *y_in.shape) 
+
+                logpzy_.append(m.encoder.prior.log_density(z, y_in))
+
         x_ = torch.stack(x_)
         y_ = torch.stack(y_)
 
@@ -122,6 +136,16 @@ class IteratedModels(M):
 
                 mse_.append((x_i - x_j).pow(2).mean(input_dims))
 
+        if z_output:
+            Im = {T: [] for T in temps}
+
+            for T in temps:
+                for i in range(len(self)):
+                    for j in range(i):
+                        pyzs = [(logpzy_[_] / T).softmax(0) for _ in (i, j)]
+                        samplings = [self._models[_].latent_sampling for _ in (i, j)]
+                        Im[T].append(compute_latent_mutual_info(*pyzs, *samplings).rename(None))
+
         output_losses = {}
         output_measures = {}
 
@@ -132,6 +156,10 @@ class IteratedModels(M):
             output_measures[k] = torch.tensor([_[k] for _ in measures_])
 
         output_losses['mse'] = torch.stack(mse_)
+
+        if z_output:
+            for T in temps:
+                output_losses['Im-{}'.format(T)] = torch.stack(Im[T])
 
         return x_, y_, output_losses, output_measures
 
@@ -171,6 +199,9 @@ def iterate_with_prior(logp_x_y):
 
 if __name__ == '__main__':
 
+    import warnings
+    warnings.filterwarnings("ignore", category=UserWarning)
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--jobs', '-j', nargs='+', type=int, default=[])
@@ -180,7 +211,10 @@ if __name__ == '__main__':
     parser.add_argument('--plot', nargs='?', const='p')
     parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
     parser.add_argument('--job-dir', default='./jobs')
+    parser.add_argument('--iterated-job-dir', default='iterated-jobs')
 
+    parser.add_argument('-T', default=[1], type=float, nargs='+')
+    
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--num-batch', type=int, default=int(1e6))
     parser.add_argument('--device', default='cuda')
@@ -292,7 +326,7 @@ if __name__ == '__main__':
             y = y.to(device)
 
             with torch.no_grad():
-                x_, y_, losses, measures = model.evaluate(x)
+                x_, y_, losses, measures = model.evaluate(x, z_output=True, temps=args.T)
 
             losses.update(y_true=y, logits=y_.permute(0, 2, 1))
             recorder.append_batch(**losses)
@@ -310,7 +344,7 @@ if __name__ == '__main__':
             samples[k] = torch.cat(samples[k], dim=concat_dim[k])
 
         print()
-        model.save()
+        model.save(job_dir=args.iterated_job_dir)
         recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
         f = os.path.join(model.saved_dir, 'sample-{}.pth'.format(s))
         torch.save(samples, f)

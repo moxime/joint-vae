@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--last', default=0, type=int)
 # parser.add_argument('--metrics', nargs='*', default=['zdist'])
 parser.add_argument('--metrics', default='zdist')
+parser.add_argument('--compute', action='store_true')
 parser.add_argument('--soft', action='store_true')
 parser.add_argument('--by-classes', action='store_true')
 parser.add_argument('-v', action='count', default=0)
@@ -84,12 +85,13 @@ if __name__ == '__main__':
         model = M.load(mdir, load_state=False)
         testset = model.training_parameters['set']
 
-        model.misclassification_detection_rate(predict_methods='first', epoch=args.when,
-                                               misclass_methods='all',
-                                               # misclass_methods='softmahala-20',
-                                               # from_where=('recorders')
-                                               )
-        model.save(model.saved_dir)
+        if args.compute:
+            model.misclassification_detection_rate(predict_methods='first', epoch=args.when,
+                                                   misclass_methods='all',
+                                                   # misclass_methods='softmahala-20',
+                                                   # from_where=('recorders')
+                                                   )
+            model.save(model.saved_dir)
 
         predict_method = model.predict_methods[0]
 

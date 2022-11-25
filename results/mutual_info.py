@@ -8,7 +8,7 @@ from utils.save_load import LossRecorder, find_by_job_number, needed_remote_file
 job_dir = 'parallel-jobs'
 job_dir = '/tmp/jobs'
 job_dir = 'iterated-jobs/fashion'
-job_dir = 'parallel-jobs/fashion'
+job_dir = 'parallel-jobs/svhn'
 
 default_compare_with = ['kl-sumprod', 'kl-mean', 'zdist-mean']
 
@@ -179,9 +179,8 @@ if __name__ == '__main__':
             y_[meas] = {T: y_[meas][T][:n] for T in y_[meas]}
             measures[meas][dataset] = {T: measures[meas][dataset][T][:n] for T in y_[meas]}
 
-            acc[meas] = {T: (y[meas] == y_[meas][T]).float().mean() for T in y_[meas]}
-
-            i_true[meas] = {T: y[meas] == y_[meas][T] for T in y_[meas]}
+            i_true[meas] = {T: y[meas].cpu() == y_[meas][T].cpu() for T in y_[meas]}
+            acc[meas] = {T: i_true[meas][T].float().mean() for T in y_[meas]}
 
             measures[meas]['correct'] = {T: measures[meas][dataset][T][i_true[meas][T]]
                                          for T in measures[meas][dataset]}

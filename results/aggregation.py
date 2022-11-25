@@ -100,13 +100,14 @@ if __name__ == '__main__':
 
     args_from_file = ('-vv '
                       '--tex '
-                      '--job-num 226180 226397 '
+                      '--dataset svhn '
+                      '--job-num 229801...229803 '
                       # '--method iws-a-4-1 '
                       # '--when min-loss '
-                      '--sets-to-exclude fashion90 '
+                      '--sets-to-exclude fashion90 svhn90 '
                       '--agg-type mean joint mean~ '
                       '--min-models-to-keep-on 0 '
-                      '--combos 2 '
+                      '--combos 2 3 '
                       '--compute '
                       ).split()
 
@@ -535,7 +536,7 @@ if __name__ == '__main__':
         for agg in agg_types['acc']:
             tab.append_cell(agg, row=agg)
             for l in combo_lengths:
-                tab.append_cell(100 * df['acc'].loc[agg][(dataset, l)], row=agg)
+                tab.append_cell(100 * df['acc'].loc[agg][(testset, l)], row=agg)
 
         tab.add_midrule(agg_types['acc'][0])
 

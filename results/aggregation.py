@@ -104,7 +104,7 @@ if __name__ == '__main__':
                       # '--method iws-a-4-1 '
                       # '--when min-loss '
                       '--sets-to-exclude fashion90 '
-                      '--agg-type mean mean~ '
+                      '--agg-type mean joint mean~ '
                       '--min-models-to-keep-on 0 '
                       '--combos 2 '
                       '--compute '
@@ -521,6 +521,11 @@ if __name__ == '__main__':
 
     if args.tex:
 
+        oodsets = [s for s in lengths_by_set
+                   if (lengths_by_set[s] and s != testset and s not in args.sets_to_exclude)]
+
+        sets = [testset, *oodsets]
+
         cols = ['s2.1'] * len(combo_lengths)
         tab = TexTab('l', *cols, float_format='{:.1f}')
         tab.append_cell('$M$', row='header')
@@ -530,7 +535,7 @@ if __name__ == '__main__':
         for agg in agg_types['acc']:
             tab.append_cell(agg, row=agg)
             for l in combo_lengths:
-                tab.append_cell(100 * df['acc'].loc[agg][l], row=agg)
+                tab.append_cell(100 * df['acc'].loc[agg][(dataset, l)], row=agg)
 
         tab.add_midrule(agg_types['acc'][0])
 
@@ -584,8 +589,8 @@ if __name__ == '__main__':
                 else:
                     for l in combo_l_[r]:
                         for agg in agg_[r]:
-                            pr = df_.loc[s][(l, agg)]
-                            tab.append_cell(100 * pr, row=s)
+                            pr = 100 * df_.loc[s][(l, agg)] if s in df_.index else None
+                            tab.append_cell(pr, row=s)
             tab.add_midrule(sets_[r][0])
 
             if len(agg_[r]) > 1:

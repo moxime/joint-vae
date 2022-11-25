@@ -601,7 +601,7 @@ class TexTab(object):
         """
         if row_id = -1: will throw an error
         """
-        assert row_id != -1, 'Please choose a row_id that is not {}'.format(row_id)
+        # assert row_id != -1, 'Please choose a row_id that is not {}'.format(row_id)
 
         if row_id is None or row_id in self._rows:
             return self._new_row(self._next_row(row_id))

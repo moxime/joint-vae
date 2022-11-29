@@ -196,7 +196,6 @@ if __name__ == '__main__':
         _, dataset = get_dataset(s, transformer=params['transformer'], splits=['test'])  #
         N = min(args.N, len(dataset))
         shuffle = N / len(dataset) < 0.9
-        print("****", N, len(dataset), N / len(dataset),shuffle)
         loader = torch.utils.data.DataLoader(dataset, shuffle=shuffle,
                                              batch_size=batch_size)
 

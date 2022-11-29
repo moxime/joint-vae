@@ -26,7 +26,7 @@ parser.add_argument('--plot', nargs='?', const='p')
 parser.add_argument('--result-dir', default='/tmp')
 parser.add_argument('--device', default='cpu')
 parser.add_argument('--last', default=0, type=int)
-parser.add_argument('--method', default='iws')
+parser.add_argument('--ood-method', default='iws')
 parser.add_argument('--tpr', type=float, default=0.95)
 parser.add_argument('--agg-type', nargs='*', choices=list(agg_type_letter), default=[])
 parser.add_argument('--when', default='last')
@@ -100,14 +100,12 @@ if __name__ == '__main__':
 
     args_from_file = ('-vv '
                       '--tex '
-                      '--dataset svhn '
-                      '--job-num 229801...229803 '
-                      # '--method iws-a-4-1 '
-                      # '--when min-loss '
+                      '--dataset fashion '
+                      '--last 2 '
                       '--sets-to-exclude fashion90 svhn90 '
                       '--agg-type mean joint mean~ '
                       '--min-models-to-keep-on 0 '
-                      '--combos 2 3 '
+                      '--combos 2 '
                       '--compute '
                       ).split()
 
@@ -129,7 +127,10 @@ if __name__ == '__main__':
 
     filter_str = '--'.join(f'{d}:{f}' for d, f in filters.items() if not f.always_true)
 
-    mdirs = [_ for _ in rmodels if filters.filter(rmodels[_])][-args.last:]
+    mdirs = [_ for _ in rmodels if filters.filter(rmodels[_])]
+
+    mdirs.sort(key=lambda d: rmodels[d].get('job', 0))
+    mdirs = mdirs[-args.last:]
 
     total_models = len(mdirs)
     logging.info('{} models found'.format(total_models))
@@ -156,7 +157,7 @@ if __name__ == '__main__':
             f.write('rsync -avP --files-from=/tmp/files $1 .\n')
         sys.exit(1)
 
-    ood_method = args.method.split('-')
+    ood_method = args.ood_method.split('-')
     key_loss = ood_method[0]
 
     if len(ood_method) > 1:
@@ -400,7 +401,7 @@ if __name__ == '__main__':
                         #                                                       n[_temps[0]],
                         #                                                       tpr_l[_temps[0]],
                         #                                                       tpr_r[_temps[0]]))
-                        
+
                         thr = {t: (sorted(t_in_out[k][t])[i_l_r[t][0]], sorted(t_in_out[k][t])[i_l_r[t][1]])
                                for t in _temps}
 
@@ -465,7 +466,7 @@ if __name__ == '__main__':
         oodsets = [s for s in lengths_by_set if (lengths_by_set[s] and s != testset)]
         sets = [testset, *oodsets]
 
-        df_sets = {'acc': [testset], 'ood': sets, 'misclass': [testset, 'correct', 'incorrect']}
+        df_sets = {'acc': [testset], 'ood': sets, 'misclass': ['precision', 'recall']}
 
         df = {}
 
@@ -494,7 +495,13 @@ if __name__ == '__main__':
                             i_df_m = tuple([*i_df, r])
                             prs = pr['correct'][combo_name].get(r)
                             if prs:
-                                df['misclass'].loc[i_df_m] = {s: prs[s][T] for s in all_sets}
+                                prec_recall = {}
+                                _acc = accuracies[combo_name]
+                                _fpr = prs['incorrect'][T]
+                                _tpr = prs['correct'][T]
+                                prec_recall['recall'] = _tpr
+                                prec_recall['precision'] = _acc / (_acc + _fpr / _tpr * (1 - _acc))
+                                df['misclass'].loc[i_df_m] = prec_recall
 
                     if w in agg_types['ood'] and T == nan_temp:
                         for r in (tpr, 'vote'):
@@ -609,17 +616,17 @@ if __name__ == '__main__':
                 tab.render(f)
 
         df_ = df['misclass']
-        incorrect_cols = df_.columns.isin(['incorrect', 'correct'], level='set')
+        incorrect_cols = df_.columns.isin(['precision', 'recall'], level='set')
         df_ = df_[df_.columns[incorrect_cols]]  # .stack('set').droplevel('set')
         aggs = agg_types['misclass']
         combo_l_ = {'vote': [_ for _ in combo_lengths if _ != 1], tpr: combo_lengths}
         agg_ = {tpr: [_ for _ in aggs if _ != 'vote'], 'vote': aggs}
 
-        tex_aggs_ = {'TPR': r'\acron{tpr}', 'mean~': r'mean\~'}
+        tex_aggs_ = {'TPR': r'\acron{tpr}', 'mean~': r'mean\~', 'recall': '$R$'}
 
         for r in (tpr, 'vote'):
 
-            aggs = ['TPR', *agg_[r]] if r == 'vote' else agg_[r]
+            aggs = ['recall', *agg_[r]] if r == 'vote' else agg_[r]
 
             tex_aggs = [tex_aggs_.get(_, _) for _ in aggs]
 
@@ -645,12 +652,12 @@ if __name__ == '__main__':
                 tab.append_cell(T if T != nan_temp else '--', row=T, formatter='{}')
                 for l in combo_l_[r]:
                     if r == 'vote':
-                        pr = 100 * df_.loc[(agg, r, T)][l, 'correct']
+                        pr = 100 * df_.loc[(agg, r, T)][l, 'recall']
                         tab.append_cell(pr, row=T)
 
                     for agg in agg_[r]:
                         if T in temps_[agg]:
-                            pr = 100 * df_.loc[(agg, r, T)][l, 'incorrect']
+                            pr = 100 * df_.loc[(agg, r, T)][l, 'precision']
                         else:
                             pr = None
                         tab.append_cell(pr, row=T)

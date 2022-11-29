@@ -59,7 +59,15 @@ def choose_device(device=None):
 
 def letters_getter(**kw):
 
-    return datasets.EMNIST(split='letters',  **kw)
+    s = datasets.EMNIST(split='letters',  **kw)
+    # st0 = np.random.get_state()
+    # np.random.seed(0)
+    # i = np.random.permutation(len(s))
+    # print(*i[:10])
+    # s.targets = s.targets[i]
+    # s.data = s.data[i]
+    # np.random.set_state(st0)
+    return s
 
 
 target_transforms = {'y-1': lambda y: y-1}

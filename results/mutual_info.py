@@ -7,8 +7,8 @@ from utils.save_load import LossRecorder, find_by_job_number, needed_remote_file
 
 job_dir = 'parallel-jobs'
 job_dir = '/tmp/jobs'
-job_dir = 'iterated-jobs/fashion'
 job_dir = 'parallel-jobs/svhn'
+job_dir = 'iterated-jobs/fashion'
 
 default_compare_with = ['kl-sumprod', 'kl-mean', 'zdist-mean']
 
@@ -194,11 +194,14 @@ if __name__ == '__main__':
                    for T in measures[m][dataset]}
                for m in measures}
 
-        min_fpr_incorrect = {}
+        max_precision = {}
         for meas in measures:
             print('***', meas, '***')
             for T in temps:
                 print(T)
+                quantiles = {}
+                pr = {}
+
                 for _ in (dataset, 'correct', 'incorrect', *oodsets):
 
                     sortedI = measures[meas][_][T].sort()[0]
@@ -207,17 +210,24 @@ if __name__ == '__main__':
                     iles = [0.01, 0.5, 0.99]
                     iles = []
                     i = [int(n * q) for q in iles]
-                    quantiles = [sortedI[_] for _ in i]
-                    qstr = ' -- '.join('{:.4g}' for _ in i)
+                    quantiles[_] = [sortedI[_] for _ in i]
+                    pr[_] = [(sortedI >= t).sum() / n for t in thr[meas][T]]
+                    
+                prec_rec = {'recall': pr['correct']}
+                _acc = acc[meas][T]
+                prec_rec[dataset] = pr[dataset]
+                prec_rec['precision'] = [_acc / (_acc + (1 - _acc) * _fpr / _tpr)
+                                         for (_fpr, _tpr) in zip(pr['incorrect'], pr['correct'])]
 
-                    pr = [(sortedI >= t).sum() / n for t in thr[meas][T]]
+                rstr = '{:10}: {:.2%} -- {:.2%} (acc={:.2%})'
 
-                    rstr = '{:10}: {:.2%} -- {:.2%} | ' + qstr + '(acc={:.1%})'
-                    print(rstr.format(_, *pr, *quantiles, acc[meas][T]))
+                for _ in (dataset, 'precision', 'recall'):
+                
+                    print(rstr.format(_, *prec_rec[_], acc[meas][T]))
 
-                    if _ == 'incorrect':
-                        if not min_fpr_incorrect.get(meas) or pr[0] < min_fpr_incorrect[meas][1]:
-                            min_fpr_incorrect[meas] = (T, pr[0])
+                    if _ == 'precision':
+                        if not max_precision.get(meas) or prec_rec['precision'][0] > max_precision[meas][1]:
+                            max_precision[meas] = (T, prec_rec['precision'][0])
 
         for meas in measures:
-            print('{:10} {:.1%} at T={}'.format(meas, min_fpr_incorrect[meas][1], min_fpr_incorrect[meas][0]))
+            print('{:10} {:.1%} at T={}'.format(meas, max_precision[meas][1], max_precision[meas][0]))

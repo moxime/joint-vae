@@ -770,6 +770,9 @@ class Encoder(nn.Module):
             for i in range(num_labels):
                 prior_means[i, i] = 1
 
+        elif isinstance(latent_prior_means, torch.Tensor):
+            prior_means = latent_prior_means
+                
         else:
             prior_means = latent_prior_means * torch.randn(num_labels, latent_dim)
 

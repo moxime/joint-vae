@@ -23,6 +23,10 @@ class NoModelError(Exception):
     pass
 
 
+class StateFileNotFoundError(FileNotFoundError):
+    pass
+
+
 class DeletedModelError(NoModelError):
     pass
 
@@ -1162,6 +1166,9 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
             with turnoff_debug(turnoff=not show_debug):
                 return _gather_registered_models(rmodels, filter, tpr=tpr, load_net=load_net, **kw)
 
+        except StateFileNotFoundError as e:
+            raise e
+            
         except FileNotFoundError as e:
             # except (FileNotFoundError, NoModelError) as e:
             logging.warning('{} not found, will recollect networks'.format(e.filename))

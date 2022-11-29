@@ -1,4 +1,5 @@
 import logging
+import errno
 import copy
 import torch
 import torch.utils.data
@@ -6,8 +7,8 @@ from torch import nn
 from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, kl_loss, mse_loss
-from utils.save_load import LossRecorder, available_results, develop_starred_methods
-from utils.save_load import DeletedModelError, NoModelError
+from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number
+from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, VGGDecoder, Encoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import ResOrDenseNetFeatures
@@ -103,7 +104,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'vae': ['iws-2s', 'iws', 'logpx'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
-    misclass_methods_per_type = {'cvae': ['softkl*','iws', 'softiws*', 'kl', 'max',
+    misclass_methods_per_type = {'cvae': ['softkl*', 'iws', 'softiws*', 'kl', 'max',
                                           'zdist',
                                           'softzdist*', 'baseline*', 'hyz'],
                                  'xvae': [],
@@ -277,12 +278,24 @@ class ClassificationVariationalNetwork(nn.Module):
         self.gamma = gamma if self.y_is_decoded else None
         logging.debug(f'Gamma: {self.gamma}')
 
+        loaded_prior_means = False
+
         self.conditional_prior = self.is_cvae or self.is_xvae
         if not self.conditional_prior:
             learned_latent_prior_means = False
             latent_prior_means = 0
 
         elif latent_prior_means == 'onehot':
+            learned_latent_prior_means = False
+
+        elif isinstance(latent_prior_means, str) and latent_prior_means.startswith('job'):
+            other_job = int(latent_prior_means.split('-')[-1])
+            other_model = find_by_job_number(other_job,
+                                             load_net=True,
+                                             load_state=True)['net']
+            loaded_prior_means = latent_prior_means
+            latent_prior_means = other_model.encoder.prior.mean.to(self.device)
+            logging.info('Prior means of model {} loaded'.format(other_job))
             learned_latent_prior_means = False
 
         assert latent_prior_variance in ('scalar', 'diag', 'full'), print('LPV', latent_prior_variance)
@@ -300,7 +313,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                latent_prior_means=latent_prior_means,
                                learned_latent_prior_means=learned_latent_prior_means,
                                activation=activation, sampling=sampling)
-
+        if loaded_prior_means:
+            latent_prior_means = loaded_prior_means
+            
         activation_layer = activation_layers[activation]()
 
         if self.x_is_generated:
@@ -2497,9 +2512,10 @@ class ClassificationVariationalNetwork(nn.Module):
         trained, the weights inweights.h5.
 
         """
+        job_dir = 'jobs'
 
         if dir_name is None:
-            dir_name = os.path.join('jobs', self.print_architecture,
+            dir_name = os.path.join(job_dir, self.print_architecture,
                                     str(self.job_number))
 
         save_load.save_json(self.architecture, dir_name, 'params.json')
@@ -2724,6 +2740,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 if _sigma:
                     # print(f'cvae:1735: sigma: {vae.sigma.shape}, _sigma:{_sigma.shape}')
                     state_dict['sigma'] = _sigma.reshape(1)
+            except FileNotFoundError as e:
+                raise StateFileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), e.filename)
             except RuntimeError as e:
                 raise e
             try:

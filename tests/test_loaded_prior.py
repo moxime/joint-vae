@@ -2,7 +2,8 @@ from utils.save_load import find_by_job_number
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--jobs', '-j', default=[222483, 233168], type=int)
+jobs = [233168, 233168]
+parser.add_argument('--jobs', '-j', default=jobs, type=int)
 
 args = parser.parse_args()
 

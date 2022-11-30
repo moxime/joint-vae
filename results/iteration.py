@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('jobs', nargs='+')
 parser.add_argument('-v', action='count', default=0)
-parser.add_argument('--results-dir', default='/tmp')
+parser.add_argument('--results-dir', default='/tmp/iterated-jobs/')
 parser.add_argument('--plot', action='store_true')
 parser.add_argument('--png', action='store_true')
 parser.add_argument('--images', default=10, type=int)

@@ -202,7 +202,7 @@ def process_directory(folder, compare_with, prediction_method):
                         max_precision[meas] = (T, prec_rec['precision'][0])
 
     for meas in measures:
-        print('{:10} {:.1%} at T={}'.format(meas, max_precision[meas][1], max_precision[meas][0]))
+        print('{:10} {:.2%} at T={}'.format(meas, max_precision[meas][1], max_precision[meas][0]))
 
 
 if __name__ == '__main__':

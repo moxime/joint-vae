@@ -525,7 +525,7 @@ if __name__ == '__main__':
     for _ in df:
         print('\n\n\n*** {} ***'.format(_))
 
-        print(df[_].to_string(float_format='{:.1%}'.format, na_rep='--'))
+        print(df[_].to_string(float_format='{:.2%}'.format, na_rep='--'))
 
     if args.tex:
 

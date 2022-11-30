@@ -211,7 +211,7 @@ if __name__ == '__main__':
 
     job_dir = 'parallel-jobs'
     job_dir = '/tmp/jobs'
-    job_dir = 'iterated-jobs/fashion'
+    job_dir = 'cascad-jobs/fashion'
     job_dir = 'parallel-jobs/fashion'
     job_dir = 'parallel-jobs/svhn'
 

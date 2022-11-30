@@ -12,7 +12,7 @@ from utils.parameters import gethostname
 import time
 
 
-class IteratedModels(M):
+class CascadModels(M):
 
     def __new__(cls, *models):
 
@@ -38,7 +38,7 @@ class IteratedModels(M):
         for m in self._models:
             m.to(device)
 
-    def save(self, job_dir='iterated-jobs', dir_name=None):
+    def save(self, job_dir='cascad-jobs', dir_name=None):
         if dir_name is None:
             trainset = self.training_parameters['set']
             dir_name = os.path.join(job_dir, trainset, '-'.join(str(_.job_number) for _ in self._models))
@@ -211,7 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', nargs='?', const='p')
     parser.add_argument('--tex', nargs='?', default=None, const='/tmp/r.tex')
     parser.add_argument('--job-dir', default='./jobs')
-    parser.add_argument('--iterated-job-dir', default='iterated-jobs')
+    parser.add_argument('--cascad-job-dir', default='cascad-jobs')
 
     parser.add_argument('-T', default=[1], type=float, nargs='+')
     
@@ -276,7 +276,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     models = [M.load(d, load_state=True) for d in mdirs]
-    model = IteratedModels(*models)
+    model = CascadModels(*models)
 
     device = args.device
 
@@ -344,7 +344,7 @@ if __name__ == '__main__':
             samples[k] = torch.cat(samples[k], dim=concat_dim[k])
 
         print()
-        model.save(job_dir=args.iterated_job_dir)
+        model.save(job_dir=args.cascad_job_dir)
         recorder.save(os.path.join(model.saved_dir, 'record-{}.pth'.format(s)))
         f = os.path.join(model.saved_dir, 'sample-{}.pth'.format(s))
         torch.save(samples, f)

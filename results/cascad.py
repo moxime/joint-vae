@@ -11,7 +11,7 @@ from torchvision.utils import save_image
 
 from utils.save_load import LossRecorder
 from utils.torch_load import get_same_size_by_name, get_classes_by_name, get_shape_by_name
-from module.iteration import IteratedModels
+from module.cascad import CascadModels
 
 from utils.texify import TexTab, tex_command
 
@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('jobs', nargs='+')
 parser.add_argument('-v', action='count', default=0)
-parser.add_argument('--results-dir', default='/tmp/iterated-jobs/')
+parser.add_argument('--results-dir', default='/tmp/cascad-jobs/')
 parser.add_argument('--plot', action='store_true')
 parser.add_argument('--png', action='store_true')
 parser.add_argument('--images', default=10, type=int)
@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['means'], prec=2, tpr=0.95):
 
     try:
-        model = IteratedModels.load(dir_name, load_state=False)
+        model = CascadModels.load(dir_name, load_state=False)
     except FileNotFoundError:
         log.error('{} not a model'.format(dir_name))
         return
@@ -438,7 +438,7 @@ if __name__ == '__main__':
                       '--png '
                       # '--plot '
                       '--tex '
-                      'iterated-jobs/fashion/226180-226397 '
+                      'cascad-jobs/fashion/226180-226397 '
                       ).split()
 
     args = parser.parse_args(None if len(sys.argv) > 1 else args_from_file)

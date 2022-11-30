@@ -3,7 +3,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 jobs = [233168, 233168]
-parser.add_argument('--jobs', '-j', default=jobs, type=int)
+parser.add_argument('--jobs', '-j', default=jobs, type=int, nargs=2)
 
 args = parser.parse_args()
 

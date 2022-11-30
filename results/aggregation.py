@@ -136,6 +136,10 @@ if __name__ == '__main__':
     logging.info('{} models found'.format(total_models))
     removed = False
     which_rec = '-'.join(['all'] + args.sets_to_exclude)
+
+    if args.min_models_to_keep_on == -1:
+        args.min_models_to_keep_on = len(mdirs)
+
     with open('/tmp/files', 'w') as f:
 
         for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec=which_rec, state=False):
@@ -262,6 +266,9 @@ if __name__ == '__main__':
 
     result_dir = args.result_dir
 
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+    
     saved_dir = os.path.join(result_dir, 'saved')
 
     if not os.path.exists(saved_dir):

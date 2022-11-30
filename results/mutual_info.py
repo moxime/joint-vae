@@ -15,8 +15,6 @@ def process_directory(folder, compare_with, prediction_method):
     if not recorders:
         return None
 
-    print('*** Processing {} ***'.format(folder))
-
     folder_name = folder.split(os.sep)[-1]
 
     if '-' in folder_name:
@@ -25,6 +23,8 @@ def process_directory(folder, compare_with, prediction_method):
     elif '|' in folder_name:
         agg_type = 'parallel'
         sep = '|'
+    else:
+        sep = '-'
 
     jobs = [int(_) for _ in folder_name.split(sep)]
     models = find_by_job_number(*jobs)
@@ -39,9 +39,13 @@ def process_directory(folder, compare_with, prediction_method):
         else:
             dataset = next(iter(recorders))
             has_ood = False
-
     else:
         has_ood = len(recorders) > 1
+
+    if not any(_.startswith('Im') for _ in recorders[dataset]):
+        return None
+
+    print('*** Processing {} ***'.format(folder))
 
     has_ood = has_ood and args.ood
 

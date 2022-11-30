@@ -409,6 +409,14 @@ class LossRecorder:
         return ('Recorder for '
                 + ' '.join([str(k) for k in self.keys()]))
 
+    def __getitem__(self, k):
+
+        return self._tensors[k]
+
+    def __iter__(self):
+
+        return iter(self._tensors)
+
     def save(self, file_path, cut=True):
         """dict_ = self.__dict__.copy()
         tensors = dict.pop('_tensors')
@@ -822,7 +830,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         iter(tpr)
     except TypeError:
         tpr = [tpr]
-        
+
     architecture = ObjFromDict(model.architecture, features=None)
     training = ObjFromDict(model.training_parameters,
                            transformer='default',
@@ -934,22 +942,22 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr[0])
                                    for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
             params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
-            
+
             if params_max_auc is not None:
                 in_out_results_s[m] = _r[params_max_auc].copy()
                 in_out_results_s[m]['params'] = params_max_auc
-                
+
         for m in in_out_results_s:
             res_by_method = {}
             fpr_ = in_out_results_s[m]['fpr']
             tpr_ = in_out_results_s[m]['tpr']
             P_ = in_out_results_s[m].get('precision', [None for _ in tpr_])
             auc = in_out_results_s[m]['auc']
-            
+
             if auc and (not best_auc[s] or auc > best_auc[s]):
                 best_auc[s] = auc
                 best_method[s] = m
-            
+
             for target_tpr in tpr:
                 for (the_tpr, fpr, P) in zip(tpr_, fpr_, P_):
                     if abs(the_tpr - target_tpr) < 1e-4:
@@ -968,7 +976,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
                     # if params := in_out_results_s[m].get('params'):
                     #     res_by_method['params'] = params
             res_by_set[m] = res_by_method
-                
+
         res_by_set['first'] = res_by_set[first_method]
         in_out_rates[s] = res_by_set
         if best_method[s]:
@@ -1168,7 +1176,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
 
         except StateFileNotFoundError as e:
             raise e
-            
+
         except FileNotFoundError as e:
             # except (FileNotFoundError, NoModelError) as e:
             logging.warning('{} not found, will recollect networks'.format(e.filename))
@@ -1222,7 +1230,7 @@ def collect_models(directory,
 
     except (FileNotFoundError, PermissionError, NoModelError) as e:
         pass
-    
+
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
         logging.debug(f'Load error: {e}')

@@ -39,6 +39,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
         return
 
     testset = model.training_parameters['set']
+
     allsets = [testset]
     allsets.extend(get_same_size_by_name(testset))
 
@@ -456,11 +457,19 @@ if __name__ == '__main__':
 
         log.info('Processing %s', model_dir)
         model_name = os.path.split(model_dir)[-1]
-        result_dir = os.path.join(args.results_dir, model_name)
+        try:
+            model = CascadModels.load(model_dir, load_state=False)
+            testset = model.training_parameters['set']
+
+        except FileNotFoundError:
+            log.error('{} not a model'.format(model_dir))
+            continue
+
+        result_dir = os.path.join(args.results_dir, testset, model_name)
 
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
-
+            
         output = do_what_you_gotta_do(model_dir, result_dir, n_images=n_images, png=args.png, tex=args.tex)
 
         if args.plot:

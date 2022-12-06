@@ -301,9 +301,8 @@ if __name__ == '__main__':
 
         if len(combo) == 1:
             combo_name = combo[0]
-            y_classif[combo_name] = {s: torch.argmax(t['iws'][testset][combo_name], dim=0)
+            y_classif[combo_name] = {s: torch.argmax(t['iws'][s][combo_name], dim=0)
                                      for s in sets}
-
         for w in (wanted_aggs if len(combo) > 1 else ['mean']):
 
             combo_name = agg_type_letter[w].join(combo)

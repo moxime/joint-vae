@@ -251,6 +251,8 @@ if __name__ == '__main__':
         rate_cols = [_ for _ in cols if 'rate' in _]
         auc_cols = [_ for _ in cols if 'auc' in _]
 
+        print('***', *results_df.columns)
+        print('*** ->', *cols)
         results_df = results_df[cols]
 
         cols = results_df.columns

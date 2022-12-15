@@ -1120,7 +1120,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         logging.debug('Net evaled')
                         L = batch_losses['total'].mean()
                         logging.debug('Backwarding net')
-                        L.backward()
+                        L.backward(retain_graph=True)
                 else:
                     with torch.no_grad():
                         for _ in range(trials):
@@ -2320,7 +2320,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         print('GRAD NAN')
 
-                L.backward()
+                L.backward(retain_graph=True)
                 optimizer.step()
 
                 for k in batch_losses:

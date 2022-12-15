@@ -720,18 +720,18 @@ class RSTFeatures(nn.Sequential):
 
         self.output_shape = (T,)
         
-        layers = self._make_layers(input_shape[0], T, P, lp_learned)
+        layers = self._make_layers(input_shape, T, P, lp_learned)
 
         super().__init__(*layers)
 
-    def _make_layers(self, input_channels, T, P, lp_learned):
+    def _make_layers(self, input_shape, T, P, lp_learned):
 
         layers = []
-        if input_channels > 1:
-            layers.append(nn.Conv2d, input_channels, 1, 1, stride=1)
+        if input_shape[0] > 1:
+            layers.append(nn.Conv2d, input_shape[0], 1, 1, stride=1)
 
-        rstextract = RSTExtractModule(2, T=T, norm=2, weighing_harmonics=P,
-                                      init_lp='rand' if lp_learned else 0, store_masks_tensors=False)
+        rstextract = RSTExtractModule(2, T=T, shape=input_shape[1:], norm=2, weighing_harmonics=P,
+                                      init_lp='rand' if lp_learned else 0, store_masks_tensors=True)
 
         layers.append(rstextract)
 

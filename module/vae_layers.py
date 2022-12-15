@@ -5,6 +5,7 @@ from torch.nn import functional as F, Parameter
 from utils.print_log import texify_str
 import logging
 from torchvision import models
+from module.rst.module import ExtractModule as RSTExtractModule
 
 
 def adapt_batch_function(arg=1, last_shapes=1):
@@ -708,6 +709,34 @@ class ConvFeatures(nn.Sequential):
         return layers
 
 
+class RSTFeatures(nn.Sequential):
+
+    def __init__(self, input_shape, T, P, lp_learned):
+
+        self.input_shape = input_shape
+        self.T = T
+        self.P = P
+        self.lp_learned = lp_learned and P>0
+
+        self.output_shape = (T,)
+        
+        layers = self._make_layers(input_shape[0], T, P, lp_learned)
+
+        super().__init__(*layers)
+
+    def _make_layers(self, input_channels, T, P, lp_learned):
+
+        layers = []
+        if input_channels > 1:
+            layers.append(nn.Conv2d, input_channels, 1, 1, stride=1)
+
+        rstextract = RSTExtractModule(2, T=T, norm=2, weighing_harmonics=P,
+                                      init_lp='rand' if lp_learned else 0, store_masks_tensors=False)
+
+        layers.append(rstextract)
+
+        return layers
+
 class Encoder(nn.Module):
 
     capacity_log_barrier = 0.001
@@ -772,7 +801,7 @@ class Encoder(nn.Module):
 
         elif isinstance(latent_prior_means, torch.Tensor):
             prior_means = latent_prior_means
-                
+
         else:
             prior_means = latent_prior_means * torch.randn(num_labels, latent_dim)
 

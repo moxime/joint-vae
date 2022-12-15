@@ -1,0 +1,3 @@
+[submodule "module/rst"]
+	path = module/rst
+	url = /home/maxime/dev/watermarking/rst

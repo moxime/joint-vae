@@ -11,6 +11,7 @@ from utils.save_load import LossRecorder, available_results, develop_starred_met
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, VGGDecoder, Encoder, Classifier, ConvFeatures, Sigma
+from module.vae_layers import RSTFeatures
 from module.vae_layers import ResOrDenseNetFeatures
 from module.vae_layers import onehot_encoding, Hsv2rgb, Rgb2hsv
 import tempfile
@@ -114,6 +115,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     ODIN_TEMPS = [_ * 10 ** i for i in (0, 1, 2) for _ in (1, 2, 5)] + [1000]
     ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
+    ODIN_EPS = [_ / 20 * 0.004 for _ in range(2)]
 
     odin_params = []
     for T in ODIN_TEMPS:
@@ -249,6 +251,21 @@ class ClassificationVariationalNetwork(nn.Module):
                                  'features_channels': features_channels,
                                  'conv_padding': conv_padding, }
 
+            elif features.startswith('rst'):
+                features_ = features.split('-')
+                T = int(features.split('-')[1])
+                P = 0 if len(features_) > 2 else int(features_[-1]) 
+                learned_lp = P > 0
+                
+                self.features = RSTFeatures(input_shape, T, P, learned_lp)
+
+                self.features.name = features
+                
+                features_arch = {'features': features,
+                                 'T': T,
+                                 'P': P,
+                                 'learned_lp': learned_lp}
+                
             features_arch['name'] = self.features.name
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')

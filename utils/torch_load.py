@@ -206,7 +206,7 @@ def get_dataset(dataset='mnist',
 
     set_props = dataset_properties(conf_file=conf_file, all_keys=True)[parent_set]
 
-    first_target_transform = target_transforms.get(set_props.get('target_transform'), lambda y: y)
+    first_target_transform = target_transforms.get(set_props.get('target_transform'), None)
 
     if heldout_classes:
         dataset = parent_set

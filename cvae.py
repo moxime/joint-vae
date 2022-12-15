@@ -254,7 +254,7 @@ class ClassificationVariationalNetwork(nn.Module):
             elif features.startswith('rst'):
                 features_ = features.split('-')
                 T = int(features.split('-')[1])
-                P = 0 if len(features_) > 2 else int(features_[-1]) 
+                P = 0 if len(features_) < 3 else int(features_[-1]) 
                 learned_lp = P > 0
                 
                 self.features = RSTFeatures(input_shape, T, P, learned_lp)

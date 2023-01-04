@@ -14,6 +14,13 @@ from datetime import datetime
 from utils.parameters import DEFAULT_RESULTS_DIR
 
 
+def bold_best_values(data, value, format_string='{:.1f}', prec=1, highlight='\\bfseries ', max_value=99.9):
+
+    if round(data, prec) == round(value, prec):
+        return highlight + format_string.format(min(data, max_value))
+    return format_string.format(min(data, max_value))
+
+
 def tex_architecture(net_dict, filename='arch.tex',
                      directory=os.path.join(DEFAULT_RESULTS_DIR, '%j'),
                      stdout=False,):
@@ -472,11 +479,13 @@ class TexCell(object):
             s += r'\multicolumn{{{}}}{{{}}}'.format(self.width, self._multicol)
             s += '{'
 
-        if tex:
-            s += tex_faces.get(self._face, '')
-
+        if tex and self.face:
+            s += tex_faces.get(self._face, '') + '{'
+            
         s += str(self).__format__(spec)
 
+        if tex and self.face:
+            s += '}'
         if self._multicol and tex:
             s += '}'
 

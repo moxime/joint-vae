@@ -263,7 +263,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 
                 features_arch = {'features': features}
                 
-            # features_arch['name'] = self.features.name
+            features_arch['name'] = self.features.name
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')
 

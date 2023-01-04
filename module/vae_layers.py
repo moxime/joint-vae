@@ -339,8 +339,8 @@ class Prior(nn.Module):
             if loss_components[k].isnan().any():
                 logging.error('*** {} is nan'.format(k))
                 stop = True
-        if stop:
-            return
+        # if stop and False:
+        #     return
 
         # for k in loss_components:
         #    logging.debug('TBR in KL %s %s', k, loss_components[k].shape)

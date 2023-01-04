@@ -899,7 +899,8 @@ class ClassificationVariationalNetwork(nn.Module):
             if not batch:
                 logging.debug(f'KL coef={self.sigma}')
             # print('*** 612: T:', *batch_losses['total'].shape, 'kl', *batch_losses['kl'].shape)
-            batch_losses['total'] += self.sigma * batch_losses['kl']
+            if self.sigma > 0:
+                batch_losses['total'] += self.sigma * batch_losses['kl']
         else:
             beta = self.beta if with_beta else 1.
             if not batch:

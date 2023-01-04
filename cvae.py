@@ -261,12 +261,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 self.features.name = features
                 
-                features_arch = {'features': features,
-                                 'T': T,
-                                 'P': P,
-                                 'learned_lp': learned_lp}
+                features_arch = {'features': features}
                 
-            features_arch['name'] = self.features.name
+            # features_arch['name'] = self.features.name
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')
 
@@ -2752,7 +2749,7 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Loading state')
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:
-                state_dict = torch.load(w_p)
+                state_dict = torch.load(w_p, map_location='cuda')
                 _sigma = state_dict.pop('_sigma', None)
                 if _sigma:
                     # print(f'cvae:1735: sigma: {vae.sigma.shape}, _sigma:{_sigma.shape}')
@@ -2779,7 +2776,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 raise e
             w_p = save_load.get_path(dir_name, 'optimizer.pth')
             try:
-                state_dict = torch.load(w_p)
+                state_dict = torch.load(w_p, map_location='cuda')
                 vae.optimizer.load_state_dict(state_dict)
 
             except FileNotFoundError:

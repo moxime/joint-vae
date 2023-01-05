@@ -53,7 +53,7 @@ if __name__ == '__main__':
     kept_temps = [np.nan] + args.kept_temps
 
     logging.getLogger().setLevel(40 - 10 * args.v)
-    
+
     metrics_for_mis = args.metrics
 
     filter_parser = create_filter_parser()
@@ -75,13 +75,13 @@ if __name__ == '__main__':
             f.write(sdir + '\n')
 
     print(len(mdirs), 'complete model' + ('s' if len(mdirs) > 1 else ''), 'over', total_models)
-    
+
     if not mdirs:
         logging.warning('Exiting, load files')
         logging.warning('E.g: %s', '$ rsync -avP --files-from=/tmp/files remote:dir/joint-vae .')
 
     for mdir in mdirs:
-        
+
         model = M.load(mdir, load_state=False)
         testset = model.training_parameters['set']
 
@@ -96,17 +96,20 @@ if __name__ == '__main__':
         predict_method = model.predict_methods[0]
 
         if args.when == 'min-loss':
+            epoch_name = 'min-loss'
             epoch = model.training_parameters.get('early-min-loss', 'last')
 
         if args.when == 'last' or epoch == 'last':
+            epoch_name = 'last'
             epoch = max(model.testing)
-            
-        results = model.testing[epoch][predict_method]
 
+        results = model.testing[epoch][predict_method]
+       
         misclass_methods = {_: None for _ in develop_starred_methods(model.misclass_methods, model.methods_params)}
 
         acc = results['accuracy']
-        print('*** {} accuracy ({}) {:.2%}%'.format(model.job_number, predict_method, acc)) 
+        print('*** {}@{}={} -- accuracy ({}) {:.2%}%'.format(model.job_number, epoch_name,
+                                                              epoch, predict_method, acc))
         fpr = []
         P = []
         for m in misclass_methods:
@@ -121,10 +124,10 @@ if __name__ == '__main__':
 
             fpr.append(100 * fpr_at_tpr(results[m]['fpr'], results[m]['tpr'], tpr))
             P.append(100 * fpr_at_tpr(results[m]['precision'], results[m]['tpr'], tpr))
-            
+
         idx = pd.MultiIndex.from_tuples(misclass_methods.values(), name=['method', 'temp', 'eps'])
         rename = {'softzdist': 'soft-euclid', 'zdist': 'euclid'}
-        
+
         df = pd.DataFrame.from_records({'prec': P, 'fpr': fpr}, index=idx)
 
         df['dP'] = df['prec'] - 100 * acc
@@ -140,16 +143,16 @@ if __name__ == '__main__':
         index_rename.update({'soft' + k: v for k, v in index_rename.items()})
         df.rename(columns={'fpr': 'FPR', 'prec': 'P'}, index=index_rename, inplace=True)
         df.index = df.index.rename({'temp': 'T'})
-        
+
         i_T = df.index.get_level_values('T').isin(kept_temps)
 
         i_ = i_T & i_E
 
         if not drop_eps:
             df.reset_index('eps', drop=True, inplace=True)
-        
+
         _f = dict(float_format='{:.1f}'.format, na_rep='')
-        
+
         df = df[i_]
 
         df.sort_index(level='T', na_position='first', inplace=True)
@@ -163,16 +166,15 @@ if __name__ == '__main__':
         index_sort['KL'] = 50
         index_sort['kl_rec'] = 45
         index_sort['baseline'] = 15
-        
+
         def sorting_callable(idx):
             return pd.Index([index_sort[_] for _ in idx], name=idx.name)
-        
+
         df.sort_index(level='method', inplace=True, key=sorting_callable)
-        
+
         print(df.to_string(**_f))
 
         rfile = os.path.join(args.result_dir, 'misclass-{}'.format(model.job_number))
         df.to_latex(buf=rfile, **_f, formatters={'dP': '{:+.2f}'.format})
-        
+
         r = LossRecorder.loadall(os.path.join(mdir, 'samples', '{:04d}'.format(epoch)))[testset]._tensors
-                                         

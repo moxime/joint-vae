@@ -21,7 +21,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('jobs', nargs='+')
 parser.add_argument('-v', action='count', default=0)
-parser.add_argument('--results-dir', default='/tmp/cascad-jobs/')
+parser.add_argument('--result-dir', default='/tmp/cascad-jobs/',
+                    help='where to record results. %d will be replaced by dataset')
 parser.add_argument('--plot', action='store_true')
 parser.add_argument('--png', action='store_true')
 parser.add_argument('--images', default=10, type=int)
@@ -465,7 +466,7 @@ if __name__ == '__main__':
             log.error('{} not a model'.format(model_dir))
             continue
 
-        result_dir = os.path.join(args.results_dir, testset, model_name)
+        result_dir = os.path.join(args.result_dir.replace('%d', testset), model_name)
 
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)

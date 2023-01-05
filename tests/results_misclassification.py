@@ -104,12 +104,12 @@ if __name__ == '__main__':
             epoch = max(model.testing)
 
         results = model.testing[epoch][predict_method]
-       
+
         misclass_methods = {_: None for _ in develop_starred_methods(model.misclass_methods, model.methods_params)}
 
         acc = results['accuracy']
         print('*** {}@{}={} -- accuracy ({}) {:.2%}%'.format(model.job_number, epoch_name,
-                                                              epoch, predict_method, acc))
+                                                             epoch, predict_method, acc))
         fpr = []
         P = []
         for m in misclass_methods:

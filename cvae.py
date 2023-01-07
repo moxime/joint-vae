@@ -719,7 +719,9 @@ class ClassificationVariationalNetwork(nn.Module):
         # logging.debug('*** TBR in cvae' + debug_msg)
 
         batch_kl_losses = self.encoder.prior.kl(mu, log_var,
-                                                y=y if self.encoder.prior.conditional else None)
+                                                y=y if self.encoder.prior.conditional else None,
+                                                var_weighting=kl_var_weighting,
+                                                )
 
         zdist = batch_kl_losses['distance']
         var_kl = batch_kl_losses['var_kl']

@@ -280,7 +280,7 @@ class Prior(nn.Module):
             logging.error(error_msg)
             return 0.
 
-    def kl(self, mu, log_var, y=None, output_dict=True):
+    def kl(self, mu, log_var, y=None, output_dict=True, var_weighting=1.):
         """Params:
 
         -- mu: NxK means 
@@ -349,7 +349,7 @@ class Prior(nn.Module):
                                      self.dim)
 
         loss_components['kl'] = 0.5 * (loss_components['distance'] +
-                                       loss_components['var_kl'])
+                                       var_weighting * loss_components['var_kl'])
 
         return loss_components if output_dict else loss_components['kl']
 

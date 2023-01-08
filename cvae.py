@@ -1954,7 +1954,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     oodsets=None,
                     acc_methods=None,
                     fine_tuning=False,
-                    warmup=0,
+                    warmup=[0,0],
                     latent_sampling=None,
                     validation_sample_size=1024,
                     full_test_every=10,
@@ -2050,7 +2050,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         logging.info('Train batch size is {}'.format(train_batch_size))
 
-        warmup = max(warmup, self.training_parameters.get('warmup', 0))
+        for _ in (0, 1):
+            warmup[_] = max(warmup[_], self.training_parameters.get('warmup', [0, 0])[_])
         self.training_parameters['warmup'] = warmup
 
         x_fake = torch.randn(test_batch_size, *self.input_shape, device=self.device)
@@ -2282,7 +2283,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 optimizer.zero_grad()
 
                 if self.training:
-                    warmup_weighting = min(1., (epoch + 1) / (warmup + 1))
+                    warmup_weighting = max(1e-6, min(1., (epoch - warmup[0]) / (warmup[1] + 1)))
                 else:
                     warmup_weighting = 1.
 
@@ -2292,7 +2293,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_losses, measures) = self.evaluate(x, y,
                                                          batch=i,
                                                          with_beta=True,
-                                                         kl_var_weighting=warmup_weighting ** 2,
+                                                         kl_var_weighting=warmup_weighting,
                                                          # mse_weighting=warmup_weighting,
                                                          current_measures=current_measures)
 
@@ -2563,7 +2564,7 @@ class ClassificationVariationalNetwork(nn.Module):
         train_params = {'pretrained_features': None,
                         'pretrained_upsampler': None,
                         'beta': 1.,
-                        'warmup': 0,
+                        'warmup': [0, 0],
                         'gamma': 0.,
                         'data_augmentation': [],
                         'fine_tuning': [],

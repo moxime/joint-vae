@@ -293,6 +293,10 @@ if __name__ == '__main__':
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
+    warmup = args.warmup
+    if len(warmup) == 1:
+        warmup = [0, warmup[0]]
+
     if not dry_run:
         if jvae.trained < args.epochs:
             log.info('Training of %s', jvae.print_architecture())
@@ -312,7 +316,7 @@ if __name__ == '__main__':
                              oodsets=oodsets,
                              data_augmentation=data_augmentation,
                              fine_tuning=args.fine_tuning,
-                             warmup=args.warmup,
+                             warmup=warmup,
                              validation_sample_size=test_sample_size,  # 10000,
                              save_dir=save_dir,
                              outputs=outputs,

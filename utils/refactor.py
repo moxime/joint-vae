@@ -109,7 +109,8 @@ def refactor_from_log_file(json_file,
 
     to_follow = {}
 
-    log_files = [f for f in os.listdir(log_directory) if f.startswith(log_file_pre)]
+    log_files = [f for f in os.listdir(
+        log_directory) if f.startswith(log_file_pre)]
 
     for f in log_files:
 
@@ -122,7 +123,8 @@ def refactor_from_log_file(json_file,
             for k in vals:
                 for line in lines:
                     if k + ':' in line:
-                        vals[k] = types[k](line.strip().split(k + ':')[-1].strip())
+                        vals[k] = types[k](
+                            line.strip().split(k + ':')[-1].strip())
             for line in lines:
                 if '[I] ' + vals['job_dir'] in line:
                     directory = line.strip('\n').split('[I] ')[-1]
@@ -147,7 +149,8 @@ def refactor_from_log_file(json_file,
         directory = nets[j]['dir']
         val = to_follow[j]
         print('\n***', j, ':', val, '***')
-        load_and_save_json(directory, json_file, key, new_value=val, recursive=False, write_json=write_json)
+        load_and_save_json(directory, json_file, key, new_value=val,
+                           recursive=False, write_json=write_json)
 
 
 def load_and_save_json(directory,
@@ -157,6 +160,7 @@ def load_and_save_json(directory,
                        old_value=None,
                        new_value=None,
                        recursive=True,
+                       suffix='',
                        write_json=False):
 
     assert new_key is None or old_value is None
@@ -186,7 +190,8 @@ def load_and_save_json(directory,
             if new_key:
                 v = t.pop(key)
                 t[new_key] = v
-                print(' ->', new_key, ':', t[new_key], '*' if write_json else '')
+                print(' ->', new_key, ':',
+                      t[new_key], '*' if write_json else '')
             if write_json:
                 copyfile(name, name + '.bak')
                 print('w', name, '\n', t)
@@ -214,7 +219,8 @@ def beta_to_dict(directory, write_json=False):
             return f'{f:{k}.3f}'
         return '.' * k
 
-    file_paths = {n: os.path.join(directory, n+'.json') for n in ('train', 'history')}
+    file_paths = {n: os.path.join(directory, n + '.json')
+                  for n in ('train', 'history')}
 
     t = {n: None for n in file_paths}
     for n in file_paths:
@@ -263,7 +269,8 @@ def beta_to_dict(directory, write_json=False):
             k_ = [k for k in t_.keys() if 'sigma' in k]
             for k in k_:
                 t_.pop(k, None)
-            t_['sigma'] = dict(value=sigma, reach=reach, decay=decay, sigma0=sigma0)
+            t_['sigma'] = dict(value=sigma, reach=reach,
+                               decay=decay, sigma0=sigma0)
             sigma = Sigma(**t_['sigma'])
             k_ = [k for k in t_.keys() if 'sigma' in k]
             print('| ', ' '.join(k_))
@@ -374,4 +381,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print('Working on', args.job_dir)
-    modify_train_file_coder(args.job_dir, write_json=args.write, old_suffix='before-reg')
+    load_and_save_json(args.job_dir, 'train.json', 'warmup',
+                       old_value=0, new_value=[0, 0], suffix='-warmup')

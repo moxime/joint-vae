@@ -309,8 +309,8 @@ def option_vector(o, empty=' ', space=' '):
     v_.append(w)
 
     w = 'w:'
-    if training.warmup:
-        w += f'{training.warmup:02d}'
+    if training.warmup[-1]:
+        w += f'{training.warmup[0]:02.0f}--{training.warmup[1]:02.0f}'
     else:
         w += 2 * empty
     v_.append(w)

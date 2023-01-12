@@ -1,10 +1,14 @@
 #!/bin/bash
 remote=lab-ia
 push=
-target=$(dirname $0)/../jobs
+
 opt=( --exclude '*.pth' -uvP --exclude '*.out' )
 while :; do
     case $1 in
+	--jobdir )
+	    shift
+	    jobdir="$1"
+	    ;;
 	--push )
 	    push=True
 	    ;;
@@ -26,6 +30,9 @@ while :; do
     esac
     shift
 done
+
+target=$(dirname $0)/../$jobdir
+
 if [ $1 ]
 then
     remote=$1
@@ -34,12 +41,12 @@ shift
 
 if [ "$remote" = "lab-ia" ]
 then
-    source="~/joint-vae/jobs"
+    source="~/joint-vae/$jobdir"
 elif [ "$remote" = "z4" ]
 then
-     source="~/jvae/jobs"
+     source="~/jvae/$jobdir"
 else
-    source="~/python/dnn/joint-vae/jobs"
+    source="~/python/dnn/joint-vae/$jobdir"
 fi
 
 echo $remote $source

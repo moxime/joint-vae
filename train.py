@@ -223,6 +223,9 @@ if __name__ == '__main__':
         oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
 
+        if args.oodsets is not None:
+            oodsets = [_ for _ in oodsets if _.name in args.oodsets]
+
         data_augmentation = args.data_augmentation
         latent_sampling = args.latent_sampling
 

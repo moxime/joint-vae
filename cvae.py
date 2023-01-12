@@ -115,7 +115,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     ODIN_TEMPS = [_ * 10 ** i for i in (0, 1, 2) for _ in (1, 2, 5)] + [1000]
     ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
-    ODIN_EPS = [_ / 20 * 0.004 for _ in range(2)]
+    ODIN_EPS = [0]
 
     odin_params = []
     for T in ODIN_TEMPS:
@@ -1596,8 +1596,11 @@ class ClassificationVariationalNetwork(nn.Module):
                                 softmax = (no_temp_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]
                                 X = softmax.sum()
                             # print('***', X.requires_grad, (X / batch_size).cpu().item())
-                            X.backward(retain_graph=True)
-                            dx = x.grad.sign()
+                            if max(self.ODIN_EPS) > 0:
+                                X.backward(retain_graph=True)
+                                dx = x.grad.sign()
+                            else:
+                                dx = 0.
                             for eps in self.ODIN_EPS:
                                 _, odin_logits = self.forward(x + eps * dx, z_output=False)
                                 out_probs = (odin_logits[1:].mean(0) / T).softmax(-1).max(-1)[0]

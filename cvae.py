@@ -254,15 +254,17 @@ class ClassificationVariationalNetwork(nn.Module):
             elif features.startswith('rst'):
                 features_ = features.split('-')
                 T = int(features.split('-')[1])
-                P = 0 if len(features_) < 3 else int(features_[-1]) 
+                P = 0 if len(features_) < 3 else int(features_[-1])
                 learned_lp = P > 0
-                
-                self.features = RSTFeatures(input_shape, T, P, learned_lp)
+
+                estimate_mean = '~' in features
+
+                self.features = RSTFeatures(input_shape, T, P, learned_lp, estimate_mean=estimate_mean)
 
                 self.features.name = features
-                
+
                 features_arch = {'features': features}
-                
+
             features_arch['name'] = self.features.name
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')
@@ -329,7 +331,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                activation=activation, sampling=sampling)
         if loaded_prior_means:
             latent_prior_means = loaded_prior_means
-            
+
         activation_layer = activation_layers[activation]()
 
         if self.x_is_generated:

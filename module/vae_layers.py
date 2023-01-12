@@ -334,11 +334,13 @@ class Prior(nn.Module):
 
         loss_components['distance'] = self.mahala(mu, y)
 
-        stop = False
+        print_error = False
         for k in loss_components:
             if loss_components[k].isnan().any():
                 logging.error('*** {} is nan'.format(k))
-                stop = True
+                print_error = True
+        if print_error:
+            print('mu {}'.format(mu.mean()))
         # if stop and False:
         #     return
 
@@ -533,6 +535,10 @@ class Sampling(nn.Module):
         self.is_sampled = sampling
         super().__init__(**kwargs)
 
+    def __repr__(self):
+
+        return 'Sampling(L={}, {}sampled)'.format(self.sampling_size, '' if self.is_sampled else 'not ')
+
     def forward(self, z_mean, z_log_var):
 
         sampling_size = self.sampling_size
@@ -543,7 +549,9 @@ class Sampling(nn.Module):
         #        f'z_mean: {z_mean.size()} ' +
         #        f'epsilon: {epsilon.size()}'))
         # print('vl:136', self.is_sampled)
-        return (z_mean + torch.exp(0.5 * z_log_var) * epsilon * self.is_sampled,
+
+        dz = torch.exp(0.5 * z_log_var) * epsilon if self.is_sampled else torch.zeros_like(epsilon)
+        return (z_mean + dz,
                 epsilon[1:])
 
 
@@ -711,15 +719,17 @@ class ConvFeatures(nn.Sequential):
 
 class RSTFeatures(nn.Sequential):
 
-    def __init__(self, input_shape, T, P, lp_learned):
+    def __init__(self, input_shape, T, P, lp_learned, estimate_mean=False):
 
         self.input_shape = input_shape
         self.T = T
         self.P = P
-        self.lp_learned = lp_learned and P>0
+        self.lp_learned = lp_learned and P > 0
 
         self.output_shape = (T,)
-        
+
+        self.estimate_mean = estimate_mean
+
         layers = self._make_layers(input_shape, T, P, lp_learned)
 
         super().__init__(*layers)
@@ -731,11 +741,13 @@ class RSTFeatures(nn.Sequential):
             layers.append(nn.Conv2d(input_shape[0], 1, 1, stride=1))
 
         rstextract = RSTExtractModule(2, T=T, shape=input_shape[1:], norm=2, weighing_harmonics=P,
+                                      estimate_mean=self.estimate_mean,
                                       init_lp='rand' if lp_learned else 0, store_masks_tensors=True)
 
         layers.append(rstextract)
 
         return layers
+
 
 class Encoder(nn.Module):
 
@@ -871,6 +883,7 @@ class Encoder(nn.Module):
             pass
             # print('*** v_l:319', 'x:', *x.shape)
 
+        # print('*** input x at encoder {:.3e}'.format(x.mean()))
         u = x if y is None else torch.cat((x, y), dim=-1)
 
         # print('**** vl l 242', 'y mean', y.mean().item())
@@ -903,6 +916,8 @@ class Encoder(nn.Module):
             # logging.debug(f'Variance forced {z_log_var.mean()} +- {z_log_var.std()}')
         else:
             z_log_var = self.dense_log_var(u)
+
+        # print('output z at encoder {:.3e} / {:.3e}'.format(z_mean.mean(), z_log_var.mean()))
 
         z, e = self.sampling(z_mean, z_log_var)
 

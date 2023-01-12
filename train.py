@@ -197,6 +197,10 @@ if __name__ == '__main__':
                      output_activation=args.output_activation)
 
     if args.show:
+        print('Eval')
+        print(jvae)
+        print('Train')
+        jvae.train()
         print(jvae)
         sys.exit(0)
 

@@ -37,7 +37,8 @@ def tex_architecture(net_dict, filename='arch.tex',
     classes = [c for (i, c) in enumerate(parent_classes) if i not in heldout]
     ood_results = net.ood_results.get(epoch, {})
     ood_sets = list(ood_results)
-    ood_sets.remove(trainset)
+    if trainset in ood_sets:
+        ood_sets.remove(trainset)
     exported_values = dict(
         oftype=oftype,
         dataset=trainset,

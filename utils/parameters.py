@@ -348,7 +348,7 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--output-dir', metavar='DIR/')
 
-    parser.add_argument('--show', action='store_true',
+    parser.add_argument('--show', nargs='?', default=None, const='both',
                         help='Show network structure and exit')
 
     parser.add_argument('--where', action='store_true',

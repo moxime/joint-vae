@@ -68,8 +68,11 @@ if __name__ == '__main__':
     cuda_version = torch.version.cuda
     cudnn_version = torch.backends.cudnn.version()
 
-    log.debug(f'Using cuda v. {cuda_version} and '
-              f'cudnn v. {cudnn_version / 1000:.3f}')
+    if cuda_version and cudnn_version:
+        log.debug(f'Using cuda v. {cuda_version} and '
+                  f'cudnn v. {cudnn_version / 1000:.3f}')
+    else:
+        log.debug('Loos like cuda not here')
 
     batch_size = args.batch_size
     test_sample_size = args.test_sample_size
@@ -197,12 +200,18 @@ if __name__ == '__main__':
                      output_activation=args.output_activation)
 
     if args.show:
-        print('Eval')
-        print(jvae)
-        print('Train')
-        jvae.train()
-        print(jvae)
+        vert_space = False
+        if args.show in ('eval', 'test', 'both'):
+            print('=== Eval ===')
+            print(jvae)
+            vert_space = True
+        if args.show in ('train', 'both'):
+            if vert_space: print('')
+            print('=== Train ===')
+            jvae.train()
+            print(jvae)
         sys.exit(0)
+
 
     if resume:
         dataset, transformer = jvae.training_parameters['set'], jvae.training_parameters['transformer']

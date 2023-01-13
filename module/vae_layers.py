@@ -738,7 +738,9 @@ class RSTFeatures(nn.Sequential):
 
         layers = []
         if input_shape[0] > 1:
-            layers.append(nn.Conv2d(input_shape[0], 1, 1, stride=1))
+            conv = nn.Conv2d(input_shape[0], 1, 1, stride=1, bias=False)
+            conv.weight = nn.Parameter(torch.ones_like(conv.weight), requires_grad=False)
+            layers.append(conv)
 
         rstextract = RSTExtractModule(2, T=T, shape=input_shape[1:], norm=2, weighing_harmonics=P,
                                       estimate_mean=self.estimate_mean,

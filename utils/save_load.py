@@ -1031,18 +1031,19 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         latent_means = architecture.latent_prior_means
         if learned_prior_means:
             latent_means = 'random'
-            latent_prior = 'l'
+            latent_prior = 'm:l'
         elif latent_means == 'onehot':
-            latent_prior = '1'
+            latent_prior = 'm:1'
             latent_means = 'onehot'
         else:
             latent_means = 'random'
-            latent_prior = 'r'
+            latent_prior = 'm:r'
+        latent_prior += '--v:'
         latent_prior += latent_prior_variance[0]
         if forced_var:
-            latent_prior += 'F'
+            latent_prior += '--FV'
         else:
-            latent_prior += '-'
+            latent_prior += ''
         if learned_prior_means:
             if history['train_measures']:
                 # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
@@ -1087,7 +1088,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'learned_prior_variance': learned_prior_variance,
             'latent_prior_variance': latent_prior_variance,
             'latent_prior_means': latent_means,
-            'latent': latent_prior,
+            'prior': latent_prior,
             'forced_var': forced_var,
             'gamma': model.training_parameters['gamma'],
             'arch_code': arch_code,

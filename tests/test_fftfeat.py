@@ -49,7 +49,7 @@ for _ in range(shows):
 
     im = ToPILImage()(x[_].squeeze())
     ax[0, _].imshow(im)
-    ax[1, _].imshow(f[_])
+    ax[1, _].imshow(f[_].to('cpu'))
 
 fig.show()
 

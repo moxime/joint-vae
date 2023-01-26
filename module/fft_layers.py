@@ -11,14 +11,18 @@ def phase(X):
 
     return X.angle()
 
+
 def module(X):
     return X.abs()
+
 
 def real(X):
     return X.real
 
+
 def imag(X):
     return X.imag
+
 
 def imodule(X):
     return torch.fft.ifft(X.abs()).real
@@ -34,6 +38,7 @@ transforms = {'module': module, 'phase': phase,
 
 order = list(transforms)
 
+
 class FFTFeatures(nn.Module):
 
     def __init__(self, input_shape, P=1, which=['module'], **kw):
@@ -41,14 +46,14 @@ class FFTFeatures(nn.Module):
         super().__init__(**kw)
 
         which = sorted(which, key=order.index)
-        
+
         self.input_shape = input_shape
         self.P = P
         self.which = which
 
-        self.output_shape = (P * input_shape[-2], P * input_shape[-1])
+    self.output_shape = (P * input_shape[-2] * len(which), P * input_shape[-1])
 
-        if input_shape[0] > 1:
+       if input_shape[0] > 1:
             conv = nn.Conv2d(input_shape[0], 1, 1, stride=1, bias=False)
             conv.weight = nn.Parameter(torch.ones_like(conv.weight), requires_grad=False)
             self.gs = conv

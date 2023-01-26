@@ -11,15 +11,14 @@ def phase(X):
 
     return X.angle()
 
-
-def sup_module(X):
-
-    return X / X.abs()
-
-
 def module(X):
     return X.abs()
 
+def real(X):
+    return X.real
+
+def imag(X):
+    return X.imag
 
 def imodule(X):
     return torch.fft.ifft(X.abs()).real
@@ -29,15 +28,20 @@ def iphase(X):
     return torch.fft.ifft(X / X.abs()).real
 
 
-transforms = {'module': module, 'phase': phase, 'phase~': sup_module, 'imodule': imodule, 'iphase': iphase}
+transforms = {'module': module, 'phase': phase,
+              'real': real, 'imag': imag,
+              'imodule': imodule, 'iphase': iphase}
 
+order = list(transforms)
 
 class FFTFeatures(nn.Module):
 
-    def __init__(self, input_shape, P=1, which='module', **kw):
+    def __init__(self, input_shape, P=1, which=['module'], **kw):
 
         super().__init__(**kw)
 
+        which = sorted(which, key=order.index)
+        
         self.input_shape = input_shape
         self.P = P
         self.which = which
@@ -56,8 +60,10 @@ class FFTFeatures(nn.Module):
         if self.gs:
             x = self.gs(x)
 
-        x.squeeze_(-3)
+        # x.squeeze_(-3)
 
         X = torch.fft.fft2(x, s=self.output_shape)
 
-        return transforms[self.which](X)
+        f_ = {_: transforms[_](X).squeeze(-3) for _ in self.which}
+
+        return torch.cat(tuple(f_[_] for _ in self.which), dim=1)

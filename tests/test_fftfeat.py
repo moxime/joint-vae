@@ -1,3 +1,4 @@
+import sys
 import argparse
 from matplotlib import pyplot as plt
 import PIL
@@ -33,6 +34,8 @@ shape = x.shape[-3:]
 
 # which = ['iphase', 'module', 'imodule', 'real', 'imag', 'phase']
 which = ['phase', 'module']
+which = ['iphase']
+which = ['imodule']
 
 m = F(shape, P=padding, which=which)
 
@@ -54,4 +57,5 @@ for _ in range(shows):
 
 fig.show()
 
-input()
+if sys.argv[0]:
+    input()

@@ -268,15 +268,15 @@ class ClassificationVariationalNetwork(nn.Module):
 
             elif features.startswith('fft'):
                 features_ = features.split('-')
+
                 try:
                     _adverb = 'manually '
                     P = int(features_[-1])
-                    features_ = features[:-1]
+                    features_ = features_[:-1]
                 except ValueError:
                     P = 1
-                    adverb_ = 'automatically '
-                logging.debug('Padding factor of fft features {}set to {}'.format(adverb_, P))
-
+                    _adverb = 'automatically '
+                logging.debug('Padding factor of fft features {}set to {}'.format(_adverb, P))
                 features_param = features_[1:]
                 self.features = FFTFeatures(input_shape, P=P, which=features_param)
                 self.features.name = '-'.join(self.features.which) + '-{}'.format(P)

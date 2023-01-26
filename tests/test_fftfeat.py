@@ -53,3 +53,4 @@ for _ in range(shows):
 
 fig.show()
 
+input()

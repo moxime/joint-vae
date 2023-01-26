@@ -51,7 +51,7 @@ class FFTFeatures(nn.Module):
         self.P = P
         self.which = which
 
-    self.output_shape = (P * input_shape[-2] * len(which), P * input_shape[-1])
+        self.output_shape = (P * input_shape[-2] * len(which), P * input_shape[-1])
 
        if input_shape[0] > 1:
             conv = nn.Conv2d(input_shape[0], 1, 1, stride=1, bias=False)

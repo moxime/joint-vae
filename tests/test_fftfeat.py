@@ -26,7 +26,7 @@ device = args.device
 
 dset, _ = get_dataset(dset)
 
-x, y = get_batch(dset)
+x, y = get_batch(dset, device=device)
 
 shape = x.shape[-3:]
 
@@ -34,6 +34,8 @@ shape = x.shape[-3:]
 which = ['iphase', 'module', 'imodule', 'real', 'imag', 'phase']
 
 m = F(shape, P=padding, which=which)
+
+m.to(device)
 
 f = m(x)
 

@@ -5,7 +5,6 @@ from torch.nn import functional as F, Parameter
 from utils.print_log import texify_str
 import logging
 from torchvision import models
-from module.rst.module import ExtractModule as RSTExtractModule
 
 
 def adapt_batch_function(arg=1, last_shapes=1):
@@ -398,7 +397,7 @@ class Sigma(Parameter):
 
         return super().__new__(cls, torch.zeros(sdim).fill_(value), requires_grad=learned)
 
-    def __init__(self, value=None, learned=False,  is_rmse=False,
+    def __init__(self, value=None, learned=False, is_rmse=False,
                  sdim=1,
                  input_dim=False,
                  reach=1, decay=0, max_step=None, sigma0=None, is_log=False):
@@ -709,45 +708,11 @@ class ConvFeatures(nn.Sequential):
                 layers.append(nn.BatchNorm2d(channel))
             # layers.append(activation_layer)
             layers.append(nn.ReLU(inplace=True))
-            h = h//2
-            w = w//2
+            h = h // 2
+            w = w // 2
             in_channels = channel
 
         self.output_shape = (in_channels, h, w)
-        return layers
-
-
-class RSTFeatures(nn.Sequential):
-
-    def __init__(self, input_shape, T, P, lp_learned, estimate_mean=False):
-
-        self.input_shape = input_shape
-        self.T = T
-        self.P = P
-        self.lp_learned = lp_learned and P > 0
-
-        self.output_shape = (T,)
-
-        self.estimate_mean = estimate_mean
-
-        layers = self._make_layers(input_shape, T, P, lp_learned)
-
-        super().__init__(*layers)
-
-    def _make_layers(self, input_shape, T, P, lp_learned):
-
-        layers = []
-        if input_shape[0] > 1:
-            conv = nn.Conv2d(input_shape[0], 1, 1, stride=1, bias=False)
-            conv.weight = nn.Parameter(torch.ones_like(conv.weight), requires_grad=False)
-            layers.append(conv)
-
-        rstextract = RSTExtractModule(2, T=T, shape=input_shape[1:], norm=2, weighing_harmonics=P,
-                                      estimate_mean=self.estimate_mean,
-                                      init_lp='rand' if lp_learned else 0, store_masks_tensors=True)
-
-        layers.append(rstextract)
-
         return layers
 
 
@@ -850,7 +815,7 @@ class Encoder(nn.Module):
         # E = np.exp(1)
 
         cdm = torch.cdist(m, m)
-        I = np.log(C) - 1 / C * torch.exp(-cdm.pow(2)/4).sum(0).log().sum()
+        I = np.log(C) - 1 / C * torch.exp(-cdm.pow(2) / 4).sum(0).log().sum()
         # + K/2 * np.log(2 / E)
 
         return I

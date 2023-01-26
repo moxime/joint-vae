@@ -101,10 +101,10 @@ class Mask(nn.Module):
         dim_names = ('P', 'theta', 'm', 'n')
         device = self.device
         m_ = ((torch.linspace(0, nH - 1, nH, device=device)[None, None, :, None] - Hmin) % nH) + Hmin
-        m_.rename_(*dim_names) 
+        m_.rename_(*dim_names)
 
         n_ = ((torch.linspace(0, nW - 1, nW, device=device)[None, None, None, :] - Wmin) % nW) + Wmin
-        n_.rename_(*dim_names) 
+        n_.rename_(*dim_names)
 
         theta = self.thetas[i]
         cost = torch.cos(theta)[None, :, None, None].rename(*dim_names)
@@ -176,7 +176,7 @@ class ExtractModule(nn.Module):
 
     def __repr__(self):
         return self.__str__()
-        
+
     def train(self, v=True):
         super().train(v)
 
@@ -340,3 +340,37 @@ if __name__ == '__main__':
 
     if len(sys.argv) > 1 and args.p:
         input()
+
+
+class RSTFeatures(nn.Sequential):
+
+    def __init__(self, input_shape, T, P, lp_learned, estimate_mean=False):
+
+        self.input_shape = input_shape
+        self.T = T
+        self.P = P
+        self.lp_learned = lp_learned and P > 0
+
+        self.output_shape = (T,)
+
+        self.estimate_mean = estimate_mean
+
+        layers = self._make_layers(input_shape, T, P, lp_learned)
+
+        super().__init__(*layers)
+
+    def _make_layers(self, input_shape, T, P, lp_learned):
+
+        layers = []
+        if input_shape[0] > 1:
+            conv = nn.Conv2d(input_shape[0], 1, 1, stride=1, bias=False)
+            conv.weight = nn.Parameter(torch.ones_like(conv.weight), requires_grad=False)
+            layers.append(conv)
+
+        rstextract = ExtractModule(2, T=T, shape=input_shape[1:], norm=2, weighing_harmonics=P,
+                                   estimate_mean=self.estimate_mean,
+                                   init_lp='rand' if lp_learned else 0, store_masks_tensors=True)
+
+        layers.append(rstextract)
+
+        return layers

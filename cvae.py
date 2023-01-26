@@ -11,9 +11,8 @@ from utils.save_load import LossRecorder, available_results, develop_starred_met
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, VGGDecoder, Encoder, Classifier, ConvFeatures, Sigma
-from module.vae_layers import RSTFeatures
 from module.vae_layers import ResOrDenseNetFeatures
-from module.fft_layers import FFTFeatures
+from module.fft_layers import FFTFeatures, RSTFeatures
 from module.vae_layers import onehot_encoding, Hsv2rgb, Rgb2hsv
 import tempfile
 import shutil
@@ -94,7 +93,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 'vib': ['esty']}
 
     metrics_per_type = {'jvae': ['rmse', 'dB', 'sigma'],
-                        'cvae': ['rmse', 'dB',  'd-mind', 'ld-norm', 'sigma'],
+                        'cvae': ['rmse', 'dB', 'd-mind', 'ld-norm', 'sigma'],
                         'xvae': ['rmse', 'dB', 'zdist', 'd-mind', 'ld-norm', 'sigma'],
                         'vae': ['rmse', 'dB', 'sigma'],
                         'vib': ['sigma', ]}
@@ -102,7 +101,7 @@ class ClassificationVariationalNetwork(nn.Module):
     ood_methods_per_type = {'cvae': ['iws-2s', 'iws-a-1-1', 'iws-a-1-4', 'iws-a-4-1',
                                      'iws', 'kl', 'mse', 'max', 'soft', 'wmse'],
                             'xvae': ['max', 'mean', 'std'],  # , 'mag', 'IYx'],
-                            'jvae': ['max', 'sum',  'std'],  # 'mag'],
+                            'jvae': ['max', 'sum', 'std'],  # 'mag'],
                             'vae': ['iws-2s', 'iws', 'logpx'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
@@ -247,7 +246,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                              features_channels,
                                              batch_norm=batch_norm_encoder,
                                              padding=conv_padding,
-                                             kernel=2*conv_padding+2)
+                                             kernel=2 * conv_padding + 2)
                 features_arch = {'features': features,
                                  'features_channels': features_channels,
                                  'conv_padding': conv_padding, }
@@ -494,7 +493,7 @@ class ClassificationVariationalNetwork(nn.Module):
         logging.debug(f'Going from {state} to {new_state}')
         self.latent_sampling = self.latent_samplings[new_state]
 
-    def forward(self, x, y=None, x_features=None,  **kw):
+    def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
 
         - x is of size N1x...xNgxD1x..xDt
@@ -650,7 +649,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if x_repeated_along_classes:
             # build a C* N1* N2* Ng *D1 * Dt tensor of input x_features
-            t = t.expand(C,  *t_shape)
+            t = t.expand(C, *t_shape)
 
         if y_is_built:
             # create a C * N1 * ... * Ng y tensor y[c,:,:,:...] = c
@@ -1155,7 +1154,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     logging.debug(_s)
                     batch_size //= 2
                 else:
-                    raise(e)
+                    raise (e)
 
     @property
     def max_batch_sizes(self):
@@ -2010,7 +2009,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             try:
                 set_name = trainset.name
-            except(AttributeError):
+            except (AttributeError):
                 set_name = trainset.__str__().splitlines()[0].split()[-1].lower()
             transformer = trainset.transformer
 
@@ -2374,7 +2373,7 @@ class ClassificationVariationalNetwork(nn.Module):
             if validation:
                 for k, v in zip(('accuracy', 'measures', 'loss'),
                                 (validation_accuracy, validation_measures, validation_loss)):
-                    self.train_history['validation_'+k].append(v)
+                    self.train_history['validation_' + k].append(v)
             if train_accuracy:
                 self.train_history['train_accuracy'].append(train_accuracy)
             self.train_history['train_loss'].append(train_mean_loss)
@@ -2640,7 +2639,7 @@ class ClassificationVariationalNetwork(nn.Module):
             train_params.update(save_load.load_json(dir_name, 'train.json'))
             logging.debug('Training parameters loaded')
             loaded_train = True
-        except(FileNotFoundError):
+        except (FileNotFoundError):
             pass
 
         loaded_test = False
@@ -2652,7 +2651,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 e = next(iter(testing.values()))['epochs']
                 testing = {e: testing}
 
-        except(FileNotFoundError):
+        except (FileNotFoundError):
             pass
 
         loaded_ood = False
@@ -2675,13 +2674,13 @@ class ClassificationVariationalNetwork(nn.Module):
                     ood_results = {}
                     logging.error('OOD not loaded \n%s', dir_name)
 
-        except(FileNotFoundError):
+        except (FileNotFoundError):
             ood_results = {}
             pass
 
         try:
             train_history = save_load.load_json(dir_name, 'history.json')
-        except(FileNotFoundError, IndexError):
+        except (FileNotFoundError, IndexError):
             train_history = {'epochs': 0}
 
         if not params.get('features', None):
@@ -2796,7 +2795,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         t_ = other.get(k, torch.Tensor([]))
                         s += f'{s_:40} === {tuple(t_.shape)}'
                         s += '\n'
-                        s += '\n'*4
+                        s += '\n' * 4
                         logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{vae}')
                 raise e
             w_p = save_load.get_path(dir_name, 'optimizer.pth')
@@ -2908,7 +2907,7 @@ if __name__ == '__main__':
             verb = 'resuming' if done_epochs else 'starting'
             print(f'{verb} training since epoch {done_epochs}')
             print(jvae.print_training())
-        except(FileNotFoundError, NameError) as err:
+        except (FileNotFoundError, NameError) as err:
             print(f'*** NETWORK NOT LOADED -- REBUILDING bc of {err} ***')
             rebuild = True
 

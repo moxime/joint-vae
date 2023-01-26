@@ -13,6 +13,7 @@ from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, VGGDecoder, Encoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import RSTFeatures
 from module.vae_layers import ResOrDenseNetFeatures
+from module.fft_layers import FFTFeatures
 from module.vae_layers import onehot_encoding, Hsv2rgb, Rgb2hsv
 import tempfile
 import shutil
@@ -265,9 +266,24 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 features_arch = {'features': features}
 
+            elif features.startswith('fft'):
+                features_ = features.split('-')
+                try:
+                    _adverb = 'manually '
+                    P = int(features_[-1])
+                    features_ = features[:-1]
+                except ValueError:
+                    P = 1
+                    adverb_ = 'automatically '
+                logging.debug('Padding factor of fft features {}set to {}'.format(adverb_, P))
+
+                features_param = features_[1:]
+                self.features = FFTFeatures(input_shape, P=P, which=features_param)
+                self.features.name = '-'.join(features.which) + '-{}'.format(P)
+
             features_arch['name'] = self.features.name
             encoder_input_shape = self.features.output_shape
-            logging.debug('Features built')
+            logging.debug('Features {} built'.format(self.features.name))
 
         else:
             encoder_input_shape = input_shape

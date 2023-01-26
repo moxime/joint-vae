@@ -7,10 +7,10 @@ from module.fft_layers import FFTFeatures as F
 from utils.torch_load import get_dataset, get_batch
 
 
-dset = 'mnist'
 dset = 'svhn'
+dset = 'mnist'
 device = 'cpu'
-padding = 2
+padding = 1
 
 parser = argparse.ArgumentParser()
 
@@ -31,7 +31,8 @@ x, y = get_batch(dset, device=device)
 shape = x.shape[-3:]
 
 
-which = ['iphase', 'module', 'imodule', 'real', 'imag', 'phase']
+# which = ['iphase', 'module', 'imodule', 'real', 'imag', 'phase']
+which = ['phase', 'module']
 
 m = F(shape, P=padding, which=which)
 

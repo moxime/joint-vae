@@ -52,7 +52,9 @@ class FFTFeatures(nn.Module):
         self.which = which
 
         self.output_shape = (P * input_shape[-2] * len(which), P * input_shape[-1])
+        self.fft_size = (P * input_shape[-2], P * input_shape[-1])
 
+        
         if input_shape[0] > 1:
             conv = nn.Conv2d(input_shape[0], 1, 1, stride=1, bias=False)
             conv.weight = nn.Parameter(torch.ones_like(conv.weight), requires_grad=False)
@@ -67,8 +69,11 @@ class FFTFeatures(nn.Module):
 
         # x.squeeze_(-3)
 
-        X = torch.fft.fft2(x, s=self.output_shape)
+        X = torch.fft.fft2(x, s=self.fft_size)
 
         f_ = {_: transforms[_](X).squeeze(-3) for _ in self.which}
 
+        # for _ in self.which:
+        #     print(_, *f_[_].shape)
+        
         return torch.cat(tuple(f_[_] for _ in self.which), dim=1)

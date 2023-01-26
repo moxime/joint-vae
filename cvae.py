@@ -12,7 +12,8 @@ from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundEr
 from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, VGGDecoder, Encoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import ResOrDenseNetFeatures
-from module.fft_layers import FFTFeatures, RSTFeatures
+from module.fft_layers import FFTFeatures
+from module.rst_layers import RSTFeatures
 from module.vae_layers import onehot_encoding, Hsv2rgb, Rgb2hsv
 import tempfile
 import shutil

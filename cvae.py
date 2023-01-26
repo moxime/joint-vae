@@ -280,6 +280,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 features_param = features_[1:]
                 self.features = FFTFeatures(input_shape, P=P, which=features_param)
                 self.features.name = '-'.join(self.features.which) + '-{}'.format(P)
+                features_arch = {'features': self.features.name}
 
             features_arch['name'] = self.features.name
             encoder_input_shape = self.features.output_shape

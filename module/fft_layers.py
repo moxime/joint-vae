@@ -7,25 +7,40 @@ import logging
 from torchvision import models
 
 
-def phase(X):
+def phase(X, half=False):
 
-    return X.angle()
+    L = X.shape[-1]
+    if half:
+        L //= 2
+    return X.angle()[..., :L]
 
 
-def module(X):
-    return X.abs()
+def module(X, half=False):
+    L = X.shape[-1]
+    if half:
+        L //= 2
+    return X.abs()[..., :L]
 
 
 def real(X):
-    return X.real
+    L = X.shape[-1]
+    if half:
+        L //= 2
+    return X.real[..., :L]
 
 
 def imag(X):
-    return X.imag
+    L = X.shape[-1]
+    if half:
+        L //= 2
+    return X.imag[..., :L]
 
 
-def imodule(X):
-    return torch.fft.ifft(X.abs()).real
+def imodule(X, half=True):
+    L = X.shape[-1]
+    if half:
+        L //= 2
+    return torch.fft.ifft(X.abs()).real[..., :L]
 
 
 def iphase(X):
@@ -45,13 +60,30 @@ class FFTFeatures(nn.Module):
 
         super().__init__(**kw)
 
-        which = sorted(which, key=order.index)
+        which_ = []
+        half_ = {}
 
+        for w in which:
+            if w.endswith('*'):
+                which_.append(w[:-1])
+                half_[w[:-1]] = True
+            else:
+                which_.append(w)
+                half_[w] = False
+
+        which_ = sorted(which_, key=order.index)
+
+        self._which = which_
+        self._half = half_
+        
         self.input_shape = input_shape
         self.P = P
-        self.which = which
 
-        self.output_shape = (P * input_shape[-2] * len(which), P * input_shape[-1])
+        self.which = [w + ('*' if half_[w] else '') for w in which_]
+
+        shape_mult_last_dim = sum([P / (2 if half_[_] else 1) for _ in which_])
+
+        self.output_shape = (P * input_shape[-2], int(shape_mult_last_dim * input_shape[-1]))
         self.fft_size = (P * input_shape[-2], P * input_shape[-1])
 
         if input_shape[0] > 1:
@@ -70,12 +102,12 @@ class FFTFeatures(nn.Module):
 
         X = torch.fft.fft2(x, s=self.fft_size)
 
-        f_ = {_: transforms[_](X).squeeze(-3) for _ in self.which}
+        f_ = {_: transforms[_](X, half=self._half[_]).squeeze(-3) for _ in self._which}
 
         # for _ in self.which:
         #     print(_, *f_[_].shape)
 
-        return torch.cat(tuple(f_[_] for _ in self.which), dim=1)
+        return torch.cat(tuple(f_[_] for _ in self._which), dim=-1)
 
     def __repr__(self):
         i = ','.join(str(_) for _ in self.input_shape)

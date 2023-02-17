@@ -303,7 +303,7 @@ class TiltedGaussianPrior(GaussianPrior):
                          learned_variance=False)
 
         self.tau = tau
-        self.mu_star = None
+        self._mu_star = tau
 
     def log_density(self, z, y=None):
 
@@ -311,7 +311,7 @@ class TiltedGaussianPrior(GaussianPrior):
 
     @property
     def mu_star(self):
-        return self.tau
+        return self._mu_star
 
     def kl(self, mu, log_var, y=None, output_dict=True, var_weighting=1.):
 

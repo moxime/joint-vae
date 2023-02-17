@@ -293,7 +293,8 @@ class GaussianPrior(nn.Module):
 
 class TiltedGaussianPrior(GaussianPrior):
 
-    def __init__(self, dim, num_priors=1, mean=0, learned_means=False, tau=0, var_type='scalar', learned_variance=False):
+    def __init__(self, dim, num_priors=1, mean=0, learned_means=False,
+                 tau=25, var_type='scalar', learned_variance=False):
 
         super().__init__(dim,
                          num_priors=num_priors,
@@ -307,7 +308,7 @@ class TiltedGaussianPrior(GaussianPrior):
 
     def log_density(self, z, y=None):
 
-        return super().log_density(z, y) - z.pow(2).sum(-1).sqrt
+        return super().log_density(z, y) - z.norm(dim=-1)
 
     @property
     def mu_star(self):

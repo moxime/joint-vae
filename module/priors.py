@@ -329,5 +329,7 @@ class TiltedGaussianPrior(GaussianPrior):
         mu_norm = distance.sqrt()
         kl = 0.5 * (mu_norm - self.mu_star) ** 2
 
-        loss_components.update({'mu_norm': mu_norm, 'kl': kl})
+        loss_components['mu_norm'] = mu_norm
+        loss_components['var_kl'] = torch.zeros_like(mu_norm)
+        loss_components['kl'] = kl
         return loss_components if output_dict else loss_components['kl']

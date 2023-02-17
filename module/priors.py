@@ -3,6 +3,7 @@ from torch import nn
 import numpy as np
 from utils.print_log import texify_str
 import logging
+from torch.nn import functional as F, Parameter
 
 
 def adapt_batch_function(arg=1, last_shapes=1):

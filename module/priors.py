@@ -5,6 +5,30 @@ from utils.print_log import texify_str
 import logging
 
 
+def adapt_batch_function(arg=1, last_shapes=1):
+
+    def adapter(func):
+        return adapt_batch_dim(func, arg=arg, last_shapes=last_shapes)
+    return adapter
+
+
+def adapt_batch_dim(func, arg=1, last_shapes=1):
+
+    def func_(*a, **kw):
+        x = a[arg]
+        batch_shape = x.shape[:-last_shapes]
+        working_shape = x.shape[-last_shapes:]
+        a = list(a)
+        try:
+            a[arg] = x.contiguous().view(-1, *working_shape)
+        except RuntimeError as e:
+            print('***  ERROR', 'x', *x.shape, 'w:', *working_shape)
+            raise e
+        res = func(*a, **kw)
+        return res.view(batch_shape)
+    return func_
+
+
 class GaussianPrior(nn.Module):
 
     def __init__(self, dim, var_type='scalar', num_priors=1,

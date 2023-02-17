@@ -329,5 +329,5 @@ class TiltedGaussianPrior(GaussianPrior):
         mu_norm = distance.sqrt()
         kl = 0.5 * (mu_norm - self.mu_star) ** 2
 
-        loss_components = {'mu_norm': mu_norm, 'kl': kl}
+        loss_components.update({'mu_norm': mu_norm, 'kl': kl})
         return loss_components if output_dict else loss_components['kl']

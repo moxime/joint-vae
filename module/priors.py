@@ -323,8 +323,10 @@ class TiltedGaussianPrior(GaussianPrior):
             expand_shape[0] = y.shape[0]
             return self.kl(mu.expand(*expand_shape), log_var.expand(*expand_shape),
                            y=y, output_dict=output_dict)
-
-        mu_norm = self.mahala(mu, y).sqrt()
+        loss_components = {}
+        distance = self.mahala(mu, y)
+        loss_components['distance'] = distance
+        mu_norm = distance.sqrt()
         kl = 0.5 * (mu_norm - self.mu_star) ** 2
 
         loss_components = {'mu_norm': mu_norm, 'kl': kl}

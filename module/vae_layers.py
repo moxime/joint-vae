@@ -5,7 +5,8 @@ from torch.nn import functional as F, Parameter
 from utils.print_log import texify_str
 import logging
 from torchvision import models
-from module.priors import GaussianPrior
+from module.priors import TiltedGaussianPrior as Prior
+
 
 def adapt_batch_function(arg=1, last_shapes=1):
 
@@ -134,7 +135,7 @@ class Sigma(Parameter):
 
         return super().__new__(cls, torch.zeros(sdim).fill_(value), requires_grad=learned)
 
-    def __init__(self, value=None, learned=False,  is_rmse=False,
+    def __init__(self, value=None, learned=False, is_rmse=False,
                  sdim=1,
                  input_dim=False,
                  reach=1, decay=0, max_step=None, sigma0=None, is_log=False):
@@ -439,8 +440,8 @@ class ConvFeatures(nn.Sequential):
                 layers.append(nn.BatchNorm2d(channel))
             # layers.append(activation_layer)
             layers.append(nn.ReLU(inplace=True))
-            h = h//2
-            w = w//2
+            h = h // 2
+            w = w // 2
             in_channels = channel
 
         self.output_shape = (in_channels, h, w)
@@ -511,11 +512,11 @@ class Encoder(nn.Module):
 
         elif isinstance(latent_prior_means, torch.Tensor):
             prior_means = latent_prior_means
-                
+
         else:
             prior_means = latent_prior_means * torch.randn(num_labels, latent_dim)
 
-        self.prior = GaussianPrior(latent_dim,
+        self.prior = Prior(latent_dim,
                            var_type=latent_prior_variance,
                            num_priors=num_labels if conditional_prior else 1,
                            mean=prior_means,
@@ -546,7 +547,7 @@ class Encoder(nn.Module):
         # E = np.exp(1)
 
         cdm = torch.cdist(m, m)
-        I = np.log(C) - 1 / C * torch.exp(-cdm.pow(2)/4).sum(0).log().sum()
+        I = np.log(C) - 1 / C * torch.exp(-cdm.pow(2) / 4).sum(0).log().sum()
         # + K/2 * np.log(2 / E)
 
         return I

@@ -24,8 +24,26 @@ class TiltedGaussianPrior(GaussianPrior):
 
         return super().log_density(z, y) - z.pow(2).sum(-1).sqrt
 
+    @property
     def mu_star(self):
-        pass
+        return self.tau
+
+    def kl(self, mu, log_var, y=None, output_dict=True, var_weighting=1.):
+
+        if var_weighting != 1.:
+            logging.debug('var weighting != 1 but tilted gaussian does not care')
+
+        if y is not None and y.ndim == mu.ndim:
+            expand_shape = list(mu.unsqueeze(0).shape)
+            expand_shape[0] = y.shape[0]
+            return self.kl(mu.expand(*expand_shape), log_var.expand(*expand_shape),
+                           y=y, output_dict=output_dict)
+
+        mu_norm = self.mahala(mu, y).sqrt()
+        kl = 0.5 * (mu_norm - self.mu_star) ** 2
+
+        loss_components = {'mu_norm': mu_norm, 'kl': kl}
+        return loss_components if output_dict else loss_components['kl']
 
 
 class GaussianPrior(nn.Module):

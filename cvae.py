@@ -12,7 +12,7 @@ from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundEr
 from utils.misc import make_list
 from module.vae_layers import VGGFeatures, ConvDecoder, VGGDecoder, Encoder, Classifier, ConvFeatures, Sigma
 from module.vae_layers import ResOrDenseNetFeatures
-from module.vae_layers import onehot_encoding, Hsv2rgb, Rgb2hsv
+from module.vae_layers import onehot_encoding, Rgb2hsv
 import tempfile
 import shutil
 import random
@@ -1718,7 +1718,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             _s = 'Computing for set {o} ({n}) with {b} batches of {k} images'
             logging.debug(_s.format(o=oodset.name, b=ood_n_batch,
-                          k=batch_size[s], n=len(oodset)))
+                                    k=batch_size[s], n=len(oodset)))
 
             t_0 = time.time()
             test_iterator = iter(loader)
@@ -2006,7 +2006,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     r = {'n': n, 'epochs': epoch,
                          'sampling': self.latent_samplings['eval']}
                     r.update(dict(tpr=list(tpr), fpr=list(fpr),
-                             auc=auc, precision=list(precision_[m])))
+                                  auc=auc, precision=list(precision_[m])))
                     # print(epoch, predict_method, m)
                     self.testing[epoch][predict_method][m] = r
 

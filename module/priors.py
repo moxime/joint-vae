@@ -3,7 +3,6 @@ from torch import nn
 import numpy as np
 from utils.print_log import texify_str
 import logging
-from module.priors import GaussianPrior
 
 
 class TiltedGaussianPrior(GaussianPrior):

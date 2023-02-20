@@ -439,7 +439,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.latent_dim = latent_dim
         self.latent_sampling = latent_sampling
-        self.latent_samplings = {
+        self._latent_samplings = {
             'train': latent_sampling, 'eval': test_latent_sampling}
         self.encoder_layer_sizes = encoder_layer_sizes
         self.decoder_layer_sizes = decoder_layer_sizes
@@ -465,7 +465,7 @@ class ClassificationVariationalNetwork(nn.Module):
         super().train(*a, **k)
         new_state = 'train' if self.training else 'eval'
         logging.debug(f'Going from {state} to {new_state}')
-        self.latent_sampling = self.latent_samplings[new_state]
+        self.latent_sampling = self._latent_samplings[new_state]
 
     def forward(self, x, y=None, x_features=None, **kw):
         """inputs: x, y where x, and y are tensors sharing first dims.
@@ -1432,7 +1432,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 self.testing[epoch][m] = {'n': n,
                                           'epochs': epoch,
-                                          'sampling': self.latent_samplings['eval'],
+                                          'sampling': self._latent_samplings['eval'],
                                           'accuracy': acc[m]}
 
             elif log:
@@ -2001,10 +2001,10 @@ class ClassificationVariationalNetwork(nn.Module):
                         self.testing[epoch] = {}
                     if predict_method not in self.testing[epoch]:
                         r = {'n': n, 'epochs': epoch,
-                             'sampling': self.latent_samplings['eval'], 'accuracy': acc}
+                             'sampling': self._latent_samplings['eval'], 'accuracy': acc}
                         self.testing[epoch][predict_method] = r
                     r = {'n': n, 'epochs': epoch,
-                         'sampling': self.latent_samplings['eval']}
+                         'sampling': self._latent_samplings['eval']}
                     r.update(dict(tpr=list(tpr), fpr=list(fpr),
                                   auc=auc, precision=list(precision_[m])))
                     # print(epoch, predict_method, m)
@@ -2069,7 +2069,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['batch_size'] = batch_size
 
             if latent_sampling:
-                self.latent_samplings['train'] = latent_sampling
+                self._latent_samplings['train'] = latent_sampling
                 self.training_parameters['latent_sampling'] = latent_sampling
 
             if data_augmentation:

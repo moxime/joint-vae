@@ -907,16 +907,17 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     methods_for_in_out_rates = {s: model.ood_methods.copy() for s in tested_ood_sets}
     in_out_results = ood_results
 
-    for pm in accuracies:
-        pm_ = pm
-        if pm == 'first':
-            pm_ = model.predict_methods[0]
-        prefix = 'errors-'
+    if model.misclass_methods:
+        for pm in accuracies:
+            pm_ = pm
+            if pm == 'first':
+                pm_ = model.predict_methods[0]
+            prefix = 'errors-'
 
-        if pm_ in model.testing.get(wanted_epoch, {}):
-            in_out_results[prefix + pm] = model.testing.get(wanted_epoch, {}).get(pm_, None)
-            in_out_results[prefix + pm]['acc'] = accuracies[pm]
-            methods_for_in_out_rates[prefix + pm] = model.misclass_methods.copy()
+            if pm_ in model.testing.get(wanted_epoch, {}):
+                in_out_results[prefix + pm] = model.testing.get(wanted_epoch, {}).get(pm_, None)
+                in_out_results[prefix + pm]['acc'] = accuracies[pm]
+                methods_for_in_out_rates[prefix + pm] = model.misclass_methods.copy()
 
     # TO MERGE WITH MISCLASS
     # res_fmt: {'fpr': {0.9:.., 0.91:...}, 'P': {0.9:.., 0.91:...}, 'auc': 0.9}

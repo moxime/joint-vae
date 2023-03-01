@@ -1,3 +1,5 @@
+import sys
+import os
 import torch
 from torch import nn
 import numpy as np
@@ -8,6 +10,7 @@ from torchvision import models
 from module.priors import TiltedGaussianPrior as Prior
 from .conv import VGGFeatures, ConvFeatures, ResOrDenseNetFeatures, VGGDecoder, ConvDecoder
 from .misc import activation_layers, onehot_encoding
+
 
 class Rgb2hsv(nn.Module):
 

@@ -1,34 +1,133 @@
 import numpy as np
 from torch import nn
 from .misc import activation_layers
-
-vgg_cfg = {
-    'vgg11': [64, 'M', 128, 'M', 256, 256, 'M',
-              512, 512, 'M', 512, 512, 'M'],
-    'vgg13': [64, 64, 'M', 128, 128, 'M', 256, 256,
-              'M', 512, 512, 'M', 512, 512, 'M'],
-    'vgg16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256,
-              'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
-    'vgg19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M',
-              512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
-}
+import re
 
 
-ivgg_cfg = {}
+def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
+                           padding='*', stride=None, output_padding=0, where='input'):
+    r"""Parse conv layer name s
 
-# ivgg_cfg = {'ivgg19_': ['U', 512, 512, 512, 'U', 512, 512, 512, 512,
-#                         'U', 256, 256, 256, 256, 'U', 128, 128, 'U',
-#                         64, 64, -1], }
+    -- padding: '*' is 'same' if conv else 0 (for pooling)
 
-for c in vgg_cfg:
-    ivgg_cfg['i' + c] = ['U' if _ == 'M' else _ for _ in vgg_cfg[c][-1::-1]]
-    ivgg_cfg['i' + c].append(-1)
+    -- stride: if None will be one for conv layers, kernel_size for pooling layers
+
+    """
+
+    delimiters = {'out_channels': '^', 'kernel_size': 'x', 'padding': '\+', 'stride': ':'}
+
+    if where == 'output':
+        delimiters['output_padding'] = '\+\+'
+        ltype = 'deconv'
+
+    if s[0].lower() in 'am':
+        ltype = s[0].lower() + 'pooling'
+        s = s[1:]
+
+    params = dict(ltype=ltype, out_channels=out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
+
+    if ltype == 'deconv':
+        params['output_padding'] = output_padding
+
+    if ltype.endswith('pooling'):
+        params.pop('out_channels')
+        delimiters.pop('out_channels')
+
+    for k, c in delimiters.items():
+        pattern = '{}(?P<{}>[0-9|\*]*)'.format(c, k)
+        res = re.search(pattern, s)
+        if res:
+            try:
+                params[k] = int(res.groupdict()[k])
+            except ValueError:
+                params[k] = params.get(k)
+    if params.get('padding') == '*':
+        params['padding'] = params['kernel_size'] // 2 if ltype == 'conv' else 0
+
+    if params['stride'] is None and ltype.endswith('conv'):
+        params['stride'] = 1
+
+    return params
 
 
-vgg_cfg_a = {}
-for cfg in vgg_cfg:
-    vgg_cfg_a[cfg + '-a'] = ['A' if _ == 'M' else _ for _ in vgg_cfg[cfg]]
-vgg_cfg.update(vgg_cfg_a)
+def _conv_layer_name(conv_layer):
+    if isinstance(conv_layer, (nn.Conv2d, nn.ConvTranspose2d)):
+        _s = '{}x{}'.format(conv_layer.out_channels, conv_layer.kernel_size[0])
+        if conv_layer.padding[0] != conv_layer.kernel_size[0] // 2:
+            _s += '+{}'.format(conv_layer.padding[0])
+        if conv_layer.stride[0] != 1:
+            _s += ':{}'.format(conv_layer.stride[0])
+        return _s
+    elif isinstance(conv_layer, (nn.MaxPool2d, nn.AvgPool2d)):
+        _s = '{}x{}'.format(str(conv_layer)[0], conv_layer.kernel_size)
+        if conv_layer.stride != conv_layer.kernel_size:
+            _s += ':{}'.format(conv_layer.stride)
+
+        return _s
+
+
+def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_flatten=False, where='input'):
+    """ make (de)conv features
+
+    -- if where is input, conv, else (output) deconv
+    """
+
+    default_params = {}
+    if layers_name[0] == '[':
+        end_default = layers_name.find(']')
+
+        default_layer_params = layers_name[1:end_default].split('-')
+        for s in default_layer_params:
+            layer_params = _parse_conv_layer_name(s, where=where)
+            ltype = layer_params.pop('ltype')
+            default_params[ltype] = layer_params
+        layers_name = layers_name[end_default+1:]
+    layer_names = layers_name.split('-')
+    layers = []
+
+    in_channels, h, w = input_shape
+    layer_names_ = []
+
+    for layer_name in layer_names:
+        layer_params = _parse_conv_layer_name(layer_name, where=where)
+        ltype = layer_params.pop('ltype')
+        layer_params = _parse_conv_layer_name(layer_name, **default_params.get(ltype, {}), where=where)
+        ltype = layer_params.pop('ltype')
+        out_channels, kernel_size, padding, stride = (layer_params.get(_) for _ in
+                                                      ('out_channels', 'kernel_size', 'padding', 'stride'))
+        if ltype == 'conv':
+            conv_layer = torch.nn.Conv2d(in_channels, **layer_params)
+            in_channels = out_channels
+            h = (h + 2 * padding - kernel_size) // stride + 1
+            w = (w + 2 * padding - kernel_size) // stride + 1
+
+        elif ltype == 'deconv':
+            conv_layer = torch.nn.ConvTranspose2d(in_channels, **layer_params)
+            in_channels = out_channels
+            h = (h - 1) * stride - 2 * padding + kernel_size + layer_params['output_padding']
+            w = (w - 1) * stride - 2 * padding + kernel_size + layer_params['output_padding']
+        else:
+            Layer = {'m': torch.nn.MaxPool2d, 'a': torch.nn.AvgPool2d}[ltype[0]]
+            conv_layer = Layer(**layer_params)
+            out_channels = in_channels
+            h = (h + 2 * conv_layer.padding - kernel_size) // conv_layer.stride + 1
+            w = (w + 2 * conv_layer.padding - kernel_size) // conv_layer.stride + 1
+
+        layers.append(conv_layer)
+        if ltype.endswith('conv'):
+            layers.append(nn.ReLU(inplace=True))
+            if batch_norm:
+                layers.append(nn.BatchNorm2d(in_channels))
+        if append_un_flatten and where == 'input':
+            layers.append(nn.Flatten(-3, -1))
+
+        layer_names_.append(_conv_layer_name(conv_layer))
+
+    conv = nn.Sequential(*layers)
+    conv.name = '-'.join(layer_names_)
+    conv.output_shape = (out_channels, h, w)
+
+    return conv
 
 
 class VGGFeatures(nn.Sequential):
@@ -112,11 +211,17 @@ class ConvFeatures(nn.Sequential):
 
     def __init__(self, input_shape, channels,
                  padding=1, kernel=4,
+                 stride=1,
                  batch_norm=False,
                  pretrained=None,
                  activation='relu'):
 
-        assert (kernel == 2 * padding + 2)
+        if isinstance(padding,  int):
+            padding = [padding if isinstance(_, int) else None for _ in channels]
+        if isinstance(kernel, int):
+            kernel = [kernel if isinstance(_, int) else None for _ in channels]
+        if isinstance(stride, int):
+            stride = [stride if isinstance(_, int) else None for _ in channels]
 
         layers = self._make_layers(channels, padding, kernel,
                                    input_shape,
@@ -261,5 +366,3 @@ class VGGDecoder(ConvDecoder):
         layers[-1] = activation_layers.get(output_activation, nn.Identity)()
 
         return layers
-
-

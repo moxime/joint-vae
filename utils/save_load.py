@@ -229,7 +229,7 @@ def print_architecture(o, sigma=False, sampling=False,
         return s[0] if short else s
 
     if arch.features:
-        features = arch.features['name']
+        features = arch.features
     s = ''
     if 'type' not in excludes:
 

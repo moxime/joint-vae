@@ -229,7 +229,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             self.features = make_de_conv_features(input_shape, features,
                                                   batch_norm=batch_norm_encoder)
-                                                  
+
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')
 
@@ -318,7 +318,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.imager = make_de_conv_features(imager_input_dim, upsampler,
                                                     batch_norm=batch_norm_decoder,
                                                     activation=activation,
-                                                    output_activation=output_activation)
+                                                    output_activation=output_activation,
+                                                    where='output')
 
             else:
                 upsampler = None
@@ -495,9 +496,9 @@ class ClassificationVariationalNetwork(nn.Module):
         if not self.is_vib:
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
-            x_ = self.imager(u).reshape(
-                (self.latent_sampling + 1,) + reco_batch_shape)
-            x_output = self._backrep(x_)
+            print('***', *u.shape)
+            x_ = self.imager(u.view(-1, *self.imager.input_shape))
+            x_output = self._backrep(x_.view(self.latent_sampling + 1, *reco_batch_shape))
 
         if self.is_cvae or self.is_vae:
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means
@@ -579,7 +580,14 @@ class ClassificationVariationalNetwork(nn.Module):
         x = self._rep(x)
 
         if self.features:
-            t = self.features(x)
+            f_shape = self.encoder.input_shape
+
+            if x.dim() == self.input_dim:
+                batch_shape = (1,)
+            else:
+                batch_shape = x.shape[:-self.input_dim]
+            t = self.features(x.view(-1, *self.input_shape)).view(*batch_shape, *f_shape)
+
         else:
             t = x
 
@@ -2695,9 +2703,6 @@ class ClassificationVariationalNetwork(nn.Module):
         except (FileNotFoundError, IndexError):
             train_history = {'epochs': 0}
 
-        if not params.get('features', None):
-            params['features'] = {}
-
         resave_arch = False
         if not load_net:
             vae = save_load.Shell()
@@ -2741,6 +2746,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       num_labels=params['labels'],
                       type_of_net=params['type'],
                       job_number=job_number,
+                      features=params['features'],
                       encoder_layer_sizes=params['encoder'],
                       latent_dim=params['latent_dim'],
                       decoder_layer_sizes=params['decoder'],
@@ -2763,8 +2769,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       pretrained_features=train_params['pretrained_features'],
                       pretrained_upsampler=train_params['pretrained_upsampler'],
                       representation=params['representation'],
-                      shadow=not load_net,
-                      **params['features'])
+                      shadow=not load_net)
 
             logging.debug('Built')
             if resave_arch:

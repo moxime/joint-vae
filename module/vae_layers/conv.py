@@ -32,6 +32,7 @@ def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
 
     if where == 'output':
         delimiters['output_padding'] = '\+\+'
+        delimiters['conv_in_deconv'] = '\!'
         ltype = 'deconv'
 
     if s[0].lower() in 'am':
@@ -55,6 +56,12 @@ def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
                 params[k] = int(res.groupdict()[k])
             except ValueError:
                 params[k] = params.get(k)
+
+    if 'conv_in_deconv' in params:
+        params['ltype'] = 'conv'
+        params['out_channels'] = params.pop('conv_in_deconv')
+        params.pop('output_padding')
+
     if params.get('padding') == '*':
         params['padding'] = params['kernel_size'] // 2 if ltype == 'conv' else 0
 
@@ -80,7 +87,8 @@ def _conv_layer_name(conv_layer):
         return _s
 
 
-def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_flatten=False, where='input',
+def make_de_conv_features(input_shape, layers_name, batch_norm=False,
+                          append_un_flatten=False, where='input',
                           activation='relu', output_activation='linear'):
     """ make (de)conv features
 
@@ -141,7 +149,8 @@ def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_
 
         layers.append(conv_layer)
         if ltype.endswith('conv'):
-            layers.append(activation_layers[activation]())
+            kw = {'relu': {'inplace': True}}
+            layers.append(activation_layers[activation](**kw.get(activation, {})))
             last_activation_i = len(layers) - 1
             if batch_norm:
                 layers.append(nn.BatchNorm2d(in_channels))
@@ -152,10 +161,10 @@ def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_
 
     if where == 'output':
         layers[last_activation_i] = activation_layers[output_activation]()
-        print('***', last_activation_i)
     conv = nn.Sequential(*layers)
     conv.name = name or '-'.join(layer_names_)
     conv.output_shape = (out_channels, h, w)
+    conv.input_shape = input_shape
 
     return conv
 

@@ -30,11 +30,15 @@ deconv_name = ('64x8-'
                '32x5+2-'
                '32x5:2+2++1-'
                '32x5+2-'
-               '3x5+2')
+               '!3x5+2')
 
-deconv = make_de_conv_features((512, 1, 1), deconv_name, where='output')
+deconv = make_de_conv_features((512, 1, 1), 'deconv32', where='output')
 
-x = deconv(torch.randn(2, 512, 1, 1))
+deconv.to('cuda')
+
+for n in range(5, 20):
+    print('***', 2**n)
+    x = deconv(torch.randn(2**n, 512, 1, 1, device='cuda'))
 print('output shape for', deconv.name)
 print(*x.shape[1:], '--',  *deconv.output_shape)
 

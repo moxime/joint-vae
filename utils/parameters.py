@@ -298,7 +298,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--features-channels', type=alphanum, metavar='C', nargs='*')
     parser.add_argument('--conv-padding', type=alphanum, metavar='P')
     parser.add_argument('--decoder', type=alphanum, nargs='*', metavar='W')
-    parser.add_argument('--upsampler', type=alphanum, nargs='*', metavar='C')
+    parser.add_argument('--upsampler', type=alphanum, metavar='CxK-CxK+P...')
     parser.add_argument('--classifier', type=alphanum, nargs='*', metavar='W')
 
     parser.add_argument('--forced-encoder-variance', type=float, default=False, nargs='?', const=1.0)

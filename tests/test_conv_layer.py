@@ -3,7 +3,7 @@ from torch import nn
 from module.vae_layers.conv import _parse_conv_layer_name
 from module.vae_layers.conv import _conv_layer_name
 
-from module.vae_layers import VGGFeatures, ConvFeatures, ConvDecoder
+from module.vae_layers import VGGFeatures, ConvFeatures, ConvDecoder, make_de_conv_features
 
 
 shape = (1, 28, 28)

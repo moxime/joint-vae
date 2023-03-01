@@ -10,8 +10,7 @@ from module.losses import x_loss, kl_loss, mse_loss
 from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
-from module.vae_layers import VGGFeatures, ConvDecoder, VGGDecoder, Encoder, Classifier, ConvFeatures, Sigma
-from module.vae_layers import ResOrDenseNetFeatures
+from module.vae_layers import Encoder, Classifier, Sigma, make_de_conv_features
 from module.vae_layers import onehot_encoding, Rgb2hsv
 import tempfile
 import shutil
@@ -202,7 +201,7 @@ class ClassificationVariationalNetwork(nn.Module):
             classifier_layer_sizes = []
         if not self.x_is_generated:
             decoder_layer_sizes = []
-            upsampler_channels = None
+            upsampler = None
 
         if self.y_is_decoded and 'esty' not in self.predict_methods:
             self.predict_methods = self.predict_methods + ['esty']
@@ -211,7 +210,7 @@ class ClassificationVariationalNetwork(nn.Module):
             self.loss_components += ('cross_y',)
 
         # no upsampler if no features
-        assert (not upsampler_channels or features)
+        assert (not upsampler or features)
 
         if not features:
             batch_norm = False
@@ -228,28 +227,9 @@ class ClassificationVariationalNetwork(nn.Module):
             else:
                 feat_dict = None
 
-            if features.startswith('vgg'):
-                self.features = VGGFeatures(features, input_shape,
-                                            channels=features_channels,
-                                            batch_norm=batch_norm_encoder,
-                                            pretrained=feat_dict)
-                features_arch = self.features.architecture
-
-            elif features.startswith('resnet') or features.startswith('densenet'):
-                self.features = ResOrDenseNetFeatures(features, input_shape)
-                features_arch = self.features.architecture
-
-            elif features == 'conv':
-                self.features = ConvFeatures(input_shape,
-                                             features_channels,
-                                             batch_norm=batch_norm_encoder,
-                                             padding=conv_padding,
-                                             kernel=2 * conv_padding + 2)
-                features_arch = {'features': features,
-                                 'features_channels': features_channels,
-                                 'conv_padding': conv_padding, }
-
-            features_arch['name'] = self.features.name
+            self.features = make_de_conv_features(input_shape, features,
+                                                  batch_norm=batch_norm_encoder)
+                                                  
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')
 
@@ -331,32 +311,18 @@ class ClassificationVariationalNetwork(nn.Module):
             self.decoder = nn.Sequential(*decoder_layers)
 
             imager_input_dim = input_dim
-            if upsampler_channels:
-                upsampler_first_shape = self.features.output_shape
+            if upsampler:
                 if pretrained_upsampler:
                     upsampler_dict = torch.load(pretrained_upsampler)
                 else:
                     upsampler_dict = None
-
-                c0 = upsampler_channels[0]
-                if isinstance(c0, str) and c0.startswith('ivgg'):
-                    self.imager = VGGDecoder(c0, imager_input_dim,
-                                             upsampler_first_shape,
-                                             image_channel=input_shape[0],
-                                             channels=upsampler_channels[1:],
-                                             upsampler_dict=upsampler_dict,
-                                             batch_norm=batch_norm_decoder,
-                                             output_activation=output_activation)
-                else:
-                    self.imager = ConvDecoder(imager_input_dim,
-                                              upsampler_first_shape,
-                                              upsampler_channels,
-                                              upsampler_dict=upsampler_dict,
-                                              batch_norm=batch_norm_decoder,
-                                              output_activation=output_activation)
+                self.imager = make_de_conv_features(imager_input_dim, upsampler,
+                                                    batch_norm=batch_norm_decoder,
+                                                    activation=activation,
+                                                    output_activation=output_activation)
 
             else:
-                upsampler_channels = None
+                upsampler = None
                 activation_layer = activation_layers[output_activation]()
                 self.imager = nn.Sequential(nn.Linear(imager_input_dim,
                                                       np.prod(input_shape)),

@@ -8,7 +8,7 @@ from utils.print_log import texify_str
 import logging
 from torchvision import models
 from module.priors import TiltedGaussianPrior as Prior
-from .conv import VGGFeatures, ConvFeatures, ResOrDenseNetFeatures, VGGDecoder, ConvDecoder, make_de_conv_features
+from .conv import ConvFeatures, ResOrDenseNetFeatures, VGGDecoder, ConvDecoder, make_de_conv_features
 from .misc import activation_layers, onehot_encoding
 
 

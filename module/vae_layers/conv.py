@@ -5,7 +5,10 @@ import re
 
 
 def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
-                           padding='*', stride=None, output_padding=0, where='input'):
+                           padding='*', stride=None, output_padding=0,
+                           activation='relu',
+                           output_activation='linear',
+                           where='input'):
     r"""Parse conv layer name s
 
     -- padding: '*' is 'same' if conv else 0 (for pooling)
@@ -66,11 +69,15 @@ def _conv_layer_name(conv_layer):
         return _s
 
 
-def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_flatten=False, where='input'):
+def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_flatten=False, where='input',
+                          activation='relu', output_activation='linear'):
     """ make (de)conv features
 
     -- if where is input, conv, else (output) deconv
     """
+
+    if isinstance(input_shape, int):
+        input_shape = (input_shape, 1, 1)
 
     default_params = {}
     if layers_name[0] == '[':
@@ -96,18 +103,18 @@ def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_
         out_channels, kernel_size, padding, stride = (layer_params.get(_) for _ in
                                                       ('out_channels', 'kernel_size', 'padding', 'stride'))
         if ltype == 'conv':
-            conv_layer = torch.nn.Conv2d(in_channels, **layer_params)
+            conv_layer = nn.Conv2d(in_channels, **layer_params)
             in_channels = out_channels
             h = (h + 2 * padding - kernel_size) // stride + 1
             w = (w + 2 * padding - kernel_size) // stride + 1
 
         elif ltype == 'deconv':
-            conv_layer = torch.nn.ConvTranspose2d(in_channels, **layer_params)
+            conv_layer = nn.ConvTranspose2d(in_channels, **layer_params)
             in_channels = out_channels
             h = (h - 1) * stride - 2 * padding + kernel_size + layer_params['output_padding']
             w = (w - 1) * stride - 2 * padding + kernel_size + layer_params['output_padding']
         else:
-            Layer = {'m': torch.nn.MaxPool2d, 'a': torch.nn.AvgPool2d}[ltype[0]]
+            Layer = {'m': nn.MaxPool2d, 'a': nn.AvgPool2d}[ltype[0]]
             conv_layer = Layer(**layer_params)
             out_channels = in_channels
             h = (h + 2 * conv_layer.padding - kernel_size) // conv_layer.stride + 1
@@ -115,7 +122,8 @@ def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_
 
         layers.append(conv_layer)
         if ltype.endswith('conv'):
-            layers.append(nn.ReLU(inplace=True))
+            layers.append(activation_layers[activation]())
+            last_activation_i = len(layers) - 1
             if batch_norm:
                 layers.append(nn.BatchNorm2d(in_channels))
         if append_un_flatten and where == 'input':
@@ -123,60 +131,14 @@ def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_
 
         layer_names_.append(_conv_layer_name(conv_layer))
 
+    if where == 'output':
+        layers[last_activation_i] = activation_layers[output_activation]()
+        print('***', last_activation_i)
     conv = nn.Sequential(*layers)
     conv.name = '-'.join(layer_names_)
     conv.output_shape = (out_channels, h, w)
 
     return conv
-
-
-class VGGFeatures(nn.Sequential):
-
-    def __init__(self, vgg_name, input_shape, batch_norm=False, channels=None, pretrained=None):
-
-        cfg = vgg_cfg.get(vgg_name, channels)
-
-        layers = self._make_layers(cfg, input_shape, batch_norm)
-        super(VGGFeatures, self).__init__(*layers)
-        self.architecture = {'features': vgg_name}
-
-        self.pretrained = pretrained
-        if pretrained:
-            model_name = vgg_name.split('-')[0] + ('_bn' if batch_norm else '')
-            if hasattr(models, model_name):
-                pretrained_vgg = getattr(models, model_name)(pretrained=True)
-                feat_to_inject = pretrained_vgg.features.state_dict()
-                self.load_state_dict(feat_to_inject)
-                logging.debug('% state injection successful')
-            else:
-                logging.error('Model %s not found in zoo', model_name)
-        if vgg_name not in vgg_cfg:
-            self.name = 'vgg-' + '-'.join(str(c) for c in channels)
-            self.architecture['features_channels'] = channels
-        else:
-            self.name = vgg_name
-
-    def _make_layers(self, cfg, input_shape, batch_norm):
-        layers = []
-        in_channels, h, w = input_shape
-        for x in cfg:
-            if x == 'M':
-                layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
-                h = h // 2
-                w = w // 2
-            elif x == 'A':
-                layers += [nn.AvgPool2d(kernel_size=2, stride=2)]
-                h = h // 2
-                w = w // 2
-            else:
-                layers += [nn.Conv2d(in_channels, x, kernel_size=3, padding=1)]
-                if batch_norm:
-                    layers += [nn.BatchNorm2d(x), ]
-                layers += [nn.ReLU(inplace=True)]
-                in_channels = x
-        layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
-        self.output_shape = (in_channels, h, w)
-        return layers
 
 
 class ResOrDenseNetFeatures(nn.Sequential):

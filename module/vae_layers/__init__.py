@@ -1,5 +1,4 @@
 import sys
-import os
 import torch
 from torch import nn
 import numpy as np
@@ -76,8 +75,9 @@ class Hsv2rgb(Rgb2hsv):
 
 class Sigma(Parameter):
 
-    @staticmethod
-    def __new__(cls, value=None, sdim=1, input_dim=False, learned=False, is_rmse=False, is_log=False, **kw):
+    @ staticmethod
+    def __new__(cls, value=None, sdim=1, input_dim=False,
+                learned=False, is_rmse=False, is_log=False, **kw):
 
         assert value is not None or is_rmse or input_dim
         if is_rmse or input_dim and value is None:
@@ -116,7 +116,7 @@ class Sigma(Parameter):
         else:
             self._output_dim = None
 
-    @property
+    @ property
     def value(self):
 
         with torch.no_grad():
@@ -125,19 +125,19 @@ class Sigma(Parameter):
             else:
                 return self.data.pow(2).mean().sqrt().item()
 
-    @property
+    @ property
     def coded(self):
         return bool(self.input_dim)
 
-    @property
+    @ property
     def per_dim(self):
         return self.sdim != 1
 
-    @property
+    @ property
     def output_dim(self):
         return self._output_dim
 
-    @property
+    @ property
     def params(self):
 
         d = self.__dict__.copy()
@@ -322,17 +322,17 @@ class Encoder(nn.Module):
     def eval(self, *a):
         print('eval', *a)
 
-    @property
+    @ property
     def sampling_size(self):
         return self._sampling_size
 
-    @sampling_size.setter
+    @ sampling_size.setter
     def sampling_size(self, v):
         self._sampling_size = v
         self.sampling.sampling_size = v
 
     def capacity(self):
-        """ 
+        """
         Approximation (upper-bound) of I(Z ; Y)
         """
         m = self.prior.mean
@@ -365,7 +365,7 @@ class Encoder(nn.Module):
 
     def forward(self, x, y=None):
         """
-        - x input of size N1xN2x...xNgxD 
+        - x input of size N1xN2x...xNgxD
         - y of size N1xN2x...xNgxC
         - output of size (N1x...xNgxK, N1x...NgxK, LxN1x...xNgxK)
         """

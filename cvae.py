@@ -279,8 +279,7 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.info('Prior means of model {} loaded'.format(other_job))
             learned_latent_prior_means = False
 
-        assert latent_prior_variance in (
-            'scalar', 'diag', 'full'), print('LPV', latent_prior_variance)
+        assert latent_prior_variance in ('scalar', 'diag', 'full'), 'LPV is {}'.format(latent_prior_variance)
 
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder_layer_sizes,
@@ -343,7 +342,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder_layer_sizes, latent_dim,
                                  decoder_layer_sizes,
-                                 upsampler_channels,
+                                 upsampler,
                                  classifier_layer_sizes]
 
         self.architecture = {'input': input_shape,
@@ -360,7 +359,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              'latent_prior_variance': latent_prior_variance,
                              'latent_prior_means': latent_prior_means,
                              'decoder': decoder_layer_sizes,
-                             'upsampler': upsampler_channels,
+                             'upsampler': upsampler,
                              'classifier': classifier_layer_sizes,
                              'output': output_activation}
 
@@ -373,7 +372,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       + sum(classifier_layer_sizes))
 
         if features:
-            self.architecture['features'] = features_arch
+            self.architecture['features'] = self.features.name
 
         self.training_parameters = {
             'sigma': self.sigma.params,
@@ -408,7 +407,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.encoder_layer_sizes = encoder_layer_sizes
         self.decoder_layer_sizes = decoder_layer_sizes
         self.classifier_layer_sizes = classifier_layer_sizes
-        self.upsampler_channels = upsampler_channels
+        self.upsampler = upsampler
         self.activation = activation
         self.output_activation = output_activation
 
@@ -453,8 +452,7 @@ class ClassificationVariationalNetwork(nn.Module):
             x_features = x
 
         if x_features is None:
-            x_features = self.features(
-                x.view(-1, *self.input_shape)).view(*batch_shape, *f_shape)
+            x_features = self.features(x.view(-1, *self.input_shape)).view(*batch_shape, *f_shape)
 
         return self.forward_from_features(x_features,
                                           None if y is None else y.view(
@@ -2759,7 +2757,7 @@ class ClassificationVariationalNetwork(nn.Module):
                       learned_latent_prior_means=train_params['learned_latent_prior_means'],
                       learned_latent_prior_variance=train_params['learned_latent_prior_variance'],
                       optimizer=train_params['optim'],
-                      upsampler_channels=params['upsampler'],
+                      upsampler=params['upsampler'],
                       output_activation=params['output'],
                       encoder_forced_variance=params['encoder_forced_variance'],
                       pretrained_features=train_params['pretrained_features'],
@@ -2940,7 +2938,7 @@ if __name__ == '__main__':
                                                 latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
                                                 decoder_layer_sizes=decoder,
-                                                upsampler_channels=upsampler,
+                                                upsampler=upsampler,
                                                 classifier_layer_sizes=classifier,
                                                 sigma=sigma,
                                                 output_activation=output_activation)

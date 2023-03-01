@@ -1,7 +1,18 @@
+import os
+import configparser
 import numpy as np
 from torch import nn
 from .misc import activation_layers
 import re
+
+
+conv_config = configparser.ConfigParser()
+
+this_dir = os.path.dirname(__file__)
+conv_config.read(os.path.join(this_dir, 'conv_models.ini'))
+
+features_dict = dict(conv_config['features'])
+upsampler_dict = dict(conv_config['upsampler'])
 
 
 def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
@@ -75,6 +86,14 @@ def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_
 
     -- if where is input, conv, else (output) deconv
     """
+    name = None
+    if where == 'input' and layers_name in features_dict:
+        name = layers_name
+        layers_name = features_dict[layers_name]
+
+    if where == 'output' and layers_name in upsampler_dict:
+        name = layers_name
+        layers_name = upsampler_dict[layers_name]
 
     if isinstance(input_shape, int):
         input_shape = (input_shape, 1, 1)
@@ -135,7 +154,7 @@ def make_de_conv_features(input_shape, layers_name, batch_norm=False, append_un_
         layers[last_activation_i] = activation_layers[output_activation]()
         print('***', last_activation_i)
     conv = nn.Sequential(*layers)
-    conv.name = '-'.join(layer_names_)
+    conv.name = name or '-'.join(layer_names_)
     conv.output_shape = (out_channels, h, w)
 
     return conv

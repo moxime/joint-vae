@@ -316,7 +316,7 @@ def option_vector(o, empty=' ', space=' '):
     v_.append(w)
 
     w = 'p:'
-    if arch.prior?get('learned_means'):
+    if arch.prior.get('learned_means'):
         w += 'l'
     elif arch.prior.get('init_mean') == 'onehot':
         w += '1'

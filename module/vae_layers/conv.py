@@ -87,9 +87,9 @@ def _conv_layer_name(conv_layer):
         return _s
 
 
-def make_de_conv_features(input_shape, layers_name, batch_norm=False,
-                          append_un_flatten=False, where='input',
-                          activation='relu', output_activation='linear'):
+def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
+                         append_un_flatten=False, where='input',
+                         activation='relu', output_activation='linear'):
     """ make (de)conv features
 
     -- if where is input, conv, else (output) deconv

@@ -236,7 +236,7 @@ def print_architecture(o, sigma=False, sampling=False,
         s += s_('type') + f'={arch.type}--'
     if 'activation' not in excludes:
         if arch.type != 'vib':
-            s += s_('output') + f'={arch.output}--'
+            s += s_('output') + f'={arch.output_activation}--'
         s += s_('activation') + f'={arch.activation}--'
     if 'latent_dim' not in excludes:
         s += s_('latent-dim') + f'={arch.latent_dim}--'

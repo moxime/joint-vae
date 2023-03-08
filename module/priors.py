@@ -30,12 +30,28 @@ def adapt_batch_dim(func, arg=1, last_shapes=1):
     return func_
 
 
+def build_prior(dim, distribution='gaussian', **kw):
+
+    if kw.get('num_priors', 1) == 1:
+        kw.pop('learned_means', False)
+    valid_dist = ('gaussian', 'tilted')
+    assert distribution in valid_dist, '{} unknown (try one of: {})'.format(distribution, ', '.join(valid_dist))
+    if distribution == 'gaussian':
+        if kw.pop('tau', None) is not None:
+            logging.info('discarded value of tau for gaussian prior')
+        return GaussianPrior(dim, **kw)
+    elif distribution == 'tilted':
+        if kw.pop('var_dim', 'scalar') != 'scalar':
+            logging.info('discarded variance type for tilted gaussian prior')
+        return TiltedGaussianPrior(dim, **kw)
+
+
 class GaussianPrior(nn.Module):
 
-    def __init__(self, dim, var_type='scalar', num_priors=1,
-                 mean=0, learned_means=False, learned_variance=False):
+    def __init__(self, dim, var_dim='scalar', num_priors=1,
+                 init_mean=0, learned_means=False):
         """
-        var_type : scalar, diag or full
+        var_dim : scalar, diag or full
         num_priors: 1 for non conditional prior, else number of classes
 
         """
@@ -45,8 +61,8 @@ class GaussianPrior(nn.Module):
         super().__init__()
 
         self.num_priors = num_priors
-        self.var_type = var_type
-        self.learned_var = learned_variance
+        self.var_dim = var_dim
+        self.learned_var = var_dim != 'scalar'
         self.learned_means = learned_means
         self.dim = dim
 
@@ -56,42 +72,54 @@ class GaussianPrior(nn.Module):
 
         else:
             self.conditional = True
-            unit_mean = torch.ones(num_priors, dim).squeeze()
+            if init_mean == 'onehot':
+                assert dim >= num_priors, 'K={}<C={}'.format(dim, num_priors)
+                mean_tensor = torch.zeros(dim, num_priors)
+                for i in range(num_priors):
+                    mean_tensor[i, i] = 1
 
-            try:
-                float(mean)
-                mean_tensor = mean * unit_mean
-            except ValueError:
-                mean_tensor = mean.squeeze()
+            else:
+                unit_mean = torch.randn(num_priors, dim).squeeze()
+
+                try:
+                    float(init_mean)
+                    mean_tensor = init_mean * unit_mean
+                except ValueError:
+                    mean_tensor = init_mean.squeeze()
 
         self.mean = Parameter(mean_tensor, requires_grad=learned_means)
 
-        if var_type == 'scalar':
+        if var_dim == 'scalar':
             var_param_per_class = torch.tensor(1.)
-        elif var_type == 'diag':
+        elif var_dim == 'diag':
             var_param_per_class = torch.ones(dim)
-        elif var_type == 'full':
+        elif var_dim == 'full':
             var_param_per_class = torch.eye(dim)
         else:
-            raise ValueError('var_type {} unknown'.format(var_type))
+            raise ValueError('var_dim {} unknown'.format(var_dim))
         if self.conditional:
             var_tensor = torch.stack([var_param_per_class for _ in range(num_priors)])
         else:
             var_tensor = var_param_per_class
-        self._var_parameter = Parameter(var_tensor, requires_grad=learned_variance)
+        self._var_parameter = Parameter(var_tensor, requires_grad=self.learned_var)
 
         self._inv_var_is_computed = False
         self._inv_var = None
 
-    @property
+        self.params = {'distribution': 'gaussian', 'dim': dim,
+                       'var_dim': self.var_dim, 'num_priors': self.num_priors}
+        if self.conditional:
+            self.params.update({'learned_means': self.learned_means, 'init_mean': init_mean})
+
+    @ property
     def inv_trans(self):
 
-        if self.var_type == 'full':
+        if self.var_dim == 'full':
             return self._var_parameter.tril()
         else:
             return self._var_parameter
 
-    @property
+    @ property
     def inv_var(self):
 
         if self._inv_var_is_computed:
@@ -102,29 +130,29 @@ class GaussianPrior(nn.Module):
 
     def _compute_inv_var(self):
 
-        if self.var_type == 'scalar':
+        if self.var_dim == 'scalar':
             self._inv_var = self._var_parameter ** 2
             self._inv_var_is_computed = not self.training
 
-        elif self.var_type == 'diag':
+        elif self.var_dim == 'diag':
             self._inv_var = self._var_parameter ** 2
             self._inv_var_is_computed = not self.training
 
-        elif self.var_type == 'full':
+        elif self.var_dim == 'full':
             self._inv_var = torch.matmul(self.inv_trans.transpose(-1, -2), self.inv_trans)
             self._inv_var_is_computed = not self.training
 
     def log_det_per_class(self):
         """ return log det of Sigma """
 
-        if self.var_type == 'full':
+        if self.var_dim == 'full':
             # return -self.inv_trans.abs().logdet() * 2
             if self.conditional:
                 return -2 * torch.stack([M_.diag().abs().log().sum() for M_ in self.inv_trans])
             else:
                 return -2 * self.inv_trans.diag().abs().log().sum()
 
-        elif self.var_type == 'diag':
+        elif self.var_dim == 'diag':
             return -self.inv_trans.abs().log().sum(-1) * 2
         else:
             return -self.dim * self.inv_trans.log() * 2
@@ -141,10 +169,10 @@ class GaussianPrior(nn.Module):
             transform = self.inv_trans
 
         # print('**** transf shape', *transform.shape, 'x', *x.shape)
-        if self.var_type == 'full':
+        if self.var_dim == 'full':
             transformed = torch.matmul(transform, x.unsqueeze(-1)).squeeze(-1)
 
-        elif self.var_type == 'diag':
+        elif self.var_dim == 'diag':
             transformed = x * transform
 
         else:
@@ -152,7 +180,7 @@ class GaussianPrior(nn.Module):
 
         return transformed
 
-    @adapt_batch_function()
+    @ adapt_batch_function()
     def mahala(self, x, y=None):
 
         # logging.debug('TBR in mahala')
@@ -167,13 +195,13 @@ class GaussianPrior(nn.Module):
 
         return self.whiten(x - means, y).pow(2).sum(-1)
 
-    @adapt_batch_function()
+    @ adapt_batch_function()
     def trace_prod_by_var(self, var, y=None):
         """ Compute tr(LS^-1) """
 
         assert self.conditional ^ (y is None)
 
-        if self.var_type == 'full':
+        if self.var_dim == 'full':
             prior_inv_var_diag = self.inv_trans.pow(2).sum(-2)
 
         else:
@@ -182,7 +210,7 @@ class GaussianPrior(nn.Module):
         if self.conditional:
             prior_inv_var_diag = prior_inv_var_diag.index_select(0, y.view(-1))
 
-        if self.var_type == 'scalar':
+        if self.var_dim == 'scalar':
             prior_inv_var_diag.unsqueeze_(-1)
 
         try:
@@ -196,11 +224,11 @@ class GaussianPrior(nn.Module):
     def kl(self, mu, log_var, y=None, output_dict=True, var_weighting=1.):
         """Params:
 
-        -- mu: NxK means 
+        -- mu: NxK means
 
         -- log_var: NxK diag log_vars
 
-        -- y: None or tensor of size N 
+        -- y: None or tensor of size N
 
         """
 
@@ -284,33 +312,44 @@ class GaussianPrior(nn.Module):
 
     def __repr__(self):
 
-        pre = 'Conditional ' if self.conditional else ''
-        var = ('learned ' if self.learned_var else '') + self.var_type + ' variance'
-        plural = 's' if self.conditional else ''
-        mean = ('learned ' if self.learned_means else '') + 'mean' + plural
-        return '{p}prior of dim {K} with {m} and {v}'.format(p=pre, m=mean, v=var, K=self.dim)
+        pre = 'conditional ' if self.conditional else ''
+        var = ('learned ' if self.learned_var else '') + self.var_dim + ' variance'
+        mean = ''
+        if self.conditional:
+            mean = '{} {}means and '.format(self.num_priors, 'learned ' if self.learned_means else '')
+        return 'gaussian {p}prior of dim {K} with {m}{v}'.format(p=pre, m=mean, v=var, K=self.dim)
 
 
 class TiltedGaussianPrior(GaussianPrior):
 
-    def __init__(self, dim, num_priors=1, mean=0, learned_means=False,
-                 tau=25, var_type='scalar', learned_variance=False):
+    def __init__(self, dim, num_priors=1, init_mean=0, learned_means=False,
+                 tau=25):
 
         super().__init__(dim,
                          num_priors=num_priors,
-                         mean=mean,
+                         init_mean=init_mean,
                          learned_means=learned_means,
-                         var_type='scalar',
-                         learned_variance=False)
+                         var_dim='scalar')
 
         self.tau = tau
         self._mu_star = tau
+
+        self.params['distribution'] = 'tilted'
+        self.params['tau'] = tau
+
+    def __repr__(self):
+        if self.num_priors > 1:
+            _m = ' with {} {}means'.format(self.num_priors, 'learned ' if self.learned_means else '')
+        else:
+            _m = ''
+        return 'tilted gaussian {c}prior{m}, tau={tau}'.format(c='conditional ' if self.conditional else '',
+                                                               m=_m, tau=self.tau)
 
     def log_density(self, z, y=None):
 
         return super().log_density(z, y) - z.norm(dim=-1)
 
-    @property
+    @ property
     def mu_star(self):
         return self._mu_star
 

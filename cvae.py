@@ -10,7 +10,7 @@ from module.losses import x_loss, kl_loss, mse_loss
 from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
-from module.vae_layers import Encoder, Classifier, Sigma, make_de_conv_features
+from module.vae_layers import Encoder, Classifier, Sigma, build_de_conv_layers
 from module.vae_layers import onehot_encoding, Rgb2hsv
 import tempfile
 import shutil
@@ -128,24 +128,21 @@ class ClassificationVariationalNetwork(nn.Module):
     def __init__(self,
                  input_shape,
                  num_labels,
-                 type_of_net='jvae',  # or 'vib' or cvae or vae
+                 type='cvae',  # or 'vib' or cvae or vae
                  y_is_coded=False,
                  job_number=0,
                  features=None,
                  pretrained_features=None,
                  batch_norm=False,
-                 encoder_layer_sizes=[36],
+                 encoder=[36],
                  latent_dim=32,
-                 latent_prior_variance='scalar',
-                 latent_prior_means=0,
-                 learned_latent_prior_variance=False,
-                 learned_latent_prior_means=False,
+                 prior={},  # default scalar gaussian
                  beta=1.,
                  gamma=0.,
-                 decoder_layer_sizes=[36],
+                 decoder=[36],
                  upsampler=None,
                  pretrained_upsampler=None,
-                 classifier_layer_sizes=[36],
+                 classifier=[36],
                  name='joint-vae',
                  activation=DEFAULT_ACTIVATION,
                  latent_sampling=DEFAULT_LATENT_SAMPLING,
@@ -153,7 +150,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  test_latent_sampling=None,
                  encoder_forced_variance=False,
                  output_activation=DEFAULT_OUTPUT_ACTIVATION,
-                 sigma={'value': 0.5},
+                 sigma={'value': 1},
                  optimizer={},
                  shadow=False,
                  representation='rgb',
@@ -164,8 +161,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.job_number = job_number
 
-        assert type_of_net in ('jvae', 'cvae', 'xvae', 'vib', 'vae')
-        self.type = type_of_net
+        assert type in ('jvae', 'cvae', 'xvae', 'vib', 'vae')
+        self.type = type
 
         self.loss_components = self.loss_components_per_type[self.type]
 
@@ -176,11 +173,11 @@ class ClassificationVariationalNetwork(nn.Module):
         self.misclass_methods = self.misclass_methods_per_type[self.type].copy(
         )
 
-        self.is_jvae = type_of_net == 'jvae'
-        self.is_vib = type_of_net == 'vib'
-        self.is_vae = type_of_net == 'vae'
-        self.is_cvae = type_of_net == 'cvae'
-        self.is_xvae = type_of_net == 'xvae'
+        self.is_jvae = type == 'jvae'
+        self.is_vib = type == 'vib'
+        self.is_vae = type == 'vae'
+        self.is_cvae = type == 'cvae'
+        self.is_xvae = type == 'xvae'
 
         assert not (y_is_coded and (self.is_vib or self.is_vae))
         self.y_is_coded = y_is_coded
@@ -198,9 +195,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self._measures = {}
 
         if not self.y_is_decoded:
-            classifier_layer_sizes = []
+            classifier = []
         if not self.x_is_generated:
-            decoder_layer_sizes = []
+            decoder = []
             upsampler = None
 
         if self.y_is_decoded and 'esty' not in self.predict_methods:
@@ -227,8 +224,8 @@ class ClassificationVariationalNetwork(nn.Module):
             else:
                 feat_dict = None
 
-            self.features = make_de_conv_features(input_shape, features,
-                                                  batch_norm=batch_norm_encoder)
+            self.features = build_de_conv_layers(input_shape, features,
+                                                 batch_norm=batch_norm_encoder)
 
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')
@@ -259,50 +256,25 @@ class ClassificationVariationalNetwork(nn.Module):
         self.gamma = gamma if self.y_is_decoded else None
         logging.debug(f'Gamma: {self.gamma}')
 
-        loaded_prior_means = False
-
-        self.conditional_prior = self.is_cvae or self.is_xvae
-        if not self.conditional_prior:
-            learned_latent_prior_means = False
-            latent_prior_means = 0
-
-        elif latent_prior_means == 'onehot':
-            learned_latent_prior_means = False
-
-        elif isinstance(latent_prior_means, str) and latent_prior_means.startswith('job'):
-            other_job = int(latent_prior_means.split('-')[-1])
-            other_model = find_by_job_number(other_job,
-                                             load_net=True,
-                                             load_state=True)['net']
-            loaded_prior_means = latent_prior_means
-            latent_prior_means = other_model.encoder.prior.mean.to(self.device)
-            logging.info('Prior means of model {} loaded'.format(other_job))
-            learned_latent_prior_means = False
-
-        assert latent_prior_variance in ('scalar', 'diag', 'full'), 'LPV is {}'.format(latent_prior_variance)
+        if self.type in ('cvae', 'xvae'):
+            prior['num_priors'] = num_labels
 
         self.encoder = Encoder(encoder_input_shape, num_labels,
-                               intermediate_dims=encoder_layer_sizes,
+                               intermediate_dims=encoder,
                                latent_dim=latent_dim,
                                y_is_coded=self.y_is_coded,
                                sigma_output_dim=self.sigma.output_dim if self.sigma.coded else 0,
                                forced_variance=encoder_forced_variance,
                                sampling_size=latent_sampling,
-                               conditional_prior=self.conditional_prior,
-                               latent_prior_variance=latent_prior_variance,
-                               learned_latent_prior_variance=learned_latent_prior_variance,
-                               latent_prior_means=latent_prior_means,
-                               learned_latent_prior_means=learned_latent_prior_means,
+                               prior=prior,
                                activation=activation, sampling=sampling)
-        if loaded_prior_means:
-            latent_prior_means = loaded_prior_means
 
         activation_layer = activation_layers[activation]()
 
         if self.x_is_generated:
             decoder_layers = []
             input_dim = latent_dim
-            for output_dim in decoder_layer_sizes:
+            for output_dim in decoder:
                 decoder_layers += [nn.Linear(input_dim, output_dim),
                                    activation_layer]
                 input_dim = output_dim
@@ -315,11 +287,11 @@ class ClassificationVariationalNetwork(nn.Module):
                     upsampler_dict = torch.load(pretrained_upsampler)
                 else:
                     upsampler_dict = None
-                self.imager = make_de_conv_features(imager_input_dim, upsampler,
-                                                    batch_norm=batch_norm_decoder,
-                                                    activation=activation,
-                                                    output_activation=output_activation,
-                                                    where='output')
+                self.imager = build_de_conv_layers(imager_input_dim, upsampler,
+                                                   batch_norm=batch_norm_decoder,
+                                                   activation=activation,
+                                                   output_activation=output_activation,
+                                                   where='output')
 
             else:
                 upsampler = None
@@ -329,7 +301,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                             activation_layer)
 
         self.classifier = Classifier(latent_dim, num_labels,
-                                     classifier_layer_sizes,
+                                     classifier,
                                      activation=activation)
 
         self.input_shape = tuple(input_shape)
@@ -341,36 +313,35 @@ class ClassificationVariationalNetwork(nn.Module):
         self.batch_norm = batch_norm
 
         self._sizes_of_layers = [input_shape, num_labels,
-                                 encoder_layer_sizes, latent_dim,
-                                 decoder_layer_sizes,
+                                 encoder, latent_dim,
+                                 decoder,
                                  upsampler,
-                                 classifier_layer_sizes]
+                                 classifier]
 
-        self.architecture = {'input': input_shape,
-                             'labels': num_labels,
-                             'type': type_of_net,
+        self.architecture = {'input_shape': input_shape,
+                             'num_labels': num_labels,
+                             'type': type,
                              'representation': representation,
                              # 'features': features_arch,
-                             'encoder': encoder_layer_sizes,
+                             'encoder': encoder,
                              'batch_norm': batch_norm,
                              'activation': activation,
                              'encoder_forced_variance': self.encoder.forced_variance,
                              'latent_dim': latent_dim,
                              'test_latent_sampling': test_latent_sampling,
-                             'latent_prior_variance': latent_prior_variance,
-                             'latent_prior_means': latent_prior_means,
-                             'decoder': decoder_layer_sizes,
+                             'prior': self.encoder.prior.params,
+                             'decoder': decoder,
                              'upsampler': upsampler,
-                             'classifier': classifier_layer_sizes,
-                             'output': output_activation}
+                             'classifier': classifier,
+                             'output_activation': output_activation}
 
-        self.depth = (len(encoder_layer_sizes)
-                      + len(decoder_layer_sizes)
-                      + len(classifier_layer_sizes))
+        self.depth = (len(encoder)
+                      + len(decoder)
+                      + len(classifier))
 
-        self.width = (sum(encoder_layer_sizes)
-                      + sum(decoder_layer_sizes)
-                      + sum(classifier_layer_sizes))
+        self.width = (sum(encoder)
+                      + sum(decoder)
+                      + sum(classifier))
 
         if features:
             self.architecture['features'] = self.features.name
@@ -379,8 +350,6 @@ class ClassificationVariationalNetwork(nn.Module):
             'sigma': self.sigma.params,
             'beta': self.beta,
             'gamma': self.gamma,
-            'learned_latent_prior_means': learned_latent_prior_means,
-            'learned_latent_prior_variance': learned_latent_prior_variance,
             'latent_sampling': latent_sampling,
             'set': None,
             'data_augmentation': [],
@@ -397,7 +366,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.ood_results = {}
 
         self.optimizer = Optimizer(self.parameters(), **optimizer)
-        self.training_parameters['optim'] = self.optimizer.params
+        self.training_parameters['optimizer'] = self.optimizer.params
 
         self.train_history = {'epochs': 0}
 
@@ -405,9 +374,9 @@ class ClassificationVariationalNetwork(nn.Module):
         self.latent_sampling = latent_sampling
         self._latent_samplings = {
             'train': latent_sampling, 'eval': test_latent_sampling}
-        self.encoder_layer_sizes = encoder_layer_sizes
-        self.decoder_layer_sizes = decoder_layer_sizes
-        self.classifier_layer_sizes = classifier_layer_sizes
+        self.encoder_layer_sizes = encoder
+        self.decoder_layer_sizes = decoder
+        self.classifier_layer_sizes = classifier
         self.upsampler = upsampler
         self.activation = activation
         self.output_activation = output_activation
@@ -535,16 +504,16 @@ class ClassificationVariationalNetwork(nn.Module):
                  mse_weighting=1.,
                  z_output=False,
                  **kw):
-        """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
+        """x input of size (N1, .. ,Ng, D1, D2,..., Dt)
 
         creates a x of size C * N1, ..., D1, ...., Dt)
         and a y of size C * N1 * ... * Ng
 
-        ----- Returns 
+        ----- Returns
 
         x_ (C,N1,..., D1...) tensor,
 
-        logits (C,N1,...,C) tensor, 
+        logits (C,N1,...,C) tensor,
 
         batch_losses dict of tensors
 
@@ -903,7 +872,7 @@ class ClassificationVariationalNetwork(nn.Module):
         return out
 
     def predict(self, x, method=None, **kw):
-        """x input of size (N1, .. ,Ng, D1, D2,..., Dt) 
+        """x input of size (N1, .. ,Ng, D1, D2,..., Dt)
 
         creates a x of size C * N1, ..., D1, ...., Dt)
         and a y of size C * N1 * ... * Ng
@@ -1147,7 +1116,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  from_where='all',
                  epoch_tolerance=0,
                  log=True):
-        """return detection rate. 
+        """return detection rate.
         method can be a list of methods
 
         """
@@ -2574,8 +2543,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                     str(self.job_number))
 
         save_load.save_json(self.architecture, dir_name, 'params.json')
-        save_load.save_json(self.architecture, dir_name, 'architecture.json')
-        save_load.save_json(self.training_parameters, dir_name, 'train.json')
+        save_load.save_json(self.training_parameters, dir_name, 'train_params.json')
         save_load.save_json(self.testing, dir_name, 'test.json')
         save_load.save_json(self.ood_results, dir_name, 'ood.json')
         save_load.save_json(self.train_history, dir_name, 'history.json')
@@ -2606,22 +2574,9 @@ class ClassificationVariationalNetwork(nn.Module):
             load_state = False
 
         # default
-        default_params = {'type': 'jvae',
-                          'batch_norm': False,
-                          'encoder_forced_variance': False,
-                          'test_latent_sampling': 0,
-                          'representation': 'rgb',
-                          }
+        default_params = {}
 
-        train_params = {'pretrained_features': None,
-                        'pretrained_upsampler': None,
-                        'beta': 1.,
-                        'warmup': [0, 0],
-                        'gamma': 0.,
-                        'data_augmentation': [],
-                        'fine_tuning': [],
-                        'optim': {},
-                        }
+        train_params = {}
 
         loaded_params = save_load.load_json(dir_name, 'params.json')
 
@@ -2631,7 +2586,7 @@ class ClassificationVariationalNetwork(nn.Module):
         except ValueError:
             job_number_by_dir_name = s
 
-        job_number = loaded_params.get('job_number', job_number_by_dir_name)
+        loaded_params['job_number'] = loaded_params.get('job_number', job_number_by_dir_name)
 
         resumed_file = os.path.join(dir_name, 'RESUMED')
         is_resumed = os.path.exists(resumed_file)
@@ -2642,18 +2597,14 @@ class ClassificationVariationalNetwork(nn.Module):
                 try:
                     is_resumed = int(is_resumed)
                 except ValueError:
-                    pass
-
-        logging.debug('Parameters loaded')
-        if loaded_params.get('batch_norm', False) == True:
-            loaded_params['batch_norm'] = 'encoder'
+                    is_resumed = False
 
         params = default_params.copy()
         params.update(loaded_params)
 
         loaded_train = False
         try:
-            train_params.update(save_load.load_json(dir_name, 'train.json'))
+            train_params.update(save_load.load_json(dir_name, 'train_params.json'))
             logging.debug('Training parameters loaded')
             loaded_train = True
         except (FileNotFoundError):
@@ -2661,37 +2612,17 @@ class ClassificationVariationalNetwork(nn.Module):
 
         loaded_test = False
         try:
-            testing = save_load.load_json(
-                dir_name, 'test.json', presumed_type=int)
+            testing = save_load.load_json(dir_name, 'test.json',
+                                          presumed_type=int)
             loaded_test = load_test
-            """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
-            if testing and not any(isinstance(_, int) for _ in testing):
-                e = next(iter(testing.values()))['epochs']
-                testing = {e: testing}
 
         except (FileNotFoundError):
             pass
 
         loaded_ood = False
         try:
-            ood_results = save_load.load_json(
-                dir_name, 'ood.json', presumed_type=int)
-            """ ADAPTATION FOR MODELS WITH ONLY LAST RESULTS """
-            if ood_results and not any(isinstance(_, int) for _ in ood_results):
-                if testing:
-                    e = max(testing)
-                else:
-                    e = None
-                    for s in ood_results:
-                        for m in ood_results[s]:
-                            if 'epochs' in ood_results[s][m]:
-                                e = ood_results[s][m]['epochs']
-                if e:
-                    ood_results = {e: ood_results}
-                    loaded_ood = True
-                else:
-                    ood_results = {}
-                    logging.error('OOD not loaded \n%s', dir_name)
+            ood_results = save_load.load_json(dir_name, 'ood.json',
+                                              presumed_type=int)
 
         except (FileNotFoundError):
             ood_results = {}
@@ -2704,109 +2635,65 @@ class ClassificationVariationalNetwork(nn.Module):
 
         resave_arch = False
         if not load_net:
-            vae = save_load.Shell()
-            try:
-                vae.architecture = default_params.copy()
-                vae.architecture.update(save_load.load_json(
-                    dir_name, 'architecture.json'))
-                vae.type = vae.architecture['type']
-                vae.loss_components = cls.loss_components_per_type[vae.type]
-                logging.debug('Ghost network loaded')
-                vae.job_number = job_number
-                vae.ood_methods = cls.ood_methods_per_type[vae.type]
-                vae.methods_params = cls.methods_params
-                vae.predict_methods = cls.predict_methods_per_type[vae.type]
-                vae.misclass_methods = cls.misclass_methods_per_type[vae.type]
-                classifier_layer_sizes = params['classifier']
-                gamma = train_params['gamma']
-                vae.y_is_decoded = True
-                if vae.type in ('cvae', 'vae'):
-                    vae.y_is_decoded = gamma
+            model = save_load.Shell()
+            model.architecture = params.copy()
+            model.type = model.architecture['type']
+            model.loss_components = cls.loss_components_per_type[model.type]
+            logging.debug('Ghost network loaded')
+            model.job_number = params['job_number']
+            model.ood_methods = cls.ood_methods_per_type[model.type]
+            model.methods_params = cls.methods_params
+            model.predict_methods = cls.predict_methods_per_type[model.type]
+            model.misclass_methods = cls.misclass_methods_per_type[model.type]
+            gamma = train_params['gamma']
+            model.y_is_decoded = True
+            if model.type in ('cvae', 'vae'):
+                model.y_is_decoded = gamma
 
-                if vae.y_is_decoded and 'esty' not in vae.predict_methods:
-                    vae.predict_methods = vae.predict_methods + ['esty']
+            if model.y_is_decoded and 'esty' not in model.predict_methods:
+                model.predict_methods = model.predict_methods + ['esty']
 
-                if vae.y_is_decoded and 'cross_y' not in vae.loss_components:
-                    vae.loss_components += ('cross_y',)
+            if model.y_is_decoded and 'cross_y' not in model.loss_components:
+                model.loss_components += ('cross_y',)
 
-                vae.testing = {}
-                if isinstance(train_params['sigma'], dict):
-                    vae.sigma = Sigma(**train_params['sigma'])
-                else:
-                    vae.sigma = Sigma(train_params['sigma'])
-            except FileNotFoundError as e:
-                logging.debug(
-                    f'File {e.filename} not found, it will be created')
-                resave_arch = True
-                load_net = True
+            model.testing = {}
+            if isinstance(train_params['sigma'], dict):
+                model.sigma = Sigma(**train_params['sigma'])
+            else:
+                model.sigma = Sigma(train_params['sigma'])
         if load_net:
             logging.debug('Building the network')
-            vae = cls(input_shape=params['input'],
-                      num_labels=params['labels'],
-                      type_of_net=params['type'],
-                      job_number=job_number,
-                      features=params['features'],
-                      encoder_layer_sizes=params['encoder'],
-                      latent_dim=params['latent_dim'],
-                      decoder_layer_sizes=params['decoder'],
-                      classifier_layer_sizes=params['classifier'],
-                      latent_sampling=train_params['latent_sampling'],
-                      test_latent_sampling=params['test_latent_sampling'],
-                      batch_norm=params['batch_norm'],
-                      activation=params['activation'],
-                      sigma=train_params['sigma'],
-                      beta=train_params['beta'],
-                      gamma=train_params['gamma'],
-                      latent_prior_means=params['latent_prior_means'],
-                      latent_prior_variance=params['latent_prior_variance'],
-                      learned_latent_prior_means=train_params['learned_latent_prior_means'],
-                      learned_latent_prior_variance=train_params['learned_latent_prior_variance'],
-                      optimizer=train_params['optim'],
-                      upsampler=params['upsampler'],
-                      output_activation=params['output'],
-                      encoder_forced_variance=params['encoder_forced_variance'],
-                      pretrained_features=train_params['pretrained_features'],
-                      pretrained_upsampler=train_params['pretrained_upsampler'],
-                      representation=params['representation'],
-                      shadow=not load_net)
+            for _ in ('set', 'epochs', 'data_augmentation', 'batch_size', 'fine_tuning', 'warmup'):
+                train_params.pop(_, None)
+            model = cls(**params, **train_params)
 
-            logging.debug('Built')
-            if resave_arch:
-                save_load.save_json(
-                    vae.architecture, dir_name, 'architecture.json')
-                logging.debug('Architecture file saved')
-
-        vae.saved_dir = dir_name
-        vae.trained = train_history['epochs']
-        vae.train_history = train_history
-        vae.is_resumed = is_resumed
-        vae.training_parameters = train_params
+        model.saved_dir = dir_name
+        model.trained = train_history['epochs']
+        model.train_history = train_history
+        model.is_resumed = is_resumed
+        model.training_parameters = train_params
         if loaded_test:
             # logging.debug('Updating test_results ({}) with {}'.format('--'.join()))
-            vae.testing.update(testing)
+            model.testing.update(testing)
 
         if load_test:
-            vae.ood_results = ood_results
+            model.ood_results = ood_results
 
         if load_state:  # and vae.trained:
             logging.debug('Loading state')
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:
                 state_dict = torch.load(w_p)
-                _sigma = state_dict.pop('_sigma', None)
-                if _sigma:
-                    # print(f'cvae:1735: sigma: {vae.sigma.shape}, _sigma:{_sigma.shape}')
-                    state_dict['sigma'] = _sigma.reshape(1)
             except FileNotFoundError as e:
                 raise StateFileNotFoundError(
                     errno.ENOENT, os.strerror(errno.ENOENT), e.filename)
             except RuntimeError as e:
                 raise e
             try:
-                vae.load_state_dict(state_dict)
+                model.load_state_dict(state_dict)
 
             except RuntimeError as e:
-                state_dict_vae = vae.state_dict()
+                state_dict_vae = model.state_dict()
                 s = ''
                 for (state, other) in [(state_dict, state_dict_vae),
                                        (state_dict_vae, state_dict)]:
@@ -2816,19 +2703,19 @@ class ClassificationVariationalNetwork(nn.Module):
                         s += f'{s_:40} === {tuple(t_.shape)}'
                         s += '\n'
                         s += '\n' * 4
-                        logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{vae}')
+                        logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{model}')
                 raise e
             w_p = save_load.get_path(dir_name, 'optimizer.pth')
             try:
                 state_dict = torch.load(w_p)
-                vae.optimizer.load_state_dict(state_dict)
+                model.optimizer.load_state_dict(state_dict)
 
             except FileNotFoundError:
                 logging.warning('Optimizer state file not found')
-            vae.optimizer.update_scheduler_from_epoch(vae.trained)
+            model.optimizer.update_scheduler_from_epoch(model.trained)
 
             logging.debug('Loaded')
-        return vae
+        return model
 
     def copy(self, with_state=True):
 
@@ -2938,12 +2825,12 @@ if __name__ == '__main__':
                                                 features_channels=features_channels,
                                                 conv_padding=conv_padding,
                                                 # pretrained_features='vgg11.pth',
-                                                encoder_layer_sizes=encoder,
+                                                encoder=encoder,
                                                 latent_dim=latent_dim,
                                                 latent_sampling=latent_sampling,
-                                                decoder_layer_sizes=decoder,
+                                                decoder=decoder,
                                                 upsampler=upsampler,
-                                                classifier_layer_sizes=classifier,
+                                                classifier=classifier,
                                                 sigma=sigma,
                                                 output_activation=output_activation)
 

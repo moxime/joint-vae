@@ -89,14 +89,14 @@ if __name__ == '__main__':
         if find_by == 'number':
             try:
                 log.info('Looking for job %d to be resumed', job_TBR_num)
-                jvae_dict = find_by_job_number(job_TBR_num, job_dir=args.job_dir, flash=False,
-                                               load_net=True, load_state=True)
-                if jvae_dict is None:
+                model_dict = find_by_job_number(job_TBR_num, job_dir=args.job_dir, flash=False,
+                                                load_net=True, load_state=True)
+                if model_dict is None:
                     raise NoModelError
-                jvae = jvae_dict['net']
-                resumed_from = jvae_dict['dir']
+                model = model_dict['net']
+                resumed_from = model_dict['dir']
                 log.debug('Network loaded in {}'.format(resumed_from))
-                done_epochs = jvae.trained
+                done_epochs = model.trained
                 if done_epochs == 0:
                     verb = 'will start from scratch.'
                 elif done_epochs < args.epochs:
@@ -112,9 +112,9 @@ if __name__ == '__main__':
             try:
                 resumed_from = resume
                 log.info('Loading network in %s', resume)
-                jvae = CVNet.load(args.resume, load_state=True)
+                model = CVNet.load(args.resume, load_state=True)
                 log.debug('Network loaded in {}'.format(resumed_from))
-                done_epochs = jvae.trained
+                done_epochs = model.trained
                 if done_epochs == 0:
                     verb = 'will start from scratch.'
                 elif done_epochs < args.epochs:
@@ -169,45 +169,50 @@ if __name__ == '__main__':
                       learned=sigma_is_learned,  # args.sigma_learned,
                       is_rmse=sigma_is_rmse)
 
-        jvae = CVNet(input_shape, num_labels,
-                     type_of_net=args.type,
-                     features=args.features,
-                     pretrained_features=args.pretrained_features,
-                     pretrained_upsampler=args.pretrained_upsampler,
-                     batch_norm=args.batch_norm,
-                     optimizer=args.optim_params,
-                     encoder_layer_sizes=args.encoder,
-                     encoder_forced_variance=args.forced_encoder_variance,
-                     latent_dim=args.latent_dim,
-                     latent_prior_means=args.prior_means,
-                     latent_prior_variance=args.prior_variance,
-                     learned_latent_prior_variance=args.prior_variance != 'scalar',
-                     learned_latent_prior_means=args.learned_prior_means,
-                     latent_sampling=args.latent_sampling,
-                     test_latent_sampling=args.test_latent_sampling,
-                     decoder_layer_sizes=args.decoder,
-                     upsampler=args.upsampler,
-                     classifier_layer_sizes=args.classifier,
-                     beta=args.beta,
-                     gamma=args.gamma,
-                     sigma=sigma,
-                     representation=representation,
-                     output_activation=args.output_activation)
+        latent_prior_means = args.prior_means,
+        latent_prior_variance = args.prior_variance,
+        learned_latent_prior_means = args.learned_prior_means,
+
+        prior = dict(init_mean=args.prior_means,
+                     learned_means=args.learned_prior_means,
+                     var_dim=args.prior_variance)
+
+        model = CVNet(input_shape, num_labels,
+                      type=args.type,
+                      features=args.features,
+                      pretrained_features=args.pretrained_features,
+                      pretrained_upsampler=args.pretrained_upsampler,
+                      batch_norm=args.batch_norm,
+                      optimizer=args.optim_params,
+                      encoder=args.encoder,
+                      encoder_forced_variance=args.encoder_forced_variance,
+                      latent_dim=args.latent_dim,
+                      prior=prior,
+                      latent_sampling=args.latent_sampling,
+                      test_latent_sampling=args.test_latent_sampling,
+                      decoder=args.decoder,
+                      upsampler=args.upsampler,
+                      classifier=args.classifier,
+                      beta=args.beta,
+                      gamma=args.gamma,
+                      sigma=sigma,
+                      representation=representation,
+                      output_activation=args.output_activation)
 
     if args.show:
-        print(jvae)
+        print(model)
         sys.exit(0)
 
     if resume:
-        dataset, transformer = jvae.training_parameters['set'], jvae.training_parameters['transformer']
+        dataset, transformer = model.training_parameters['set'], model.training_parameters['transformer']
         trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
-        validation = jvae.training_parameters['validation']
+        validation = model.training_parameters['validation']
 
         oodsets = [torchdl.get_dataset(n, transformer=transformer, splits=['test'])[1]
                    for n in testset.same_size]
 
-        data_augmentation = jvae.training_parameters['data_augmentation']
-        latent_sampling = jvae.training_parameters['latent_sampling']
+        data_augmentation = model.training_parameters['data_augmentation']
+        latent_sampling = model.training_parameters['latent_sampling']
 
     else:
 
@@ -230,9 +235,9 @@ if __name__ == '__main__':
         _augment += '-'.join(data_augmentation)
 
     save_dir_root = os.path.join(job_dir, dataset,
-                                 jvae.print_architecture(sampling=False),
-                                 f'sigma={jvae.sigma}' +
-                                 f'--optim={jvae.optimizer}' +
+                                 model.print_architecture(sampling=False),
+                                 f'sigma={model.sigma}' +
+                                 f'--optim={model.optimizer}' +
                                  f'--sampling={latent_sampling}' +
                                  _augment)
 
@@ -253,8 +258,8 @@ if __name__ == '__main__':
         job_number += 1
         save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
 
-    jvae.job_number = job_number
-    jvae.saved_dir = save_dir
+    model.job_number = job_number
+    model.saved_dir = save_dir
 
     if args.resume:
         with open(os.path.join(resumed_from, 'RESUMED'), 'w') as f:
@@ -270,9 +275,9 @@ if __name__ == '__main__':
     log.info(save_dir)
 
     log.debug('%s: %s', 'Network architecture',
-              jvae.print_architecture(True, True))
+              model.print_architecture(True, True))
 
-    jvae.to(device)
+    model.to(device)
 
     # print('*** .device', jvae.device)
 
@@ -285,7 +290,7 @@ if __name__ == '__main__':
                   x.max().item(),
                   x.mean().item(),
                   x.std().item())
-        outs = jvae(x, y if jvae.y_is_coded else None)
+        outs = model(x, y if model.y_is_coded else None)
         log.debug(' -- '.join(map(str, ([tuple(u.shape) for u in outs]))))
 
     if torch.cuda.is_available():
@@ -296,32 +301,32 @@ if __name__ == '__main__':
         warmup = [0, warmup[0]]
 
     if not dry_run:
-        if jvae.trained < args.epochs:
-            log.info('Training of %s', jvae.print_architecture())
+        if model.trained < args.epochs:
+            log.info('Training of %s', model.print_architecture())
 
             # print('t.py l 302 testset:', testset.data[0].shape)
 
-            jvae.train_model(trainset,
-                             transformer=transformer,
-                             epochs=args.epochs,
-                             batch_size=batch_size,
-                             test_batch_size=test_batch_size,
-                             full_test_every=2 if debug else args.full_test_every,
-                             ood_detection_every=2 if debug else args.full_test_every,
-                             validation=validation,
-                             device=device,
-                             testset=testset,
-                             oodsets=oodsets,
-                             data_augmentation=data_augmentation,
-                             fine_tuning=args.fine_tuning,
-                             warmup=warmup,
-                             validation_sample_size=test_sample_size,  # 10000,
-                             save_dir=save_dir,
-                             outputs=outputs,
-                             signal_handler=SIGHandler(2, 3, 15))
+            model.train_model(trainset,
+                              transformer=transformer,
+                              epochs=args.epochs,
+                              batch_size=batch_size,
+                              test_batch_size=test_batch_size,
+                              full_test_every=2 if debug else args.full_test_every,
+                              ood_detection_every=2 if debug else args.full_test_every,
+                              validation=validation,
+                              device=device,
+                              testset=testset,
+                              oodsets=oodsets,
+                              data_augmentation=data_augmentation,
+                              fine_tuning=args.fine_tuning,
+                              warmup=warmup,
+                              validation_sample_size=test_sample_size,  # 10000,
+                              save_dir=save_dir,
+                              outputs=outputs,
+                              signal_handler=SIGHandler(2, 3, 15))
 
             log.info('Done training')
         else:
-            log.info('No need to train %s', jvae.print_architecture())
+            log.info('No need to train %s', model.print_architecture())
     else:
-        log.info('Dry-run %s', jvae.print_training(epochs=epochs, set=trainset.name))
+        log.info('Dry-run %s', model.print_training(epochs=epochs, set=trainset.name))

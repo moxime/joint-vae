@@ -258,10 +258,14 @@ def get_args_for_train(argv=None):
     parser.add_argument('--gamma', type=float,
                         default=0.)
 
+    parser.add_argument('--prior', choices=['gaussian', 'tilted'], default='gaussian')
+
+    parser.add_argument('--tilted-tau', default=25., type=float)
+
     parser.add_argument('--prior-means',
                         type=alphanum,
                         default=0,
-                        help='For CVAE, energy of latent prior means (or \'onehot\')'
+                        help='For CVAE, std of latent prior means (or \'onehot\')'
                         )
 
     parser.add_argument('--learned-prior-means',
@@ -301,7 +305,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--upsampler', type=alphanum, metavar='CxK-CxK+P...')
     parser.add_argument('--classifier', type=alphanum, nargs='*', metavar='W')
 
-    parser.add_argument('--forced-encoder-variance', type=float, default=False, nargs='?', const=1.0)
+    parser.add_argument('--encoder-forced-variance', type=float, default=False, nargs='?', const=1.0)
 
     parser.add_argument('--dataset',)
     # choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10', 'letters'])

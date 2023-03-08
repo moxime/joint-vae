@@ -8,12 +8,14 @@ default_lr = {'sgd': 0.01,
               'adam': 0.001}
 
 params_by_type = {'sgd': ('momentum', 'nesterov', 'weight_decay'),
-                  'adam': ('betas', 'weight_decay', 'amsgrad', 'weight_decay')}
+                  'adam': ('betas', 'weight_decay', 'amsgrad')}
 
 
 class Optimizer:
 
-    def __init__(self, parameters, optim_type='adam', lr=0, lr_decay=0, weight_decay=0, epoch=0, **kw):
+    def __init__(self, parameters, optim_type='adam', lr=0,
+                 lr_decay=0, weight_decay=0, grad_clipping=None,
+                 epoch=0, **kw):
 
         self.kind = optim_type
 
@@ -24,7 +26,11 @@ class Optimizer:
                        'lr': lr,
                        'lr_decay': lr_decay,
                        'weight_decay': weight_decay,
+                       'grad_clipping': grad_clipping
                        }
+
+        self.grad_clipping = grad_clipping
+
         self.params.update(kw)
 
         self.init_lr = lr
@@ -67,6 +73,10 @@ class Optimizer:
                     state[k] = v.to(device)
         logging.debug('Done')
 
+    def clip(self, parameters):
+        if self.grad_clipping:
+            nn.utils.clip_grad_norm(parameters, self.grad_clipping)
+
     def __format__(self, format_spec):
 
         if format_spec.endswith('x'):
@@ -105,7 +115,6 @@ class Optimizer:
         self._opt.zero_grad(*a, **kw)
 
     def step(self):
-
         self._opt.step()
 
     def update_lr(self):

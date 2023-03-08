@@ -332,6 +332,8 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--lr-decay', default=0, type=float)
 
+    parser.add_argument('--grad-clipping', type=float)
+
     help = 'Find by job number and resume begun training'
     parser.add_argument('-R', '--resume', default=None,
                         help=help, metavar='#')

@@ -2329,6 +2329,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         print('GRAD NAN')
 
                 L.backward()
+                optimizer.clip(self.parameters())
                 optimizer.step()
 
                 for k in batch_losses:

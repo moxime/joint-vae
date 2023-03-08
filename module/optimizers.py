@@ -75,7 +75,7 @@ class Optimizer:
 
     def clip(self, parameters):
         if self.grad_clipping:
-            nn.utils.clip_grad_norm(parameters, self.grad_clipping)
+            nn.utils.clip_grad_norm_(parameters, self.grad_clipping)
 
     def __format__(self, format_spec):
 
@@ -136,3 +136,10 @@ if __name__ == '__main__':
 
     sgd = Optimizer([p], optim_type='sgd', lr_decay=0.01)
     adam = Optimizer([p], lr_decay=0, optim_type='adam')
+
+    layer = torch.nn.Linear(10, 10)
+
+    layers = [layer, torch.nn.ReLU()] * 5
+    model = torch.nn.Sequential(*layers)
+
+    opt = Optimizer(model.parameters(), grad_clipping=100)

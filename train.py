@@ -173,7 +173,8 @@ if __name__ == '__main__':
         latent_prior_variance = args.prior_variance,
         learned_latent_prior_means = args.learned_prior_means,
 
-        prior = dict(init_mean=args.prior_means,
+        prior = dict(distribution=args.prior,
+                     init_mean=args.prior_means,
                      learned_means=args.learned_prior_means,
                      var_dim=args.prior_variance)
 

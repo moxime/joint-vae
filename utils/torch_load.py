@@ -245,6 +245,15 @@ def get_dataset(dataset='mnist',
         elif t.startswith('crop'):
             pre_transforms.append(transforms.RandomCrop(set_props['shape'][1:]))
 
+        elif t.startswith('center-crop'):
+            try:
+                shape = int(t.split('-')[-1])
+                shape = (shape, shape)
+            except ValueError:
+                shape = tuple(set_props['shape'][1:])
+
+            pre_transforms.append(transforms.CenterCrop(shape))
+
         elif t.startswith('rotate'):
             angle = int(t.split('-')[-1])
             pre_transforms.append(lambda img: transforms.functional.rotate(img, angle))
@@ -616,10 +625,12 @@ def export_png(imageset, directory, by_class=False):
 
 if __name__ == '__main__':
 
+    plt.set_loglevel(level='warning')
     import time
 
     dset = 'cifar100'
     dset = 'letters'
+    dset = 'lsunr'
     splits = ['train', 'test']
     splits = ['test']
 
@@ -627,7 +638,7 @@ if __name__ == '__main__':
     logging.debug('Going to build dataset')
     t0 = time.time()
     # dset = _imagenet_getter(transform=transforms.ToTensor())
-    train, test = get_dataset('dset', splits=splits)
+    train, test = get_dataset(dset, splits=splits)
     logging.debug('Built in {:.1f}s'.format(time.time() - t0))
 
     if 'train' in splits:

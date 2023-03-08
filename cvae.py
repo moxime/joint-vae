@@ -299,6 +299,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.imager = nn.Sequential(nn.Linear(imager_input_dim,
                                                       np.prod(input_shape)),
                                             activation_layer)
+                self.imager.input_shape = (imager_input_dim,)
 
         self.classifier = Classifier(latent_dim, num_labels,
                                      classifier,

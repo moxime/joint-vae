@@ -316,9 +316,9 @@ def option_vector(o, empty=' ', space=' '):
     v_.append(w)
 
     w = 'p:'
-    if arch.prior['learned_means']:
+    if arch.prior?get('learned_means'):
         w += 'l'
-    elif arch.prior['init_mean'] == 'onehot':
+    elif arch.prior.get('init_mean') == 'onehot':
         w += '1'
     elif arch.type in ('cvae', 'xvae'):
         w += 'r'
@@ -1072,6 +1072,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'type': architecture.type,
             'arch': arch,
             'prior_distribution': latent_prior_distribution,
+            'tilted_tau': architecture.prior['tau'] if latent_prior_distribution == 'tilted' else None,
             'learned_prior_means': learned_prior_means,
             'latent_prior_variance': latent_prior_variance,
             'latent_prior_means': latent_means,

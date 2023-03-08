@@ -373,3 +373,27 @@ class TiltedGaussianPrior(GaussianPrior):
         loss_components['var_kl'] = torch.zeros_like(mu_norm)
         loss_components['kl'] = kl
         return loss_components if output_dict else loss_components['kl']
+
+
+class UniformWithGaussianTailPrior(GaussianPrior):
+
+    def __init__(self, dim, num_priors=1, init_mean=0,
+                 learned_means=False, tau=5):
+
+        super().__init__(dim, num_priors=num_priors,
+                         init_mean=init_mean,
+                         learned_means=learned_means,
+                         var_dim='scalar')
+
+        self.tau = tau
+
+        self.params['distribution'] = 'uniform'
+        self.params['tau'] = tau
+
+    def kl(self, mu, log_var, y=None, output_dict=True, var_weighting=1.0):
+
+        if y is not None and y.ndim == mu.ndim:
+            expand_shape = list(mu.unsqueeze(0).shape)
+            expand_shape[0] = y.shape[0]
+            return self.kl(mu.expand(*expand_shape), log_var.expand(*expand_shape),
+                           y=y, output_dict=output_dict)

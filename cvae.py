@@ -2767,7 +2767,6 @@ if __name__ == '__main__':
     decoder = args.decoder
     upsampler = args.upsampler
     conv_padding = args.conv_padding
-    features_channels = args.features_channels
 
     output_activation = args.output_activation
 
@@ -2825,7 +2824,6 @@ if __name__ == '__main__':
         print('Building network...', end=' ')
         jvae = ClassificationVariationalNetwork(input_shape, num_labels,
                                                 features=features,
-                                                features_channels=features_channels,
                                                 conv_padding=conv_padding,
                                                 # pretrained_features='vgg11.pth',
                                                 encoder=encoder,

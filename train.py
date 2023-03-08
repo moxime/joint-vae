@@ -25,6 +25,8 @@ if __name__ == '__main__':
 
     args = get_args(what_for='train')
 
+    print('*** in train', args.upsampler)
+
     debug = args.debug
     verbose = args.verbose
 

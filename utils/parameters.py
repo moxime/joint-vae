@@ -172,9 +172,7 @@ def get_args_for_train(argv=None):
 
     alphanum_keys = ('encoder',
                      'data_augmentation',
-                     'features_channels',
                      'decoder',
-                     'upsampler',
                      'classifier')
 
     bool_keys = ('learned_prior_means',)
@@ -299,7 +297,6 @@ def get_args_for_train(argv=None):
     parser.add_argument('--warmup', type=float, default=[0], nargs='+')
 
     parser.add_argument('--encoder', type=alphanum, metavar='W', nargs='*')
-    parser.add_argument('--features-channels', type=alphanum, metavar='C', nargs='*')
     parser.add_argument('--conv-padding', type=alphanum, metavar='P')
     parser.add_argument('--decoder', type=alphanum, nargs='*', metavar='W')
     parser.add_argument('--upsampler', type=alphanum, metavar='CxK-CxK+P...')
@@ -561,7 +558,7 @@ class NewEntryDictofLists(argparse.Action):
 
 if __name__ == '__main__':
 
-    cli = '--upsampler vgg19 4 5'.split()
+    cli = '--upsampler vgg19'.split()
     arg = get_args_for_train(cli)
 
     print(arg.upsampler)

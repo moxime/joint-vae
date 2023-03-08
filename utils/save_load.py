@@ -315,16 +315,15 @@ def option_vector(o, empty=' ', space=' '):
         w += 2 * empty
     v_.append(w)
 
-    if arch.type == 'cvae':
-        w = 'c:'
-        if training.learned_latent_prior_means:
-            w += 'l'
-        elif arch.latent_prior_means == 'onehot':
-            w += '1'
-        else:
-            w += 'r'
+    w = 'p:'
+    if arch.prior['learned_means']:
+        w += 'l'
+    elif arch.prior['init_mean'] == 'onehot':
+        w += '1'
+    elif arch.type in ('cvae', 'xvae'):
+        w += 'r'
 
-        v_.append(w)
+    v_.append(w)
 
     return space.join(v_)
 
@@ -725,7 +724,7 @@ def available_results(model,
     for s in sets:
         C = get_shape_by_name(s)[-1]
         if not C:
-            C = model.architecture['labels']
+            C = model.architecture['num_labels']
         min_samples[s] = C * min_samples_by_class
         samples_available_by_compute[s] = C * samples_available_by_class
 
@@ -832,10 +831,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         tpr = [tpr]
 
     architecture = ObjFromDict(model.architecture, features=None)
-    training = ObjFromDict(model.training_parameters,
-                           transformer='default',
-                           max_batch_sizes={'train': 8, 'test': 8},
-                           pretrained_upsampler=None)
+    training = ObjFromDict(model.training_parameters)
 
     logging.debug(f'net found in {shorten_path(directory)}')
     arch = model.print_architecture(excludes=('latent_dim', 'batch_norm'))
@@ -866,9 +862,9 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     ood_results = model.ood_results.get(wanted_epoch, {}).copy()
     training_set = model.training_parameters['set']
 
-    forced_var = architecture.encoder_forced_variance
-    if not forced_var:
-        forced_var = None
+    encoder_forced_variance = architecture.encoder_forced_variance
+    if not encoder_forced_variance:
+        encoder_forced_variance = None
 
     if training_set in ood_results:
         ood_results.pop(training_set)
@@ -1022,41 +1018,32 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     sigma_size = 'S' if sigma.sdim == 1 else 'M'
 
-    if architecture.type == 'cvae':
-        learned_prior_means = model.training_parameters['learned_latent_prior_means']
-        # done =  model.train_history['epochs']
-        # if done >= 10:
-        #     print('*** {:1} {:4} {}'.format(learned_prior_means, done, directory))
-        learned_prior_variance = model.training_parameters['learned_latent_prior_variance']
-        latent_prior_variance = architecture.latent_prior_variance
-        latent_means = architecture.latent_prior_means
-        if learned_prior_means:
-            latent_means = 'random'
-            latent_prior = 'l'
-        elif latent_means == 'onehot':
-            latent_prior = '1'
-            latent_means = 'onehot'
+    prior_params = architecture.prior
+    latent_prior_distribution = prior_params['distribution']
+
+    latent_prior_variance = prior_params['var_dim']
+
+    latent_prior = latent_prior_distribution[0] + '-'
+
+    if architecture.type in ('cvae', 'xvae'):
+        learned_prior_means = prior_params['learned_means']
+        latent_means = prior_params['init_mean']
+        if latent_means == 'onehot':
+            latent_prior += '1'
+        elif learned_prior_means:
+            latent_means = 'learned'
+            latent_prior += 'l'
         else:
             latent_means = 'random'
-            latent_prior = 'r'
-        latent_prior += latent_prior_variance[0]
-        if forced_var:
-            latent_prior += 'F'
-        else:
-            latent_prior += ''
-        if learned_prior_means:
-            if history['train_measures']:
-                # print('sl:366', rmse, *history.keys(), *[v for v in history.values()])
-                # latent_means = history['train_measures'][-1]['ld-norm']
-                pass
+            latent_prior += 'r'
+        latent_prior += '-'
     else:
-        latent_prior = None
         latent_means = None
-        latent_prior_variance = 'scalar'
-        learned_prior_variance = False
         learned_prior_means = False
 
-    empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optim)
+    latent_prior += latent_prior_variance[0]
+
+    empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optimizer)
     depth = (1 + len(architecture.encoder)
              + len(architecture.decoder))
     # + len(architecture.classifier))
@@ -1084,12 +1071,12 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'is_resumed': model.is_resumed,
             'type': architecture.type,
             'arch': arch,
+            'prior_distribution': latent_prior_distribution,
             'learned_prior_means': learned_prior_means,
-            'learned_prior_variance': learned_prior_variance,
             'latent_prior_variance': latent_prior_variance,
             'latent_prior_means': latent_means,
             'latent': latent_prior,
-            'forced_var': forced_var,
+            'encoder_forced_variance': encoder_forced_variance,
             'gamma': model.training_parameters['gamma'],
             'arch_code': arch_code,
             'features': architecture.features['name'] if architecture.features else 'none',

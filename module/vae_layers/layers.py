@@ -258,12 +258,6 @@ class Encoder(nn.Module):
         self.name = name
         self.y_is_coded = y_is_coded
 
-        if activation == 'relu':
-            self.activation = F.relu
-        else:
-            raise ValueError(
-                f'{activation} is not implemented in {self.__class__})')
-
         self.input_shape = input_shape
         self.num_labels = num_labels
 

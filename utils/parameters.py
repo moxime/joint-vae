@@ -562,7 +562,7 @@ if __name__ == '__main__':
     arg = get_args_for_train(cli)
 
     print(arg.upsampler)
-
+    print(arg.output_activation)
     # arg = get_args_for_test()
     # for k in arg.filters:
     # if not arg.filters[k].always_true:

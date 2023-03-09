@@ -44,8 +44,8 @@ DEFAULT_LATENT_SAMPLING = 100
 activation_layers = {'linear': nn.Identity,
                      'sigmoid': nn.Sigmoid,
                      'relu': nn.ReLU,
-                     'leaky':: nn.LeakyReLU,
-}
+                     'leaky': nn.LeakyReLU,
+                     }
 
 
 class EmptyShell(object):

@@ -192,6 +192,7 @@ if __name__ == '__main__':
                       prior=prior,
                       latent_sampling=args.latent_sampling,
                       test_latent_sampling=args.test_latent_sampling,
+                      activation=args.activation,
                       decoder=args.decoder,
                       upsampler=args.upsampler,
                       classifier=args.classifier,

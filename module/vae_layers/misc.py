@@ -23,4 +23,5 @@ def _no_activation(a):
 
 activation_layers = {'linear': nn.Identity,
                      'sigmoid': nn.Sigmoid,
-                     'relu': nn.ReLU}
+                     'relu': nn.ReLU,
+                     'leaky': nn.LeakyReLU}

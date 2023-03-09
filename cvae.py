@@ -228,6 +228,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 feat_dict = None
 
             self.features = build_de_conv_layers(input_shape, features,
+                                                 activation=activation,
                                                  batch_norm=batch_norm_encoder)
 
             encoder_input_shape = self.features.output_shape

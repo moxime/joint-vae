@@ -2669,9 +2669,10 @@ class ClassificationVariationalNetwork(nn.Module):
                         'full_test_every', 'validation_split_seed',
                         'max_batch_sizes',
                         'transformer', 'validation')
+            train_params_for_const = train_params.copy()
             for _ in keys_out:
-                train_params.pop(_, None)
-            model = cls(**params, **train_params)
+                train_params_for_const.pop(_, None)
+            model = cls(**params, **train_params_for_const)
 
         model.saved_dir = dir_name
         model.trained = train_history['epochs']

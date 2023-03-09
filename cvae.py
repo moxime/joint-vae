@@ -1127,6 +1127,8 @@ class ClassificationVariationalNetwork(nn.Module):
         """
         MAX_SAMPLE_SAVE = 200
 
+        # self.test_loss = None
+
         device = next(self.parameters()).device
 
         if not testset:
@@ -1169,7 +1171,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                   epoch_tolerance=0,
                                   where=from_where,
                                   misclass_methods=[]).get(epoch)
-
         acc = {}
         if not froms:
             return acc
@@ -1180,7 +1181,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     acc[m] = self.testing[epoch][m]['accuracy']
 
         if not sum(froms[testset_name]['where'][_] for _ in ('recorders', 'compute')):
-            return acc
+            pass # return acc
 
         if froms[testset_name]['where']['recorders']:
             rec_dir = froms.pop('rec_dir')
@@ -1240,20 +1241,16 @@ class ClassificationVariationalNetwork(nn.Module):
                  batch_losses, measures) = self.evaluate(x_test, batch=i,
                                                          current_measures=current_measures)
 
-                # print('*** batch_losses:', *batch_losses)
                 current_measures = measures
                 self._measures = measures
             else:
                 components = [
                     k for k in recorder.keys() if k in self.loss_components]
                 batch_losses = recorder.get_batch(i, *components)
-                # logging.debug('TBD cvae:874: %s', ' '.join(self.loss_components))
                 logits = recorder.get_batch(i, 'logits').T
                 y_test = recorder.get_batch(i, 'y_true')
 
             y_pred = {}
-            # print('*** predict methods:', *predict_methods)
-            # logging.debug('TBD cvae:878: %s', ' '.join(batch_losses.keys()))
             for m in predict_methods:
                 y_pred[m] = self.predict_after_evaluate(logits,
                                                         batch_losses,
@@ -1263,10 +1260,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 recorder.append_batch(
                     **batch_losses, y_true=y_test, logits=logits.T)
 
-            # print('*** 842', y_test[0].item(), *y_test.shape)
-            # print('*** 843', batch_losses['cross_y'].min(0)[0].mean())
             ind = y_test.unsqueeze(0)
-            # print('*** 1156 y:', min(y_test), max(y_test))
             for k in batch_losses:
                 shape = '?'
                 _s = 'x'.join([str(_) for _ in batch_losses[k].shape])
@@ -1322,6 +1316,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 time_per_i=time_per_i,
                                 batch_size=batch_size,
                                 preambule=print_result)
+
         self.test_loss = mean_loss
 
         if recorder is not None:
@@ -1556,8 +1551,8 @@ class ClassificationVariationalNetwork(nn.Module):
                     if odin_parameters:
                         x.requires_grad_(True)
                     with torch.no_grad():
-                        _, logits, losses, _ = self.evaluate(x, batch=i)
-
+                        _, logits, losses, testset_measures = self.evaluate(x, batch=i)
+                    self._measures = testset_measures
                     odin_softmax = {}
                     if odin_parameters:
                         for T in self.ODIN_TEMPS:

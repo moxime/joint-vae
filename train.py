@@ -228,8 +228,12 @@ if __name__ == '__main__':
         data_augmentation = args.data_augmentation
         latent_sampling = args.latent_sampling
 
+    if args.oodsets is not None:
+        oodsets = [_ for _ in oodsets if _.name in args.oodsets]
+        
     log.debug(f'{trainset.name} dataset loaded')
-
+    log.info('Will test ood for {}'.format(','.join([_.name for _ in oodsets])))
+    
     if not data_augmentation:
         _augment = ''
     else:

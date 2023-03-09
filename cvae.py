@@ -1181,7 +1181,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     acc[m] = self.testing[epoch][m]['accuracy']
 
         if not sum(froms[testset_name]['where'][_] for _ in ('recorders', 'compute')):
-            pass # return acc
+            pass  # return acc
 
         if froms[testset_name]['where']['recorders']:
             rec_dir = froms.pop('rec_dir')
@@ -2664,7 +2664,12 @@ class ClassificationVariationalNetwork(nn.Module):
                 model.sigma = Sigma(train_params['sigma'])
         if load_net:
             logging.debug('Building the network')
-            for _ in ('set', 'epochs', 'data_augmentation', 'batch_size', 'fine_tuning', 'warmup'):
+            keys_out = ('set', 'epochs', 'data_augmentation',
+                        'batch_size', 'fine_tuning', 'warmup',
+                        'full_test_every', 'validation_split_seed',
+                        'max_batch_sizes',
+                        'transformer', 'validation')
+            for _ in keys_out:
                 train_params.pop(_, None)
             model = cls(**params, **train_params)
 

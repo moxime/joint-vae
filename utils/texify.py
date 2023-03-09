@@ -44,7 +44,8 @@ def tex_architecture(net_dict, filename='arch.tex',
     classes = [c for (i, c) in enumerate(parent_classes) if i not in heldout]
     ood_results = net.ood_results.get(epoch, {})
     ood_sets = list(ood_results)
-    ood_sets.remove(trainset)
+    if trainset in ood_sets:
+        ood_sets.remove(trainset)
     exported_values = dict(
         oftype=oftype,
         dataset=trainset,
@@ -65,7 +66,7 @@ def tex_architecture(net_dict, filename='arch.tex',
         encoderdepth=len(arch['encoder']),
         decoder='-'.join(str(w) for w in arch['decoder']),
         decoderdepth=len(arch['decoder']),
-        features=arch.get('features', {}).get('name', 'none'),
+        features=arch.get('features') or 'none',
         sigma='{:x}'.format(net.sigma),
         beta=beta,
         prior_means=latent_prior_means,

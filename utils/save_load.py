@@ -994,7 +994,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     for s in ('train', 'test'):
         last_loss = ([nans] + history.get(s + '_loss', [nans]))[-1]
         loss_[s] = nans.copy()
-        loss_[s].update(last_loss)
+        if last_loss:
+            loss_[s].update(last_loss)
 
     has_validation = 'validation_loss' in history
     validation = model.training_parameters.get('validation', 0)
@@ -1080,7 +1081,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'encoder_forced_variance': encoder_forced_variance,
             'gamma': model.training_parameters['gamma'],
             'arch_code': arch_code,
-            'features': architecture.features['name'] if architecture.features else 'none',
+            'features': architecture.features or 'none',
             'dir': directory,
             'heldout': heldout,  # tuple(sorted(heldout)),
             'h/o': ','.join(str(_) for _ in heldout),

@@ -174,7 +174,6 @@ if __name__ == '__main__':
             to_be_kept = False
             epoch_tolerance = 0
             while not to_be_kept and epoch_tolerance <= 10:
-
                 available = available_results(n, wanted_epoch=wanted_epoch,
                                               where=where, epoch_tolerance=epoch_tolerance)
 
@@ -307,13 +306,13 @@ if __name__ == '__main__':
         print_sorting_keys = True
 
     df = results_dataframe(models_to_be_kept,
-                         ood_methods=args.ood_methods or all_methods,
-                         predict_methods=args.predict_methods or all_methods,
-                         ood=oodsets,
-                         show_measures=10,
-                         tnr=args.tnr,
-                         tpr=tpr,
-                         sorting_keys=sort)
+                           ood_methods=args.ood_methods or all_methods,
+                           predict_methods=args.predict_methods or all_methods,
+                           ood=oodsets,
+                           show_measures=10,
+                           tnr=args.tnr,
+                           tpr=tpr,
+                           sorting_keys=sort)
 
     _sep = ('_', ':', ',', ' ')
     tex_filter_str = filter_str
@@ -371,6 +370,7 @@ if __name__ == '__main__':
                 else:
                     unremoved_index.append(i)
             if unremoved_index:
+                print(*d.index.names)
                 logging.error('{} are not removed. Possible removable index: {}'.format(', '.join(unremoved_index),
                                                                                         ', '.join(d.index.names)))
             d = d.droplevel(removed_index)

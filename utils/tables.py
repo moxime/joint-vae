@@ -194,25 +194,25 @@ def results_dataframe(models,
                                                 names=col_names)
 
     # DEBUG
-    # print('ACC\n', acc_df.columns)
+    # print('ACC\n', *acc_df.index.names)
     in_out_df = unfold_df_from_dict(df['in_out_rates'], depth=3,
                                     names=col_names,
                                     keep={'method': ['starred']})
 
     # DEBUG
-    # print('INOUT\n', in_out_df.columns)
+    # print('INOUT\n', *in_out_df.index.names)
 
     meas_df = df[meas_cols]
     meas_df.columns = pd.MultiIndex.from_product([['measures'], [''], meas_df.columns],
                                                  names=col_names)
 
     # DEBUG
-    # print('MEAS\n', meas_df.columns)
+    # print('MEAS\n', meas_df.index.names)
 
     df = pd.concat([acc_df, in_out_df, meas_df], axis=1)
 
     # DEBUG
-    # print('DF\n', df.columns)
+    # print('CONCAT\n', df.index.names)
 
     cols = df.columns
 
@@ -486,7 +486,6 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
 
 
 def unfold_df_from_dict(df, depth=1, names=None, keep=None):
-
     if not depth:
         if isinstance(df, pd.Series):
             return None if all(df.isna()) else df
@@ -549,6 +548,8 @@ def unfold_df_from_dict(df, depth=1, names=None, keep=None):
             return col in is_in
 
     df_ = pd.DataFrame(df.values.tolist(), index=df.index)
+    # print('*** in tables:551\n', df_.index.names)
+
     non_null_cols = [_ for _ in df_.columns if not all(df_[_].isnull())]
 
     def replace_floats(x):
@@ -559,17 +560,18 @@ def unfold_df_from_dict(df, depth=1, names=None, keep=None):
     if depth > 1:
         df_ = df_[non_null_cols].applymap(lambda x: x if isinstance(x, dict) else {'val': x})
         # df_ = df_[non_null_cols].apply(replace_floats, axis=1, result_type='broadcast')
-
+        # print('*** in tables:561\n', df_.index.names)
     unfolded = {_: unfold_df_from_dict(df_[_], depth=depth-1, names=names[1:], keep=keep)
                 for _ in df_.columns if keep_col(current_keeper, _, *df_.columns)}
-
     try:
-        concatenated_df = pd.concat({_: unfolded[_] for _ in unfolded if unfolded[_] is not None},
+        concatenated_df = pd.concat({_: unfolded[_] for _ in unfolded
+                                     if unfolded[_] is not None and not unfolded[_].empty},
                                     axis=1, names=[names[0]])
+        # print('*** in tables:570\n', *concatenated_df.index.names)
 
     except ValueError:
         # if all are empty
-        return None
+        return pd.DataFrame()
     return concatenated_df
 
 

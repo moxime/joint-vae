@@ -99,11 +99,11 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vae': ['rmse', 'dB', 'sigma'],
                         'vib': ['sigma', ]}
 
-    ood_methods_per_type = {'cvae': ['iws-2s', 'iws-a-1-1', 'iws-a-1-4', 'iws-a-4-1',
-                                     'iws', 'kl', 'mse', 'max', 'soft', 'wmse'],
+    ood_methods_per_type = {'cvae': ['iws-2s', 'iws-a-1-1', 'iws-a-4-1',
+                                     'iws', 'mse', 'elbo', 'soft'],
                             'xvae': ['max', 'mean', 'std'],  # , 'mag', 'IYx'],
                             'jvae': ['max', 'sum', 'std'],  # 'mag'],
-                            'vae': ['iws-2s', 'iws', 'logpx'],
+                            'vae': ['iws-2s', 'iws-a-1-1', 'iws-a-4-1', 'iws', 'elbo'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
     misclass_methods_per_type = {'cvae': ['softkl*', 'iws', 'softiws*', 'kl', 'max',
@@ -962,10 +962,11 @@ class ClassificationVariationalNetwork(nn.Module):
             if '-a-' in m:
                 m = m.split('-')[0]
 
-            if m == 'logpx':
-                assert not self.losses_might_be_computed_for_each_class
-                measures = logp
-
+            if m == 'elbo':
+                if not self.losses_might_be_computed_for_each_class:
+                    measures = logp
+                else:
+                    measures = logp_max
             elif m == 'iws':
                 # print('*** iws:', 'iws' in losses, *losses.keys())
                 if self.losses_might_be_computed_for_each_class:

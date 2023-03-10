@@ -119,6 +119,8 @@ def load_json(dir_name, file_name, presumed_type=str):
             d = json.load(f)
         except json.JSONDecodeError:
             logging.error('Corrupted file\n%s', p)
+            with open('/tmp/corrupted', 'a') as f:
+                f.write(p + '\n')
             return {}
     d_ = {}
     for k in d:
@@ -694,7 +696,7 @@ def available_results(model,
     if wanted_epoch == 'min-loss':
         wanted_epoch = model.training_parameters.get('early-min-loss', 'last')
     if wanted_epoch == 'last':
-        wanted_epoch = max(model.testing)
+        wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results)
     predict_methods = make_list(predict_methods, model.predict_methods)
     ood_methods = make_list(ood_methods, model.ood_methods)
     misclass_methods = make_list(misclass_methods, model.misclass_methods)
@@ -751,7 +753,6 @@ def available_results(model,
 
     if wanted_epoch:
         epochs = [_ for _ in epochs if abs(_ - wanted_epoch) <= epoch_tolerance]
-
     test_results = {_: clean_results(test_results.get(_, {}), predict_methods) for _ in epochs}
 
     results = {}
@@ -855,7 +856,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             wanted_epoch = 'last'
 
     if wanted_epoch == 'last':
-        wanted_epoch = max(model.testing)
+        wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results)
 
     testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
@@ -1102,7 +1103,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
             'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
             'n_tested': n_tested,
-            'epoch': tested_epoch,
+            'epoch': wanted_epoch,
             'accuracies': accuracies,
             'best_accuracy': best_accuracy,
             'n_in_out': n_in_out,

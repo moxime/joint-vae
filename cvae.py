@@ -158,7 +158,8 @@ class ClassificationVariationalNetwork(nn.Module):
                  optimizer={},
                  shadow=False,
                  representation='rgb',
-                 *args, **kw):
+                 version=VERSION,
+                 * args, **kw):
 
         super().__init__(*args, **kw)
         self.name = name

@@ -9,6 +9,7 @@ import logging
 import string
 import numpy as np
 from torchvision.utils import save_image
+from torch.utils.data import Dataset
 import configparser
 from matplotlib import pyplot as plt
 
@@ -73,6 +74,45 @@ def letters_getter(**kw):
 target_transforms = {'y-1': lambda y: y-1}
 
 
+class ConstantDataset(Dataset):
+
+    def __init__(self, shape, n=10000, transform=None, target_transform=None, download=False):
+
+        self._shape = shape
+        self._len = n
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __len__(self):
+        return self._len
+
+    def _create_image(self, idx):
+        color = torch.rand(self._shape[0], 1, 1)
+        image = color.expand(self._shape)
+        label = 0
+        return image, label
+
+    def __getitem__(self, idx):
+
+        image, label = self._create_image(idx)
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            label = self.target_transform(label)
+
+        return image, label
+
+
+class UniformDataset(ConstantDataset):
+
+    def _create_image(self, idx):
+
+        label = 0
+        image = torch.rand(self._shape)
+
+        return image, label
+
+
 class ImageFolderWithClassesInFile(datasets.ImageFolder):
 
     def __init__(self, root, classes_file, *a, **kw):
@@ -120,7 +160,9 @@ def create_image_dataset(classes_file):
     return Dataset
 
 
-getters = {'mnist': datasets.MNIST,
+getters = {'const': ConstantDataset,
+           'uniform': UniformDataset,
+           'mnist': datasets.MNIST,
            'fashion': datasets.FashionMNIST,
            'letters': letters_getter,
            'cifar10': datasets.CIFAR10,
@@ -175,7 +217,7 @@ def dataset_properties(conf_file='data/sets.ini', all_keys=True):
 
         if all_keys:
             keys = ('default_transform', 'pre_transform', 'target_transform', 'folder', 'kw_for_split',
-                    'root', 'classes_from_file', 'downloadable')
+                    'root', 'classes_from_file', 'downloadable', 'by_shape')
         else:
             keys = ()
         for k in keys:
@@ -229,6 +271,7 @@ def get_dataset(dataset='mnist',
         pre_transforms.append(transforms.Lambda(lambda img: transforms.functional.rotate(img, 90)))
 
     pre_transform = set_props.get('pre_transform') or ''
+    post_to_tensor = True
     for t in pre_transform.split():
 
         if t.startswith('resize'):
@@ -254,12 +297,29 @@ def get_dataset(dataset='mnist',
 
             pre_transforms.append(transforms.CenterCrop(shape))
 
+        elif t.startswith('pad'):
+            try:
+                pad = int(t.split('-')[-1])
+            except ValueError:
+                pad = 2
+            pre_transforms.append(transforms.Pad(2))
+
         elif t.startswith('rotate'):
             angle = int(t.split('-')[-1])
             pre_transforms.append(lambda img: transforms.functional.rotate(img, angle))
 
         elif t == 'hflip':
             pre_transforms.append(lambda img: transforms.functional.hflip(img))
+
+        elif t == 'g2c':
+            pre_transforms.append(lambda x: x.repeat(3, 1, 1))
+
+        elif t == 'tensor':
+            post_to_tensor = False
+            pre_transforms.append(transforms.ToTensor())
+
+        elif t == 'already_tensor':
+            post_to_tensor = False
 
     for t in data_augmentation:
         if t == 'flip':
@@ -277,16 +337,23 @@ def get_dataset(dataset='mnist',
 
     if transformer == 'crop':
         post_transforms.append(transforms.CenterCrop(set_props['shape'][1:]))
+
     elif transformer == 'pad':
         post_transforms.append(transforms.Pad(2))
 
-    post_transforms.append(transforms.ToTensor())
+    if post_to_tensor:
+        post_transforms.append(transforms.ToTensor())
 
     if set_props.get('folder'):
         getter = create_image_dataset(set_props['classes_from_file'])
     else:
-        getter = getters[dataset]
-
+        i = len(dataset)
+        while dataset[:i] not in getters:
+            i -= 1
+        if i:
+            getter = getters[dataset[:i]]
+        else:
+            raise KeyError(dataset)
     root = set_props['root']
     directory = root  # os.path.join(root, parent_set)
 
@@ -307,6 +374,9 @@ def get_dataset(dataset='mnist',
         test_kw[kw_[0]] = kw_[2]
         for _ in train_kw, test_kw:
             _['root'] = directory
+    elif set_props.get('by_shape'):
+        train_kw = {'shape': set_props['shape']}
+        test_kw = {'shape': set_props['shape']}
     else:
         train_kw = dict(train=True, root=directory)
         test_kw = dict(train=False, root=directory)
@@ -565,7 +635,7 @@ def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
         r = i // ncols
         c = i - r * ncols
         img = transforms.functional.to_pil_image(image)
-        axs[r, c].imshow(np.asarray(img))
+        axs[r, c].imshow(np.asarray(img), cmap='gray' if x.shape[-3] == 1 else None)
 
         try:
             label = imageset.classes[y[i]]
@@ -577,21 +647,6 @@ def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
     fix.show()
 
     nrows = int(np.ceil(num / ncols))
-
-    fix, axs = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False)
-
-    for i, image in enumerate(x):
-        r = i // ncols
-        c = i - r * ncols
-        img = transforms.functional.to_pil_image(image)
-        axs[r, c].imshow(np.asarray(img))
-
-        try:
-            label = imageset.classes[y[i]]
-        except (AttributeError, TypeError):
-            label = str(y[i].numpy())
-        axs[r, c].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[], title=label)
-    fix.show()
 
 
 def export_png(imageset, directory, by_class=False):

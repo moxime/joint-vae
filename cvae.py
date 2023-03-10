@@ -40,6 +40,7 @@ DEFAULT_ACTIVATION = 'relu'
 DEFAULT_OUTPUT_ACTIVATION = 'linear'
 DEFAULT_LATENT_SAMPLING = 100
 
+VERSION = 2.
 
 activation_layers = {'linear': nn.Identity,
                      'sigmoid': nn.Sigmoid,
@@ -338,7 +339,9 @@ class ClassificationVariationalNetwork(nn.Module):
                              'decoder': decoder,
                              'upsampler': upsampler,
                              'classifier': classifier,
-                             'output_activation': output_activation}
+                             'output_activation': output_activation,
+                             'version': VERSION,
+                             }
 
         self.depth = (len(encoder)
                       + len(decoder)
@@ -2575,7 +2578,7 @@ class ClassificationVariationalNetwork(nn.Module):
             load_state = False
 
         # default
-        default_params = {}
+        default_params = {'version': 1.}
 
         train_params = {}
 

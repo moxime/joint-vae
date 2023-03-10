@@ -1127,6 +1127,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'optim_str': f'{empty_optimizer:3}',
             'optim': empty_optimizer.kind,
             'lr': empty_optimizer.init_lr,
+            'version': architecture.version
             }
 
 

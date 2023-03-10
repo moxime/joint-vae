@@ -39,7 +39,6 @@ if __name__ == '__main__':
 
     batch_size = args.batch_size
     load_dir = args.load_dir
-    dry_run = args.compute
     flash = args.flash
 
     test_sample_size = args.test_sample_size
@@ -274,17 +273,18 @@ if __name__ == '__main__':
                                           sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
                                           outputs=outputs,
                                           print_result='OFR' if not plan['compute'] else 'OFM')
-                print('Acc')
-                model.accuracy(epoch=epoch,
-                               from_where=where,
-                               sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
-                               outputs=outputs,
-                               print_result='TFR' if not plan['compute'] else 'TFM')
-                print('Misclassification')
-                model.misclassification_detection_rate(epoch=epoch,
-                                                       from_where=where,
-                                                       outputs=outputs,
-                                                       print_result='MFR' if not plan['compute'] else 'MFM')
+                if model.predict_methods:
+                    print('Acc')
+                    model.accuracy(epoch=epoch,
+                                   from_where=where,
+                                   sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
+                                   outputs=outputs,
+                                   print_result='TFR' if not plan['compute'] else 'TFM')
+                    print('Misclassification')
+                    model.misclassification_detection_rate(epoch=epoch,
+                                                           from_where=where,
+                                                           outputs=outputs,
+                                                           print_result='MFR' if not plan['compute'] else 'MFM')
 
             if not args.dry_run:
                 model.save(m['dir'])

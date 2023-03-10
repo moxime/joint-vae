@@ -274,7 +274,7 @@ if __name__ == '__main__':
                                           outputs=outputs,
                                           print_result='OFR' if not plan['compute'] else 'OFM')
                 if model.predict_methods:
-                    print('Acc')
+                    print('Acc', *model.predict_methods, where)
                     model.accuracy(epoch=epoch,
                                    from_where=where,
                                    sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],

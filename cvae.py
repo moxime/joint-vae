@@ -1186,7 +1186,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     acc[m] = self.testing[epoch][m]['accuracy']
 
         if not sum(froms[testset_name]['where'][_] for _ in ('recorders', 'compute')):
-            pass  # return acc
+            return acc
 
         if froms[testset_name]['where']['recorders']:
             rec_dir = froms.pop('rec_dir')

@@ -172,9 +172,7 @@ def get_args_for_train(argv=None):
 
     alphanum_keys = ('encoder',
                      'data_augmentation',
-                     'features_channels',
                      'decoder',
-                     'upsampler',
                      'classifier')
 
     bool_keys = ('learned_prior_means',)
@@ -258,10 +256,14 @@ def get_args_for_train(argv=None):
     parser.add_argument('--gamma', type=float,
                         default=0.)
 
+    parser.add_argument('--prior', choices=['gaussian', 'tilted'], default='gaussian')
+
+    parser.add_argument('--tilted-tau', default=25., type=float)
+
     parser.add_argument('--prior-means',
                         type=alphanum,
                         default=0,
-                        help='For CVAE, energy of latent prior means (or \'onehot\')'
+                        help='For CVAE, std of latent prior means (or \'onehot\')'
                         )
 
     parser.add_argument('--learned-prior-means',
@@ -292,22 +294,23 @@ def get_args_for_train(argv=None):
     parser.add_argument('--pretrained-upsampler', metavar='upsampler.pth')
 
     parser.add_argument('--fine-tuning', action='store_true')
-    parser.add_argument('--warmup', type=int, default=0)
+    parser.add_argument('--warmup', type=float, default=[0], nargs='+')
 
     parser.add_argument('--encoder', type=alphanum, metavar='W', nargs='*')
-    parser.add_argument('--features-channels', type=alphanum, metavar='C', nargs='*')
     parser.add_argument('--conv-padding', type=alphanum, metavar='P')
     parser.add_argument('--decoder', type=alphanum, nargs='*', metavar='W')
-    parser.add_argument('--upsampler', type=alphanum, nargs='*', metavar='C')
+    parser.add_argument('--upsampler', type=alphanum, metavar='CxK-CxK+P...')
     parser.add_argument('--classifier', type=alphanum, nargs='*', metavar='W')
 
-    parser.add_argument('--forced-encoder-variance', type=float, default=False, nargs='?', const=1.0)
+    parser.add_argument('--encoder-forced-variance', type=float, default=False, nargs='?', const=1.0)
 
     parser.add_argument('--dataset',)
     # choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10', 'letters'])
 
+    parser.add_argument('--oodsets', nargs='*', default=None)
+    
     parser.add_argument('--transformer',
-                        choices=['simple', 'normal', 'default', 'crop'],
+                        choices=['simple', 'normal', 'default', 'crop', 'pad'],
                         help='transform data, simple : 0--1, normal 0 +/- 1')
 
     parser.add_argument('--data-augmentation',
@@ -327,6 +330,8 @@ def get_args_for_train(argv=None):
     parser.add_argument('--wd', default=0, type=float, dest='weight_decay')
 
     parser.add_argument('--lr-decay', default=0, type=float)
+
+    parser.add_argument('--grad-clipping', type=float)
 
     help = 'Find by job number and resume begun training'
     parser.add_argument('-R', '--resume', default=None,
@@ -555,11 +560,11 @@ class NewEntryDictofLists(argparse.Action):
 
 if __name__ == '__main__':
 
-    cli = '--upsampler vgg19 4 5'.split()
+    cli = '--upsampler vgg19'.split()
     arg = get_args_for_train(cli)
 
     print(arg.upsampler)
-
+    print(arg.output_activation)
     # arg = get_args_for_test()
     # for k in arg.filters:
     # if not arg.filters[k].always_true:

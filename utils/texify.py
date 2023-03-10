@@ -30,9 +30,9 @@ def tex_architecture(net_dict, filename='arch.tex',
     f = create_file(net.job_number, directory, filename) if filename else None
     printout = create_printout(file_id=f, std=stdout)
     arch = net.architecture
-    empty_optimizer = Optimizer([torch.nn.Parameter(torch.Tensor())], **net.training_parameters['optim'])
+    empty_optimizer = Optimizer([torch.nn.Parameter(torch.Tensor())], **net.training_parameters['optimizer'])
     oftype = net.architecture['type']
-    latent_prior_means = net.architecture['latent_prior_means'] if oftype == 'cvae' else 0
+    latent_prior_means = net.architecture['prior']['init_mean'] if oftype == 'cvae' else 0
     beta = net.training_parameters['beta']
     trainset = net.training_parameters['set']
     sigmabeta = r'\ensuremath\sigma=' + f'{net.sigma}'.upper()
@@ -44,11 +44,12 @@ def tex_architecture(net_dict, filename='arch.tex',
     classes = [c for (i, c) in enumerate(parent_classes) if i not in heldout]
     ood_results = net.ood_results.get(epoch, {})
     ood_sets = list(ood_results)
-    ood_sets.remove(trainset)
+    if trainset in ood_sets:
+        ood_sets.remove(trainset)
     exported_values = dict(
         oftype=oftype,
         dataset=trainset,
-        numclasses=arch['labels'],
+        numclasses=arch['num_labels'],
         classes=','.join(classes),
         oodsets=','.join(ood_sets),
         allsets=','.join([trainset, *ood_sets]),
@@ -65,7 +66,7 @@ def tex_architecture(net_dict, filename='arch.tex',
         encoderdepth=len(arch['encoder']),
         decoder='-'.join(str(w) for w in arch['decoder']),
         decoderdepth=len(arch['decoder']),
-        features=arch.get('features', {}).get('name', 'none'),
+        features=arch.get('features') or 'none',
         sigma='{:x}'.format(net.sigma),
         beta=beta,
         prior_means=latent_prior_means,
@@ -481,7 +482,7 @@ class TexCell(object):
 
         if tex and self.face:
             s += tex_faces.get(self._face, '') + '{'
-            
+
         s += str(self).__format__(spec)
 
         if tex and self.face:

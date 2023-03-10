@@ -1,10 +1,14 @@
 #!/bin/bash
 remote=lab-ia
+jobdir=jobs
 push=
-target=$(dirname $0)/../jobs
 opt=( --exclude '*.pth' -uvP --exclude '*.out' )
 while :; do
     case $1 in
+	-j )
+	    shift
+	    jobdir="$1"
+	    ;;
 	--push )
 	    push=True
 	    ;;
@@ -32,15 +36,9 @@ then
 fi
 shift
 
-if [ "$remote" = "lab-ia" ]
-then
-    source="~/joint-vae/jobs"
-elif [ "$remote" = "z4" ]
-then
-     source="~/jvae/jobs"
-else
-    source="~/python/dnn/joint-vae/jobs"
-fi
+target=$(dirname $0)/../$jobdir
+
+source="~/joint-vae/$jobdir"
 
 echo $remote $source
 
@@ -53,7 +51,7 @@ else
    from=$target/
 
 fi
-   
+
 echo rsync  "${opt[@]}" $@ $from $to
 
 # exit 0

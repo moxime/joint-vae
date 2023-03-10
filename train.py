@@ -174,6 +174,9 @@ if __name__ == '__main__':
         latent_prior_variance = args.prior_variance,
         learned_latent_prior_means = args.learned_prior_means,
 
+        if not args.encoder_forced_variance:
+            args.encoder_forced_variance = False
+
         prior = dict(distribution=args.prior,
                      init_mean=args.prior_means,
                      learned_means=args.learned_prior_means,
@@ -230,10 +233,10 @@ if __name__ == '__main__':
 
     if args.oodsets is not None:
         oodsets = [_ for _ in oodsets if _.name in args.oodsets]
-        
+
     log.debug(f'{trainset.name} dataset loaded')
     log.info('Will test ood for {}'.format(','.join([_.name for _ in oodsets])))
-    
+
     if not data_augmentation:
         _augment = ''
     else:

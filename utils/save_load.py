@@ -1077,7 +1077,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'learned_prior_means': learned_prior_means,
             'latent_prior_variance': latent_prior_variance,
             'latent_prior_means': latent_means,
-            'latent': latent_prior,
+            'prior': latent_prior,
             'encoder_forced_variance': encoder_forced_variance,
             'gamma': model.training_parameters['gamma'],
             'arch_code': arch_code,

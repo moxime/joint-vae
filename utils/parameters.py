@@ -303,12 +303,13 @@ def get_args_for_train(argv=None):
     parser.add_argument('--classifier', type=alphanum, nargs='*', metavar='W')
 
     parser.add_argument('--encoder-forced-variance', type=float, default=False, nargs='?', const=1.0)
+    parser.add_argument('--encoder-free-variance', action='store_false', dest='encoder_forced_variance')
 
     parser.add_argument('--dataset',)
     # choices=['fashion', 'mnist', 'fashion32', 'svhn', 'cifar10', 'letters'])
 
     parser.add_argument('--oodsets', nargs='*', default=None)
-    
+
     parser.add_argument('--transformer',
                         choices=['simple', 'normal', 'default', 'crop', 'pad'],
                         help='transform data, simple : 0--1, normal 0 +/- 1')

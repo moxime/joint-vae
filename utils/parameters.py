@@ -301,6 +301,8 @@ def get_args_for_train(argv=None):
     parser.add_argument('--decoder', type=alphanum, nargs='*', metavar='W')
     parser.add_argument('--upsampler', type=alphanum, metavar='CxK-CxK+P...')
     parser.add_argument('--classifier', type=alphanum, nargs='*', metavar='W')
+    parser.add_argument('--activation')
+    parser.add_argument('--output-activation')
 
     parser.add_argument('--encoder-forced-variance', type=float, default=False, nargs='?', const=1.0)
     parser.add_argument('--encoder-free-variance', action='store_false', dest='encoder_forced_variance')

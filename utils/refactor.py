@@ -371,15 +371,48 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
         json_pretrained_from_params_to_train(d, write_json=write_json)
 
 
+@iterable_over_subdirs('directory', keep_none=False, iterate_over_subdirs=list)
+def history_from_list_to_dict(directory='jobs', write_json=False):
+
+    json_file = os.path.join(directory, 'history.json')
+    # print(json_file)
+    if not os.path.exists(json_file):
+        return None
+    print(directory.split('/')[-1])
+    history = load_json(directory, 'history.json')
+
+    params = load_json(directory, 'train_params.json')
+    epochs_ = history['epochs']
+    validation = params['validation']
+    epochs = {}
+    epochs['train'] = range(0, epochs_)
+    full_test = params['full_test_every']
+    epochs['test'] = range(full_test, epochs_, full_test)
+    epochs['validation'] = range(0, epochs_) if validation else []
+    for k in [*history.keys()]:
+        h_k = history.pop(k)
+        for prefix in ('test', 'train', 'validation'):
+            if k.startswith(prefix):
+                _k = len(h_k)
+                __ = len(epochs[prefix])
+                assert __ == _k or not _k
+                print(' ' if _k == __ else '*', k, _k, __)
+                if _k:
+                    history[k] = {e: h_k[i] for i, e in enumerate(epochs[prefix])}
+    return True
+
+
 if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('job_dir', default='jobs')
+    parser.add_argument('--job-dir', default='jobs')
     parser.add_argument('--write', action='store_true')
 
     args = parser.parse_args()
 
-    print('Working on', args.job_dir)
-    load_and_save_json(args.job_dir, 'train.json', 'warmup',
-                       old_value=0, new_value=[0, 0], suffix='-warmup')
+    # print('Working on', args.job_dir)
+    # load_and_save_json(args.job_dir, 'train.json', 'warmup',
+    #                    old_value=0, new_value=[0, 0], suffix='-warmup')
+
+    history_from_list_to_dict(directory=args.job_dir)

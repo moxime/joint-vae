@@ -39,7 +39,6 @@ def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False, iter
                 directory = kw.get(arg)
             else:
                 directory = a[arg]
-            # print('***', directory[-10:], 'a:', *a, 'k:', *kw, '***')
             out = func(*a, **kw)
 
             if out is not None or keep_none:

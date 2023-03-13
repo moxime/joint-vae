@@ -90,7 +90,7 @@ def set_log(verbose, debug, log_dir, name='train', job_number=0, tmp_dir='/tmp')
     log.addHandler(dump_file_handler)
 
     if log_dir == tmp_dir:
-        logging.warning('will log in %s',  tmp_dir)
+        logging.warning('will log in %s', tmp_dir)
 
     def dump_filter(record):
         r = record.getMessage().startswith('DUMPED')
@@ -120,10 +120,10 @@ def set_log(verbose, debug, log_dir, name='train', job_number=0, tmp_dir='/tmp')
 def alphanum(x):
     try:
         return int(x)
-    except(ValueError):
+    except (ValueError):
         try:
             return float(x)
-        except(ValueError):
+        except (ValueError):
             return x
 
 
@@ -419,6 +419,8 @@ def get_args_for_results(argv=None):
     parser.add_argument('--cautious', action='store_true')
 
     parser.add_argument('--early-stopping')
+
+    parser.add_argument('--all-epochs', action='store_true')
 
     parser.add_argument('--device')
     parser.add_argument('--compute',

@@ -152,6 +152,7 @@ def results_dataframe(models,
         #        'forced_var',
         'tilted_tau',
         'L',
+        'l',
         'sigma_train',
         'sigma',
         # 'beta_sigma',
@@ -173,7 +174,7 @@ def results_dataframe(models,
         meas_cols = ['epoch', 'done', 'validation']
 
     if show_measures > 1:
-        meas_cols += ['dict_var', 'beta_sigma', 'rmse',
+        meas_cols += ['dB', 'nll', 'kl', 'dict_var', 'beta_sigma', 'rmse',
                       'train_loss', 'test_loss',
                       'train_zdist', 'test_zdist']
 
@@ -451,7 +452,7 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
                                          'latent': 'z',
                                          'sigma_train': 'sigma~',
                                          'arch_code': 'arch',
-                                         'optim_str': 'optim'
+                                         'optim_str': 'optim',
                                          },
                     inplace=False,
                     ):
@@ -561,7 +562,7 @@ def unfold_df_from_dict(df, depth=1, names=None, keep=None):
         df_ = df_[non_null_cols].applymap(lambda x: x if isinstance(x, dict) else {'val': x})
         # df_ = df_[non_null_cols].apply(replace_floats, axis=1, result_type='broadcast')
         # print('*** in tables:561\n', df_.index.names)
-    unfolded = {_: unfold_df_from_dict(df_[_], depth=depth-1, names=names[1:], keep=keep)
+    unfolded = {_: unfold_df_from_dict(df_[_], depth=depth - 1, names=names[1:], keep=keep)
                 for _ in df_.columns if keep_col(current_keeper, _, *df_.columns)}
     try:
         concatenated_df = pd.concat({_: unfolded[_] for _ in unfolded

@@ -298,7 +298,7 @@ if __name__ == '__main__':
 
     all_methods = 'all' if args.expand > 1 else 'first'
 
-    tpr = [t/100 for t in args.tpr]
+    tpr = [t / 100 for t in args.tpr]
 
     print_sorting_keys = False
     if sort and 'print' in sort:
@@ -387,7 +387,7 @@ if __name__ == '__main__':
         d_count = gb.agg('count')
 
         if 'job' in d.index.names:
-            _s = '{{:{}d}}'.format(wj-1)
+            _s = '{{:{}d}}'.format(wj - 1)
             d_count_s = d_count[d_count.columns[-1]].apply(_s.format)
             d_count_v = d_count_s.values
             # d_mean.reset_index(level='job', drop=True, inplace=True)
@@ -403,7 +403,8 @@ if __name__ == '__main__':
             texify_test_results_df(d_agg, s, agg_tex_file, agg_tab_file, tab_code=tab_code)
 
         col_show_levels = {_: 0 for _ in d.columns}
-        col_show_levels.update({_: 2 for _ in d.columns if _[0] == 'measures'})
+        col_show_levels.update({_: 3 for _ in d.columns if _[0] == 'measures'})
+        col_show_levels.update({_: 2 for _ in d.columns if _[-1] in ['dB', 'nll', 'kl']})
         col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['done', 'epoch', 'validation']})
 
         drop_cols = [_ for _ in d.columns if col_show_levels[_] > args.show_measures]
@@ -414,6 +415,9 @@ if __name__ == '__main__':
 
         format_df_index(d, inplace=True)
         format_df_index(d_mean, inplace=True)
+
+        d.rename(columns={'validation': 'val'}, inplace=True)
+        d_mean.rename(columns={'validation': 'val'}, inplace=True)
 
         d_str = d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
 
@@ -434,13 +438,13 @@ if __name__ == '__main__':
             width = len(m_str[0])
             first_row = '{:-^{w}}'.format('AVERAGE', w=width)
             header = d.columns.nlevels
-            second_row = m_str[header-1]
+            second_row = m_str[header - 1]
             if not args.only_average:
                 print()
                 print(first_row)
                 print()
             print(second_row)
-            print('\n'.join(m_str[header+1:]))
+            print('\n'.join(m_str[header + 1:]))
 
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]

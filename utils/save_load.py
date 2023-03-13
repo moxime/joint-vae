@@ -176,7 +176,7 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     if is_int:
         if 0 < i < len(sub_dirs_rel_paths) + 1:
             return get_path_from_input(dir_path=os.path.join(dir_path,
-                                                             sub_dirs_rel_paths[i-1]))
+                                                             sub_dirs_rel_paths[i - 1]))
         else:
             return get_path_from_input(dir_path)
     elif i == '':
@@ -812,7 +812,7 @@ def available_results(model,
                 gain = {'-'.join(m): 0 for m in methods[dset]}
                 others = {'-'.join(m): 0 for m in methods[dset]}
                 for m in gain:
-                    others[m] = max(a_[_].get(m, 0) for _ in wheres[i+1:])
+                    others[m] = max(a_[_].get(m, 0) for _ in wheres[i + 1:])
                     gain[m] += a_[w].get(m, 0) - others[m] > min_samples[dset]
                     # gain[m] *= (gain[m] > 0)
                 available[epoch][dset]['where'][w] = sum(gain.values())
@@ -965,10 +965,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
                 if the_tpr:
                     suffix = '@{:.0f}'.format(100 * target_tpr)
-                    res_by_method['fpr'+suffix] = fpr
+                    res_by_method['fpr' + suffix] = fpr
                     res_by_method['auc'] = auc
                     if P is not None:
-                        res_by_method['P'+suffix] = P
+                        res_by_method['P' + suffix] = P
                         # print('***', in_out_results_s[m].keys())
                         # res_by_method['dP'] = P - in_out_results_s[m]['acc']
                     # if params := in_out_results_s[m].get('params'):
@@ -987,16 +987,27 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     if history.get('test_measures', {}):
         mse = model.train_history['test_measures'][-1].get('mse', np.nan)
         rmse = np.sqrt(mse)
+        dB = model.train_history['test_measures'][-1].get('dB', np.nan)
     else:
         rmse = np.nan
+        dB = np.nan
 
-    nans = {'total': np.nan, 'zdist': np.nan}
+    nans = {_: np.nan for _ in ('total', 'zdist', 'iws', 'kl')}
     loss_ = {}
     for s in ('train', 'test'):
         last_loss = ([nans] + history.get(s + '_loss', [nans]))[-1]
         loss_[s] = nans.copy()
         if last_loss:
             loss_[s].update(last_loss)
+
+    num_dims = np.prod(model.architecture['input_shape'])
+    nll = -loss_['test']['iws'] / np.log(2) / num_dims
+
+    kl = loss_['test']['kl']
+
+    if architecture.type in ('cvae', 'xvae'):
+        C = model.architecture['num_labels']
+        nll += np.log2(C) / num_dims
 
     has_validation = 'validation_loss' in history
     validation = model.training_parameters.get('validation', 0)
@@ -1101,6 +1112,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'has_validation': has_validation,
             'validation': validation,
             'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
+            'full_test_every': model.training_parameters['full_test_every'],
             'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
             'n_tested': n_tested,
             'epoch': wanted_epoch,
@@ -1111,6 +1123,9 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'in_out_rate': in_out_rate,
             'recorders': recorders,
             'recorded_epoch': recorded_epoch,
+            'nll': nll,
+            'dB': dB,
+            'kl': kl,
             'rmse': rmse,
             'test_loss': loss_['test']['total'],
             'train_loss': loss_['train']['total'],
@@ -1118,6 +1133,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'train_zdist': np.sqrt(loss_['train']['zdist']),
             'K': architecture.latent_dim,
             'L': training.latent_sampling,
+            'l': architecture.test_latent_sampling,
             'warmup': training.warmup,
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),

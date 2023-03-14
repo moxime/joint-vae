@@ -262,7 +262,7 @@ if __name__ == '__main__':
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch))
             logging.debug('Plan for {}; {}'.format(m['job'], plan))
-            model = CVNet.load(m['dir'], load_state=plan['compute'])
+            model = CVNet.load(m['dir'], load_net=True, load_state=plan['compute'])
             if plan['compute']:
                 device = args.device or 'cuda'
             else:

@@ -695,7 +695,6 @@ def available_results(model,
     if wanted_epoch == 'min-loss':
         wanted_epoch = model.training_parameters.get('early-min-loss', 'last')
     if wanted_epoch == 'last':
-        print('***', *model.predict_methods, *model.testing, '***', *model.ood_results)
         wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results)
     predict_methods = make_list(predict_methods, model.predict_methods)
     ood_methods = make_list(ood_methods, model.ood_methods)
@@ -856,6 +855,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             wanted_epoch = 'last'
 
     if wanted_epoch == 'last':
+        print('***', *model.predict_methods, *model.testing, '***', *model.ood_results)
         wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results)
 
     testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)

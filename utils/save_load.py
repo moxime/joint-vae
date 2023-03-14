@@ -695,6 +695,7 @@ def available_results(model,
     if wanted_epoch == 'min-loss':
         wanted_epoch = model.training_parameters.get('early-min-loss', 'last')
     if wanted_epoch == 'last':
+        print('***', *model.predict_methods, *model.testing, '***', *model.ood_results)
         wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results)
     predict_methods = make_list(predict_methods, model.predict_methods)
     ood_methods = make_list(ood_methods, model.ood_methods)

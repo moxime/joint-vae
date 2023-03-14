@@ -294,11 +294,11 @@ if __name__ == '__main__':
                                                            outputs=outputs,
                                                            print_result='MFR' if not plan['compute'] else 'MFM')
                     history_checkpoint['test_accuracy'] = test_accuracy
-                test_loss = model.test_loss
-                test_measures = model._measures
+                # test_loss = model.test_loss
+                # test_measures = model._measures
 
-                history_checkpoint['test_measures'] = test_measures
-                history_checkpoint['test_loss'] = test_loss
+                # history_checkpoint['test_measures'] = test_measures
+                # history_checkpoint['test_loss'] = test_loss
 
             if not args.dry_run:
                 model.save(m['dir'])

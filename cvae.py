@@ -2135,11 +2135,6 @@ class ClassificationVariationalNetwork(nn.Module):
         done_epochs = self.train_history['epochs']
         if done_epochs == 0:
             self.train_history = {'epochs': 0}  # will not be returned
-            for s in ('train', 'test', 'validation'):
-                for w in ('accuracy', 'loss', 'measures'):
-                    k = '{}_{}'.format(s, w)
-                    self.train_history[k] = {}
-            self.train_history['lr'] = {}
 
         if not acc_methods:
             acc_methods = self.predict_methods
@@ -2175,8 +2170,9 @@ class ClassificationVariationalNetwork(nn.Module):
         logging.debug(f'Starting training loop with {signal_handler}')
 
         last_was_full_test = False
-        for epoch in range(done_epochs, epochs):
-
+        for epoch in range(done_epochs, epochs + 1):
+            self.train_history[epoch] = {}
+            history_checkpoint = self.train_history[epoch]
             for s in recorders:
                 recorders[s].reset()
 
@@ -2186,8 +2182,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
             full_test = ((epoch - done_epochs) and
                          epoch % full_test_every == 0)
+
+            full_test = full_test or epoch == epochs
+
             ood_detection = ((epoch - done_epochs) and
                              epoch % ood_detection_every == 0)
+
+            ood_detection = ood_detection or epoch == epochs
 
             last_was_full_test = full_test
             if (full_test or not epoch or ood_detection) and save_dir:
@@ -2236,6 +2237,10 @@ class ClassificationVariationalNetwork(nn.Module):
                     test_loss = self.test_loss
                     test_measures = self._measures.copy()
 
+                    history_checkpoint['test_accuracy'] = test_accuracy
+                    history_checkpoint['test_measures'] = test_measures
+                    history_checkpoint['test_loss'] = test_loss
+
                 if validation:
                     validation_accuracy = self.accuracy(validationset,
                                                         batch_size=test_batch_size,
@@ -2252,6 +2257,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                         'valid')
                     validation_loss = self.test_loss
                     validation_measures = self._measures.copy()
+                    for k, v in zip(('accuracy', 'measures', 'loss'),
+                                    (validation_accuracy, validation_measures, validation_loss)):
+                        history_checkpoint['validation_' + k] = v
 
                 if signal_handler.sig > 3:
                     logging.warning(
@@ -2260,6 +2268,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 if save_dir:
                     self.save(save_dir)
             # train
+
+            if epoch == epochs:
+                break
+
             if train_accuracy:
                 with torch.no_grad():
                     train_accuracy = self.accuracy(trainset,
@@ -2352,20 +2364,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
             self.eval()
             train_measures = measures.copy()
-            if full_test:
-                self.train_history['test_accuracy'][epoch] = test_accuracy
-                self.train_history['test_measures'][epoch] = test_measures
-                self.train_history['test_loss'][epoch] = test_loss
-            if validation:
-                for k, v in zip(('accuracy', 'measures', 'loss'),
-                                (validation_accuracy, validation_measures, validation_loss)):
-                    self.train_history['validation_' + k][epoch] = v
             if train_accuracy:
-                self.train_history['train_accuracy'][epoch] = train_accuracy
-            self.train_history['train_loss'][epoch] = train_mean_loss
-            self.train_history['train_measures'][epoch] = train_measures
+                history_checkpoint['train_accuracy'] = train_accuracy
+            history_checkpoint['train_loss'] = train_mean_loss
+            history_checkpoint['train_measures'] = train_measures
             self.train_history['epochs'] += 1
-            self.train_history['lr'][epoch] = self.optimizer.lr
+            history_checkpoint['lr'] = self.optimizer.lr
             self.trained += 1
             if fine_tuning:
                 self.training_parameters['fine_tuning'].append(epoch)

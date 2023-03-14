@@ -423,6 +423,8 @@ def history_from_list_to_dict(directory='jobs', write_json=False):
 
     print(*new_history[10].keys())
     print(*new_history[50].keys())
+    print('train:', min(epochs['train']), max(epochs['train']))
+    print('test:', *epochs['test'])
     return True
 
 

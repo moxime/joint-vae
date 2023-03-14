@@ -982,22 +982,20 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         epochs_in_out[s] = min(in_out_results_s[m]['epochs'] for m in in_out_results_s)
         n_in_out[s] = min(in_out_results_s[m]['n'] for m in in_out_results_s)
 
-    history = model.train_history
+    history = model.train_history.get(wanted_epoch, {})
+    print('***', wanted_epoch, *model.train_history.keys())
     if history.get('test_measures', {}):
-        mse = history['test_measures'][wanted_epoch][-1].get('mse', np.nan)
+        mse = history['test_measures'].get('mse', np.nan)
         rmse = np.sqrt(mse)
-        dB = model.train_history['test_measures'][-1].get('dB', np.nan)
+        dB = history['test_measures'].get('dB', np.nan)
     else:
         rmse = np.nan
         dB = np.nan
 
-    nans = {_: np.nan for _ in ('total', 'zdist', 'iws', 'kl')}
     loss_ = {}
     for s in ('train', 'test'):
-        last_loss = ([nans] + history.get(s + '_loss', [nans]))[-1]
-        loss_[s] = nans.copy()
-        if last_loss:
-            loss_[s].update(last_loss)
+        loss_[s] = {_: np.nan for _ in ('zdist', 'total', 'iws', 'kl')}
+        loss_[s].update(history.get(s + '_loss', {}))
 
     num_dims = np.prod(model.architecture['input_shape'])
     nll = -loss_['test']['iws'] / np.log(2) / num_dims

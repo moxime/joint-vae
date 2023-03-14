@@ -2634,7 +2634,7 @@ class ClassificationVariationalNetwork(nn.Module):
             pass
 
         try:
-            train_history = save_load.load_json(dir_name, 'history.json')
+            train_history = save_load.load_json(dir_name, 'history.json', presumed_type=int)
         except (FileNotFoundError, IndexError):
             train_history = {'epochs': 0}
 

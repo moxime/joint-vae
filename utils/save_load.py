@@ -983,7 +983,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         n_in_out[s] = min(in_out_results_s[m]['n'] for m in in_out_results_s)
 
     history = model.train_history.get(wanted_epoch, {})
-    print('***', wanted_epoch, *model.train_history.keys())
     if history.get('test_measures', {}):
         mse = history['test_measures'].get('mse', np.nan)
         rmse = np.sqrt(mse)

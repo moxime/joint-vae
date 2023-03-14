@@ -272,6 +272,9 @@ if __name__ == '__main__':
             model.to(device)
             with torch.no_grad():
                 print('OOD')
+                if epoch not in model.train_history:
+                    model.train_history[epoch] = {}
+                history_checkpoint = model.train_history[epoch]
                 model.ood_detection_rates(epoch=epoch,
                                           from_where=where,
                                           sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
@@ -279,16 +282,23 @@ if __name__ == '__main__':
                                           print_result='OFR' if not plan['compute'] else 'OFM')
                 if model.predict_methods:
                     print('Acc', *model.predict_methods, where)
-                    model.accuracy(epoch=epoch,
-                                   from_where=where,
-                                   sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
-                                   outputs=outputs,
-                                   print_result='TFR' if not plan['compute'] else 'TFM')
+                    sample_dirs = [os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))]
+                    test_accuracy = model.accuracy(epoch=epoch,
+                                                   from_where=where,
+                                                   sample_dirs=sample_dirs,
+                                                   outputs=outputs,
+                                                   print_result='TFR' if not plan['compute'] else 'TFM')
                     print('Misclassification')
                     model.misclassification_detection_rate(epoch=epoch,
                                                            from_where=where,
                                                            outputs=outputs,
                                                            print_result='MFR' if not plan['compute'] else 'MFM')
+                    history_checkpoint['test_accuracy'] = test_accuracy
+                test_loss = model.test_loss
+                test_measures = model._measures
+
+                history_checkpoint['test_measures'] = test_measures
+                history_checkpoint['test_loss'] = test_loss
 
             if not args.dry_run:
                 model.save(m['dir'])

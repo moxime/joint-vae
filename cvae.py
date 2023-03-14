@@ -2135,16 +2135,11 @@ class ClassificationVariationalNetwork(nn.Module):
         done_epochs = self.train_history['epochs']
         if done_epochs == 0:
             self.train_history = {'epochs': 0}  # will not be returned
-            self.train_history['train_accuracy'] = []
-            self.train_history['train_loss'] = []
-            self.train_history['train_measures'] = []
-            self.train_history['test_accuracy'] = []
-            self.train_history['test_measures'] = []
-            self.train_history['test_loss'] = []
-            self.train_history['validation_accuracy'] = []
-            self.train_history['validation_measures'] = []
-            self.train_history['validation_loss'] = []
-            self.train_history['lr'] = []
+            for s in ('train', 'test', 'validation'):
+                for w in ('accuracy', 'loss', 'measures'):
+                    k = '{}_{}'.format(s, w)
+                    self.train_history[k] = {}
+            self.train_history['lr'] = {}
 
         if not acc_methods:
             acc_methods = self.predict_methods
@@ -2358,19 +2353,19 @@ class ClassificationVariationalNetwork(nn.Module):
             self.eval()
             train_measures = measures.copy()
             if full_test:
-                self.train_history['test_accuracy'].append(test_accuracy)
-                self.train_history['test_measures'].append(test_measures)
-                self.train_history['test_loss'].append(test_loss)
+                self.train_history['test_accuracy'][epoch] = test_accuracy
+                self.train_history['test_measures'][epoch] = test_measures
+                self.train_history['test_loss'][epoch] = test_loss
             if validation:
                 for k, v in zip(('accuracy', 'measures', 'loss'),
                                 (validation_accuracy, validation_measures, validation_loss)):
-                    self.train_history['validation_' + k].append(v)
+                    self.train_history['validation_' + k][epoch] = v
             if train_accuracy:
-                self.train_history['train_accuracy'].append(train_accuracy)
-            self.train_history['train_loss'].append(train_mean_loss)
-            self.train_history['train_measures'].append(train_measures)
+                self.train_history['train_accuracy'][epoch] = train_accuracy
+            self.train_history['train_loss'][epoch] = train_mean_loss
+            self.train_history['train_measures'][epoch] = train_measures
             self.train_history['epochs'] += 1
-            self.train_history['lr'].append(self.optimizer.lr)
+            self.train_history['lr'][epoch] = self.optimizer.lr
             self.trained += 1
             if fine_tuning:
                 self.training_parameters['fine_tuning'].append(epoch)

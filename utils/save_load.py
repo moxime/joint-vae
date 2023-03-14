@@ -984,7 +984,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     history = model.train_history
     if history.get('test_measures', {}):
-        mse = model.train_history['test_measures'][-1].get('mse', np.nan)
+        mse = history['test_measures'][wanted_epoch][-1].get('mse', np.nan)
         rmse = np.sqrt(mse)
         dB = model.train_history['test_measures'][-1].get('dB', np.nan)
     else:

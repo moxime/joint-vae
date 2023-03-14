@@ -375,10 +375,14 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
 def history_from_list_to_dict(directory='jobs', write_json=False):
 
     json_file = os.path.join(directory, 'history.json')
+    json_file_bak = os.path.join(directory, 'history_.json')
     # print(json_file)
-    if not os.path.exists(json_file):
+    if not os.path.exists(json_file) or os.path.exists(json_file_bak):
         return None
     print(directory.split('/')[-1])
+    if write_json:
+        copyfile(json_file, json_file_bak)
+        print('backuped file')
     history = load_json(directory, 'history.json')
 
     params = load_json(directory, 'train_params.json')
@@ -389,16 +393,36 @@ def history_from_list_to_dict(directory='jobs', write_json=False):
     full_test = params['full_test_every']
     epochs['test'] = range(full_test, epochs_, full_test)
     epochs['validation'] = range(0, epochs_) if validation else []
+    kept_k = []
+    new_history = {e: {} for e in epochs['train']}
     for k in [*history.keys()]:
-        h_k = history.pop(k)
         for prefix in ('test', 'train', 'validation'):
             if k.startswith(prefix):
+                h_k = history.pop(k)
                 _k = len(h_k)
                 __ = len(epochs[prefix])
                 assert __ == _k or not _k
                 print(' ' if _k == __ else '*', k, _k, __)
                 if _k:
-                    history[k] = {e: h_k[i] for i, e in enumerate(epochs[prefix])}
+                    for i, e in enumerate(epochs[prefix]):
+                        new_history[e].update({k: h_k[i]})
+                break
+        else:
+            kept_k.append(k)
+    lr = history['lr']
+    for i, e in enumerate(epochs['train']):
+        new_history[e]['lr'] = lr[i]
+    kept_k.remove('lr')
+    print('kept', *kept_k)
+    for k in kept_k:
+        new_history[k] = history[k]
+    if write_json:
+        with open(json_file, 'w') as f:
+            json.dump(new_history, f)
+            print('w', json_file)
+
+    print(*new_history[10].keys())
+    print(*new_history[50].keys())
     return True
 
 
@@ -415,4 +439,4 @@ if __name__ == '__main__':
     # load_and_save_json(args.job_dir, 'train.json', 'warmup',
     #                    old_value=0, new_value=[0, 0], suffix='-warmup')
 
-    history_from_list_to_dict(directory=args.job_dir)
+    history_from_list_to_dict(directory=args.job_dir, write_json=args.write)

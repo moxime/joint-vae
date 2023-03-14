@@ -262,7 +262,7 @@ if __name__ == '__main__':
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch))
             logging.debug('Plan for {}; {}'.format(m['job'], plan))
-            model = CVNet.load(m['dir'], load_net=True, load_state=plan['compute'])
+            model = CVNet.load(m['dir'], load_net=True, load_state=plan['compute'] and True)
             if plan['compute']:
                 device = args.device or 'cuda'
             else:
@@ -271,18 +271,20 @@ if __name__ == '__main__':
             logging.debug('Will work on {}'.format(device))
             model.to(device)
             with torch.no_grad():
+                model.test_loss = {}
+                model._measures = {}
+                sample_dirs = [os.path.join(m['dir'], 'samples', '{:04d}'.format(epoch))]
                 print('OOD')
                 if epoch not in model.train_history:
                     model.train_history[epoch] = {}
                 history_checkpoint = model.train_history[epoch]
                 model.ood_detection_rates(epoch=epoch,
                                           from_where=where,
-                                          sample_dirs=[os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))],
+                                          sample_dirs=sample_dirs,
                                           outputs=outputs,
                                           print_result='OFR' if not plan['compute'] else 'OFM')
-                if model.predict_methods:
-                    print('Acc', *model.predict_methods, where)
-                    sample_dirs = [os.path.join(m['dir'], 'samples', '{:4d}'.format(epoch))]
+                if model.predict_methods or True:
+                    print('Acc', *model.predict_methods, 'in', *where)
                     test_accuracy = model.accuracy(epoch=epoch,
                                                    from_where=where,
                                                    sample_dirs=sample_dirs,
@@ -294,11 +296,15 @@ if __name__ == '__main__':
                                                            outputs=outputs,
                                                            print_result='MFR' if not plan['compute'] else 'MFM')
                     history_checkpoint['test_accuracy'] = test_accuracy
-                # test_loss = model.test_loss
-                # test_measures = model._measures
+                test_loss = model.test_loss
+                test_measures = model._measures
 
-                # history_checkpoint['test_measures'] = test_measures
-                # history_checkpoint['test_loss'] = test_loss
+                if test_loss:
+                    logging.info('updating test loss')
+                    history_checkpoint['test_loss'] = test_loss
+                if model._measures:
+                    logging.info('updating test measures')
+                    history_checkpoint['test_measures'] = test_measures
 
             if not args.dry_run:
                 model.save(m['dir'])

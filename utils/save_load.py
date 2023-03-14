@@ -1075,6 +1075,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     else:
         recorded_epoch = None
 
+    finished = model.train_history['epochs'] >= model.training_parameters['epochs']
     return {'net': model,
             'job': model.job_number,
             'is_resumed': model.is_resumed,
@@ -1109,7 +1110,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'validation': validation,
             'trained': model.train_history['epochs'] / model.training_parameters['epochs'],
             'full_test_every': model.training_parameters['full_test_every'],
-            'finished': model.train_history['epochs'] >= model.training_parameters['epochs'],
+            'finished': finished,
             'n_tested': n_tested,
             'epoch': wanted_epoch,
             'accuracies': accuracies,

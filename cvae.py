@@ -651,7 +651,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             if compute_iws:
                 log_iws = -D / 2 * \
-                    (weighted_mse_loss_sampling + log_sigma /
+                    (weighted_mse_loss_sampling + 2 * log_sigma /
                      sigma_dims + np.log(2 * np.pi))
                 if log_iws.isinf().sum():
                     logging.error('MSE INF')
@@ -739,7 +739,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
                 self.training_parameters['sigma'] = self.sigma.params
 
-            batch_logpx = -D * (log_sigma / sigma_dims +
+            batch_logpx = -D * (2 * log_sigma / sigma_dims +
                                 batch_wmse + np.log(2 * np.pi)) / 2
 
             # if not batch and True:
@@ -1115,6 +1115,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     @property
     def test_losses(self):
+        # print('access to test losses')
         return self._test_losses
 
     @test_losses.setter
@@ -1122,10 +1123,11 @@ class ClassificationVariationalNetwork(nn.Module):
         # if not d:
         #     print('*** test losses reset')
         # else:
-        #     print('*** test losses set to: kl {:.4}, total {:.4}'.format(d.get('kl', np.nan), d.get('total', np.nan)))
+        #     _s = '*** test losses set to: kl {:.4}, total {:.4}'
+        #     print(_s.format(d.get('kl', np.nan), d.get('total', np.nan)))
 
         self._test_losses = d
-        
+
     @property
     def test_measures(self):
         return self._test_measures
@@ -1137,7 +1139,6 @@ class ClassificationVariationalNetwork(nn.Module):
         # else:
         #     print('*** test measures set:', *d)
         self._test_measures = d
-        
 
     def accuracy(self, testset=None,
                  batch_size=100,
@@ -1344,7 +1345,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 time_per_i=time_per_i,
                                 batch_size=batch_size,
                                 preambule=print_result)
-                
+
         self.test_losses = mean_loss
         if measures:
             self.test_measures = measures
@@ -1614,7 +1615,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     odin_softmax = {}
 
                 _test_losses.append({k: losses[k].mean().item() for k in losses})
-                
+
                 if recording[s]:
                     recorders[s].append_batch(
                         **losses, **odin_softmax, y_true=y, logits=logits.T)
@@ -1651,13 +1652,12 @@ class ClassificationVariationalNetwork(nn.Module):
                                 preambule=testset.name)
 
             self.test_losses = {k: sum(_[k] for _ in _test_losses) / (i + 1)
-                                for k in _test_losses[0]} 
+                                for k in _test_losses[0]}
 
             if _test_measures:
                 self.test_measures = {k: sum(_[k] for _ in _test_measures) / (i + 1)
-                                      for k in _test_measures[0]} 
+                                      for k in _test_measures[0]}
 
-                
             if recorders[s] is not None:
                 recorders[s].restore_seed()
 

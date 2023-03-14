@@ -272,7 +272,7 @@ if __name__ == '__main__':
             model.to(device)
             with torch.no_grad():
                 model.test_loss = {}
-                model._measures = {}
+                model.test_measures = {}
                 sample_dirs = [os.path.join(m['dir'], 'samples', '{:04d}'.format(epoch))]
                 print('OOD')
                 if epoch not in model.train_history:
@@ -296,13 +296,13 @@ if __name__ == '__main__':
                                                            outputs=outputs,
                                                            print_result='MFR' if not plan['compute'] else 'MFM')
                     history_checkpoint['test_accuracy'] = test_accuracy
-                test_loss = model.test_loss
-                test_measures = model._measures
+                test_loss = model.test_losses
+                test_measures = model.test_measures
 
                 if test_loss:
                     logging.info('updating test loss')
                     history_checkpoint['test_loss'] = test_loss
-                if model._measures:
+                if test_measures:
                     logging.info('updating test measures')
                     history_checkpoint['test_measures'] = test_measures
 

@@ -1113,6 +1113,32 @@ class ClassificationVariationalNetwork(nn.Module):
         assert 'test' in v
         self.training_parameters['max_batch_sizes'] = v
 
+    @property
+    def test_losses(self):
+        return self._test_losses
+
+    @test_losses.setter
+    def test_losses(self, d):
+        # if not d:
+        #     print('*** test losses reset')
+        # else:
+        #     print('*** test losses set to: kl {:.4}, total {:.4}'.format(d.get('kl', np.nan), d.get('total', np.nan)))
+
+        self._test_losses = d
+        
+    @property
+    def test_measures(self):
+        return self._test_measures
+
+    @test_measures.setter
+    def test_measures(self, d):
+        # if not d:
+        #     print('*** test measures reset')
+        # else:
+        #     print('*** test measures set:', *d)
+        self._test_measures = d
+        
+
     def accuracy(self, testset=None,
                  batch_size=100,
                  num_batch='all',
@@ -1131,8 +1157,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
         """
         MAX_SAMPLE_SAVE = 200
-
-        # self.test_loss = None
 
         device = next(self.parameters()).device
 
@@ -1247,7 +1271,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                                          current_measures=current_measures)
 
                 current_measures = measures
-                self._measures = measures
             else:
                 components = [
                     k for k in recorder.keys() if k in self.loss_components]
@@ -1317,12 +1340,14 @@ class ClassificationVariationalNetwork(nn.Module):
                                 acc_methods=predict_methods,
                                 accuracies=acc,
                                 metrics=self.metrics,
-                                measures=self._measures,
+                                measures=measures,
                                 time_per_i=time_per_i,
                                 batch_size=batch_size,
                                 preambule=print_result)
-
-        self.test_loss = mean_loss
+                
+        self.test_losses = mean_loss
+        if measures:
+            self.test_measures = measures
 
         if recorder is not None:
             recorder.restore_seed()
@@ -1545,6 +1570,10 @@ class ClassificationVariationalNetwork(nn.Module):
             t_0 = time.time()
 
             test_iterator = iter(loader)
+            # test_set
+            _test_losses = []
+            _test_measures = []
+            num_samples = 0
             for i in range(num_batch[s]):
 
                 # print('*** 1378', i, num_batch[s])
@@ -1557,7 +1586,7 @@ class ClassificationVariationalNetwork(nn.Module):
                         x.requires_grad_(True)
                     with torch.no_grad():
                         _, logits, losses, testset_measures = self.evaluate(x, batch=i)
-                    self._measures = testset_measures
+                    _test_measures.append({k: testset_measures[k] for k in testset_measures})
                     odin_softmax = {}
                     if odin_parameters:
                         for T in self.ODIN_TEMPS:
@@ -1584,6 +1613,8 @@ class ClassificationVariationalNetwork(nn.Module):
                     logits = recorders[s].get_batch(i, 'logits').T
                     odin_softmax = {}
 
+                _test_losses.append({k: losses[k].mean().item() for k in losses})
+                
                 if recording[s]:
                     recorders[s].append_batch(
                         **losses, **odin_softmax, y_true=y, logits=logits.T)
@@ -1619,6 +1650,14 @@ class ClassificationVariationalNetwork(nn.Module):
                                 batch_size=batch_size[s],
                                 preambule=testset.name)
 
+            self.test_losses = {k: sum(_[k] for _ in _test_losses) / (i + 1)
+                                for k in _test_losses[0]} 
+
+            if _test_measures:
+                self.test_measures = {k: sum(_[k] for _ in _test_measures) / (i + 1)
+                                      for k in _test_measures[0]} 
+
+                
             if recorders[s] is not None:
                 recorders[s].restore_seed()
 
@@ -2202,7 +2241,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 sample_dirs = []
 
             with torch.no_grad():
-
+                self.test_losses = {}
+                self.test_measures = {}
                 if oodsets and ood_detection:
 
                     self.ood_detection_rates(oodsets=oodsets, testset=testset,
@@ -2234,9 +2274,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                   update_self_testing=full_test,
                                                   recorder=recorders[set_name],
                                                   print_result='TEST' if full_test else 'test')
-                    test_loss = self.test_loss
-                    test_measures = self._measures.copy()
-
+                    test_loss = self.test_losses.copy()
+                    test_measures = self.test_measures.copy()
+                    # print('**** test_loss to checkpoint')
                     history_checkpoint['test_accuracy'] = test_accuracy
                     history_checkpoint['test_measures'] = test_measures
                     history_checkpoint['test_loss'] = test_loss
@@ -2255,8 +2295,8 @@ class ClassificationVariationalNetwork(nn.Module):
                                                         print_result='VALID'
                                                         if full_test else
                                                         'valid')
-                    validation_loss = self.test_loss
-                    validation_measures = self._measures.copy()
+                    validation_loss = self.test_losses.copy()
+                    validation_measures = self.test_measures.copy()
                     for k, v in zip(('accuracy', 'measures', 'loss'),
                                     (validation_accuracy, validation_measures, validation_loss)):
                         history_checkpoint['validation_' + k] = v
@@ -2556,6 +2596,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.trained:
             w_p = save_load.get_path(dir_name, 'state.pth')
             torch.save(self.state_dict(), w_p)
+            # print('**** state saved')
             w_p = save_load.get_path(dir_name, 'optimizer.pth')
             torch.save(self.optimizer.state_dict(), w_p)
 
@@ -2702,7 +2743,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 raise e
             try:
                 model.load_state_dict(state_dict)
-
+                # print('***** state loaded')
             except RuntimeError as e:
                 state_dict_vae = model.state_dict()
                 s = ''

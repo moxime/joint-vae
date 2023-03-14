@@ -855,7 +855,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             wanted_epoch = 'last'
 
     if wanted_epoch == 'last':
-        wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results)
+        wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results or [0])
 
     testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}

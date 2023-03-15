@@ -421,8 +421,14 @@ def history_from_list_to_dict(directory='jobs', write_json=False):
             json.dump(new_history, f)
             print('w', json_file)
 
-    print(*new_history[10].keys())
-    print(*new_history[50].keys())
+    if 10 in new_history:
+        print(*new_history[10].keys())
+    else:
+        print('10 not in history')
+    if 50 in new_history:
+        print(*new_history[50].keys())
+    else:
+        print('50 not in history')
     print('train:', min(epochs['train']), max(epochs['train']))
     print('test:', *epochs['test'])
     return True

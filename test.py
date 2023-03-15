@@ -362,9 +362,9 @@ if __name__ == '__main__':
 
         try:
             args.remove_index.remove('auto')
-            auto_removed_index = True
+            are_auto_removed_index = True
         except (ValueError, AttributeError):
-            auto_removed_index = False
+            are_auto_removed_index = False
 
         texify_test_results_df(d, s, tex_file, tab_file, tab_code=tab_code)
 
@@ -375,14 +375,17 @@ if __name__ == '__main__':
                 f.write('\def\joblist{')
                 f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
-
         if args.remove_index is not None:
-            removable_index = ['L', 'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var']
-            if auto_removed_index:
+            removable_index = ['L', 'l', 'optim_str', 'options', 'features', 'activation_str',
+                               'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var']
+            if are_auto_removed_index:
                 removed_index = [i for i, l in enumerate(d.index.levels)
                                  if len(l) < 2 and l.name in removable_index]
             else:
                 removed_index = []
+            auto_removed_index = {}
+            for i in removed_index:
+                auto_removed_index[d.index.names[i]] = d.index[0][i]
             unremoved_index = []
             for i in args.remove_index:
                 if i.replace('-', '_') in d.index.names:
@@ -423,9 +426,10 @@ if __name__ == '__main__':
             texify_test_results_df(d_agg, s, agg_tex_file, agg_tab_file, tab_code=tab_code)
 
         col_show_levels = {_: 0 for _ in d.columns}
-        col_show_levels.update({_: 3 for _ in d.columns if _[0] == 'measures'})
-        col_show_levels.update({_: 2 for _ in d.columns if _[-1] in ['dB', 'nll', 'kl']})
-        col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['done', 'epoch', 'validation']})
+        col_show_levels.update({_: 4 for _ in d.columns if _[0] == 'measures'})
+        col_show_levels.update({_: 3 for _ in d.columns if _[-1] in ['done']})
+        col_show_levels.update({_: 2 for _ in d.columns if _[-1] in ['epoch', 'validation']})
+        col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['dB', 'nll', 'kl']})
 
         drop_cols = [_ for _ in d.columns if col_show_levels[_] > args.show_measures]
 
@@ -466,11 +470,15 @@ if __name__ == '__main__':
             print(second_row)
             print('\n'.join(m_str[header + 1:]))
 
+        print('\nArchs')
         for a in archs[s]:
             arch_code = hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6]
             print(arch_code, ':\n', a)
         if print_sorting_keys:
             print('Possible sorting keys :', *d.index.names)
-
+        if auto_removed_index:
+            print('\nCommon values')
+        for k, v in format_df_index(auto_removed_index).items():
+            print('{:8}: {}'.format(k, v))
         for _ in range(1):
             print('=' * width)

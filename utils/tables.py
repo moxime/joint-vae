@@ -136,10 +136,12 @@ def results_dataframe(models,
 
     arch_index = ['h/o'] if dataset.endswith('-?') else []
     arch_index += ['type',
-                   'rep',
+                   # 'rep',
                    'depth',
                    'features',
                    'arch_code',
+                   'activation_str',
+                   'output_activation_str',
                    'K',
                    # 'dict_var',
                    ]
@@ -272,7 +274,15 @@ def results_dataframe(models,
     sorting_index = []
 
     if sorting_keys:
-        sorting_keys_ = [k.replace('-', '_') for k in sorting_keys]
+        try:
+            sorting_keys.remove('!')
+            last_sorting = True
+            if 'job' not in format_df_index(sorting_keys):
+                sorting_keys.append('job')
+        except ValueError:
+            last_sorting = False
+
+        sorting_keys_ = format_df_index([k.replace('-', '_') for k in sorting_keys], inverse_replace=True)
         for k in sorting_keys_:
             if k in df.index.names:
                 sorting_index.append(k)
@@ -297,8 +307,17 @@ def results_dataframe(models,
             logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
             logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
 
+        if last_sorting:
+            last_sorting_index = sorting_index
+            sorting_index = list(df.index.names)
+            for _ in last_sorting_index:
+                sorting_index.remove(_)
+                sorting_index.append(_)
+
     if sorting_index:
         df = df.sort_values(sorting_index)
+        if last_sorting:
+            df = df.reset_index().set_index(sorting_index)
 
     return df.apply(col_format)
 
@@ -453,9 +472,24 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
                                          'sigma_train': 'sigma~',
                                          'arch_code': 'arch',
                                          'optim_str': 'optim',
+                                         'tilted_tau': 'tilt',
+                                         'activation_str': 'a',
+                                         'output_activation_str': 'oa',
                                          },
                     inplace=False,
+                    inverse_replace=False,
                     ):
+
+    if isinstance(df, dict):
+        replaced = {}
+        for k, v in df.items():
+            replaced[indices_replacement.get(k, k)] = v
+        return replaced
+
+    if isinstance(df, list):
+        if inverse_replace:
+            indices_replacement = {v: k for k, v in indices_replacement.items()}
+        return [indices_replacement.get(k, k) for k in df]
 
     if not inplace:
         df_ = df.copy()

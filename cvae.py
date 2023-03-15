@@ -100,10 +100,10 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vib': ['sigma', ]}
 
     ood_methods_per_type = {'cvae': ['iws-2s', 'iws-a-1-1', 'iws-a-4-1',
-                                     'iws', 'mse', 'elbo', 'soft'],
+                                     'iws', 'mse', 'elbo', 'soft', 'elbo-2s'],
                             'xvae': ['max', 'mean', 'std'],  # , 'mag', 'IYx'],
                             'jvae': ['max', 'sum', 'std'],  # 'mag'],
-                            'vae': ['iws-2s', 'iws-a-1-1', 'iws-a-4-1', 'iws', 'elbo'],
+                            'vae': ['iws-2s', 'iws-a-1-1', 'iws-a-4-1', 'iws', 'elbo', 'elbo-2s'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
     misclass_methods_per_type = {'cvae': ['softkl*', 'iws', 'softiws*', 'kl', 'max',

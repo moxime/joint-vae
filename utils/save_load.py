@@ -901,7 +901,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     tested_ood_sets = [s for s in ood_results if s in all_ood_sets]
 
     methods_for_in_out_rates = {s: model.ood_methods.copy() for s in tested_ood_sets}
-    in_out_results = ood_results
+    in_out_results = {_: ood_results[_] for _ in tested_ood_sets}
 
     if model.misclass_methods:
         for pm in accuracies:

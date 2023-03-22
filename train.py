@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     # print('*** device:', device)
     cuda_version = torch.version.cuda
-    cudnn_version = torch.backends.cudnn.version()
+    cudnn_version = torch.backends.cudnn.version() or np.nan
 
     log.debug(f'Using cuda v. {cuda_version} and '
               f'cudnn v. {cudnn_version / 1000:.3f}')

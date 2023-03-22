@@ -253,7 +253,7 @@ def print_architecture(o, sigma=False, sampling=False,
     if 'decoder' not in excludes:
         s += s_('decoder') + f'={_l2s(arch.decoder)}--'
         if arch.upsampler:
-            s += s_('upsampler') + f'={_l2s(arch.upsampler)}--'
+            s += s_('upsampler') + f'={arch.upsampler}--'
     s += s_('classifier') + f'={_l2s(arch.classifier)}--'
 
     # TK s += s_('variance') + f'={arch.latent_prior_variance:.1f}'
@@ -1032,7 +1032,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     latent_prior_variance = prior_params['var_dim']
 
-    latent_prior = latent_prior_distribution[0] + '-'
+    latent_prior = latent_prior_distribution[:4] + '-'
 
     if architecture.type in ('cvae', 'xvae'):
         learned_prior_means = prior_params['learned_means']

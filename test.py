@@ -357,14 +357,15 @@ if __name__ == '__main__':
 
     pd.set_option('max_colwidth', 15)
 
+    try:
+        args.remove_index.remove('auto')
+        are_auto_removed_index = True
+    except (ValueError, AttributeError):
+        are_auto_removed_index = False
     first_set = True
     for s, d in df.items():
 
-        try:
-            args.remove_index.remove('auto')
-            are_auto_removed_index = True
-        except (ValueError, AttributeError):
-            are_auto_removed_index = False
+        auto_removed_index = {}
 
         texify_test_results_df(d, s, tex_file, tab_file, tab_code=tab_code)
 
@@ -377,13 +378,12 @@ if __name__ == '__main__':
                 f.write('}\n')
         if args.remove_index is not None:
             removable_index = ['L', 'l', 'optim_str', 'options', 'features', 'activation_str',
-                               'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var']
+                               'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var', 'output_activation_str']
             if are_auto_removed_index:
                 removed_index = [i for i, l in enumerate(d.index.levels)
                                  if len(l) < 2 and l.name in removable_index]
             else:
                 removed_index = []
-            auto_removed_index = {}
             for i in removed_index:
                 auto_removed_index[d.index.names[i]] = d.index[0][i]
             unremoved_index = []

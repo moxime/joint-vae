@@ -466,7 +466,7 @@ def get_args_for_results(argv=None):
 
     parser.add_argument('--predict-methods', nargs='*', default=None)
 
-    parser.add_argument('--remove-index', nargs='*')
+    parser.add_argument('--remove-index', action='extend', nargs='*')
 
     args, ra = parser.parse_known_args(argv)
 

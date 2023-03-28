@@ -1513,18 +1513,18 @@ class ClassificationVariationalNetwork(nn.Module):
                     logging.debug('{} recorder available'.format(dset))
                     ood_methods_per_set[dset] = [
                         m for m in ood_methods if froms[dset]['recorders'].get(m)]
-                else:
+                elif dset != testset.name:
                     recorders.pop(dset)
                     logging.debug('{} will be discarded'.format(dset))
 
-                for s in recorders:  #
-                    logging.debug('OOD methods for {}: '.format(s) +
-                                  '-'.join(ood_methods_per_set[s]))
+            for s in recorders:  #
+                logging.debug('OOD methods for {}: '.format(s) +
+                              '-'.join(ood_methods_per_set[s]))
             all_ood_methods = [m for m in ood_methods if any(
                 [m in ood_methods_per_set[s] for s in recorders])]
             # print('*** ood methods', *ood_methods)
-            ood_methods_per_set[testset.name] = [
-                m for m in ood_methods if m in all_ood_methods]
+            ood_methods_per_set[testset.name] = [m for m in
+                                                 ood_methods if m in all_ood_methods]
 
             oodsets = [o for o in oodsets if o.name in recorders]
             all_set_names = [s for s in all_set_names if s in recorders]

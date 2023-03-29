@@ -698,7 +698,7 @@ if __name__ == '__main__':
 
     if 'train' in splits:
         plt.figure()
-        show_images(train, num=36, ncols=6)
+        show_images(train, num=36, ncols=6, shuffle=False)
     if 'test' in splits:
         plt.figure()
-        show_images(test, num=36, ncols=6)
+        show_images(test, num=36, ncols=6, shuffle=False)

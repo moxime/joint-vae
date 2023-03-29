@@ -254,13 +254,13 @@ def results_dataframe(models,
         df.rename(columns={'errors-{}'.format(methods['predict'][0]): 'errors'}, inplace=True)
 
     # Drop method level
-    dropped_levels = []
-    for _, level in enumerate(df.columns.names):
-        levels = set(c[_] for c in df.columns if c[_] != '')
-        if len(levels) == 1:
-            dropped_levels.append(level)
-    for l_ in dropped_levels:
-        df.columns = df.columns.droplevel(l_)
+    # dropped_levels = []
+    # for _, level in enumerate(df.columns.names):
+    #     levels = set(c[_] for c in df.columns if c[_] != '')
+    #     if len(levels) == 1:
+    #         dropped_levels.append(level)
+    # for l_ in dropped_levels:
+    #     df.columns = df.columns.droplevel(l_)
 
     def _f(x, type='%'):
         if type == '%':

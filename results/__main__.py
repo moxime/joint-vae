@@ -128,6 +128,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         print(df_string)
         print('{k:=^{w}s}\n'.format(k='', w=df_width))
 
+        # print('****', df.columns.names)
         raw_df[k] = df.groupby(level=idx).agg('mean')
         raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
         raw_df[k].rename(columns={tpr: 'rate'}, level='metrics', inplace=True)
@@ -252,7 +253,9 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     tab = TexTab(*col_fmt, float_format='{:2.1f}', na_rep='')
 
-    meta_headers = {'rate': r'\acron{{fpr}}@{}'.format(tpr) + ' ou acc.',
+    # meta_headers = {'rate': r'\acron{{fpr}}@{}'.format(tpr) + ' ou acc.',
+    #                 'auc': r'\acron{auc}'}
+    meta_headers = {'rate': r'\acron{{fpr}}@{}'.format(tpr),
                     'auc': r'\acron{auc}'}
 
     if len(meta_cols) > 1:
@@ -273,6 +276,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     no_multi_index = results_df.index.nlevels == 1
 
+    last_acc_row = None
     for idx, r in results_df.iterrows():
         idx_ = (idx,) if no_multi_index else idx
         is_an_acc_row = idx_[0] == texify['datasets'][acc_row_name]
@@ -294,7 +298,8 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             pass
 
     tab.add_midrule(row='header', after=True)
-    tab.add_midrule(row=last_acc_row, after=True)
+    if last_acc_row is not None:
+        tab.add_midrule(row=last_acc_row, after=True)
 
     for k in job_list:
         tab.comment('{:2} models for {:12}: {}'.format(len(job_list[k]), k,

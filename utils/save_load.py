@@ -587,9 +587,11 @@ def last_samples(model):
     return max(samples)
 
 
-def average_ood_results(ood_results):
+def average_ood_results(ood_results, *oodsets):
 
     ood = [s for s in ood_results if not s.endswith('90')]
+    if oodsets:
+        ood = [s for s in ood if s in oodsets]
 
     mean_keys = {'auc': 'val', 'fpr': 'list'}
     min_keys = {'epochs': 'val', 'n': 'val'}
@@ -894,7 +896,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     heldout = tuple(sorted(heldout))
 
-    average_ood = average_ood_results(ood_results)
+    average_ood = average_ood_results(ood_results, *all_ood_sets)
     if average_ood:
         ood_results['average'] = average_ood
     all_ood_sets.append('average')

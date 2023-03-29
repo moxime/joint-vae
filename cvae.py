@@ -508,7 +508,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  y=None,
                  batch=0,
                  current_measures=None,
-                 with_beta=False,
+                 with_beta=False,  #
                  kl_var_weighting=1.,
                  mse_weighting=1.,
                  z_output=False,
@@ -543,7 +543,7 @@ class ClassificationVariationalNetwork(nn.Module):
             if self.is_cvae or self.is_vae:
                 cross_y_weight = self.gamma if self.training else False
             else:
-                cross_y_weight = 1.
+                cross_y_weight = self.gamme.
 
         if not batch:
             # print('*** training:', self.training)
@@ -854,10 +854,11 @@ class ClassificationVariationalNetwork(nn.Module):
                     cross_y_weight * batch_losses['cross_y']
 
         if self.is_vib:
+            beta = self.beta if with_beta else 1.
             if not batch:
-                logging.debug(f'KL coef={self.sigma}')
+                logging.debug(f'KL coef={beta} / {self.gamma}')
             # print('*** 612: T:', *batch_losses['total'].shape, 'kl', *batch_losses['kl'].shape)
-            batch_losses['total'] += self.sigma * batch_losses['kl']
+            batch_losses['total'] += beta * batch_losses['kl']
         else:
             beta = self.beta if with_beta else 1.
             if not batch:

@@ -543,7 +543,7 @@ class ClassificationVariationalNetwork(nn.Module):
             if self.is_cvae or self.is_vae:
                 cross_y_weight = self.gamma if self.training else False
             else:
-                cross_y_weight = self.gamme.
+                cross_y_weight = self.gamma
 
         if not batch:
             # print('*** training:', self.training)

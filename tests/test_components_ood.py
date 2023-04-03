@@ -116,16 +116,19 @@ if __name__ == '__main__':
         for dset in [rmodels[mdir]['ind']] + rmodels[mdir]['oods']:
 
             rec = recorders[dset]
-            iws = rec._tensors['iws'].max(axis=0)[0].cpu()
+
+            if rmodels[mdir]['test'] in ('cave'):
+                elbo = rec._tensors['total'].max(axis=0)[0].cpu()
+                kl = rec._tensors['total'].max(axis=0)[0].cpu()
             if is_testset:
-                sorted_iws = iws.sort()[0]
-                n = len(sorted_iws)
-                thresholds = (sorted_iws[n * 4 // 100], sorted_iws[-n * 1 // 100])
+                sorted_elbo = elbo.sort()[0]
+                n = len(sorted_elbo)
+                thresholds = (sorted_elbo[n * 4 // 100], sorted_elbo[-n * 1 // 100])
 
             classes = get_classes_by_name(dset)
             confusion_matrix[dset] = {c: {c_: {True: 0., False: 0.} for c_ in classes_} for c in classes}
 
-            as_ood = (iws < thresholds[0]) | (iws > thresholds[1])
+            as_ood = (elbo < thresholds[0]) | (elbo > thresholds[1])
 
             # if not is_testset: print('FPR {:.2f}'.format(100 - 100 * as_ood.sum().item() / len(as_ood)))
             y_true = rec._tensors['y_true'].cpu()

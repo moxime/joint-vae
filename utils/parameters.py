@@ -24,8 +24,10 @@ def gethostname():
         return 'lss'
     if raw_host == 'astrov':
         return 'home'
+    if raw_host == 'PTB-MOS':
+        return 'work'
 
-    return raw_host.split('.')[0]
+    return raw_host.split('.')[0].lower()
 
 
 def in_list_with_starred(k, list_with_starred):

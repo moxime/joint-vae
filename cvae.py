@@ -6,7 +6,7 @@ import torch.utils.data
 from torch import nn
 from module.optimizers import Optimizer
 from torch.nn import functional as F
-from module.losses import x_loss, kl_loss, mse_loss
+from module.losses import x_loss, mse_loss
 from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
@@ -134,6 +134,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  num_labels,
                  type='cvae',  # or 'vib' or cvae or vae
                  y_is_coded=False,
+                 output_distribution='gaussian',
                  job_number=0,
                  features=None,
                  pretrained_features=None,
@@ -175,8 +176,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.predict_methods = self.predict_methods_per_type[self.type].copy()
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
-        self.misclass_methods = self.misclass_methods_per_type[self.type].copy(
-        )
+        self.misclass_methods = self.misclass_methods_per_type[self.type].copy()
 
         self.is_jvae = type == 'jvae'
         self.is_vib = type == 'vib'
@@ -192,6 +192,8 @@ class ClassificationVariationalNetwork(nn.Module):
             self.y_is_decoded = gamma
 
         self.x_is_generated = not self.is_vib
+
+        self.output_distribution = output_distribution if self.x_is_generated else None
 
         self.losses_might_be_computed_for_each_class = not self.is_vae
 
@@ -327,6 +329,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.architecture = {'input_shape': input_shape,
                              'num_labels': num_labels,
+                             'output_distribution': self.output_distribution,
                              'type': type,
                              'representation': representation,
                              # 'features': features_arch,

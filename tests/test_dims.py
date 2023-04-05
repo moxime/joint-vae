@@ -16,7 +16,7 @@ N = (20,)
 L = 12
 K = 4
 
-d = 'cuda'
+d = 'cpu'
 
 x = torch.randn(*N, *D, device=d)
 y = torch.randint(0, C, N, device=d)
@@ -24,38 +24,28 @@ y = torch.randint(0, C, N, device=d)
 types = ('cvae',)
 types = ('vib', 'vae', 'jvae', 'cvae', 'xvae')
 types = ('cvae', 'jvae', 'vae', 'vae', 'cvae')
+types = ('vae',)
 
-cls_cvae = []
-gamma = 0
-y_coded = True
-y_coded = False
-
-if y_coded:
-    types = ('jvae', 'xvae')
+gamma = {_: 1000 for _ in types}
+gamma['cave'] = 0
 
 for ntype in types:
 
     print('TYPE:', ntype)
     n = Net(D, C,
-            type_of_net=ntype,
-            y_is_coded=y_coded and ntype not in ('vib', 'vae'),
+            type=ntype,
             batch_norm='encoder',
-            features='vgg16',
-            encoder_layer_sizes=[],
-            decoder_layer_sizes=[],
-            classifier_layer_sizes=cls_cvae if ntype == 'cvae' else [20, 10],
-            sigma=0,
-            gamma=gamma,
-            force_cross_y=0,
+            features='conv32',
+            upsampler='deconv32',
+            encoder=[K],
+            decoder=[K],
+            classifier=[] if ntype == 'cvae' else [20, 10],
+            sigma=1,
+            gamma=0 if ntype == 'vae' else gamma,
             latent_sampling=L,
             latent_dim=K)
     n.to(d)
     nets[ntype] = n
-    # n.compute_max_batch_size(batch_size=1024)
-    # print(n.max_batch_sizes)
-
-    if n.y_is_coded:
-        pass
 
     if ntype != 'vae':
         print('y in input')
@@ -82,7 +72,7 @@ for o, _y in zip((out, out_y), ('*', 'y')):
 if 'vib' in nets:
     x_, logits, mu, log_var, z = nets['vib'](x)
 
-y_ = torch.cat([c * torch.ones((1,) + N, dtype=int) for c in range(C)])
-x_ent = x_loss(None, logits, batch_mean=False)
-dictionary = nets['cvae'].encoder.latent_dictionary
-# kl = kl_loss(mu, log_var, y=y_, latent_dictionary=dictionary, batch_mean=False)
+# y_ = torch.cat([c * torch.ones((1,) + N, dtype=int) for c in range(C)])
+# x_ent = x_loss(None, logits, batch_mean=False)
+# dictionary = nets['cvae'].encoder.latent_dictionary
+# # kl = kl_loss(mu, log_var, y=y_, latent_dictionary=dictionary, batch_mean=False)

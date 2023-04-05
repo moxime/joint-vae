@@ -81,6 +81,16 @@ def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
     # return (x_target - x_output).pow(2).mean(mean_dims)
 
 
+def categorical_loss(x_target, x_output, ndim=3, batch_mean=True):
+    """
+    x_target of shape (N1,...,Ng, D1,...,Dt)
+    x_output of shape (N1,...,Ng, D1,...,Dt, 256)
+
+    """
+    reduction = 'mean' if batch_mean else 'none'
+    output_shape = x_target.shape[-ndim]
+
+
 def kl_loss(mu_z, log_var_z,
             z=None,
             y=None,

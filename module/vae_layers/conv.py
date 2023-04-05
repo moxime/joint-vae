@@ -4,7 +4,7 @@ import numpy as np
 from torch import nn
 from .misc import activation_layers
 import re
-
+import logging
 
 conv_config = configparser.ConfigParser()
 
@@ -89,7 +89,7 @@ def _conv_layer_name(conv_layer):
 
 def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
                          append_un_flatten=False, where='input',
-                         activation='relu', output_activation='linear'):
+                         activation='relu', output_activation='linear', output_distribution='gaussian'):
     """ make (de)conv features
 
     -- if where is input, conv, else (output) deconv
@@ -122,11 +122,18 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
     in_channels, h, w = input_shape
     layer_names_ = []
 
-    for layer_name in layer_names:
+    for i, layer_name in enumerate(layer_names):
+        last_layer = i == len(layer_names) - 1
         layer_params = _parse_conv_layer_name(layer_name, where=where)
         ltype = layer_params.pop('ltype')
         layer_params = _parse_conv_layer_name(layer_name, **default_params.get(ltype, {}), where=where)
         ltype = layer_params.pop('ltype')
+
+        if where == 'output' and last_layer and output_distribution == 'categorical':
+            out_channels = layer_params['out_channels']
+            logging.debug('Output channel {} -> {} for categorical output'.format(out_channels, 256*out_channels))
+            layer_params['out_channels'] = 256 * out_channels
+
         out_channels, kernel_size, padding, stride = (layer_params.get(_) for _ in
                                                       ('out_channels', 'kernel_size', 'padding', 'stride'))
         if ltype == 'conv':

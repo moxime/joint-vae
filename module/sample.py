@@ -40,7 +40,9 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
 
     wN = int(np.log10(N - 1)) + 1
     L = min(L, net.latent_sampling)
-    wL = int(np.log10(L - 1)) + 1
+    with_average = net.latent_sampling > 1
+    L_ = L + 2 + with_average
+    wL = 1 if L <= 1 else int(np.log10(L - 1)) + 1
     K = net.latent_dim
 
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
@@ -62,15 +64,20 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
         (D, H, W) = net.input_shape[-3:]
 
         x_grid = {'name': f'grid-{N}x{L}',
-                  'tensor': torch.zeros((D, 0, L * W), device=x.device)}
+                  'tensor': torch.zeros((D, 0, L_ * W), device=x.device)}
 
         with torch.no_grad():
             x_, logits, batch_losses, measures, mu, log_var, z = net.evaluate(x[:N], None, z_output=True)
-            y_ = net.predict_after_evaluate(logits, batch_losses)
+            if net.predict_methods:
+                y_ = net.predict_after_evaluate(logits, batch_losses)
+            else:
+                y_ = torch.zeros_like(y)
 
         list_of_images = [x_grid]
 
         for row in range(N):
+
+            logging.debug('Build row {}'.format(row))
 
             x_row = torch.zeros((D, H, 0), device=x.device)
             list_of_images.append({'name': f'x_{row:0{wN}}_in',
@@ -86,23 +93,23 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
                                    })
             x_row = torch.cat([x_row, x_[0][row]], 2)
 
-            list_of_images.append({'name': f'x_{row:0{wN}}_out_average',
-                                   'tensor': x_[1:].mean(0)[row],
-                                   'tex': defy.format(out_classes[y_[row]])
-                                   })
-
-            x_row = torch.cat([x_row, x_[1:].mean(0)[row]], 2)
-
-            for l_ in range(1, L-2):
-                list_of_images.append({'name':
-                                       f'x_{row:0{wN}}_out_{l_:0{wL}}',
-                                       'tensor': x_[l_, row],
+            if with_average:
+                list_of_images.append({'name': f'x_{row:0{wN}}_out_average',
+                                       'tensor': x_[1:].mean(0)[row],
                                        'tex': defy.format(out_classes[y_[row]])
                                        })
-                x_row = torch.cat([x_row, x_[l_, row]], 2)
 
-            if row < N:
-                x_grid['tensor'] = torch.cat([x_grid['tensor'], x_row], 1)
+                x_row = torch.cat([x_row, x_[1:].mean(0)[row]], 2)
+
+            for l_ in range(L):
+                list_of_images.append({'name':
+                                       f'x_{row:0{wN}}_out_{l_:0{wL}}',
+                                       'tensor': x_[1 + l_, row],
+                                       'tex': defy.format(out_classes[y_[row]])
+                                       })
+                x_row = torch.cat([x_row, x_[1 + l_, row]], 2)
+
+            x_grid['tensor'] = torch.cat([x_grid['tensor'], x_row], 1)
 
     elif net.is_cvae or net.is_jvae or net.is_vae:
 
@@ -155,7 +162,9 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
     return list_of_images
 
 
-def zsample(x, net, y=None, batch_size=128, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), bins=10, directory='test'):
+def zsample(x, net, y=None, batch_size=128,
+            root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), bins=10,
+            directory='test'):
     r"""will sample variable latent and ouput scatter and histogram of
     variance and mean of z
 
@@ -259,7 +268,7 @@ if __name__ == '__main__':
     parser.add_argument('--last', type=int, default=0)
     parser.add_argument('-m', '--batch-size', type=int, default=256)
     parser.add_argument('--num-batch-for-test', type=int, default=1)
-    parser.add_argument('-W', '--grid-width', type=int, default=0)
+    parser.add_argument('--sampling', type=int, default=0)
     parser.add_argument('--total-width', type=int, default=30)
     parser.add_argument('-N', '--grid-height', type=int, default=0)
     parser.add_argument('-D', '--directory', default=root)
@@ -275,7 +284,7 @@ if __name__ == '__main__':
 
     jobs = [
         # 222622,
-        224383,
+        255258,
         # 224385,
     ]
 
@@ -297,7 +306,7 @@ if __name__ == '__main__':
 
     models = fetch_models(args.job_dir, filter=filters)[-args.last:]
 
-    L = args.grid_width
+    L = args.sampling
     N = args.grid_height
     m = args.batch_size
     root = args.directory
@@ -390,7 +399,9 @@ if __name__ == '__main__':
             in_classes[o] = tl.get_classes_by_name(o, texify=True)
 
         if not L:
-            L = args.total_width // (1 + len(x))
+            L = max(args.total_width // (1 + len(x)) - 3, 1)
+
+        logging.info('L={}'.format(L))
 
         for n in list_of_nets:
 
@@ -404,7 +415,9 @@ if __name__ == '__main__':
             batch_size = min(m, model.compute_max_batch_size(batch_size=2*m, which='test'))
             logging.info(f'done ({batch_size})')
 
-            completed = {_: 0 for _ in ('correct', 'incorrect')}
+            y_predicted = bool(model.y_is_decoded)
+
+            completed = {_: 0 for _ in ('correct', 'incorrect')} if y_predicted else {}
 
             for _ in completed:
 
@@ -418,6 +431,7 @@ if __name__ == '__main__':
                     with torch.no_grad():
                         x_batch = x[testset][i0: i0 + batch_size]
                         y_batch = y[testset][i0: i0 + batch_size]
+
                         y_ = model.predict(x_batch)
                         i_ = (y_ == y_batch) ^ (_ == 'incorrect')
                         completed[_] += i_.sum().item()
@@ -440,7 +454,7 @@ if __name__ == '__main__':
                                             root=root,
                                             directory=s,
                                             in_classes=in_classes.get(s, out_classes),
-                                            out_classes=out_classes,
+                                            out_classes=out_classes if y_predicted else ['--'],
                                             N=N, L=L)
 
                     if z_sample and not s.endswith('correct'):
@@ -449,8 +463,6 @@ if __name__ == '__main__':
                                 batch_size=m,
                                 root=root, bins=args.bins, directory=s)
 
-            if N:
+            if N and False:
                 list_of_images = sample(model, root=root,
                                         directory='generate', N=N, L=L)
-
-            # loss_comparisons(model, root=root, plot=args.plot, bins=args.bins)

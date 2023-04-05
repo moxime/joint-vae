@@ -343,14 +343,14 @@ class LossRecorder:
                  device=None,
                  **tensors):
 
-        self.last_batch_size = {}
+        self.last_batch_size = None
         self._seed = None
-        self.reset()
 
         self._num_batch = 0
         self._samples = 0
 
         self.batch_size = batch_size
+        self.reset()
 
         self._tensors = {}
 
@@ -375,7 +375,7 @@ class LossRecorder:
             self._tensors[k] = torch.zeros(shape,
                                            dtype=t.dtype,
                                            device=self.device)
-            self.last_batch_size[k] = self.batch_size
+        self.last_batch_size = self.batch_size
 
     def to(self, device):
 
@@ -387,7 +387,7 @@ class LossRecorder:
         self._recorded_batches = 0
         if self._seed is None or seed:
             self._seed = np.random.randint(1, int(1e8))
-        self.last_batch_size = {k: self.batch_size for k in self.last_batch_size}
+        self.last_batch_size = self.batch_size
         return
 
     def init_seed_for_dataloader(self):
@@ -426,7 +426,7 @@ class LossRecorder:
             self.num_batch = len(self)
             t = self._tensors
             for k in t:
-                end = (self.num_batch - 1) * self.batch_size + self.last_batch_size[k]
+                end = (self.num_batch - 1) * self.batch_size + self.last_batch_size
                 t[k] = t[k][..., 0:end]
 
         torch.save(self.__dict__, file_path)
@@ -436,6 +436,7 @@ class LossRecorder:
 
         if 'map_location' not in kw and not torch.cuda.is_available():
             kw['map_location'] = torch.device('cpu')
+
         dict_of_params = torch.load(file_path, **kw)
         num_batch = dict_of_params['_num_batch']
         batch_size = dict_of_params['batch_size']
@@ -518,10 +519,11 @@ class LossRecorder:
         self._samples = n * self.batch_size
         self._recorded_batches = min(n, self._recorded_batches)
 
-    def has_batch(self, number):
+    def has_batch(self, number, only_full=False):
         r""" number starts at 0
         """
-
+        if number == self._recorded_batches - 1:
+            return not only_full or self.last_batch_size == self.batch_size
         return number < self._recorded_batches
 
     def get_batch(self, i, *which, device=None):
@@ -539,7 +541,7 @@ class LossRecorder:
 
         w = which[0]
         if i == len(self) - 1:
-            end = start + self.last_batch_size[w]
+            end = start + self.last_batch_size
         else:
             end = start + self.batch_size
 
@@ -563,16 +565,17 @@ class LossRecorder:
             else:
                 raise IndexError
 
+        batch_sizes = set(tensors[k].shape[-1] for k in tensors)
+        assert len(batch_sizes) == 1, 'all batches have to be of same size'
+        batch_size = batch_sizes.pop()
+        if batch_size < self.batch_size:
+            assert self.last_batch_size == self.batch_size
+            self.last_batch_size = batch_size
+        end = start + batch_size
+
         for k in tensors:
             if k not in self.keys():
                 raise KeyError(k)
-            # print('sl:426', 'rec', k, *tensors[k].shape)  #
-            batch_size = tensors[k].shape[-1]
-            if batch_size < self.batch_size:
-                assert self.last_batch_size[k] == self.batch_size
-                self.last_batch_size[k] = tensors[k].shape[-1]
-                end = start + batch_size
-            self.last_batch_size[k] = batch_size
             self._tensors[k][..., start:end] = tensors[k]
 
         self._recorded_batches += 1

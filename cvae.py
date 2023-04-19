@@ -1117,7 +1117,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
     @ property
     def max_batch_sizes(self):
-        return {'test': 8, 'train': 8}
         logging.debug('Calling max batch size')
         max_batch_sizes = self.training_parameters.get('max_batch_sizes', {})
         if max_batch_sizes:

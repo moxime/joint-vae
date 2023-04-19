@@ -218,34 +218,14 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae', 'xvae'])
 
+    parser.add_argument('--output-distribution', choices=['gaussian', 'categorical'], default='gaussian')
+
     parser.add_argument('--sigma', '-s',
                         # type = float,
                         type=alphanum,
                         metavar='S',
                         help='Value of sigma (float) or in [\'learned\', \'rmse\', \'coded\']'
                         )  # ,
-    # nargs='*',
-    # help='several values can be provided for several trainings')
-
-    # parser.add_argument('--sigma-reach',
-    #                     type=float,
-    #                     nargs='?',
-    #                     default=1.,
-    #                     const=4)
-
-    # parser.add_argument('--sigma-decay',
-    #                     type=float,
-    #                     default=0.)
-
-    # parser.add_argument('--sigma-max-step',
-    #                     type=float,
-    #                     default=None)
-
-    # parser.add_argument('--sigma-learned',
-    #                     action='store_true',)
-
-    # parser.add_argument('--sigma-is-rmse',
-    #                     action='store_true',)
 
     parser.add_argument('--sigma-per-dim', action='store_true')
 
@@ -283,9 +263,6 @@ def get_args_for_train(argv=None):
 
     parser.add_argument('-L', '--latent-sampling', metavar='L', type=int)
     parser.add_argument('-l', '--test-latent-sampling', metavar='l', type=int)
-
-    parser.add_argument('--hsv', action='store_true')
-    parser.add_argument('--representation')
 
     parser.add_argument('--features', metavar='NAME',)
     # choices=['vgg11', 'vgg16', 'vgg19', 'conv', 'none',])

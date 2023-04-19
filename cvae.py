@@ -6,7 +6,7 @@ import torch.utils.data
 from torch import nn
 from module.optimizers import Optimizer
 from torch.nn import functional as F
-from module.losses import x_loss, mse_loss
+from module.losses import x_loss, mse_loss, categorical_loss
 from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
@@ -299,13 +299,15 @@ class ClassificationVariationalNetwork(nn.Module):
                                                    batch_norm=batch_norm_decoder,
                                                    activation=activation,
                                                    output_activation=output_activation,
+                                                   output_distribution=self.output_distribution,
                                                    where='output')
 
             else:
+                f = 1 if self.output_distribution == 'gaussian' else 256
                 upsampler = None
                 activation_layer = activation_layers[output_activation]()
                 self.imager = nn.Sequential(nn.Linear(imager_input_dim,
-                                                      np.prod(input_shape)),
+                                                      f * np.prod(input_shape)),
                                             activation_layer)
                 self.imager.input_shape = (imager_input_dim,)
 
@@ -395,14 +397,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.z_output = False
 
-        if representation == 'rgb':
-            self._rep = lambda x: x
-            self._backrep = lambda x: x
-        elif representation == 'hsv':
-            self._rep = Rgb2hsv(self.input_shape)
-            # self._backrep = lambda x: x
-            self._backrep = Rgb2hsv(self.input_shape)
-
         self.eval()
 
     def train(self, *a, **k):
@@ -446,7 +440,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         batch_shape = x_features.shape
         batch_size = batch_shape[:-len(self.encoder.input_shape)]  # N1 x...xNg
-        reco_batch_shape = batch_size + self.input_shape
+        if self.output_distribution == 'gaussian':
+            reco_batch_shape = tuple((*batch_size, *self.input_shape))
+        else:
+            reco_batch_shape = tuple((*batch_size, 256, *self.input_shape))
 
         x_ = x_features.view(*batch_size, -1)  # x_ of size N1x...xNgxD
 
@@ -478,7 +475,6 @@ class ClassificationVariationalNetwork(nn.Module):
             u = self.decoder(z)
             # x_output of size LxN1x...xKgxD
             x_ = self.imager(u.view(-1, *self.imager.input_shape))
-            x_output = self._backrep(x_.view(self.latent_sampling + 1, *reco_batch_shape))
 
         if self.is_cvae or self.is_vae:
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means
@@ -492,7 +488,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.is_vib:
             out = (x,)
         else:
-            out = (x_output,)
+            out = (x_.view(self.latent_sampling + 1, *reco_batch_shape),)
 
         out += (y_output,)
 
@@ -513,7 +509,6 @@ class ClassificationVariationalNetwork(nn.Module):
                  current_measures=None,
                  with_beta=False,  #
                  kl_var_weighting=1.,
-                 mse_weighting=1.,
                  z_output=False,
                  **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt)
@@ -557,8 +552,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
         C = self.num_labels
 
-        x = self._rep(x)
-
         if self.features:
             f_shape = self.encoder.input_shape
 
@@ -597,6 +590,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         x_reco, y_est, mu, log_var, z, eps_norm, sigma_coded = o
         # print('*** eps norm:', *eps_norm.shape)
+
         # print('*** cvae:472 logits:', 't:', *t.shape, 'x_:', *x_reco.shape)
 
         batch_quants = {}
@@ -624,19 +618,28 @@ class ClassificationVariationalNetwork(nn.Module):
             else:
                 s_ = self.sigma
 
-            if self.sigma.is_rmse:
+            if self.sigma.is_rmse or self.output_distribution == 'catgorical':
                 sigma_ = 1.
+                sigma2_ = 1.
                 log_sigma = 0.
             else:
                 sigma_ = s_.exp() if self.sigma.is_log else s_
                 sigma2_ = sigma_ ** 2
                 log_sigma = s_.squeeze() if self.sigma.is_log else s_.log().squeeze()
 
-            # print('*** x', *x.shape, 'x_', *x_reco.shape, 's', *sigma_.shape)
-            weighted_mse_loss_sampling = mse_loss(x / sigma_,
-                                                  x_reco[1:] / sigma_,
-                                                  ndim=len(self.input_shape),
-                                                  batch_mean=False)
+            if self.output_distribution == 'gaussian':
+                weighted_mse_loss_sampling = mse_loss(x_reco[1:] / sigma_,
+                                                      x / sigma_,
+                                                      ndim=len(self.input_shape),
+                                                      batch_mean=False)
+
+            else:
+                output_cross_entropy_sampling = categorical_loss(x_reco[1:], x, ndim=len(self.input_shape),
+                                                                 batch_mean=False)
+                weighted_mse_loss_sampling = mse_loss(x_reco[1:].argmax(-len(self.input_shape) - 1) / 255,
+                                                      x,
+                                                      ndim=len(self.input_shape),
+                                                      batch_mean=False)
 
             if self.sigma.is_rmse:
                 if not batch and False:
@@ -653,11 +656,17 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_quants['mse'] = batch_quants['wmse'] * sigma2_
 
             if compute_iws:
-                log_iws = -D / 2 * \
-                    (weighted_mse_loss_sampling + 2 * log_sigma /
-                     sigma_dims + np.log(2 * np.pi))
-                if log_iws.isinf().sum():
-                    logging.error('MSE INF')
+
+                if self.output_distribution == 'gaussian':
+                    log_iws = -D / 2 * \
+                        (weighted_mse_loss_sampling + 2 * log_sigma /
+                         sigma_dims + np.log(2 * np.pi))
+                else:
+                    log_iws = - output_cross_entropy_sampling
+
+                # print('*** log_iws shape', *log_iws.shape)
+                # if log_iws.isinf().sum():
+                #     logging.error('MSE INF')
 
             batch_quants['xpow'] = x.pow(2).mean().item()
             total_measures['xpow'] = (current_measures['xpow'] * batch
@@ -742,8 +751,12 @@ class ClassificationVariationalNetwork(nn.Module):
                 # if not batch: print('**** sigma', ' -- '.join(f'{k}:{v}' for k, v in self.sigma.params.items()))
                 self.training_parameters['sigma'] = self.sigma.params
 
-            batch_logpx = -D * (2 * log_sigma / sigma_dims +
-                                batch_wmse + np.log(2 * np.pi)) / 2
+            if self.output_distribution == 'gaussian':
+                batch_logpx = -D * (2 * log_sigma / sigma_dims +
+                                    batch_wmse + np.log(2 * np.pi)) / 2
+
+            else:
+                batch_logpx = - output_cross_entropy_sampling.mean(0)
 
             # if not batch and True:
             #     print('**** SHAPES l749')
@@ -754,7 +767,7 @@ class ClassificationVariationalNetwork(nn.Module):
             #     print('total', *batch_losses['total'] .shape)
 
             batch_losses['wmse'] = batch_wmse
-            batch_losses['cross_x'] = - batch_logpx * mse_weighting
+            batch_losses['cross_x'] = - batch_logpx
 
             batch_losses['total'] += batch_losses['cross_x']
 
@@ -879,7 +892,7 @@ class ClassificationVariationalNetwork(nn.Module):
             y_est_out = y_est[1:].mean(0)
         else:
             y_est_out = y_est[1:].mean(0)
-        out = (self._backrep(x_reco), y_est_out, batch_losses, total_measures)
+        out = (x_reco, y_est_out, batch_losses, total_measures)
         if z_output:
             out += (mu, log_var, z)
         return out
@@ -1102,8 +1115,9 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     raise (e)
 
-    @property
+    @ property
     def max_batch_sizes(self):
+        return {'test': 8, 'train': 8}
         logging.debug('Calling max batch size')
         max_batch_sizes = self.training_parameters.get('max_batch_sizes', {})
         if max_batch_sizes:
@@ -1111,18 +1125,18 @@ class ClassificationVariationalNetwork(nn.Module):
         self.compute_max_batch_size()
         return self.max_batch_sizes
 
-    @max_batch_sizes.setter
+    @ max_batch_sizes.setter
     def max_batch_sizes(self, v):
         assert 'train' in v
         assert 'test' in v
         self.training_parameters['max_batch_sizes'] = v
 
-    @property
+    @ property
     def test_losses(self):
         # print('access to test losses')
         return self._test_losses
 
-    @test_losses.setter
+    @ test_losses.setter
     def test_losses(self, d):
         # if not d:
         #     print('*** test losses reset')
@@ -1132,11 +1146,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self._test_losses = d
 
-    @property
+    @ property
     def test_measures(self):
         return self._test_measures
 
-    @test_measures.setter
+    @ test_measures.setter
     def test_measures(self, d):
         # if not d:
         #     print('*** test measures reset')
@@ -2487,11 +2501,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         logging.warning('SUMMARY FUNCTION NOT IMPLEMENTED')
 
-    @property
+    @ property
     def device(self):
         return next(self.parameters()).device
 
-    @device.setter
+    @ device.setter
     def device(self, d):
         self.to(d)
 
@@ -2499,11 +2513,11 @@ class ClassificationVariationalNetwork(nn.Module):
         super().to(d)
         self.optimizer.to(d)
 
-    @property
+    @ property
     def latent_sampling(self):
         return self._latent_sampling
 
-    @latent_sampling.setter
+    @ latent_sampling.setter
     def latent_sampling(self, v):
         self._latent_sampling = v
         self.encoder.sampling_size = v
@@ -2604,7 +2618,7 @@ class ClassificationVariationalNetwork(nn.Module):
             w_p = save_load.get_path(dir_name, 'optimizer.pth')
             torch.save(self.optimizer.state_dict(), w_p)
 
-    @classmethod
+    @ classmethod
     def load(cls, dir_name,
              load_net=True,
              load_state=True,
@@ -2974,7 +2988,7 @@ if __name__ == '__main__':
 
     x_, y_, mu, lv, z = jvae(x, y)
     x_reco, y_out, batch_losses = jvae.evaluate(x)
-    
+
     y_est_by_losses = batch_losses.argmin(0)
     y_est_by_mean = y_out.mean(0).argmax(-1)
     """

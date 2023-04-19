@@ -2,7 +2,7 @@ import os
 import configparser
 import numpy as np
 from torch import nn
-from .misc import activation_layers
+from .misc import activation_layers, Reshape
 import re
 import logging
 
@@ -132,7 +132,8 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
         if where == 'output' and last_layer and output_distribution == 'categorical':
             out_channels = layer_params['out_channels']
             logging.debug('Output channel {} -> {} for categorical output'.format(out_channels, 256*out_channels))
-            layer_params['out_channels'] = 256 * out_channels
+            out_channels = 256 * out_channels
+            layer_params['out_channels'] = out_channels
 
         out_channels, kernel_size, padding, stride = (layer_params.get(_) for _ in
                                                       ('out_channels', 'kernel_size', 'padding', 'stride'))
@@ -166,11 +167,15 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
 
         layer_names_.append(_conv_layer_name(conv_layer))
 
+    out_channels = (out_channels,)
     if where == 'output':
         layers[last_activation_i] = activation_layers[output_activation]()
+        if output_distribution == 'categorical':
+            layers.append(Reshape((256, out_channels[0] // 256, h, w)))
+            out_channels = (256, out_channels[0] // 256)
     conv = nn.Sequential(*layers)
     conv.name = name or '-'.join(layer_names_)
-    conv.output_shape = (out_channels, h, w)
+    conv.output_shape = (*out_channels, h, w)
     conv.input_shape = input_shape
 
     return conv

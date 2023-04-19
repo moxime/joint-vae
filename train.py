@@ -77,8 +77,6 @@ if __name__ == '__main__':
     dry_run = args.dry_run
     resume = args.resume
 
-    representation = args.representation or (args.hsv and 'hsv') or 'rgb'
-
     if resume:
         try:
             job_TBR_num = int(resume)
@@ -184,6 +182,7 @@ if __name__ == '__main__':
 
         model = CVNet(input_shape, num_labels,
                       type=args.type,
+                      output_distribution=args.output_distribution,
                       features=args.features,
                       pretrained_features=args.pretrained_features,
                       pretrained_upsampler=args.pretrained_upsampler,
@@ -202,7 +201,6 @@ if __name__ == '__main__':
                       beta=args.beta,
                       gamma=args.gamma,
                       sigma=sigma,
-                      representation=representation,
                       output_activation=args.output_activation)
 
     if args.show:

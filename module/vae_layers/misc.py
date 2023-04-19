@@ -25,3 +25,15 @@ activation_layers = {'linear': nn.Identity,
                      'sigmoid': nn.Sigmoid,
                      'relu': nn.ReLU,
                      'leaky': nn.LeakyReLU}
+
+
+class Reshape(nn.Module):
+
+    def __init__(self, output_shape):
+
+        super().__init__()
+        self.shape = output_shape
+
+    def forward(self, x):
+
+        return x.view(-1, *self.shape)

@@ -59,7 +59,7 @@ def fisher_rao(mu1, var1, mu2, var2):
     return comp_wise_fr.norm(dim=-1)
 
 
-def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
+def mse_loss(x_output, x_target, ndim=3, batch_mean=True):
     """
     x_target of size (N1, .. ,Ng, D1, D2,..., Dt)
     x_output of size (L, (C,), N1, ..., Ng, D1, D2,..., Dt) where L is sampling size,
@@ -81,19 +81,24 @@ def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
     # return (x_target - x_output).pow(2).mean(mean_dims)
 
 
-def categorical_loss(x_target, x_output, ndim=3, batch_mean=True):
+def categorical_loss(x_output, x_target, ndim=3, batch_mean=True):
     """
     x_target of shape (N1,...,Ng, D1,...,Dt)
     x_output of shape (N1,...,Ng, D1,...,Dt, 256)
 
     """
+    expanded_shape = (*x_output.shape[:-ndim-1], *x_target.shape[-ndim:])
+    x_target = x_target.expand(*expanded_shape).contiguous()
     batch_shape = x_target.shape[:-ndim]
     image_shape = x_target.shape[-ndim:]
     output_flatten_shape = (256, *image_shape)
 
-    x_target = (x * 255).long().view(-1, *image_shape)
+    x_target = (x_target * 255).long().view(-1, *image_shape)
     x_output = x_output.view(-1, *output_flatten_shape)
-    ce = F.cross_entropy(x_output, x_target, reduction='none').view(*batch_shape, -1)
+
+    # print('*** output', *x_output.shape, '*** target', *x_target.shape, '*** batch', *batch_shape)
+
+    ce = F.cross_entropy(x_output, x_target, reduction='none').view(*batch_shape, -1).sum(-1)
 
     return ce.mean() if batch_mean else ce
 
@@ -191,58 +196,6 @@ def x_loss(y_target, logits, batch_mean=True):
     return F.cross_entropy(logits_,
                            y_,
                            reduction='none').reshape(shape).mean(0)
-
-
-def x_loss_pushy(y_target, y_output, sampling_dims=1, batch_mean=True):
-    """
-
-    y_target of dims N1 x....x Ng(x1)
-    y_output of dims L1,.., Lf x N1 x...x Ng x C
-
-    """
-    L_ = y_output[:sampling_dims]
-    s_y = y_input.squeeze_().shape
-
-    one_dim = ()
-    L_1 = ()
-    for _ in s_y:
-        one_dim += (1,)
-    for _ in L_:
-        L_1 += (1,)
-    y_in_repeated = y_input.reshape(*L_1, *s_y).repeat(*L_, *one_dim)
-
-    dims = tuple(_ for _ in range(y_output.dim()))
-    out_perm_dims = (0,) + (-1,) + dims[1:-1]  # from LxN1...xNgxC to LxCxN1...xNgxC
-
-    if batch_mean:
-        return F.nll_loss(y_output.permute(out_perm_dims).log(),
-                          y_in_repeated)
-
-    loss = F.nll_loss(y_output.permute(out_perm_dims).log(),
-                      y_in_repeated, reduction='none')
-
-    return loss.mean(0)
-
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 
 
 if __name__ == '__main__':

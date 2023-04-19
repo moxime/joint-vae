@@ -61,8 +61,8 @@ def fisher_rao(mu1, var1, mu2, var2):
 
 def mse_loss(x_target, x_output, ndim=3, batch_mean=True):
     """
-    x_target of size (N1, .. ,Ng, D1, D2,..., Dt) 
-    x_output of size (L, (C,), N1, ..., Ng, D1, D2,..., Dt) where L is sampling size, 
+    x_target of size (N1, .. ,Ng, D1, D2,..., Dt)
+    x_output of size (L, (C,), N1, ..., Ng, D1, D2,..., Dt) where L is sampling size,
     """
 
     output_dims_ = tuple(_ for _ in range(x_output.dim()))
@@ -87,8 +87,15 @@ def categorical_loss(x_target, x_output, ndim=3, batch_mean=True):
     x_output of shape (N1,...,Ng, D1,...,Dt, 256)
 
     """
-    reduction = 'mean' if batch_mean else 'none'
-    output_shape = x_target.shape[-ndim]
+    batch_shape = x_target.shape[:-ndim]
+    image_shape = x_target.shape[-ndim:]
+    output_flatten_shape = (256, *image_shape)
+
+    x_target = (x * 255).long().view(-1, *image_shape)
+    x_output = x_output.view(-1, *output_flatten_shape)
+    ce = F.cross_entropy(x_output, x_target, reduction='none').view(*batch_shape, -1)
+
+    return ce.mean() if batch_mean else ce
 
 
 def kl_loss(mu_z, log_var_z,

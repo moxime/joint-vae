@@ -88,7 +88,7 @@ def categorical_loss(x_output, x_target, ndim=3, batch_mean=True):
 
     """
     expanded_shape = (*x_output.shape[:-ndim-1], *x_target.shape[-ndim:])
-    x_target = x_target.expand(*expanded_shape).contiguous()
+    x_target = x_target.expand(*expanded_shape)
     batch_shape = x_target.shape[:-ndim]
     image_shape = x_target.shape[-ndim:]
     output_flatten_shape = (256, *image_shape)

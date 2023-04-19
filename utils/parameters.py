@@ -219,6 +219,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae', 'xvae'])
 
     parser.add_argument('--output-distribution', choices=['gaussian', 'categorical'], default='gaussian')
+    parser.add_argument('--categorical', dest='output_distribution', const='categorical')
 
     parser.add_argument('--sigma', '-s',
                         # type = float,

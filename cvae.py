@@ -2638,7 +2638,7 @@ class ClassificationVariationalNetwork(nn.Module):
             load_state = False
 
         # default
-        default_params = {'version': 1.}
+        default_params = {'version': 1., 'output_distribution': 'gaussian'}
 
         train_params = {}
 

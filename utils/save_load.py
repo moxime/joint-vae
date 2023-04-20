@@ -700,7 +700,7 @@ def available_results(model,
     if wanted_epoch == 'min-loss':
         wanted_epoch = model.training_parameters.get('early-min-loss', 'last')
     if wanted_epoch == 'last':
-        wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results)
+        wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results or [0])
     predict_methods = make_list(predict_methods, model.predict_methods)
     ood_methods = make_list(ood_methods, model.ood_methods)
     misclass_methods = make_list(misclass_methods, model.misclass_methods)
@@ -1086,6 +1086,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'is_resumed': model.is_resumed,
             'type': architecture.type,
             'arch': arch,
+            'output_distribution': architecture.output_distribution,
             'activation': architecture.activation,
             'activation_str': architecture.activation[:4],
             'output_activation': architecture.output_activation,

@@ -136,6 +136,7 @@ def results_dataframe(models,
 
     arch_index = ['h/o'] if dataset.endswith('-?') else []
     arch_index += ['type',
+                   'output_distribution',
                    # 'rep',
                    'depth',
                    'features',
@@ -467,7 +468,8 @@ def digest_table(*jobs,
 
 def format_df_index(df, float_format='{:.3g}', int_format='{}',
                     na_rep='-', na_reps=['NaN'],
-                    indices_replacement={'batch_norm': 'bn',
+                    indices_replacement={'output_distribution': 'output',
+                                         'batch_norm': 'bn',
                                          'latent': 'z',
                                          'sigma_train': 'sigma~',
                                          'arch_code': 'arch',

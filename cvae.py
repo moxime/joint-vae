@@ -1779,7 +1779,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 t0 = time.time()
 
-                if not recorded[s] or i == ood_n_batch - 1:
+                if not (recorded[s] or i % 100) or i == ood_n_batch - 1:
                     for m in ood_methods_per_set[s]:
                         logging.debug(
                             f'Computing roc curves for with metrics {m}')

@@ -441,7 +441,8 @@ class UniformWithGaussianTailPrior(GaussianPrior):
         loss_components['kl'] = kl
 
         if var_weighting != 1.0:
-            loss_components['kl'] -= torch.min(torch.zeros_like(kl), (1 - var_weighting) * var_kl)
+            kl = kl + (var_weighting - 1) * var_kl
+            loss_components['kl'] = kl
 
         return loss_components if output_dict else loss_components['kl']
 

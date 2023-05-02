@@ -435,11 +435,13 @@ class UniformWithGaussianTailPrior(GaussianPrior):
         negElogrho += (alpha - c / 2) * (b_ - a_) / span
         negElogrho -= (b_.pow(3) - a_.pow(3)) / span / 6
 
-        loss_components['kl'] = Elogq.sum(-1) + negElogrho.sum(-1)
-        loss_components['var_kl'] = (2 * (Elogq + alpha)).sum(-1)
+        var_kl = (Elogq + alpha).sum(-1)
+        kl = torch.min(Elogq.sum(-1) + negElogrho.sum(-1), torch.zeros_like(var_kl))
+        loss_components['var_kl'] = 2 * var_kl
+        loss_components['kl'] = kl
 
         if var_weighting != 1.0:
-            loss_components['kl'] -= (1 - var_weighting) * 0.5 * loss_components['var_kl']
+            loss_components['kl'] -= (1 - var_weighting) * var_kl
 
         return loss_components if output_dict else loss_components['kl']
 

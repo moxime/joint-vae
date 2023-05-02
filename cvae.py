@@ -2373,7 +2373,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 optimizer.zero_grad()
 
                 if self.training:
-                    warmup_weighting = max(0, min(1., (epoch + 1 - warmup[0]) / (warmup[1] + 1)))
+                    warmup_weighting = max(1e-4, min(1., (epoch + 1 - warmup[0]) / (warmup[1] + 1)))
                 else:
                     warmup_weighting = 1.
 

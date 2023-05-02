@@ -436,7 +436,7 @@ class UniformWithGaussianTailPrior(GaussianPrior):
         negElogrho -= (b_.pow(3) - a_.pow(3)) / span / 6
 
         var_kl = (Elogq + alpha).sum(-1)
-        kl = torch.min(Elogq.sum(-1) + negElogrho.sum(-1), var_kl)
+        kl = torch.max(Elogq.sum(-1) + negElogrho.sum(-1), var_kl)
         loss_components['var_kl'] = 2 * var_kl
         loss_components['kl'] = kl
 

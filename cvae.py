@@ -1,3 +1,4 @@
+import sys
 import logging
 import errno
 import copy
@@ -2394,6 +2395,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 for p in self.parameters():
                     if torch.isnan(p).any() or torch.isinf(p).any():
                         print('GRAD NAN')
+                        sys.exit(1)
 
                 L.backward()
                 optimizer.clip(self.parameters())

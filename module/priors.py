@@ -446,6 +446,21 @@ class UniformWithGaussianTailPrior(GaussianPrior):
 
         return loss_components if output_dict else loss_components['kl']
 
+    def log_density(self, z, y=None):
+
+        assert self.conditional ^ (y is None)
+
+        if self.conditional:
+            means = self.mean.index_select(0, y.view(-1)).view(*y.shape, -1)
+            z = z - means
+
+        c = np.log(2 * np.pi)
+        logp = - self._alpha * torch.ones_like(z)
+        i = z.abs() > self.tau
+        logp[i] = - c / 2 - z[i].square() / 2
+
+        return logp.sum(-1)
+
     def __repr__(self):
         if self.num_priors > 1:
             _m = ' with {} {}means'.format(self.num_priors, 'learned ' if self.learned_means else '')

@@ -219,8 +219,10 @@ class Sampling(nn.Module):
     - the output z has dimensions LxN1x...xNgxK where L is the samoling size.
     """
 
-    def __init__(self, latent_dim, sampling_size=1, sampling=True, **kwargs):
+    def __init__(self, latent_dim, sampling_size=1, sampling=True, distribution='gaussian', **kwargs):
 
+        assert distribution in ('gaussian', 'uniform'), '{} for sampling unknown'.format(distribution)
+        self.distribution = distribution
         self.sampling_size = sampling_size
         self.is_sampled = sampling
         super().__init__(**kwargs)
@@ -229,7 +231,10 @@ class Sampling(nn.Module):
 
         sampling_size = self.sampling_size
         size = (sampling_size + 1,) + z_log_var.size()
-        epsilon = torch.randn(size, device=z_mean.device)
+        if self.distribution == 'gaussian':
+            epsilon = torch.randn(size, device=z_mean.device)
+        else:
+            epsilon = (torch.rand(size, device=z_mean.device) - 0.5) * np.sqrt(12)
         epsilon[0] = 0
         # print((f'***** z_log_var: {z_log_var.size()} '+
         #        f'z_mean: {z_mean.size()} ' +
@@ -237,6 +242,10 @@ class Sampling(nn.Module):
         # print('vl:136', self.is_sampled)
         return (z_mean + torch.exp(0.5 * z_log_var) * epsilon * self.is_sampled,
                 epsilon[1:])
+
+    def __repr__(self):
+
+        return 'Sampling({}, K={})'.format(self.distribution, self.sampling_size)
 
 
 class Encoder(nn.Module):
@@ -281,7 +290,8 @@ class Encoder(nn.Module):
         if sigma_output_dim:
             self.sigma = nn.Linear(input_dim, np.prod(sigma_output_dim))
 
-        self.sampling = Sampling(latent_dim, sampling_size, sampling)
+        self.sampling = Sampling(latent_dim, sampling_size, sampling,
+                                 distribution=prior.get('distribution', 'gaussian'))
 
         prior['dim'] = latent_dim
         self.prior = build_prior(**prior)

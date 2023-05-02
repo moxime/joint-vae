@@ -34,7 +34,7 @@ def build_prior(dim, distribution='gaussian', **kw):
 
     if kw.get('num_priors', 1) == 1:
         kw.pop('learned_means', False)
-    valid_dist = ('gaussian', 'tilted')
+    valid_dist = ('gaussian', 'tilted', 'uniform')
     assert distribution in valid_dist, '{} unknown (try one of: {})'.format(distribution, ', '.join(valid_dist))
     if distribution == 'gaussian':
         if kw.pop('tau', None) is not None:
@@ -44,6 +44,10 @@ def build_prior(dim, distribution='gaussian', **kw):
         if kw.pop('var_dim', 'scalar') != 'scalar':
             logging.info('discarded variance type for tilted gaussian prior')
         return TiltedGaussianPrior(dim, **kw)
+    elif distribution == 'uniform':
+        if kw.pop('var_dim', 'scalar') != 'scalar':
+            logging.info('discarded variance type for tilted gaussian prior')
+        return UniformWithGaussianTailPrior(dim, **kw)
 
 
 class GaussianPrior(nn.Module):
@@ -236,7 +240,7 @@ class GaussianPrior(nn.Module):
             expand_shape = list(mu.unsqueeze(0).shape)
             expand_shape[0] = y.shape[0]
             return self.kl(mu.expand(*expand_shape), log_var.expand(*expand_shape),
-                           y=y, output_dict=output_dict)
+                           y=y, output_dict=output_dict, var_weighting=var_weighting)
 
         debug_msg = 'TBR in kl '
         debug_msg += 'mu: ' + ' '.join(str(_) for _ in mu.shape)
@@ -387,6 +391,9 @@ class UniformWithGaussianTailPrior(GaussianPrior):
 
         self.tau = tau
 
+        phi_tau = torch.distributions.Normal(0, 1).cdf(torch.tensor(tau)).item()
+        self._alpha = np.log(2 * tau) - np.log(2 * phi_tau - 1)  # log rho(z) between -tau an tau
+
         self.params['distribution'] = 'uniform'
         self.params['tau'] = tau
 
@@ -396,4 +403,50 @@ class UniformWithGaussianTailPrior(GaussianPrior):
             expand_shape = list(mu.unsqueeze(0).shape)
             expand_shape[0] = y.shape[0]
             return self.kl(mu.expand(*expand_shape), log_var.expand(*expand_shape),
-                           y=y, output_dict=output_dict)
+                           y=y, output_dict=output_dict, var_weighting=var_weighting)
+
+        tau = self.tau
+        alpha = self._alpha
+        c = np.log(2 * np.pi)
+
+        assert self.conditional ^ (y is None)
+
+        if self.conditional:
+            means = self.mean.index_select(0, y.view(-1)).view(*mu.shape)
+        else:
+            means = self.mean.unsqueeze(-1)
+
+        loss_components = {}
+
+        span = 2 * np.sqrt(3) * (0.5 * log_var).exp()
+
+        mu = mu - means
+        distance = mu.square()
+        loss_components['distance'] = distance.sum(-1)
+
+        a = mu - 0.5 * span
+        b = mu + 0.5 * span
+
+        a_ = tau * F.hardtanh(a / tau)
+        b_ = tau * F.hardtanh(b / tau)
+        Elogq = -0.5 * log_var - 0.5 * np.log(12)  # -log(span)
+
+        negElogrho = (c + distance + span.square() / 12) / 2
+        negElogrho += (alpha - c / 2) * (b_ - a_) / span
+        negElogrho -= (b_.pow(3) - a_.pow(3)) / span / 6
+
+        loss_components['kl'] = Elogq.sum(-1) + negElogrho.sum(-1)
+        loss_components['var_kl'] = (2 * (Elogq + alpha)).sum(-1)
+
+        if var_weighting != 1.0:
+            loss_components['kl'] -= (1 - var_weighting) * 0.5 * loss_components['var_kl']
+
+        return loss_components if output_dict else loss_components['kl']
+
+    def __repr__(self):
+        if self.num_priors > 1:
+            _m = ' with {} {}means'.format(self.num_priors, 'learned ' if self.learned_means else '')
+        else:
+            _m = ''
+        return 'uniform {c}prior{m}, tau={tau}'.format(c='conditional ' if self.conditional else '',
+                                                       m=_m, tau=self.tau)

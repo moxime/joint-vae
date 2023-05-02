@@ -239,7 +239,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--gamma', type=float,
                         default=0.)
 
-    parser.add_argument('--prior', choices=['gaussian', 'tilted'], default='gaussian')
+    parser.add_argument('--prior', choices=['gaussian', 'tilted', 'uniform'], default='gaussian')
 
     parser.add_argument('--tilted-tau', default=25., type=float)
 

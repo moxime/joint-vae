@@ -489,6 +489,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.is_vib:
             out = (x,)
         else:
+            print('***', *x_.shape)
             out = (x_.view(self.latent_sampling + 1, *reco_batch_shape),)
 
         out += (y_output,)

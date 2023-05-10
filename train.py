@@ -102,7 +102,7 @@ if __name__ == '__main__':
                 else:
                     verb = 'is already done.'
                 log.info(f'Training {verb}')
-            except(NoModelError):
+            except (NoModelError):
                 log.error(f'model #{job_TBR_num} not found!')
                 sys.exit(1)
 
@@ -121,7 +121,7 @@ if __name__ == '__main__':
                     verb = 'is already done.'
                 log.info(f'Training {verb}')
 
-            except(FileNotFoundError, NameError):
+            except (FileNotFoundError, NameError):
                 log.error(f'network not found in {resume}')
                 sys.exit(1)
 
@@ -179,6 +179,9 @@ if __name__ == '__main__':
                      init_mean=args.prior_means,
                      learned_means=args.learned_prior_means,
                      var_dim=args.prior_variance)
+
+        if args.prior == 'tilted':
+            prior['tau'] = args.tilted_tau
 
         model = CVNet(input_shape, num_labels,
                       type=args.type,

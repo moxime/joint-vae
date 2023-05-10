@@ -290,8 +290,11 @@ class Encoder(nn.Module):
         if sigma_output_dim:
             self.sigma = nn.Linear(input_dim, np.prod(sigma_output_dim))
 
+        output_distribution = {'tilted': 'gaussian',
+                               'gaussian': 'gaussian',
+                               'uniform': 'uniform'}.get(prior.get('distribution', 'gaussian'))
         self.sampling = Sampling(latent_dim, sampling_size, sampling,
-                                 distribution=prior.get('distribution', 'gaussian'))
+                                 distribution=output_distribution)
 
         prior['dim'] = latent_dim
         self.prior = build_prior(**prior)

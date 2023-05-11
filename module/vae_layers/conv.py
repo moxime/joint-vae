@@ -9,7 +9,7 @@ import logging
 conv_config = configparser.ConfigParser()
 
 this_dir = os.path.dirname(__file__)
-conv_config.read(os.path.join(this_dir, 'conv_models.ini'))
+conv_config.read(os.path.join(this_dir, 'conv-models.ini'))
 
 features_dict = dict(conv_config['features'])
 upsampler_dict = dict(conv_config['upsampler'])
@@ -115,7 +115,7 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
             layer_params = _parse_conv_layer_name(s, where=where)
             ltype = layer_params.pop('ltype')
             default_params[ltype] = layer_params
-        layers_name = layers_name[end_default+1:]
+        layers_name = layers_name[end_default + 1:]
     layer_names = layers_name.split('-')
     layers = []
 
@@ -131,7 +131,7 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
 
         if where == 'output' and last_layer and output_distribution == 'categorical':
             out_channels = layer_params['out_channels']
-            logging.debug('Output channel {} -> {} for categorical output'.format(out_channels, 256*out_channels))
+            logging.debug('Output channel {} -> {} for categorical output'.format(out_channels, 256 * out_channels))
             out_channels = 256 * out_channels
             layer_params['out_channels'] = out_channels
 
@@ -218,7 +218,7 @@ class ConvFeatures(nn.Sequential):
                  pretrained=None,
                  activation='relu'):
 
-        if isinstance(padding,  int):
+        if isinstance(padding, int):
             padding = [padding if isinstance(_, int) else None for _ in channels]
         if isinstance(kernel, int):
             kernel = [kernel if isinstance(_, int) else None for _ in channels]

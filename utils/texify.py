@@ -481,12 +481,12 @@ class TexCell(object):
             s += '{'
 
         if tex and self.face:
-            s += tex_faces.get(self._face, '') + '{'
+            s += tex_faces.get(self._face, '') + ' '  # '{'
 
         s += str(self).__format__(spec)
 
         if tex and self.face:
-            s += '}'
+            s += ''  # '}'
         if self._multicol and tex:
             s += '}'
 
@@ -595,7 +595,7 @@ class TexTab(object):
             return 0
 
         if isinstance(row_id, int):
-            return row_id+1
+            return row_id + 1
 
         if isinstance(row_id, str):
             splitted_id = row_id.split('-')
@@ -711,7 +711,7 @@ class TexTab(object):
             raise IndexError('row {} already full'.format(row))
 
         has_to_be_float = self._has_to_be_float[row_width]
-        seps = (self._col_sep[row_width], self._col_sep[row_width+width])
+        seps = (self._col_sep[row_width], self._col_sep[row_width + width])
         self[row].append(self._make_cell(a, width=width,
                                          multicol_format=multicol_format,
                                          face=face,

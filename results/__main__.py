@@ -251,7 +251,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     for _ in meta_cols:
         col_fmt.extend(['s2.1'] * n_methods)
 
-    tab = TexTab(*col_fmt, float_format='{:2.1f}', na_rep='')
+    tab = TexTab(*col_fmt, float_format='{:2.1f}', na_rep='--')
 
     # meta_headers = {'rate': r'\acron{{fpr}}@{}'.format(tpr) + ' ou acc.',
     #                 'auc': r'\acron{auc}'}
@@ -292,7 +292,10 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             # print('***', *idx, '*** best: {:2.1f}'.format(best))
             face = 'bf' if abs(best - c) < 0.05 else None
             if not is_an_auc_col or not is_an_acc_row:
-                tab.append_cell(c, row=idx, face=face)
+                if c > 99.95:
+                    tab.append_cell(c, row=idx, face=face, multicol_format='l', formatter='{:.0f}')
+                else:
+                    tab.append_cell(c, row=idx, face=face)
         if 'auc' in meta_cols and is_an_acc_row:
             # tab.append_cell('', width=len(methods))
             pass

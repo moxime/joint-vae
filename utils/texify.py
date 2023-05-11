@@ -767,13 +767,13 @@ class TexTab(object):
 if __name__ == '__main__':
     from numpy import nan
 
-    tab = TexTab('l', 'r', 's3.1', 's3.1', float_format='{:.3f}', sparse_index_width=1)
+    tab = TexTab('l', 'r', 's3.1', 's3.1', float_format='{:.3f}', sparse_index_width=1, na_rep='BOGUS')
     tab.add_col_sep(2, '/')
     tab.append_cell('', row=0)
     tab.append_cell(None, row=0)
     tab.append_cell('fg', row=0)
     tab.append_cell(4.5)
-    tab.append_cell(nan, row=1, face='it')
+    tab.append_cell(None, row=1, face='it')
     tab.append_cell('fr', width=2, row=1)
     tab.append_cell('fr', width=2, row=2)
     tab.append_cell('fr', width=2, row=3)

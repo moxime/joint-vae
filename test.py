@@ -162,7 +162,7 @@ if __name__ == '__main__':
                     if wanted_epochs:
                         n['net'].training_parameters[_k] = int(wanted_epochs[-1])
                     if not args.dry_run:
-                        save_json(n['net'].training_parameters, n['dir'], 'train.json')
+                        save_json(n['net'].training_parameters, n['dir'], 'train_params.json')
 
                 # print('***', n['set'], wanted_epoch)
 

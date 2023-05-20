@@ -55,7 +55,10 @@ do
 	echo "$job" 'not found'
     fi
 
-    rm "$log_dir"/train.log.$job 2> /dev/null && echo Log file deleted || echo No log file found
-    rm "$out_dir"/train-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
+    if [ -z $light ]
+       then
+	   rm "$log_dir"/train.log.$job 2> /dev/null && echo Log file deleted || echo No log file found
+	   rm "$out_dir"/train-$job.* 2> /dev/null && echo Output files deleted || echo No output file found
+    fi
 
 done

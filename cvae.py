@@ -101,10 +101,10 @@ class ClassificationVariationalNetwork(nn.Module):
                         'vib': ['sigma', ]}
 
     ood_methods_per_type = {'cvae': ['iws-2s', 'iws-a-1-1', 'iws-a-4-1',
-                                     'iws', 'mse', 'elbo', 'soft', 'elbo-2s', 'elbo-a-1-1'],
+                                     'iws', 'mse', 'elbo', 'soft', 'elbo-2s', 'elbo-a-1-1', 'elbo-a-4-1'],
                             'xvae': ['max', 'mean', 'std'],  # , 'mag', 'IYx'],
                             'jvae': ['max', 'sum', 'std'],  # 'mag'],
-                            'vae': ['iws-2s', 'iws-a-1-1', 'iws-a-4-1', 'iws', 'elbo', 'elbo-2s'],
+                            'vae': ['iws-2s', 'iws-a-1-1', 'iws-a-4-1', 'iws', 'elbo', 'elbo-2s', 'elbo-a-1-1', 'elbo-a-4-1'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
     misclass_methods_per_type = {'cvae': ['softkl*', 'iws', 'softiws*', 'kl', 'max',
@@ -2737,6 +2737,9 @@ class ClassificationVariationalNetwork(nn.Module):
             train_params_for_const = train_params.copy()
             for _ in keys_out:
                 train_params_for_const.pop(_, None)
+            for _ in train_params:
+                if _.startswith('early-'):
+                    train_params_for_const.pop(_, None)
             model = cls(**params, **train_params_for_const)
 
         model.saved_dir = dir_name

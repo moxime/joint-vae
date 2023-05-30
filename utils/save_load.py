@@ -451,6 +451,11 @@ class LossRecorder:
             if not k.startswith('_'):
                 setattr(r, k, dict_of_params[k])
 
+        # retro-compatibility
+        if 'last_batch_size' in dict_of_params and isinstance(r.last_batch_size, dict):
+            last_batch_size = next(iter(r.last_batch_size.values()))
+            r.last_batch_size = last_batch_size
+
         if device:
             for k in r._tensors:
                 if r._tensors[k].device != device:

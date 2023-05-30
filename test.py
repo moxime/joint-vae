@@ -157,8 +157,10 @@ if __name__ == '__main__':
                 if _k in n['net'].training_parameters or 'json' not in where:
                     wanted_epochs.append(n['net'].training_parameters[_k])
                 else:
-                    wanted_epochs.append(early_stopping(n, strategy=early_stopping_method[0],
-                                                        which=early_stopping_method[1]))
+                    early_stopping_epoch = early_stopping(n, strategy=early_stopping_method[0],
+                                                          which=early_stopping_method[1])
+                    if early_stopping_epoch is not None:
+                        wanted_epochs.append(early_stopping_epoch)
                     if wanted_epochs:
                         n['net'].training_parameters[_k] = int(wanted_epochs[-1])
                     if not args.dry_run:

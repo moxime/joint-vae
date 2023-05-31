@@ -175,6 +175,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.metrics = self.metrics_per_type[self.type]
 
+        self._test_losses = {}
+        self._test_measures = {}
+
         self.predict_methods = self.predict_methods_per_type[self.type].copy()
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
         self.misclass_methods = self.misclass_methods_per_type[self.type].copy()
@@ -1135,7 +1138,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
     @ property
     def test_losses(self):
-        # print('access to test losses')
         return self._test_losses
 
     @ test_losses.setter

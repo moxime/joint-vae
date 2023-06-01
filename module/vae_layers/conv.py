@@ -157,11 +157,11 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
 
         layers.append(conv_layer)
         if ltype.endswith('conv'):
+            if batch_norm:
+                layers.append(nn.BatchNorm2d(in_channels))
             kw = {'relu': {'inplace': True}}
             layers.append(activation_layers[activation](**kw.get(activation, {})))
             last_activation_i = len(layers) - 1
-            if batch_norm:
-                layers.append(nn.BatchNorm2d(in_channels))
         if append_un_flatten and where == 'input':
             layers.append(nn.Flatten(-3, -1))
 

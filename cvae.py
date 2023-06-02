@@ -228,16 +228,11 @@ class ClassificationVariationalNetwork(nn.Module):
             batch_norm_decoder = batch_norm == 'both'
         if features:
             logging.debug('Building features')
-            if pretrained_features == 'online':
-                feat_dict = True
-            elif pretrained_features:
-                feat_dict = torch.load(pretrained_features)
-            else:
-                feat_dict = None
 
             self.features = build_de_conv_layers(input_shape, features,
                                                  activation=activation,
-                                                 batch_norm=batch_norm_encoder)
+                                                 batch_norm=batch_norm_encoder,
+                                                 pretrained_dict=pretrained_features)
 
             encoder_input_shape = self.features.output_shape
             logging.debug('Features built')
@@ -295,15 +290,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
             imager_input_dim = input_dim
             if upsampler:
-                if pretrained_upsampler:
-                    upsampler_dict = torch.load(pretrained_upsampler)
-                else:
-                    upsampler_dict = None
                 self.imager = build_de_conv_layers(imager_input_dim, upsampler,
                                                    batch_norm=batch_norm_decoder,
                                                    activation=activation,
                                                    output_activation=output_activation,
                                                    output_distribution=self.output_distribution,
+                                                   pretrained_dict=pretrained_upsampler,
                                                    where='output')
 
             else:
@@ -371,8 +363,8 @@ class ClassificationVariationalNetwork(nn.Module):
             'latent_sampling': latent_sampling,
             'set': None,
             'data_augmentation': [],
-            'pretrained_features': pretrained_features,
-            'pretrained_upsampler': pretrained_upsampler,
+            'pretrained_features': getattr(pretrained_features, 'name', None)
+            'pretrained_upsampler': getattr(pretrained_upsampler, 'name', None)
             'epochs': 0,
             'batch_size': None,
             'fine_tuning': []}
@@ -2760,7 +2752,7 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Loading state')
             w_p = save_load.get_path(dir_name, 'state.pth')
             try:
-                state_dict = torch.load(w_p)
+                state_dict = torch.load(w_p, map_location=model.device)
             except FileNotFoundError as e:
                 raise StateFileNotFoundError(
                     errno.ENOENT, os.strerror(errno.ENOENT), e.filename)

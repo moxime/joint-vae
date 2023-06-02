@@ -89,7 +89,10 @@ def _conv_layer_name(conv_layer):
 
 def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
                          append_un_flatten=False, where='input',
-                         activation='relu', output_activation='linear', output_distribution='gaussian'):
+                         activation='relu', output_activation='linear',
+                         output_distribution='gaussian',
+                         pretrained_dict=None,
+                         ):
     """ make (de)conv features
 
     -- if where is input, conv, else (output) deconv
@@ -131,7 +134,8 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
 
         if where == 'output' and last_layer and output_distribution == 'categorical':
             out_channels = layer_params['out_channels']
-            logging.debug('Output channel {} -> {} for categorical output'.format(out_channels, 256 * out_channels))
+            logging.debug('Output channel {} -> {} for categorical output'.format(out_channels,
+                                                                                  256 * out_channels))
             out_channels = 256 * out_channels
             layer_params['out_channels'] = out_channels
 
@@ -177,6 +181,12 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
     conv.name = name or '-'.join(layer_names_)
     conv.output_shape = (*out_channels, h, w)
     conv.input_shape = input_shape
+
+    if pretrained_dict:
+
+        conv.load_state_dict(pretrained_dict)
+        for p in conv.parameters():
+            p.requires_grad_(False)
 
     return conv
 

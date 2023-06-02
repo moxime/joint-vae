@@ -1357,6 +1357,32 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, miss
                 yield d, sdir
 
 
+def get_submodule(model, sub='features', job_dir='jobs', name=None):
+
+    if isinstance(model, int):
+        model = find_by_job_number(model, job_dir=job_dir, load_net=True, load_state=True)['net']
+        return get_submodule(model, sub=sub, job_dir=job_dir, name='job-{}'.format(model.job_number))
+
+    elif isinstance(model, str) and model.startswith('job-'):
+        number = int(model.split('-')[1])
+        return get_submodule(number, sub=sub, job_dir=job_dir)
+
+    elif isinstance(model, str) and os.path.exists(model):
+        s = torch.load(model)
+        s.name = name
+        return s
+
+    if not hasattr(model, sub):
+        raise AttributeError('model {} does not seem to have {}'.format(name or str(model), sub))
+
+    logging.debug('Found {}.{}'.format(name, sub))
+
+    s = getattr(model, sub).state_dict()
+    s.name = name
+
+    return s
+
+
 if __name__ == '__main__':
 
     dim = {'A': (10,), 'B': (1,), 'I': (3, 32, 32)}

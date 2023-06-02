@@ -1248,8 +1248,14 @@ def collect_models(directory,
 
         return make_dict_from_model(model, directory, tpr=tpr, wanted_epoch=wanted_epoch)
 
-    except (FileNotFoundError, PermissionError, NoModelError) as e:
-        pass
+    except FileNotFoundError:
+        return
+    except PermissionError:
+        return
+    except NoModelError:
+        return
+    except Exception as e:
+        return
 
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')
@@ -1357,15 +1363,15 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, miss
                 yield d, sdir
 
 
-def get_submodule(model, sub='features', job_dir='jobs', name=None):
+def get_submodule(model, sub='features', job_dir='jobs', name=None, **kw):
 
     if isinstance(model, int):
-        model = find_by_job_number(model, job_dir=job_dir, load_net=True, load_state=True)['net']
-        return get_submodule(model, sub=sub, job_dir=job_dir, name='job-{}'.format(model.job_number))
+        model = find_by_job_number(model, job_dir=job_dir, load_net=True, load_state=True, **kw)['net']
+        return get_submodule(model, sub=sub, job_dir=job_dir, name='job-{}'.format(model.job_number), **kw)
 
     elif isinstance(model, str) and model.startswith('job-'):
         number = int(model.split('-')[1])
-        return get_submodule(number, sub=sub, job_dir=job_dir)
+        return get_submodule(number, sub=sub, job_dir=job_dir, **kw)
 
     elif isinstance(model, str) and os.path.exists(model):
         s = torch.load(model)
@@ -1384,7 +1390,14 @@ def get_submodule(model, sub='features', job_dir='jobs', name=None):
 
 
 if __name__ == '__main__':
+    import sys
 
     logging.getLogger().setLevel(logging.DEBUG)
 
-    m = find_by_job_number(309452, load_net=False, flash=True)
+    print(os.path.abspath('.'))
+
+    # collect_models('jobs', load_state=False, load_net=False)
+
+    # fetch_models('jobs', load_state=False, load_net=False, flash=False)
+
+    s = get_submodule(sys.argv[1], flash=False)

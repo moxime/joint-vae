@@ -10,7 +10,7 @@ import sys
 import argparse
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
-from utils.save_load import collect_models, find_by_job_number, NoModelError
+from utils.save_load import collect_models, find_by_job_number, NoModelError, get_submodule
 from utils.print_log import EpochOutput
 from utils.signaling import SIGHandler
 import setproctitle
@@ -183,12 +183,22 @@ if __name__ == '__main__':
         if args.prior == 'tilted':
             prior['tau'] = args.tilted_tau
 
+        if args.pretrained_features:
+            pretrained_features = get_submodule(args.pretrained_features)
+        else:
+            pretrained_features = None
+
+        if args.pretrained_upsampler:
+            pretrained_upsampler = get_submodule(args.pretrained_upsampler, 'imager')
+        else:
+            pretrained_upsampler = None
+
         model = CVNet(input_shape, num_labels,
                       type=args.type,
                       output_distribution=args.output_distribution,
                       features=args.features,
-                      pretrained_features=args.pretrained_features,
-                      pretrained_upsampler=args.pretrained_upsampler,
+                      pretrained_features=pretrained_features,
+                      pretrained_upsampler=pretrained_upsampler,
                       batch_norm=args.batch_norm,
                       optimizer=args.optim_params,
                       encoder=args.encoder,

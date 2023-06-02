@@ -363,8 +363,8 @@ class ClassificationVariationalNetwork(nn.Module):
             'latent_sampling': latent_sampling,
             'set': None,
             'data_augmentation': [],
-            'pretrained_features': getattr(pretrained_features, 'name', None)
-            'pretrained_upsampler': getattr(pretrained_upsampler, 'name', None)
+            'pretrained_features': getattr(pretrained_features, 'name', None),
+            'pretrained_upsampler': getattr(pretrained_upsampler, 'name', None),
             'epochs': 0,
             'batch_size': None,
             'fine_tuning': []}

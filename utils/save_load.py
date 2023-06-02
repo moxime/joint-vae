@@ -1385,19 +1385,6 @@ def get_submodule(model, sub='features', job_dir='jobs', name=None):
 
 if __name__ == '__main__':
 
-    dim = {'A': (10,), 'B': (1,), 'I': (3, 32, 32)}
-    batch_size = 512
-    device = 'cuda'
+    logging.getLogger().setLevel(logging.DEBUG)
 
-    tensors = {k: torch.randn(*dim[k], 7, device=device) for k in dim}
-
-    r = LossRecorder(batch_size)  # , **tensors)
-    r.num_batch = 4
-    r.epochs = 10
-
-    for _ in range(3):
-        r.append_batch(**{k: torch.randn(*dim[k], batch_size) for k in dim})
-
-    r.save('/tmp/r.pth')
-
-    r_ = LossRecorder.load('/tmp/r.pth')
+    m = find_by_job_number(309452, load_net=False, flash=True)

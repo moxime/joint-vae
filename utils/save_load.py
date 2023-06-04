@@ -1367,6 +1367,7 @@ def get_submodule(model, sub='features', job_dir='jobs', name=None, **kw):
 
     if isinstance(model, int):
         model_number = model
+        logging.debug('Will find model {} in {}'.format(model_number, job_dir))
         model = find_by_job_number(model_number, job_dir=job_dir, load_net=True, load_state=True, **kw)['net']
         logging.debug('Had to search {} found model of type {}'.format(model_number, model.type))
         return get_submodule(model, sub=sub, job_dir=job_dir, name='job-{}'.format(model.job_number), **kw)

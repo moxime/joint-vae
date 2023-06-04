@@ -185,7 +185,7 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
     if pretrained_dict:
 
         conv.load_state_dict(pretrained_dict)
-        logging.log('Pretrained conv layers for', where)
+        logging.debug('Pretrained conv layers for', where)
         for p in conv.parameters():
             p.requires_grad_(False)
 

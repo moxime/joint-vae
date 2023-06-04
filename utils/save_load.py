@@ -1379,6 +1379,7 @@ def get_submodule(model, sub='features', job_dir='jobs', name=None, **kw):
         return s
 
     if not hasattr(model, sub):
+        logging.error('Prb with model {}'.format(str(model)))
         raise AttributeError('model {} does not seem to have {}'.format(name or str(model), sub))
 
     logging.debug('Found {}.{}'.format(name, sub))

@@ -2359,7 +2359,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 f' after {epoch} epochs.')
                 break
 
-            self.encoder.prior.thaw(epoch)
+            self.encoder.prior.thaw_means(epoch)
 
             self.train()
 

@@ -115,7 +115,8 @@ class GaussianPrior(nn.Module):
         self.params = {'distribution': 'gaussian', 'dim': dim,
                        'var_dim': self.var_dim, 'num_priors': self.num_priors}
         if self.conditional:
-            self.params.update({'learned_means': self.learned_means, 'init_mean': init_mean})
+            self.params.update({'learned_means': self.learned_means,
+                                'init_mean': init_mean, 'freeze_means': freeze_means})
 
     def thaw_means(self, epoch=None):
         if not self.learned_means or not self._frozen_means:

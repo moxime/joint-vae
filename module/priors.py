@@ -53,7 +53,7 @@ def build_prior(dim, distribution='gaussian', **kw):
 class GaussianPrior(nn.Module):
 
     def __init__(self, dim, var_dim='scalar', num_priors=1,
-                 init_mean=0, learned_means=False):
+                 init_mean=0, learned_means=False, freeze_means=0):
         """
         var_dim : scalar, diag or full
         num_priors: 1 for non conditional prior, else number of classes
@@ -68,6 +68,7 @@ class GaussianPrior(nn.Module):
         self.var_dim = var_dim
         self.learned_var = var_dim != 'scalar'
         self.learned_means = learned_means
+        self.freeze_means = freeze_means
         self.dim = dim
 
         if num_priors == 1:
@@ -91,7 +92,8 @@ class GaussianPrior(nn.Module):
                 except ValueError:
                     mean_tensor = init_mean.squeeze()
 
-        self.mean = Parameter(mean_tensor, requires_grad=learned_means)
+        self._frozen_means = not learned_means or freeze_means > 0
+        self.mean = Parameter(mean_tensor, requires_grad=not self._frozen_means)
 
         if var_dim == 'scalar':
             var_param_per_class = torch.tensor(1.)
@@ -114,6 +116,14 @@ class GaussianPrior(nn.Module):
                        'var_dim': self.var_dim, 'num_priors': self.num_priors}
         if self.conditional:
             self.params.update({'learned_means': self.learned_means, 'init_mean': init_mean})
+
+    def thaw_means(self, epoch=None):
+        if not self.learned_means or not self._frozen_means:
+            return
+        if epoch is None or epoch >= self.freeze_means:
+            logging.debug('Defreezing prior means')
+            self.mean.requires_grad_()
+            self._frozen_means = True
 
     @ property
     def inv_trans(self):

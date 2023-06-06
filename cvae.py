@@ -2224,6 +2224,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         last_was_full_test = False
         for epoch in range(done_epochs, epochs + 1):
+
             self.train_history[epoch] = {}
             history_checkpoint = self.train_history[epoch]
             for s in recorders:
@@ -2357,6 +2358,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 logging.warning(f'Breaking training loop bc of signal {signal_handler}'
                                 f' after {epoch} epochs.')
                 break
+
+            self.encoder.prior.thaw(epoch)
 
             self.train()
 

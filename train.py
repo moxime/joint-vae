@@ -178,7 +178,9 @@ if __name__ == '__main__':
         prior = dict(distribution=args.prior,
                      init_mean=args.prior_means,
                      learned_means=args.learned_prior_means,
-                     var_dim=args.prior_variance)
+                     var_dim=args.prior_variance,
+                     freeze_means=args.freeze_prior_means
+                     )
 
         if args.prior == 'tilted':
             prior['tau'] = args.tilted_tau

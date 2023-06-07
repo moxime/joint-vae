@@ -1254,8 +1254,8 @@ def collect_models(directory,
         return
     except NoModelError:
         return
-    except Exception as e:
-        return
+    except StateFileNotFoundError:
+        raise
 
     except RuntimeError as e:
         logging.warning(f'Load error in {directory} see log file')

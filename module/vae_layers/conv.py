@@ -39,12 +39,24 @@ def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
         ltype = s[0].lower() + 'pooling'
         s = s[1:]
 
+    elif s[0].lower() == 'u':
+        ltype = 'upsampler'
+        s = s[1:]
+
+    elif s[0].lower() == 'r':
+        ltype = 'rehsape'
+        s = s[1:]
+
     params = dict(ltype=ltype, out_channels=out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
 
     if ltype == 'deconv':
         params['output_padding'] = output_padding
 
     if ltype.endswith('pooling'):
+        params.pop('out_channels')
+        delimiters.pop('out_channels')
+
+    if ltype == 'upsampler':
         params.pop('out_channels')
         delimiters.pop('out_channels')
 
@@ -84,7 +96,30 @@ def _conv_layer_name(conv_layer):
         if conv_layer.stride != conv_layer.kernel_size:
             _s += ':{}'.format(conv_layer.stride)
 
-        return _s
+    elif isinstance(conv_layer, nn.UpsamplingNearest2d):
+        _s = 'u:{}'.format(conv_layer.scale_factor)
+
+    return _s
+
+
+def find_input_shape(layers_name, wanted_output_shape, input_shape=(1, 1)):
+
+    deconv = build_de_conv_layers((1, *input_shape), layers_name, where='output')
+
+    output_shape = deconv.output_shape[1:]
+
+    if output_shape == wanted_output_shape:
+        logging.debug('Found input_shape for {}: {}, {}'.format(layers_name, *input_shape))
+        return input_shape
+
+    if output_shape[0] > wanted_output_shape[0] or output_shape[1] > wanted_output_shape[1]:
+        e = 'Did not find an input shape yielding output size ({}, {}) for {}'.format(*wanted_output_shape, layers_name)
+        raise ValueError(e)
+
+    i0 = input_shape[0] + int(output_shape[0] < wanted_output_shape[0])
+    i1 = input_shape[1] + int(output_shape[1] < wanted_output_shape[1])
+
+    return find_input_shape(layers_name, wanted_output_shape, input_shape=(i0, i1))
 
 
 def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
@@ -152,12 +187,19 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
             in_channels = out_channels
             h = (h - 1) * stride - 2 * padding + kernel_size + layer_params['output_padding']
             w = (w - 1) * stride - 2 * padding + kernel_size + layer_params['output_padding']
-        else:
+
+        elif ltype.endswith('pooling'):
             Layer = {'m': nn.MaxPool2d, 'a': nn.AvgPool2d}[ltype[0]]
             conv_layer = Layer(**layer_params)
             out_channels = in_channels
             h = (h + 2 * conv_layer.padding - kernel_size) // conv_layer.stride + 1
             w = (w + 2 * conv_layer.padding - kernel_size) // conv_layer.stride + 1
+
+        elif ltype == 'upsampler':
+            scale_factor = layer_params['stride']
+            conv_layer = nn.UpsamplingNearest2d(scale_factor=scale_factor)
+            h = int(h * scale_factor)
+            w = int(w * scale_factor)
 
         layers.append(conv_layer)
         if ltype.endswith('conv'):

@@ -47,7 +47,8 @@ def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
         ltype = 'rehsape'
         s = s[1:]
 
-    params = dict(ltype=ltype, out_channels=out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
+    params = dict(ltype=ltype, out_channels=out_channels, kernel_size=kernel_size,
+                  padding=padding, stride=stride)
 
     if ltype == 'deconv':
         params['output_padding'] = output_padding
@@ -113,8 +114,8 @@ def find_input_shape(layers_name, wanted_output_shape, input_shape=(1, 1)):
         return input_shape
 
     if output_shape[0] > wanted_output_shape[0] or output_shape[1] > wanted_output_shape[1]:
-        e = 'Did not find an input shape yielding output size ({}, {}) for {}'.format(*wanted_output_shape, layers_name)
-        raise ValueError(e)
+        e = 'Did not find an input shape yielding output size ({}, {}) for {}'
+        raise ValueError(e.format(*wanted_output_shape, layers_name))
 
     i0 = input_shape[0] + int(output_shape[0] < wanted_output_shape[0])
     i1 = input_shape[1] + int(output_shape[1] < wanted_output_shape[1])
@@ -153,6 +154,7 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
             layer_params = _parse_conv_layer_name(s, where=where)
             ltype = layer_params.pop('ltype')
             default_params[ltype] = layer_params
+
         layers_name = layers_name[end_default + 1:]
     layer_names = layers_name.split('-')
     layers = []

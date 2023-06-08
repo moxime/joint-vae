@@ -256,6 +256,7 @@ class Encoder(nn.Module):
                  latent_dim=32,
                  intermediate_dims=[64],
                  name='encoder',
+                 dropout=False,
                  activation='relu',
                  sampling_size=10,
                  sampling=True,
@@ -279,7 +280,11 @@ class Encoder(nn.Module):
         input_dim = np.prod(input_shape) + num_labels * y_is_coded
         for d in intermediate_dims:
             dense_layers += [nn.Linear(input_dim, d),
-                             activation_layers[activation]()]
+                             activation_layers[activation]()
+                             ]
+            if dropout:
+                dense_layers.append(nn.Dropout(p=dropout))
+
             input_dim = d
         self.dense_projs = nn.Sequential(*dense_layers)
 
@@ -407,6 +412,7 @@ class Decoder(nn.Module):           #
                  intermediate_dims=[64],
                  name='decoder',
                  activation='relu',
+                 dropout=False,
                  output_activation='sigmoid',
                  **kwargs):
 

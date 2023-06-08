@@ -140,6 +140,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  features=None,
                  pretrained_features=None,
                  batch_norm=False,
+                 dropout=False,
                  encoder=[36],
                  latent_dim=32,
                  prior={},  # default scalar gaussian
@@ -270,6 +271,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                intermediate_dims=encoder,
                                latent_dim=latent_dim,
                                y_is_coded=self.y_is_coded,
+                               dropout=dropout,
                                sigma_output_dim=self.sigma.output_dim if self.sigma.coded else 0,
                                forced_variance=encoder_forced_variance,
                                sampling_size=latent_sampling,
@@ -284,6 +286,8 @@ class ClassificationVariationalNetwork(nn.Module):
             for output_dim in decoder:
                 decoder_layers += [nn.Linear(input_dim, output_dim),
                                    activation_layer]
+                if dropout:
+                    decoder_layers.append(nn.Dropout(p=dropout))
                 input_dim = output_dim
 
             self.decoder = nn.Sequential(*decoder_layers)
@@ -324,6 +328,7 @@ class ClassificationVariationalNetwork(nn.Module):
         self.training_parameters = {}  #
 
         self.batch_norm = batch_norm
+        self.dropout = dropout
 
         self._sizes_of_layers = [input_shape, num_labels,
                                  encoder, latent_dim,
@@ -339,6 +344,7 @@ class ClassificationVariationalNetwork(nn.Module):
                              # 'features': features_arch,
                              'encoder': encoder,
                              'batch_norm': batch_norm,
+                             'dropout': dropout,
                              'activation': activation,
                              'encoder_forced_variance': self.encoder.forced_variance,
                              'latent_dim': latent_dim,

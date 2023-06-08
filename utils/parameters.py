@@ -311,6 +311,8 @@ def get_args_for_train(argv=None):
                         nargs='?',
                         const='encoder')
 
+    parser.add_argument('--dropout', type=float, nargs='?', const=0.5)
+
     parser.add_argument('--optimizer', choices=('sgd', 'adam'))
     parser.add_argument('--lr', default=0, type=float)
     parser.add_argument('--wd', default=0, type=float, dest='weight_decay')

@@ -11,7 +11,7 @@ from module.losses import x_loss, mse_loss, categorical_loss
 from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
-from module.vae_layers import Encoder, Classifier, Sigma, build_de_conv_layers
+from module.vae_layers import Encoder, Classifier, Sigma, build_de_conv_layers, find_input_shape
 from module.vae_layers import onehot_encoding, Rgb2hsv
 import tempfile
 import shutil
@@ -290,6 +290,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
             imager_input_dim = input_dim
             if upsampler:
+                imager_input_shape = find_input_shape(upsampler, input_shape[1:])
+                f = imager_input_shape[0] * imager_input_shape[1]
+                e = 'Could not go from {} to *, {} {}'.format(imager_input_dim, *imager_input_shape)
+                assert not imager_input_dim % f, e
+                imager_input_dim = (imager_input_dim // f, *imager_input_shape)
+                logging.debug('New imager input shape: {}'.format(imager_input_dim))
                 self.imager = build_de_conv_layers(imager_input_dim, upsampler,
                                                    batch_norm=batch_norm_decoder,
                                                    activation=activation,

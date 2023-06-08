@@ -109,7 +109,7 @@ def find_input_shape(layers_name, wanted_output_shape, input_shape=(1, 1)):
 
     output_shape = deconv.output_shape[1:]
 
-    if output_shape == wanted_output_shape:
+    if tuple(output_shape) == tuple(wanted_output_shape):
         logging.debug('Found input_shape for {}: {}, {}'.format(layers_name, *input_shape))
         return input_shape
 

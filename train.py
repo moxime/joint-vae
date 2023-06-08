@@ -322,6 +322,9 @@ if __name__ == '__main__':
     warmup = args.warmup
     if len(warmup) == 1:
         warmup = [0, warmup[0]]
+    warmup_gamma = args.warmup_gamma
+    if len(warmup_gamma) == 1:
+        warmup_gamma = [0, warmup_gamma[0]]
 
     if not dry_run:
         if model.trained < args.epochs:
@@ -343,6 +346,7 @@ if __name__ == '__main__':
                               data_augmentation=data_augmentation,
                               fine_tuning=args.fine_tuning,
                               warmup=warmup,
+                              warmup_gamma=warmup_gamma,
                               validation_sample_size=test_sample_size,  # 10000,
                               save_dir=save_dir,
                               outputs=outputs,

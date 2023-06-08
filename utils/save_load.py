@@ -31,7 +31,8 @@ class DeletedModelError(NoModelError):
     pass
 
 
-def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False, iterate_over_subdirs_if_found=False):
+def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False,
+                          iterate_over_subdirs_if_found=False):
     def iterate_over_subdirs_wrapper(func):
         @functools.wraps(func)
         def iterated_func(*a, keep_none=keep_none, **kw):

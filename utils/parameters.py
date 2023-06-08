@@ -219,7 +219,7 @@ def get_args_for_train(argv=None):
     parser.add_argument('--type', choices=['jvae', 'cvae', 'vib', 'vae', 'xvae'])
 
     parser.add_argument('--output-distribution', choices=['gaussian', 'categorical'], default='gaussian')
-    parser.add_argument('--categorical', action='store_const',  dest='output_distribution', const='categorical')
+    parser.add_argument('--categorical', action='store_const', dest='output_distribution', const='categorical')
 
     parser.add_argument('--sigma', '-s',
                         # type = float,
@@ -252,8 +252,6 @@ def get_args_for_train(argv=None):
     parser.add_argument('--learned-prior-means',
                         action='store_true')
 
-    parser.add_argument('--freeze-prior-means', type=int, default=0)
-
     parser.add_argument('--static-prior-means',
                         dest='learned_prior_means',
                         action='store_false')
@@ -277,7 +275,9 @@ def get_args_for_train(argv=None):
     parser.add_argument('--pretrained-upsampler', metavar='upsampler.pth')
 
     parser.add_argument('--fine-tuning', action='store_true')
+    parser.add_argument('--freeze-prior-means', type=int, default=0)
     parser.add_argument('--warmup', type=float, default=[0], nargs='+')
+    parser.add_argument('--warmup-gamma', type=float, default=[0], nargs='+')
 
     parser.add_argument('--encoder', type=alphanum, metavar='W', nargs='*')
     parser.add_argument('--conv-padding', type=alphanum, metavar='P')

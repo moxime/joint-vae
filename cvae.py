@@ -512,6 +512,7 @@ class ClassificationVariationalNetwork(nn.Module):
                  current_measures=None,
                  with_beta=False,  #
                  kl_var_weighting=1.,
+                 gamma_weighting=1,
                  z_output=False,
                  **kw):
         """x input of size (N1, .. ,Ng, D1, D2,..., Dt)
@@ -542,9 +543,9 @@ class ClassificationVariationalNetwork(nn.Module):
         cross_y_weight = False
         if self.y_is_decoded:
             if self.is_cvae or self.is_vae:
-                cross_y_weight = self.gamma if self.training else False
+                cross_y_weight = gamma_weighting * self.gamma if self.training else False
             else:
-                cross_y_weight = self.gamma
+                cross_y_weight = gamma_weighting * self.gamma
 
         if not batch:
             # print('*** training:', self.training)
@@ -2027,6 +2028,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     acc_methods=None,
                     fine_tuning=False,
                     warmup=[0, 0],
+                    warmup_gamma=[0, 0],
                     latent_sampling=None,
                     validation_sample_size=1024,
                     full_test_every=10,
@@ -2126,10 +2128,13 @@ class ClassificationVariationalNetwork(nn.Module):
 
         logging.info('Train batch size is {}'.format(train_batch_size))
 
+        warmup_ = self.training_parameters.get('warmup', [0, 0])
+        warmup_gamma_ = self.training_parameters.get('warmup_gamma', [0, 0])
         for _ in (0, 1):
-            warmup[_] = max(
-                warmup[_], self.training_parameters.get('warmup', [0, 0])[_])
+            warmup[_] = max(warmup[_], warmup_[_])
+            warmup_gamma[_] = max(warmup_gamma[_], warmup_gamma_[_])
         self.training_parameters['warmup'] = warmup
+        self.training_parameters['warmup_gamma'] = warmup_gamma
 
         x_fake = torch.randn(
             test_batch_size, *self.input_shape, device=self.device)
@@ -2378,8 +2383,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 if self.training:
                     warmup_weighting = max(0., min(1., (epoch + 1 - warmup[0]) / (warmup[1] + 1)))
+                    gamma_weighting = max(0., min(1., (epoch + 1 - warmup_gamma[0]) / (warmup_gamma[1] + 1)))
                 else:
                     warmup_weighting = 1.
+                    gamma_weightting = 1.
 
                 # with autograd.detect_anomaly():
                 # forward + backward + optimize
@@ -2388,6 +2395,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                          batch=i,
                                                          with_beta=True,
                                                          kl_var_weighting=warmup_weighting,
+                                                         gamma_weighting=gamma_weighting,
                                                          # mse_weighting=warmup_weighting,
                                                          current_measures=current_measures)
 

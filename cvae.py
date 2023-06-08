@@ -459,8 +459,7 @@ class ClassificationVariationalNetwork(nn.Module):
               'y_01:', *y_onehot.shape if y is not None else ('*',))
         """
         try:
-            z_mean, z_log_var, z, sample_eps, sigma = self.encoder(
-                x_, y_onehot)
+            z_mean, z_log_var, z, sample_eps, sigma = self.encoder(x_, y_onehot)
             # z of size LxN1x...xNgxK
         except ValueError as e:
             dir_ = f'log/dump-{self.job_number}'

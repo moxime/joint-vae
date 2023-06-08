@@ -293,6 +293,7 @@ class GaussianPrior(nn.Module):
         for k in loss_components:
             if loss_components[k].isnan().any():
                 print('***', k, 'is nan')
+                logging.error('Will stop bc {} is nan'.format(k))
                 stop = True
         if stop:
             return

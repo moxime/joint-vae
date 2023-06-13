@@ -158,6 +158,7 @@ if __name__ == '__main__':
             sigma_is_rmse = False
 
         batch_norm = args.batch_norm if args.batch_norm != 'none' else None
+        dropout = args.dropout
 
         sigma = Sigma(sigma_value,
                       sdim=sdim,
@@ -202,6 +203,7 @@ if __name__ == '__main__':
                       pretrained_features=pretrained_features,
                       pretrained_upsampler=pretrained_upsampler,
                       batch_norm=args.batch_norm,
+                      dropout=dropout,
                       optimizer=args.optim_params,
                       encoder=args.encoder,
                       encoder_forced_variance=args.encoder_forced_variance,

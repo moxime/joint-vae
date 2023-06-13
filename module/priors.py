@@ -338,13 +338,13 @@ class GaussianPrior(nn.Module):
 class TiltedGaussianPrior(GaussianPrior):
 
     def __init__(self, dim, num_priors=1, init_mean=0, learned_means=False,
-                 tau=25):
+                 tau=25, **kw):
 
         super().__init__(dim,
                          num_priors=num_priors,
                          init_mean=init_mean,
                          learned_means=learned_means,
-                         var_dim='scalar')
+                         var_dim='scalar', **kw)
 
         self.tau = tau
         self._mu_star = tau

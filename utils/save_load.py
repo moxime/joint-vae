@@ -1332,7 +1332,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, miss
         if epoch_ == 'min-loss':
             epoch_ = m.training_parameters.get('early-min-loss', 'last')
         if epoch_ == 'last':
-            epoch_ = max(m.testing)
+            epoch_ = max(m.testing) if m.predict_methods else max(m.ood_results or [0])
 
         if isinstance(epoch_, int):
             epoch_ = '{:04d}'.format(epoch_)

@@ -2747,6 +2747,7 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Building the network')
             keys_out = ('set', 'epochs', 'data_augmentation',
                         'batch_size', 'fine_tuning', 'warmup',
+                        'warmup_gamma',
                         'full_test_every', 'validation_split_seed',
                         'max_batch_sizes',
                         'transformer', 'validation')

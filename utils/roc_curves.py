@@ -35,7 +35,7 @@ def tpr_at_fpr(fpr, tpr, a):
     return as_tpr[i_fpr].max()
 
 
-def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False, ins_are_higher=True):
+def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0, debug=False, ins_are_higher=True):
 
     sign = 1 if ins_are_higher else -1
     lowup = {'low': 'low', 'up': 'up'} if ins_are_higher else {'low': 'up', 'up': 'low'}
@@ -56,7 +56,7 @@ def roc_curve(ins, outs, *kept_tpr, two_sided=False, validation=0.1, debug=False
     np.random.seed()
     permute_ins = np.random.permutation(len(ins))
     np.random.set_state(_s)
-    val_ins_idx = np.sort(permute_ins[:ins_n_valid])
+    val_ins_idx = np.sort(permute_ins[:ins_n_valid]) if ins_n_valid else np.sort(permute_ins)
     test_ins_idx = permute_ins[ins_n_valid:]
 
     ins_validation = np.sort(np.asarray(ins)[val_ins_idx])

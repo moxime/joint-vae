@@ -394,7 +394,7 @@ class TiltedGaussianPrior(GaussianPrior):
 class UniformWithGaussianTailPrior(GaussianPrior):
 
     def __init__(self, dim, num_priors=1, init_mean=0,
-                 learned_means=False, tau=5):
+                 learned_means=False, tau=5, **kw):
 
         super().__init__(dim, num_priors=num_priors,
                          init_mean=init_mean,

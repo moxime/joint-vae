@@ -2750,6 +2750,8 @@ class ClassificationVariationalNetwork(nn.Module):
                         'warmup_gamma',
                         'full_test_every', 'validation_split_seed',
                         'max_batch_sizes',
+                        'pretrained_features',
+                        'pretrained_upsampler',
                         'transformer', 'validation')
             train_params_for_const = train_params.copy()
             for _ in keys_out:
@@ -2758,6 +2760,16 @@ class ClassificationVariationalNetwork(nn.Module):
                 if _.startswith('early-'):
                     train_params_for_const.pop(_, None)
             model = cls(**params, **train_params_for_const)
+
+            if train_params.get('pretrained_upsampler'):
+                model.features.mame = train_params['pretrained_features']
+                for p in model.features.parameters():
+                    p.requires_grad_(False)
+
+            if train_params.get('pretrained_upsampler'):
+                model.imager.mame = train_params['pretrained_upsampler']
+                for p in model.imager.parameters():
+                    p.requires_grad_(False)
 
         model.saved_dir = dir_name
         model.trained = train_history['epochs']

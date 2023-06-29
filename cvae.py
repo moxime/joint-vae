@@ -493,7 +493,6 @@ class ClassificationVariationalNetwork(nn.Module):
             # x_output of size LxN1x...xKgxD
             x_ = self.imager(u.view(-1, *self.imager.input_shape))
 
-        print('***', self.classifier_type)
         if self.classifier_type in ('linear', None):
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means
             y_output = self.classifier(z)  # for classification on z

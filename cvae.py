@@ -718,6 +718,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.classifier_type == 'softmax':
             y_est = - zdist / 2
 
+        print('**** y_est of shape', *y_est.shape)
         var_kl = batch_kl_losses['var_kl']
 
         total_measures['zdist'] = (current_measures['zdist'] * batch +

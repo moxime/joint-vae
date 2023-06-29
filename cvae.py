@@ -206,8 +206,17 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self._measures = {}
 
-        if not self.y_is_decoded:
+        if self.y_is_decoded:
+            self.classifier_type = 'linear'
+            if self.is_cvae and classifier and isinstance(classifier[0], str):
+                assert classifier[0] in ('softmax',)
+                self.classifier_type = classifier[0]
+        else:
+            self.classifier_type = None
             classifier = []
+
+        logging.debug('Claasifier type: {}'.format(self.classifier_type))
+
         if not self.x_is_generated:
             decoder = []
             upsampler = None
@@ -317,9 +326,10 @@ class ClassificationVariationalNetwork(nn.Module):
                                             activation_layer)
                 self.imager.input_shape = (imager_input_dim,)
 
-        self.classifier = Classifier(latent_dim, num_labels,
-                                     classifier,
-                                     activation=activation)
+        if self.classifier_type in ('linear', None):
+            self.classifier = Classifier(latent_dim, num_labels,
+                                         classifier,
+                                         activation=activation)
 
         self.input_shape = tuple(input_shape)
         self.num_labels = num_labels
@@ -359,11 +369,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.depth = (len(encoder)
                       + len(decoder)
-                      + len(classifier))
+                      + len(classifier) if self.classifier_type == 'linear' else 0)
 
         self.width = (sum(encoder)
                       + sum(decoder)
-                      + sum(classifier))
+                      + sum(classifier) if self.classifier_type == 'linear' else 0)
 
         if features:
             self.architecture['features'] = self.features.name
@@ -398,7 +408,7 @@ class ClassificationVariationalNetwork(nn.Module):
             'train': latent_sampling, 'eval': test_latent_sampling}
         self.encoder_layer_sizes = encoder
         self.decoder_layer_sizes = decoder
-        self.classifier_layer_sizes = classifier
+        self.classifier_type = layer_sizes = classifier
         self.upsampler = upsampler
         self.activation = activation
         self.output_activation = output_activation
@@ -483,11 +493,11 @@ class ClassificationVariationalNetwork(nn.Module):
             # x_output of size LxN1x...xKgxD
             x_ = self.imager(u.view(-1, *self.imager.input_shape))
 
-        if self.is_cvae or self.is_vae:
+        if self.classifier_type in ('linear', None):
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means
             y_output = self.classifier(z)  # for classification on z
-        else:
-            y_output = self.classifier(z)
+        elif self.classifier_type == 'softmax':
+            y_output = None
 
         # y_output of size LxN1x...xKgxC
         # print('**** y_out', y_output.shape)
@@ -705,6 +715,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                 )
 
         zdist = batch_kl_losses['distance']
+        if self.classifier_type == 'softmax':
+            y_est = - zdist / 2
+
         var_kl = batch_kl_losses['var_kl']
 
         total_measures['zdist'] = (current_measures['zdist'] * batch +

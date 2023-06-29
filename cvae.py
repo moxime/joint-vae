@@ -408,7 +408,7 @@ class ClassificationVariationalNetwork(nn.Module):
             'train': latent_sampling, 'eval': test_latent_sampling}
         self.encoder_layer_sizes = encoder
         self.decoder_layer_sizes = decoder
-        self.classifier_type = layer_sizes = classifier
+        self.classifier_layer_sizes = classifier
         self.upsampler = upsampler
         self.activation = activation
         self.output_activation = output_activation

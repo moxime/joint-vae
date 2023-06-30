@@ -494,7 +494,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means
             y_output = self.classifier(z)  # for classification on z
         elif self.classifier_type == 'softmax':
-            y_output = None
+            y_output = F.linear(z, self.encoder.prior.mean, self.encoder.prior.mean.pow(2).sum(-1) / 2)
 
         # y_output of size LxN1x...xKgxC
         # print('**** y_out', y_output.shape)
@@ -712,10 +712,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                 )
 
         zdist = batch_kl_losses['distance']
-        if self.classifier_type == 'softmax':
-            y_est = - zdist / 2
 
-        print('**** y_est of shape', *y_est.shape)
         var_kl = batch_kl_losses['var_kl']
 
         total_measures['zdist'] = (current_measures['zdist'] * batch +

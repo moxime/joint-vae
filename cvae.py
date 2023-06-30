@@ -12,7 +12,7 @@ from utils.save_load import LossRecorder, available_results, develop_starred_met
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
 from module.vae_layers import Encoder, Classifier, Sigma, build_de_conv_layers, find_input_shape
-from module.vae_layers import onehot_encoding, Rgb2hsv
+from module.vae_layers import onehot_encoding
 import tempfile
 import shutil
 import random
@@ -263,11 +263,6 @@ class ClassificationVariationalNetwork(nn.Module):
         if not test_latent_sampling:
             test_latent_sampling = latent_sampling
 
-        sampling = latent_sampling > 1 or self.sigma.learned or self.sigma.per_dim or bool(
-            self.sigma.value > 0)
-        if not sampling:
-            logging.debug('Building a vanilla classifier')
-
         self.beta = beta
 
         self.gamma = gamma if self.y_is_decoded else None
@@ -275,6 +270,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if self.type in ('cvae', 'xvae'):
             prior['num_priors'] = num_labels
+
+        sampling = latent_sampling > 1 or beta > 0
 
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder,

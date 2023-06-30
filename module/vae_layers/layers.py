@@ -245,7 +245,9 @@ class Sampling(nn.Module):
 
     def __repr__(self):
 
-        return 'Sampling({}, K={})'.format(self.distribution, self.sampling_size)
+        if not self.is_sampled:
+            return 'Deactivated, returns mean'
+        return 'Sampling({}, L={})'.format(self.distribution, self.sampling_size)
 
 
 class Encoder(nn.Module):

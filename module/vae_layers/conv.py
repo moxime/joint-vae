@@ -15,11 +15,11 @@ features_dict = dict(conv_config['features'])
 upsampler_dict = dict(conv_config['upsampler'])
 
 
-def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
-                           padding='*', stride=None, output_padding=0,
-                           activation='relu',
-                           output_activation='linear',
-                           where='input'):
+def parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
+                          padding='*', stride=None, output_padding=0,
+                          activation='relu',
+                          output_activation='linear',
+                          where='input'):
     r"""Parse conv layer name s
 
     -- padding: '*' is 'same' if conv else 0 (for pooling)
@@ -84,7 +84,7 @@ def _parse_conv_layer_name(s, ltype='conv', out_channels=32, kernel_size=5,
     return params
 
 
-def _conv_layer_name(conv_layer):
+def conv_layer_name(conv_layer):
     if isinstance(conv_layer, (nn.Conv2d, nn.ConvTranspose2d)):
         _s = '{}x{}'.format(conv_layer.out_channels, conv_layer.kernel_size[0])
         if conv_layer.padding[0] != conv_layer.kernel_size[0] // 2:
@@ -124,11 +124,10 @@ def find_input_shape(layers_name, wanted_output_shape, input_shape=(1, 1)):
 
 
 def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
-                         append_un_flatten=False, where='input',
-                         activation='relu', output_activation='linear',
+                         where='input', activation='relu',
+                         output_activation='linear',
                          output_distribution='gaussian',
-                         pretrained_dict=None,
-                         ):
+                         pretrained_dict=None, ):
     """ make (de)conv features
 
     -- if where is input, conv, else (output) deconv
@@ -151,7 +150,7 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
 
         default_layer_params = layers_name[1:end_default].split('-')
         for s in default_layer_params:
-            layer_params = _parse_conv_layer_name(s, where=where)
+            layer_params = parse_conv_layer_name(s, where=where)
             ltype = layer_params.pop('ltype')
             default_params[ltype] = layer_params
 
@@ -164,9 +163,9 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
 
     for i, layer_name in enumerate(layer_names):
         last_layer = i == len(layer_names) - 1
-        layer_params = _parse_conv_layer_name(layer_name, where=where)
+        layer_params = parse_conv_layer_name(layer_name, where=where)
         ltype = layer_params.pop('ltype')
-        layer_params = _parse_conv_layer_name(layer_name, **default_params.get(ltype, {}), where=where)
+        layer_params = parse_conv_layer_name(layer_name, **default_params.get(ltype, {}), where=where)
         ltype = layer_params.pop('ltype')
 
         if where == 'output' and last_layer and output_distribution == 'categorical':
@@ -210,10 +209,8 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
             kw = {'relu': {'inplace': True}}
             layers.append(activation_layers[activation](**kw.get(activation, {})))
             last_activation_i = len(layers) - 1
-        if append_un_flatten and where == 'input':
-            layers.append(nn.Flatten(-3, -1))
 
-        layer_names_.append(_conv_layer_name(conv_layer))
+        layer_names_.append(conv_layer_name(conv_layer))
 
     out_channels = (out_channels,)
     if where == 'output':
@@ -382,44 +379,6 @@ class ConvDecoder(nn.Module):
             layers.append(nn.ReLU(inplace=True))
             input_channels = output_channels
 
-        layers[-1] = activation_layers.get(output_activation, nn.Identity)()
-
-        return layers
-
-
-class VGGDecoder(ConvDecoder):
-
-    def __init__(self, ivgg_name, input_dim, first_shape, image_channel=None, channels=None, **kw):
-
-        channels = ivgg_cfg.get(ivgg_name, channels)
-        assert channels is not None
-        assert -1 not in channels or image_channel is not None
-        channels = [image_channel if _ == -1 else _ for _ in channels]
-
-        super(VGGDecoder, self).__init__(input_dim, first_shape, channels,
-                                         **kw)
-
-    def _makelayer(self, first_shape, channels, output_activation, batch_norm):
-
-        layers = []
-
-        input_channels = first_shape[0]
-        for x in channels:
-
-            if x == 'U':
-                layers.append(nn.UpsamplingNearest2d(scale_factor=2))
-
-            else:
-                layers.append(nn.ConvTranspose2d(input_channels, x,
-                                                 3, stride=1, padding=1))
-                input_channels = x
-
-                if batch_norm:
-                    layers.append(nn.BatchNorm2d(x)),
-                layers.append(nn.ReLU(inplace=True))
-
-        if x == 'U':
-            layers.append(None)
         layers[-1] = activation_layers.get(output_activation, nn.Identity)()
 
         return layers

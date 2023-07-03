@@ -1068,10 +1068,15 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
              + len(architecture.decoder))
     # + len(architecture.classifier))
 
+    try:
+        class_width = sum(architecture.classifier)
+    except TypeError:
+        class_width = 0
+
     width = (architecture.latent_dim +
              sum(architecture.encoder) +
              sum(architecture.decoder) +
-             sum(architecture.classifier))
+             class_width)
 
     # print('TBR', architecture.type, model.job_number, *loss_['test'].keys())
 

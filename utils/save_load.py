@@ -273,7 +273,7 @@ def print_architecture(o, sigma=False, sampling=False,
 def option_vector(o, empty=' ', space=' '):
 
     arch = ObjFromDict(o.architecture, features=None)
-    training = ObjFromDict(o.training_parameters, transformer='default')
+    training = ObjFromDict(o.training_parameters, transformer='default', warmup_gamma=(0, 0))
     v_ = []
     if arch.features:
         w = ''
@@ -293,14 +293,14 @@ def option_vector(o, empty=' ', space=' '):
     w = 't:' + training.transformer[0]
     v_.append(w)
 
-    w = 'bn:'
-    if not arch.batch_norm:
-        c = empty
-    else:
-        # print('****', self.batch_norm)
-        c = arch.batch_norm[0]
-    w += c
-    v_.append(w)
+    # w = 'bn:'
+    # if not arch.batch_norm:
+    #     c = empty
+    # else:
+    #     # print('****', self.batch_norm)
+    #     c = arch.batch_norm[0]
+    # w += c
+    # v_.append(w)
 
     w = 'a:'
     for m in ('flip', 'crop'):
@@ -315,17 +315,21 @@ def option_vector(o, empty=' ', space=' '):
         w += f'{training.warmup[0]:02.0f}--{training.warmup[1]:02.0f}'
     else:
         w += 2 * empty
-    v_.append(w)
 
-    w = 'p:'
-    if arch.prior.get('learned_means'):
-        w += 'l'
-    elif arch.prior.get('init_mean') == 'onehot':
-        w += '1'
-    elif arch.type in ('cvae', 'xvae'):
-        w += 'r'
+    if training.warmup_gamma[-1]:
+        w += '-{}:{:.0f}--{:.0f}'.format(chr(947), *training.warmup_gamma)
 
     v_.append(w)
+
+    # w = 'p:'
+    # if arch.prior.get('learned_means'):
+    #     w += 'l'
+    # elif arch.prior.get('init_mean') == 'onehot':
+    #     w += '1'
+    # elif arch.type in ('cvae', 'xvae'):
+    #     w += 'r'
+
+    # v_.append(w)
 
     return space.join(v_)
 

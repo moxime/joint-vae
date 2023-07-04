@@ -379,8 +379,9 @@ if __name__ == '__main__':
                 f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
         if args.remove_index is not None:
-            removable_index = ['L', 'l', 'optim_str', 'options', 'features', 'activation_str',
-                               'output_distribution', 'prior',
+            removable_index = ['L', 'l', 'K', 'optim_str', 'options', 'features', 'activation_str',
+                               'output_distribution', 'prior', 'tilted_tau', 'batch_norm',
+                               'type', 'depth', 'arch_code',
                                'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var', 'output_activation_str']
             if are_auto_removed_index:
                 removed_index = [i for i, l in enumerate(d.index.levels)

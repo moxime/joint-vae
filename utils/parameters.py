@@ -453,6 +453,8 @@ def get_args_for_results(argv=None):
 
     parser.add_argument('--remove-index', nargs='*', default=['auto'])
 
+    parser.add_argument('--filters-from-file')
+
     args, ra = parser.parse_known_args(argv)
 
     args.filters = DictOfListsOfParamFilters()
@@ -465,6 +467,22 @@ def get_args_for_results(argv=None):
 
     for _ in filter_keys:
         args.filters.add(_, filter_args.__dict__[_])
+
+    if args.filters_from_file:
+
+        filter_keys = get_filter_keys(by='key')
+
+        config = configparser.ConfigParser()
+        config.read(args.filters_from_file)
+        for _ in config['filters']:
+
+            dest = filter_keys[_]['dest']
+            ftype = filter_keys[_]['type']
+            args.filters.add(dest, ParamFilter.from_string(arg_str=config['filters'][_],
+                                                           type=locate(ftype or 'str')))
+
+    for _ in args.filters:
+        print(_, args.filters[_])
 
     return args
 

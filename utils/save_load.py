@@ -846,7 +846,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         tpr = [tpr]
 
     architecture = ObjFromDict(model.architecture, features=None)
-    training = ObjFromDict(model.training_parameters)
+    # training = ObjFromDict(model.training_parameters)
+    training = ObjFromDict(model.training_parameters, transformer='default', warmup_gamma=(0, 0))
 
     logging.debug(f'net found in {shorten_path(directory)}')
     arch = model.print_architecture(excludes=('latent_dim', 'batch_norm'))
@@ -1156,7 +1157,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'K': architecture.latent_dim,
             'L': training.latent_sampling,
             'l': architecture.test_latent_sampling,
-            'warmup': training.warmup,
+            'warmup': training.warmup[-1],
+            'warmup_gamma': training.warmup_gamma[-1],
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),
             'batch_norm': architecture.batch_norm or None,

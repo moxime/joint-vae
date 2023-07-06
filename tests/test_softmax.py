@@ -4,11 +4,13 @@ from torch.nn import functional as F
 from module.vae_layers import Encoder
 import time
 
-prior_dist = 'uniform'
-prior_dist = 'gaussian'
+import matplotlib.pyplot as plt
 
-classif = 'softmax'
+prior_dist = 'gaussian'
+prior_dist = 'uniform'
+
 classif = 'linear'
+classif = 'softmax'
 
 torch.manual_seed(42)
 
@@ -18,7 +20,7 @@ L = 1
 L = 16
 C = 10
 N = 100
-K = 16
+K = 2
 
 coder = Encoder(P, C, latent_dim=K, sampling_size=L,
                 intermediate_dims=[32, 16],
@@ -64,7 +66,7 @@ criterion = torch.nn.CrossEntropyLoss()
 kl_w = 1
 
 
-n_epochs = 200
+n_epochs = 2000
 
 t0 = time.time()
 
@@ -109,6 +111,13 @@ for epoch in range(n_epochs):
 
 t = (time.time() - t0) / (N * n_epochs)
 
-print('Acc = {:.1%}'.format(acc)
+print('Acc = {:.1%}'.format(acc))
 
-print('time of {} {}: {:.0}ms/i'.format(classif, prior_dist, t * 1000))
+print('time of {} {}: {:.0f}us/i'.format(classif, prior_dist, t * 1e6))
+
+
+plt.close('all')
+
+my = coder.prior.mean
+plt.plot(my[:, 0], my[:, 1], '.')
+plt.show()

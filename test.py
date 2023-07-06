@@ -389,7 +389,8 @@ if __name__ == '__main__':
         if args.remove_index is not None:
             removable_index = ['L', 'l', 'K', 'optim_str', 'options', 'features', 'activation_str',
                                'output_distribution', 'prior', 'tilted_tau', 'batch_norm',
-                               'type', 'depth', 'arch_code',
+                               # 'type',
+                               'depth', 'arch_code',
                                'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var', 'output_activation_str']
             if are_auto_removed_index:
                 removed_index = [i for i, l in enumerate(d.index.levels)

@@ -838,7 +838,9 @@ def available_results(model,
     return available
 
 
-def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', misclass_on_method='first', **kw):
+def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', misclass_on_method='first',
+                         oodsets=None,
+                         **kw):
 
     try:
         iter(tpr)
@@ -912,8 +914,18 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     average_ood = average_ood_results(ood_results, *all_ood_sets)
     if average_ood:
-        ood_results['average'] = average_ood
+        ood_results['average*'] = average_ood
+
+    if oodsets:
+        oodsets = [_ for _ in oodsets if 'average' not in _]
+
+        average_ood = average_ood_results(ood_results, *oodsets)
+        if average_ood:
+            ood_results['average'] = average_ood
+
     all_ood_sets.append('average')
+    all_ood_sets.append('average*')
+
     tested_ood_sets = [s for s in ood_results if s in all_ood_sets]
 
     methods_for_in_out_rates = {s: model.ood_methods.copy() for s in tested_ood_sets}

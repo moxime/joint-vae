@@ -187,6 +187,10 @@ class DictOfListsOfParamFilters(dict):
 
         if key not in self:
             self[key] = ListOfParamFilters()
+
+        if self[key].always_true:
+            self[key] = ListOfParamFilters()
+
         self[key].append(filter)
 
     @printdebug(False)

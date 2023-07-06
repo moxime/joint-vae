@@ -441,7 +441,7 @@ def get_args_for_results(argv=None):
 
     parser.add_argument('--job-id', type=int, default=0)
 
-    parser.add_argument('--sets', action='append', nargs='+')
+    parser.add_argument('--sets', action='append', nargs='+', default=[])
 
     parser.add_argument('--last', nargs='?', const=10, default=0, type=int)
 
@@ -453,7 +453,7 @@ def get_args_for_results(argv=None):
 
     parser.add_argument('--remove-index', nargs='*', default=['auto'])
 
-    parser.add_argument('--filters-from-file')
+    parser.add_argument('--from-file', default='')
 
     args, ra = parser.parse_known_args(argv)
 
@@ -468,12 +468,13 @@ def get_args_for_results(argv=None):
     for _ in filter_keys:
         args.filters.add(_, filter_args.__dict__[_])
 
-    if args.filters_from_file:
+    config = configparser.ConfigParser()
+    config.read(args.from_file)
+
+    if 'filters' in config:
 
         filter_keys = get_filter_keys(by='key')
 
-        config = configparser.ConfigParser()
-        config.read(args.filters_from_file)
         for _ in config['filters']:
 
             dest = filter_keys[_]['dest']
@@ -481,8 +482,10 @@ def get_args_for_results(argv=None):
             args.filters.add(dest, ParamFilter.from_string(arg_str=config['filters'][_],
                                                            type=locate(ftype or 'str')))
 
-    for _ in args.filters:
-        print(_, args.filters[_])
+    if 'sets' in config:
+        for _ in config['sets']:
+            sets = config['sets'][_].split()
+            args.sets.append([_, *sets])
 
     return args
 

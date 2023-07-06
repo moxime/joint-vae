@@ -53,15 +53,15 @@ if __name__ == '__main__':
     oodsets = {}
     if args.sets:
         for s_ in args.sets:
-            rotate = False
-            if '90' in s_:
-                s_.remove('90')
-                rotate = True
-            for s in s_:
-                oodsets[s] = [_ for _ in s_ if _ != s]
-                if rotate:
-                    oodsets[s].append(s + '90')
-
+            oodsets[s_[0]] = s_[1:]
+            # rotate = False
+            # if '90' in s_:
+            #     s_.remove('90')
+            #     rotate = True
+            # for s in s_:
+            #     oodsets[s] = [_ for _ in s_ if _ != s]
+            #     if rotate:
+            #         oodsets[s].append(s + '90')
     for s in oodsets:
         logging.info('OOD sets kept for %s: %s', s, ' - '.join(oodsets[s]))
 
@@ -189,8 +189,11 @@ if __name__ == '__main__':
                             if result_epoch in kept_epochs:
                                 break
                             kept_epochs.append(result_epoch)
+                            oodsets_n = oodsets.get(n['set'])
+                            # print('*** test.py:200', oodsets_n)  #
                             models_to_be_kept.append(dict(model=make_dict_from_model(n['net'],
                                                                                      directory=n['dir'],
+                                                                                     oodsets=oodsets_n,
                                                                                      wanted_epoch=result_epoch),
                                                           epoch=result_epoch,
                                                           plan=a_))
@@ -343,7 +346,12 @@ if __name__ == '__main__':
 
     tab_file, tex_file, agg_tab_file, agg_tex_file = None, None, None, None
 
-    results_file_name = args.results_file or tex_filter_str
+    try:
+        filters_file = os.path.splitext(os.path.basename(args.from_file))[0]
+    except TypeError:
+        filters_file = None
+
+    results_file_name = args.results_file or filters_file or tex_filter_str
     early_stopping_str = args.early_stopping or 'last'
     tab_code = hashlib.sha1(bytes(tex_filter_str + early_stopping_str, 'utf-8')).hexdigest()[:6]
 

@@ -2,9 +2,11 @@ import os
 import configparser
 import numpy as np
 from torch import nn
+from torchvision import models
 from .misc import activation_layers, Reshape
 import re
 import logging
+
 
 conv_config = configparser.ConfigParser()
 
@@ -132,6 +134,11 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
 
     -- if where is input, conv, else (output) deconv
     """
+
+    if where == 'input' and layers_name.startswith('resnet'):
+        conv = ResOrDenseNetFeatures(model_name=layers_name, input_shape=input_shape)
+        return conv
+
     name = None
     if where == 'input' and layers_name in features_dict:
         name = layers_name

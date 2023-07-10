@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from module.vae_layers import Encoder
+from module.priors import build_prior
 import time
 
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ prior_dist = 'uniform'
 classif = 'linear'
 classif = 'softmax'
 
-torch.manual_seed(42)
+torch.manual_seed(40)
 
 P = 16
 
@@ -24,8 +25,11 @@ K = 2
 
 coder = Encoder(P, C, latent_dim=K, sampling_size=L,
                 intermediate_dims=[32, 16],
-                prior={'num_priors': C, 'distribution': prior_dist, 'init_mean': 1})
+                prior={'num_priors': C, 'distribution': prior_dist, 'init_mean': 1e0, 'learned_means': True})
 
+my_init = coder.prior.mean.detach().numpy().copy()
+
+print((my_init ** 2).sum())
 
 classifier = nn.Linear(K, C)
 
@@ -66,7 +70,7 @@ criterion = torch.nn.CrossEntropyLoss()
 kl_w = 1
 
 
-n_epochs = 2000
+n_epochs = 20000
 
 t0 = time.time()
 
@@ -118,6 +122,12 @@ print('time of {} {}: {:.0f}us/i'.format(classif, prior_dist, t * 1e6))
 
 plt.close('all')
 
-my = coder.prior.mean
-plt.plot(my[:, 0], my[:, 1], '.')
+my = coder.prior.mean.detach().numpy()
+z_ = z[1:].reshape(-1, K).detach().numpy()
+
+y_ = y.unsqueeze(0).repeat(L, 1).view(-1).detach().numpy()
+
+plt.plot(my[:, 0], my[:, 1], 'o')
+plt.scatter(z_[:, 0], z_[:, 1], s=1, c=y_)
+
 plt.show()

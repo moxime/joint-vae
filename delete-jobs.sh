@@ -45,12 +45,11 @@ do
 	done
 	scancel "$job" 2> /dev/null
 	echo "$dir" 'will be deleted'
-	if [ "$light" ]
+	if [ -z "$light" ]
 	then
-	    touch "$dir"/deleted
-	else
-	    rm -r "$dir"
+	    rm -r "$dir"/*
 	fi
+	touch "$dir"/deleted
     else
 	echo "$job" 'not found'
     fi

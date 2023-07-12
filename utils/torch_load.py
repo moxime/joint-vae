@@ -60,7 +60,7 @@ def choose_device(device=None):
 
 def letters_getter(**kw):
 
-    s = datasets.EMNIST(split='letters',  **kw)
+    s = datasets.EMNIST(split='letters', **kw)
     # st0 = np.random.get_state()
     # np.random.seed(0)
     # i = np.random.permutation(len(s))
@@ -71,7 +71,7 @@ def letters_getter(**kw):
     return s
 
 
-target_transforms = {'y-1': lambda y: y-1}
+target_transforms = {'y-1': lambda y: y - 1}
 
 
 class ConstantDataset(Dataset):
@@ -688,6 +688,7 @@ if __name__ == '__main__':
     dset = 'lsunr'
     splits = ['train', 'test']
     splits = ['test']
+    shuffle = True
 
     logging.getLogger().setLevel(logging.DEBUG)
     logging.debug('Going to build dataset')
@@ -698,7 +699,7 @@ if __name__ == '__main__':
 
     if 'train' in splits:
         plt.figure()
-        show_images(train, num=36, ncols=6, shuffle=False)
+        show_images(train, num=36, ncols=6, shuffle=shuffle)
     if 'test' in splits:
         plt.figure()
-        show_images(test, num=36, ncols=6, shuffle=False)
+        show_images(test, num=36, ncols=6, shuffle=shuffle)

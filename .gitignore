@@ -19,3 +19,5 @@ out
 .old*
 .test-jobs
 _cache*
+.test-*
+module/rst

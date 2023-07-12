@@ -423,7 +423,7 @@ def get_args_for_results(argv=None):
     parser.add_argument('--results-file')
     parser.add_argument('--results-directory', default=DEFAULT_RESULTS_DIR)
 
-    parser.add_argument('--show', action='store_true')
+    #    parser.add_argument('--show', action='store_true')
 
     parser.add_argument('--latex', action='store_true')
 
@@ -436,7 +436,7 @@ def get_args_for_results(argv=None):
 
     parser.add_argument('--sort', nargs='+')
 
-    parser.add_argument('--hide-average', action='store_false', dest='average')
+    parser.add_argument('--show-average', action='store_true', dest='average')
     parser.add_argument('--only-average', action='store_true')
 
     parser.add_argument('--job-id', type=int, default=0)

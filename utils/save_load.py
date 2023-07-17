@@ -1087,8 +1087,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     try:
         class_width = sum(architecture.classifier)
+        class_type = 'linear'
     except TypeError:
         class_width = 0
+        class_type = 'softmax'
 
     width = (architecture.latent_dim +
              sum(architecture.encoder) +
@@ -1176,6 +1178,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'batch_norm': architecture.batch_norm or None,
             'depth': depth,
             'width': width,
+            'classif_type': class_type,
             'options': model.option_vector(),
             'optim_str': f'{empty_optimizer:3}',
             'optim': empty_optimizer.kind,

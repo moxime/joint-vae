@@ -1,10 +1,8 @@
 import torch
 from torch import nn
-from module.vae_layers.conv import _parse_conv_layer_name
-from module.vae_layers.conv import _conv_layer_name
+from module.vae_layers import build_de_conv_layers
 
-from module.vae_layers import ConvFeatures, ConvDecoder, build_de_conv_layers
-
+device = 'cpu'
 
 shape = (1, 28, 28)
 shape = (3, 32, 32)
@@ -33,15 +31,22 @@ deconv_name = ('64x8-'
                '!3x5+2')
 
 deconv = build_de_conv_layers((512, 1, 1), 'deconv32', where='output')
+deconv.to(device)
 
-deconv.to('cuda')
-
-for n in range(5, 20):
-    print('***', 2**n)
-    x = deconv(torch.randn(2**n, 512, 1, 1, device='cuda'))
+x = deconv(torch.randn(1, 512, 1, 1, device=device))
 print('output shape for', deconv.name)
-print(*x.shape[1:], '--',  *deconv.output_shape)
+print(*x.shape[1:], '--', *deconv.output_shape)
 
+
+conv_layers = [str(c) for c in deconv.children() if 'conv' in str(c).lower()]
+
+print('====Z====')
+print(*deconv.shapes[0])
+for c, s in zip(conv_layers, deconv.shapes[1:]):
+
+    print('        ', c)
+    print(*s)
+print('====X====')
 # conv_name = '[x5+2]32-32:2-64-64:2-256x7+0'
 # conv = make_de_conv_features((3, 32, 32), conv_name)
 # f = conv(torch.randn(1, *shape))

@@ -168,6 +168,8 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
     in_channels, h, w = input_shape
     layer_names_ = []
 
+    shapes = [input_shape]
+
     for i, layer_name in enumerate(layer_names):
         last_layer = i == len(layer_names) - 1
         layer_params = parse_conv_layer_name(layer_name, where=where)
@@ -218,6 +220,7 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
             last_activation_i = len(layers) - 1
 
         layer_names_.append(conv_layer_name(conv_layer))
+        shapes.append((out_channels, h, w))
 
     out_channels = (out_channels,)
     if where == 'output':
@@ -229,6 +232,7 @@ def build_de_conv_layers(input_shape, layers_name, batch_norm=False,
     conv.name = name or '-'.join(layer_names_)
     conv.output_shape = (*out_channels, h, w)
     conv.input_shape = input_shape
+    conv.shapes = shapes
 
     if pretrained_dict:
 

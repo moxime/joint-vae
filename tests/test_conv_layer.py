@@ -11,7 +11,8 @@ conv_name = '4x3-ax2'
 conv_name = '4x3:1+4-ax2'
 conv_name = '64x3-Mx2-128x3-Mx2-256x3-256x3-Mx2-512x3-512x3-Mx2-512x3-512x3-Mx2-Ax1'
 conv_name = '[x3-Mx2]64-M-128-M-256-256-M-512-512-M-512-512-M-Ax1'
-conv_name = 'conv32'
+conv_name = '[x5+2]64-64:2-128-128:2-256-256:2-200x3+0'
+conv_name = 'conv32+'
 
 conv = build_de_conv_layers(shape, conv_name)
 

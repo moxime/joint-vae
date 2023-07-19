@@ -32,6 +32,8 @@ deconv_name = ('64x8-'
 
 deconv_name = '[x5+2]64x4+0-64-64:2++1-32-32:2++1-32-32:2++1-!3x5+2'
 deconv_name = '[x5+2]64x8+0-64-64:2++1-32-32:2++1-32-!3x5+2'
+deconv_name = '[x5+2]256x4+0-256-256:2++1-128-128:2++1-64-64:2++1-32-!3x5+2'
+deconv_name = 'deconv32+'
 
 deconv = build_de_conv_layers((512, 1, 1), deconv_name, where='output')
 deconv.to(device)

@@ -2042,6 +2042,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     fine_tuning=False,
                     warmup=[0, 0],
                     warmup_gamma=[0, 0],
+                    gradual=0,
                     latent_sampling=None,
                     validation_sample_size=1024,
                     full_test_every=10,
@@ -2075,6 +2076,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 self.training_parameters['transformer'] = transformer
                 self.training_parameters['validation'] = validation
                 self.training_parameters['full_test_every'] = full_test_every
+                self.training_parameters['gradual'] = gradual
                 ss = '?'
                 if hasattr(trainset, 'data'):
                     ss = trainset.data[0].shape

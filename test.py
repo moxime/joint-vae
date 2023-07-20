@@ -388,6 +388,7 @@ if __name__ == '__main__':
                 f.write('}\n')
         if args.remove_index is not None:
             removable_index = ['L', 'l', 'K', 'optim_str', 'options', 'features', 'activation_str',
+                               'upsampler',
                                'output_distribution', 'prior', 'tilted_tau', 'batch_norm',
                                # 'type',
                                'depth', 'arch_code',

@@ -1131,6 +1131,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'gamma': model.training_parameters['gamma'],
             'arch_code': arch_code,
             'features': architecture.features or 'none',
+            'upsampler': architecture.upsampler or 'none',
             'dir': directory,
             'heldout': heldout,  # tuple(sorted(heldout)),
             'h/o': ','.join(str(_) for _ in heldout),

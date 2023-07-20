@@ -46,7 +46,7 @@ if __name__ == '__main__':
     min_test_sample_size = args.min_test_sample_size
 
     filters = args.filters
-    filter_str = '--'.join(f'{d}:{f}' for d, f in filters.items() if not f.always_true)
+    filter_str = str(filters)
 
     logging.debug('Filters: %s', filter_str)
 
@@ -347,7 +347,8 @@ if __name__ == '__main__':
     tab_file, tex_file, agg_tab_file, agg_tex_file = None, None, None, None
 
     try:
-        filters_file = os.path.splitext(os.path.basename(args.from_file))[0]
+        filters_file = '--or--'.join(os.path.splitext(os.path.basename(f))[0] for f in args.from_files)
+        filters_file += '--and--{}'.format(args.filters['args'])
     except TypeError:
         filters_file = None
 

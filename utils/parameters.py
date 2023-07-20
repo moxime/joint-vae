@@ -7,7 +7,7 @@ from logging.handlers import RotatingFileHandler
 import re
 import numpy as np
 from socket import gethostname as getrawhostname
-from utils.filters import ParamFilter, FilterAction, DictOfListsOfParamFilters, get_filter_keys
+from utils.filters import ParamFilter, FilterAction, DictOfListsOfParamFilters, MetaFilter, get_filter_keys
 import os
 
 DEFAULT_JOBS_DIR = 'jobs'
@@ -453,11 +453,9 @@ def get_args_for_results(argv=None):
 
     parser.add_argument('--remove-index', nargs='*', default=['auto'])
 
-    parser.add_argument('--from-file', default='')
+    parser.add_argument('--from-files', default=[], nargs='+')
 
     args, ra = parser.parse_known_args(argv)
-
-    args.filters = DictOfListsOfParamFilters()
 
     filter_parser = create_filter_parser(parents=[parser])
 
@@ -465,22 +463,29 @@ def get_args_for_results(argv=None):
 
     filter_keys = get_filter_keys()
 
+    args.filters = MetaFilter(args=DictOfListsOfParamFilters(), operator='and')
+
     for _ in filter_keys:
-        args.filters.add(_, filter_args.__dict__[_])
+        args.filters['args'].add(_, filter_args.__dict__[_])
 
-    config = configparser.ConfigParser()
-    config.read(args.from_file)
+    args.filters['files'] = MetaFilter(operator='or')
 
-    if 'filters' in config:
+    for config_file in args.from_files:
+        config = configparser.ConfigParser()
+        config.read(config_file)
 
-        filter_keys = get_filter_keys(by='key')
+        if 'filters' in config:
 
-        for _ in config['filters']:
+            args.filters['files'][config_file] = DictOfListsOfParamFilters()
 
-            dest = filter_keys[_]['dest']
-            ftype = filter_keys[_]['type']
-            args.filters.add(dest, ParamFilter.from_string(arg_str=config['filters'][_],
-                                                           type=locate(ftype or 'str')))
+            filter_keys = get_filter_keys(by='key')
+
+            for _ in config['filters']:
+
+                dest = filter_keys[_]['dest']
+                ftype = filter_keys[_]['type']
+                args.filters['files'][config_file].add(dest, ParamFilter.from_string(arg_str=config['filters'][_],
+                                                                                     type=locate(ftype or 'str')))
 
     if 'sets' in config:
         for _ in config['sets']:

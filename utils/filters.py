@@ -204,7 +204,41 @@ class DictOfListsOfParamFilters(dict):
 
     def __str__(self):
 
-        return '\n'.join('{k}: {f}'.format(k=k, f=self[k]) for k in self)
+        return self.__short_str__()
+        # return '\n'.join('{k}: {f}'.format(k=k, f=self[k]) for k in self)
+
+    def __short_str__(self):
+
+        return '--'.join(f'{d}:{f}' for d, f in self.items() if not f.always_true)
+
+
+class MetaFilter(dict):
+
+    def __init__(self, operator='and', **filters):
+
+        super().__init__(**filters)
+        self.operator = operator
+
+    def filter(self, d):
+
+        if not self:
+            return True
+
+        if self.operator == 'and':
+            return all(_.filter(d) for _ in self.values())
+
+        return any(_.filter(d) for _ in self.values())
+
+    def __str__(self):
+
+        return self.__short_str__()
+
+    def __short_str__(self):
+
+        if not self:
+            return 'True'
+
+        return '[{}]'.format(self.operator.join(f.__short_str__() for f in self.values()))
 
 
 class FilterAction(argparse.Action):

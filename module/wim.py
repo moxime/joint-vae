@@ -15,7 +15,7 @@ class WIMVariationalNetwork(M):
 
         self._alternate_prior = None
         if alternate_prior is not None:
-            self.alternate_prior = build_prior(**alternate_prior)
+            self.alternate_prior = alternate_prior
 
     @property
     def alternate_prior(self):
@@ -25,7 +25,7 @@ class WIMVariationalNetwork(M):
     def alternate_prior(self, p):
 
         assert self.alternate_prior is None
-        self._alternate_prior = p
+        self._alternate_prior = build_prior(**p)
 
     def finetune(self, *sets, epochs=5, alpha=0.1, optimizer=None):
 
@@ -168,5 +168,10 @@ if __name__ == '__main__':
 
     model.job_number = job_number
     model.saved_dir = save_dir
+
+    model.encoder.prior.mean.require_grad_(False)
+    alternate_prior_params = model.encoder.prior.params
+    alternate_prior_params['learned_means'] = False
+    alternate_prior_params['init_mean'] = 0.
 
     model.finetune(*args.wim_sets)

@@ -30,6 +30,28 @@ def gethostname():
     return raw_host.split('.')[0].lower()
 
 
+def get_last_jobnumber():
+
+    hostname = gethostname()
+
+    try:
+        with open(f'number-{hostname}') as f:
+            return int(f.read())
+
+    except FileNotFoundError:
+        logging.warning(f'File number-{hostname} not found.')
+
+    return 0
+
+
+def register_last_jobnumber(job_number):
+
+    hostname = gethostname()
+
+    with open(os.path.join(f'number-{hostname}'), 'w') as f:
+        f.write(str(job_number) + '\n')
+
+
 def in_list_with_starred(k, list_with_starred):
 
     for k_ in list_with_starred:

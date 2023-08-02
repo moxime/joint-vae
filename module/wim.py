@@ -1,3 +1,4 @@
+import os
 import torch
 from cvae import ClassificationVariationalNetwork as M
 import utils.torch_load as torchdl
@@ -84,12 +85,56 @@ class WIMVariationalNetwork(M):
                 optimizer.clip(self.parameters())
                 optimizer.step()
 
+        sample_dirs = [os.path.join(self.saved_dir, 'samples', d)
+                       for d in ('last', f'{epoch:04d}')]
+
         self.ood_detection_rate()
 
 
 if __name__ == '__main__':
 
-    C = 10
-    shape = (3, 32, 32)
+    import argparse
+    from utils.save_load import find_by_job_number
+    from utils.parameters import get_last_jobnumber, register_last_jobnumber
 
-    m = WIMVariationalNetwork(shape, C, type='cvae')
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('job', type=int)
+    parser.add_argument('--job-dir', default='./jobs')
+    parser.add_argument('--job-number', type=int)
+
+    args = parser.parse_args()
+
+    model = find_by_job_number(args.job, job_dir=args.job_dir)
+
+    job_number = args.job_number
+    if not job_number:
+        job_number = get_last_jobnumber() + 1
+    register_last_jobnumber(job_number)
+
+    save_dir_root = os.path.join(job_dir, dataset,
+                                 model.print_architecture(sampling=False),
+                                 f'sigma={model.sigma}' +
+                                 f'--optim={model.optimizer}' +
+                                 f'--sampling={latent_sampling}' +
+                                 _augment)
+
+    save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
+
+    if args.where:
+        print(save_dir)
+        sys.exit(0)
+
+    output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
+
+    log.debug(f'Outputs registered in {output_file}')
+    outputs = EpochOutput()
+    outputs.add_file(output_file)
+
+    while os.path.exists(save_dir):
+        log.debug(f'{save_dir} exists')
+        job_number += 1
+        save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
+
+    model.job_number = job_number
+    model.saved_dir = save_dir

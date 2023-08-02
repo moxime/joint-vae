@@ -94,36 +94,51 @@ class WIMVariationalNetwork(M):
 if __name__ == '__main__':
 
     import argparse
+    import configparser
     from utils.save_load import find_by_job_number
     from utils.parameters import get_last_jobnumber, register_last_jobnumber
 
-    parser = argparse.ArgumentParser()
+    conf_parser = argparse.ArgumentParser(add_help=False)
+    conf_parser.add_argument('--debug', action='store_true')
+    conf_parser.add_argument('--verbose', '-v', action='count', default=0)
+    conf_parser.add_argument('--config-file', default='config.ini')
+
+    conf_args, remaining_args = conf_parser.parse_known_args(argv)
+
+    config = configparser.ConfigParser()
+    config.read(conf_args.config_file)
+
+    config_params = config['DEFAULT']
+
+    defaults = {}
+
+    defaults.update(config_params)
+
+    parser = argparse.ArgumentParser(parents=[conf_parser],
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('job', type=int)
     parser.add_argument('--job-dir', default='./jobs')
     parser.add_argument('--job-number', type=int)
 
+    parser.set_defaults(**defaults)
+
     args = parser.parse_args()
 
     model = find_by_job_number(args.job, job_dir=args.job_dir)
+
+    dataset = model['set']
 
     job_number = args.job_number
     if not job_number:
         job_number = get_last_jobnumber() + 1
     register_last_jobnumber(job_number)
 
-    save_dir_root = os.path.join(job_dir, dataset,
+    save_dir_root = os.path.join(args.job_dir, dataset,
                                  model.print_architecture(sampling=False),
-                                 f'sigma={model.sigma}' +
-                                 f'--optim={model.optimizer}' +
-                                 f'--sampling={latent_sampling}' +
-                                 _augment)
+                                 'wim')
 
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
-
-    if args.where:
-        print(save_dir)
-        sys.exit(0)
 
     output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
 

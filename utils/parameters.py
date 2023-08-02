@@ -30,6 +30,28 @@ def gethostname():
     return raw_host.split('.')[0].lower()
 
 
+def get_last_jobnumber():
+
+    hostname = gethostname()
+
+    try:
+        with open(f'number-{hostname}') as f:
+            return int(f.read())
+
+    except FileNotFoundError:
+        logging.warning(f'File number-{hostname} not found.')
+
+    return 0
+
+
+def register_last_jobnumber(job_number):
+
+    hostname = gethostname()
+
+    with open(os.path.join(f'number-{hostname}'), 'w') as f:
+        f.write(str(job_number) + '\n')
+
+
 def in_list_with_starred(k, list_with_starred):
 
     for k_ in list_with_starred:
@@ -487,10 +509,10 @@ def get_args_for_results(argv=None):
                 args.filters['files'][config_file].add(dest, ParamFilter.from_string(arg_str=config['filters'][_],
                                                                                      type=locate(ftype or 'str')))
 
-        if 'sets' in config:
-            for _ in config['sets']:
-                sets = config['sets'][_].split()
-                args.sets.append([_, *sets])
+    if 'sets' in config:
+        for _ in config['sets']:
+            sets = config['sets'][_].split()
+            args.sets.append([_, *sets])
 
     return args
 

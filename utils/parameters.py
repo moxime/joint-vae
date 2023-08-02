@@ -487,10 +487,10 @@ def get_args_for_results(argv=None):
                 args.filters['files'][config_file].add(dest, ParamFilter.from_string(arg_str=config['filters'][_],
                                                                                      type=locate(ftype or 'str')))
 
-    if 'sets' in config:
-        for _ in config['sets']:
-            sets = config['sets'][_].split()
-            args.sets.append([_, *sets])
+        if 'sets' in config:
+            for _ in config['sets']:
+                sets = config['sets'][_].split()
+                args.sets.append([_, *sets])
 
     return args
 

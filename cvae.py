@@ -8,7 +8,7 @@ from torch import nn
 from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, mse_loss, categorical_loss
-from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number
+from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number, MissingKeys
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
 from module.vae_layers import Encoder, Classifier, Sigma, build_de_conv_layers, find_input_shape
@@ -2649,7 +2649,9 @@ class ClassificationVariationalNetwork(nn.Module):
              load_net=True,
              load_state=True,
              load_train=True,
-             load_test=True,):
+             load_test=True,
+             strict=True,
+             ):
         """dir_name : where params.json is (and weigths.h5 if applicable)
 
         """
@@ -2802,31 +2804,25 @@ class ClassificationVariationalNetwork(nn.Module):
             except RuntimeError as e:
                 raise e
             try:
-                model.load_state_dict(state_dict)
-                # print('***** state loaded')
+                keys = model.load_state_dict(state_dict, strict=strict)
+
             except RuntimeError as e:
-                state_dict_vae = model.state_dict()
-                s = ''
-                for (state, other) in [(state_dict, state_dict_vae),
-                                       (state_dict_vae, state_dict)]:
-                    for k, t in state.items():
-                        s_ = f'{k}: {tuple(t.shape)}'
-                        t_ = other.get(k, torch.Tensor([]))
-                        s += f'{s_:40} === {tuple(t_.shape)}'
-                        s += '\n'
-                        s += '\n' * 4
-                        logging.debug(f'DUMPED\n{dir_name}\n{e}\n\n{s}\n{model}')
-                raise e
+                if strict:
+                    raise e
+
             w_p = save_load.get_path(dir_name, 'optimizer.pth')
             try:
-                state_dict = torch.load(w_p)
-                model.optimizer.load_state_dict(state_dict)
+                opt_state_dict = torch.load(w_p)
+                model.optimizer.load_state_dict(opt_state_dict)
 
             except FileNotFoundError:
                 logging.warning('Optimizer state file not found')
             model.optimizer.update_scheduler_from_epoch(model.trained)
-
             logging.debug('Loaded')
+
+            if keys:
+                raise MissingKeys(model, state_dict, keys)
+
         return model
 
     def copy(self, with_state=True):

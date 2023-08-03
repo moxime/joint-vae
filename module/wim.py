@@ -2,6 +2,7 @@ import os
 import torch
 import logging
 from cvae import ClassificationVariationalNetwork as M
+from utils.save_load import MissingKeys
 import utils.torch_load as torchdl
 from module.priors import build_prior
 
@@ -26,6 +27,20 @@ class WIMVariationalNetwork(M):
 
         assert self.alternate_prior is None
         self._alternate_prior = build_prior(**p)
+
+    @classmethod
+    def load(cls, **kw):
+
+        try:
+            super().load(**kw)
+        except MissingKeys as e:
+            model = e.args[0]
+            s = e.args[1]  # state_dict
+            logging.debug('Creating fake params prior means')
+            s['_original_prior.mean'] = torch.zeros_like(s['encoder.prior.mean'])
+            s['_original_prior._var_parameter'] = torch.ones_like(s['encoder.prior._var_parameter'])
+
+        return model
 
     def finetune(self, *sets, epochs=5, alpha=0.1, optimizer=None):
 

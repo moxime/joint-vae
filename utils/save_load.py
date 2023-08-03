@@ -31,6 +31,10 @@ class DeletedModelError(NoModelError):
     pass
 
 
+class MissingKeys(Exception):
+    pass
+
+
 def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False,
                           iterate_over_subdirs_if_found=False):
     def iterate_over_subdirs_wrapper(func):

@@ -11,7 +11,7 @@ class WIMVariationalNetwork(M):
     def __init__(self, *a, alternate_prior=None, **kw):
 
         super().__init__(*a, **kw)
-        self._original_prior = self.encoder.prior,
+        self._original_prior = self.encoder.prior
 
         self._alternate_prior = None
         if alternate_prior is not None:

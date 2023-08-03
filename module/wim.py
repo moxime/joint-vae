@@ -69,7 +69,7 @@ class WIMVariationalNetwork(M):
             moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
             moving_batches = {_: next(moving_iters[_]) for _ in moving_iters}
 
-            for i, (x, y) in trainloader:
+            for i, (x, y) in enumerate(trainloader):
 
                 optimizer.zero_grad()
 
@@ -83,8 +83,9 @@ class WIMVariationalNetwork(M):
 
                 L = batch_losses['total'].mean()
 
-                for x, y in moving_batches:
+                for _ in moving_batches:
 
+                    x, y = moving_batches[_]
                     y = torch.zeros_like(y, dtype=int)
                     o = self.evaluate(x.to(device), y.to(device),
                                       current_measures=moving_current_measures,

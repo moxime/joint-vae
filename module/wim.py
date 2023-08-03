@@ -35,7 +35,7 @@ class WIMVariationalNetwork(M):
         self.train()
 
         set_name = self.training_parameters['set']
-        transformer = self.training_parameters['transoformer']
+        transformer = self.training_parameters['transformer']
         data_augmentation = self.training_parameters['data_augmentation']
         batch_size = self.training_parameters['batch_size']
 
@@ -152,6 +152,8 @@ if __name__ == '__main__':
     if model_dict is None:
         logging.error('Model not found')
         sys.exit(1)
+
+    logging.info('Model found')
 
     dataset = model_dict['set']
 

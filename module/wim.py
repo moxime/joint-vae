@@ -146,11 +146,16 @@ if __name__ == '__main__':
     model_dict = find_by_job_number(args.job, job_dir=args.job_dir)
 
     if model_dict is None:
+        logging.debug('Model not found, reollecting models')
         model_dict = find_by_job_number(args.job, job_dir=args.job_dir, flash=False)
+
+    if model_dict is None:
+        logging.error('Model not found')
+        sys.exit(1)
 
     dataset = model_dict['set']
 
-    model = WIMVariationalNetwork.load(model['dir'], load_net=True, load_state=True)
+    model = WIMVariationalNetwork.load(model_dict['dir'], load_net=True, load_state=True)
 
     job_number = args.job_number
     if not job_number:

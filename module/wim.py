@@ -135,7 +135,7 @@ if __name__ == '__main__':
 
     parser.add_argument('job', type=int)
     parser.add_argument('--job-dir', default='./jobs')
-    parser.add_argument('--job-number', type=int)
+    parser.add_argument('--job-number', '-j', type=int)
 
     parser.add_argument('--wim-sets', nargs='*')
 

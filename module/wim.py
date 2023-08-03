@@ -47,11 +47,20 @@ class WIMVariationalNetwork(M):
 
     def finetune(self, *sets,
                  epochs=5, alpha=0.1,
+                 test_batch_size=8192,
                  optimizer=None,
-                 outputs=EpochOutput()):
+                 outputs=EpochOutput(),
+                 ):
 
         if optimizer is None:
             optimizer = self.optimizer
+
+        max_batch_sizes = self.max_batch_sizes
+
+        test_batch_size = min(max_batch_sizes['test'], test_batch_size)
+
+        logging.info(
+            'Test batch size wanted {} / max {}'.format(test_batch_size, max_batch_sizes['test']))
 
         self.train()
 
@@ -116,11 +125,11 @@ class WIMVariationalNetwork(M):
                                 preambule='train',
                                 acc_methods=acc_methods,
                                 loss_components=self.loss_components,
-                                losses=train_mean_loss,
+                                # losses=train_mean_loss,
                                 metrics=self.metrics,
                                 measures=measures,
-                                time_per_i=t_per_i,
-                                batch_size=train_batch_size,
+                                # time_per_i=t_per_i,
+                                batch_size=batch_size,
                                 end_of_epoch='\n')
 
                 self.encoder.prior = self._alternate_prior
@@ -186,6 +195,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--wim-sets', nargs='*')
 
+    parser.add_argument('--test-batch-size', type=int)
+
     parser.set_defaults(**defaults)
 
     args = parser.parse_args(remaining_args)
@@ -238,4 +249,6 @@ if __name__ == '__main__':
 
     model.alternate_prior = alternate_prior_params
 
-    model.finetune(*args.wim_sets)
+    model.finetune(*args.wim_sets,
+                   test_batch_size=args.test_batch_size,
+                   outputs=outputs)

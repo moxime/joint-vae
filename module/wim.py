@@ -32,7 +32,7 @@ class WIMVariationalNetwork(M):
     def load(cls, *a, **kw):
 
         try:
-            super().load(*a, **kw)
+            super().load(*a, strict=False, **kw)
         except MissingKeys as e:
             model = e.args[0]
             s = e.args[1]  # state_dict
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     import argparse
     import configparser
     from utils.save_load import find_by_job_number
-    from utils.parameters import get_last_jobnumber, register_last_jobnumber
+    from utils.parameters import get_last_jobnumber, register_last_jobnumber, set_log
     from utils.print_log import EpochOutput
 
     conf_parser = argparse.ArgumentParser(add_help=False)
@@ -180,6 +180,11 @@ if __name__ == '__main__':
     job_number = args.job_number
     if not job_number:
         job_number = get_last_jobnumber() + 1
+
+    log_dir = os.path.join(defaults['output_dir'], 'log')
+
+    log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
+
     register_last_jobnumber(job_number)
 
     save_dir_root = os.path.join(args.job_dir, dataset,

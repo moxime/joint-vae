@@ -145,6 +145,9 @@ if __name__ == '__main__':
 
     model_dict = find_by_job_number(args.job, job_dir=args.job_dir)
 
+    if model_dict is None:
+        model_dict = find_by_job_number(args.job, job_dir=args.job_dir, flash=False)
+
     dataset = model_dict['set']
 
     model = WIMVariationalNetwork.load(model['dir'], load_net=True, load_state=True)

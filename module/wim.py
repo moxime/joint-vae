@@ -29,16 +29,18 @@ class WIMVariationalNetwork(M):
         self._alternate_prior = build_prior(**p)
 
     @classmethod
-    def load(cls, **kw):
+    def load(cls, *a, **kw):
 
         try:
-            super().load(**kw)
+            super().load(*a, **kw)
         except MissingKeys as e:
             model = e.args[0]
             s = e.args[1]  # state_dict
             logging.debug('Creating fake params prior means')
             s['_original_prior.mean'] = torch.zeros_like(s['encoder.prior.mean'])
             s['_original_prior._var_parameter'] = torch.ones_like(s['encoder.prior._var_parameter'])
+
+            model.load_state_dict(s)
 
         return model
 

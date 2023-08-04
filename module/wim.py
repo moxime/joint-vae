@@ -68,7 +68,6 @@ class WIMVariationalNetwork(M):
         transformer = self.training_parameters['transformer']
         data_augmentation = self.training_parameters['data_augmentation']
         batch_size = self.training_parameters['batch_size']
-        test_batch_size = self.training_parameters['test_batch_size']
 
         trainset, testset = torchdl.get_dataset(set_name,
                                                 transformer=transformer,

@@ -210,6 +210,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--wim-sets', nargs='*')
     parser.add_argument('--alpha', type=float, default=0.1)
+    parser.add_argument('--wim-epochs', type=int, default=5)
 
     parser.add_argument('--test-batch-size', type=int)
 

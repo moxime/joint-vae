@@ -1002,7 +1002,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     measures = logp_max
             elif m == 'iws':
-                # print('*** iws:', 'iws' in losses, *losses.keys())
+                print('*** iws:', 'iws' in losses, *losses.keys())
                 if self.losses_might_be_computed_for_each_class:
                     measures = d_iws.exp().sum(axis=0).log() + iws_max
                     if not self.is_jvae:

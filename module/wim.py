@@ -113,7 +113,6 @@ class WIMVariationalNetwork(M):
             logging.info('Starting epoch {}'.format(epoch + 1))
 
             moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
-            moving_batches = {_: next(moving_iters[_]) for _ in moving_iters}
 
             per_epoch = len(trainloader)
             for i, (x, y) in enumerate(trainloader):
@@ -141,6 +140,14 @@ class WIMVariationalNetwork(M):
                 self.encoder.prior = self._alternate_prior
 
                 L = batch_losses['total'].mean()
+
+                moving_batches = {}
+                for _ in moving_iters:
+                    try:
+                        moving_batches[_] = next(moving_iters[_])
+                    except StopIteration:
+                        moving_iters[_] = iter(moving_loaders[_])
+                        moving_batches[_] = next(moving_iters[_])
 
                 for _ in moving_batches:
 

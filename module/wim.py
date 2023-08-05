@@ -241,6 +241,8 @@ if __name__ == '__main__':
 
     log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
 
+    log.debug('$ ' + ' '.join(sys.argv))
+
     register_last_jobnumber(job_number)
 
     save_dir_root = os.path.join(args.job_dir, dataset,
@@ -258,6 +260,11 @@ if __name__ == '__main__':
     model.job_number = job_number
     model.saved_dir = save_dir
 
+    try:
+        model.to('cuda')
+    except Exception:
+        logging.warning('Something went wrong when trying to send to cuda')
+
     model.encoder.prior.mean.requires_grad_(False)
     alternate_prior_params = model.encoder.prior.params
     alternate_prior_params['learned_means'] = False
@@ -269,3 +276,5 @@ if __name__ == '__main__':
                    test_batch_size=args.test_batch_size,
                    alpha=args.alpha,
                    outputs=outputs)
+
+    model.save(model.saved_dir)

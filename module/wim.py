@@ -154,8 +154,13 @@ class WIMVariationalNetwork(M):
 
                     L += alpha * batch_losses['total'].mean()
 
+                logging.debug('Epoch {} Batch {} -- backprop'.format(epoch + 1, i + 1))
+
                 L.backward()
                 optimizer.clip(self.parameters())
+
+                logging.debug('Epoch {} Batch {} -- step'.format(epoch + 1, i + 1))
+
                 optimizer.step()
 
         sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained))]

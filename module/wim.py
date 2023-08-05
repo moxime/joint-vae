@@ -170,11 +170,13 @@ class WIMVariationalNetwork(M):
 
         logging.info('Computinog ood fprs')
 
-        self.ood_detection_rates(batch_size=test_batch_size,
-                                 num_batch='all',
-                                 outputs=outputs,
-                                 sample_dirs=sample_dirs,
-                                 print_result='*')
+        self.eval()
+        with torch.no_grad():
+            self.ood_detection_rates(batch_size=test_batch_size,
+                                     num_batch='all',
+                                     outputs=outputs,
+                                     sample_dirs=sample_dirs,
+                                     print_result='*')
 
 
 if __name__ == '__main__':

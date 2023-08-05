@@ -141,6 +141,9 @@ class WIMVariationalNetwork(M):
 
                 for _ in moving_batches:
 
+                    if not alpha:
+                        break
+
                     logging.debug('Epoch {} Batch {} -- set {}'.format(epoch + 1, i + 1, _))
 
                     x, y = moving_batches[_]
@@ -206,6 +209,7 @@ if __name__ == '__main__':
     parser.add_argument('--job-number', '-j', type=int)
 
     parser.add_argument('--wim-sets', nargs='*')
+    parser.add_argument('--alpha', type=float, default=0.1)
 
     parser.add_argument('--test-batch-size', type=int)
 
@@ -263,4 +267,5 @@ if __name__ == '__main__':
 
     model.finetune(*args.wim_sets,
                    test_batch_size=args.test_batch_size,
+                   alpha=args.alpha,
                    outputs=outputs)

@@ -107,11 +107,15 @@ class WIMVariationalNetwork(M):
 
         for epoch in range(epochs):
 
+            logging.info('Starting epoch {}'.format(epoch + 1))
+
             moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
             moving_batches = {_: next(moving_iters[_]) for _ in moving_iters}
 
             per_epoch = len(trainloader)
             for i, (x, y) in enumerate(trainloader):
+
+                logging.debug('Epoch {} Batch {}'.format(epoch + 1, i + 1))
 
                 optimizer.zero_grad()
 
@@ -137,6 +141,8 @@ class WIMVariationalNetwork(M):
 
                 for _ in moving_batches:
 
+                    logging.debug('Epoch {} Batch {} -- set {}'.format(epoch + 1, i + 1, _))
+
                     x, y = moving_batches[_]
                     y = torch.zeros_like(y, dtype=int)
                     o = self.evaluate(x.to(device), y.to(device),
@@ -154,11 +160,13 @@ class WIMVariationalNetwork(M):
 
         sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained))]
 
-        self.ood_detection_rate(batch_size=test_batch_size,
-                                num_batch='all',
-                                outputs=outputs,
-                                sample_dirs=sample_dirs,
-                                print_result='*')
+        logging.info('Computinog ood fprs')
+
+        self.ood_detection_rates(batch_size=test_batch_size,
+                                 num_batch='all',
+                                 outputs=outputs,
+                                 sample_dirs=sample_dirs,
+                                 print_result='*')
 
 
 if __name__ == '__main__':

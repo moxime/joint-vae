@@ -43,6 +43,8 @@ class WIMVariationalNetwork(M):
 
             model.load_state_dict(s)
 
+        model.testing = {}
+        model.ood_results = {}
         return model
 
     def finetune(self, *sets,

@@ -260,17 +260,17 @@ if __name__ == '__main__':
     model.job_number = job_number
     model.saved_dir = save_dir
 
-    try:
-        model.to('cuda')
-    except Exception:
-        logging.warning('Something went wrong when trying to send to cuda')
-
     model.encoder.prior.mean.requires_grad_(False)
     alternate_prior_params = model.encoder.prior.params
     alternate_prior_params['learned_means'] = False
     alternate_prior_params['init_mean'] = 0.
 
     model.alternate_prior = alternate_prior_params
+
+    try:
+        model.to('cuda')
+    except Exception:
+        logging.warning('Something went wrong when trying to send to cuda')
 
     model.finetune(*args.wim_sets,
                    test_batch_size=args.test_batch_size,

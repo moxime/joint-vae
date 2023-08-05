@@ -274,6 +274,7 @@ if __name__ == '__main__':
         logging.warning('Something went wrong when trying to send to cuda')
 
     model.finetune(*args.wim_sets,
+                   epochs=args.wim_epochs,
                    test_batch_size=args.test_batch_size,
                    alpha=args.alpha,
                    outputs=outputs)

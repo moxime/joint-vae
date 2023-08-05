@@ -44,7 +44,6 @@ class WIMVariationalNetwork(M):
             model.load_state_dict(s)
 
             logging.debug('Reset results')
-            model.testing = {}
             model.ood_results = {}
 
         return model

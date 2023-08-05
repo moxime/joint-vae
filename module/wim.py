@@ -15,8 +15,9 @@ class WIMVariationalNetwork(M):
         super().__init__(*a, **kw)
         self._original_prior = self.encoder.prior
 
-        self._alternate_prior = None
-        if alternate_prior is not None:
+        if alternate_prior is None:
+            self._alternate_prior = self._original_prior.clone()
+        else:
             self.alternate_prior = alternate_prior
 
     @property
@@ -26,7 +27,6 @@ class WIMVariationalNetwork(M):
     @alternate_prior.setter
     def alternate_prior(self, p):
 
-        assert self.alternate_prior is None
         self._alternate_prior = build_prior(**p)
 
     @classmethod

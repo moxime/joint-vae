@@ -1337,7 +1337,10 @@ def find_by_job_number(*job_numbers, job_dir='jobs',
     return d if len(job_numbers) > 1 or force_dict else d.get(job_numbers[0])
 
 
-def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, missing_file_stream=None):
+def needed_remote_files(*mdirs, epoch='last', which_rec='all',
+                        state=False,
+                        optimizer=False,
+                        missing_file_stream=None):
     r""" list missing recorders to be fetched on a remote
 
     -- mdirs: list of directories
@@ -1357,6 +1360,8 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, miss
     from cvae import ClassificationVariationalNetwork as M
 
     for d in mdirs:
+
+        logging.debug('Inspecting {}'.format(d))
 
         m = M.load(d, load_net=False)
         epoch_ = epoch
@@ -1384,11 +1389,21 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, miss
 
         for s in sets:
             sdir = os.path.join(d, 'samples', epoch_, 'record-{}.pth'.format(s))
+            logging.debug('Looking for {}'.format(sdir))
             if not os.path.exists(sdir):
                 yield d, sdir
 
         if state:
             sdir = os.path.join(d, 'state.pth')
+            logging.debug('Looking for {}'.format(sdir))
+            if not os.path.exists(sdir):
+                if missing_file_stream:
+                    missing_file_stream.write(sdir + '\n')
+                yield d, sdir
+
+        if optimizer:
+            sdir = os.path.join(d, 'optimizer.pth')
+            logging.debug('Looking for {}'.format(sdir))
             if not os.path.exists(sdir):
                 if missing_file_stream:
                     missing_file_stream.write(sdir + '\n')
@@ -1427,13 +1442,36 @@ def get_submodule(model, sub='features', job_dir='jobs', name=None, **kw):
 
 if __name__ == '__main__':
     import sys
+    import tempfile
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('jobs', nargs='+')
+    parser.add_argument('--job-dir', default='./jobs')
+    parser.add_argument('--state', action='store_true')
+    parser.add_argument('--optimizer', action='store_true')
+    parser.add_argument('--output', default=os.path.join(tempfile.gettempdir(), 'files'))
+    parser.add_argument('--rec-files', default='ind')
+    parser.add_argument('--register', dest='flash', action='store_false')
 
     logging.getLogger().setLevel(logging.DEBUG)
 
-    print(os.path.abspath('.'))
+    args = parser.parse_args()
 
-    # collect_models('jobs', load_state=False, load_net=False)
+    output_file = args.output
 
-    # fetch_models('jobs', load_state=False, load_net=False, flash=False)
+    job_dict = find_by_job_number(*args.jobs, job_dir=args.job_dir, force_dict=True, flash=args.flash)
 
-    s = get_submodule(sys.argv[1], flash=False)
+    logging.info('Will recover jobs {}'.format(', '.join(str(_) for _ in job_dict)))
+
+    mdirs = [job_dict[_]['dir'] for _ in job_dict]
+
+    with open(output_file, 'w') as f:
+        for _ in needed_remote_files(*mdirs, which_rec=args.rec_files,
+                                     state=args.state, optimizer=args.optimizer,
+                                     missing_file_stream=f):
+            pass
+
+    with open('/tmp/rsync-files', 'w') as f:
+        f.write('rsync -avP --files-from={f} $1 .\n'.format(f=output_file))

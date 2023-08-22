@@ -289,12 +289,17 @@ if __name__ == '__main__':
     alternate_prior_params['learned_means'] = False
 
     alternate_prior_params['init_mean'] = args.prior_means
-    alternate_prior_params['distribution'] = args.prior
+    if args.prior:
+        alternate_prior_params['distribution'] = args.prior
     alternate_prior_params['tau'] = args.tau
 
     model.alternate_prior = alternate_prior_params
 
-    log.info('WIM from {} to {}'.format(model.original_prior, model.alternate_prior)
+    log.info('WIM from {} to {}'.format(model.original_prior, model.alternate_prior))
+
+    if model.prior.num_priors > 1:
+        logging.info('Means from {:.3} to {:.3}'.format(model.original_prior.std(0).mean(),
+                                                        model.alternate_prior.std(0).mean()))
 
     try:
         model.to('cuda')

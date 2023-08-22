@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--wim-sets', nargs='*')
     parser.add_argument('--alpha', type=float)
-    parser.add_argument('--wim-epochs', type=int)
+    parser.add_argument('--epochs', type=int)
 
     parser.add_argument('--test-batch-size', type=int)
 
@@ -318,7 +318,7 @@ if __name__ == '__main__':
         logging.info('New optimizer')
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
     model.finetune(*args.wim_sets,
-                   epochs=args.wim_epochs,
+                   epochs=args.epochs,
                    test_batch_size=args.test_batch_size,
                    alpha=args.alpha,
                    optimizer=optimizer,

@@ -238,6 +238,7 @@ if __name__ == '__main__':
     parser.add_argument('--prior-means', type=float)
     parser.add_argument('--tau', type=float)
     parser.add_argument('--lr', type=float)
+    parser.add_argument('--weight-decay', type=float)
 
     parser.set_defaults(**defaults)
 

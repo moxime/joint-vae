@@ -20,6 +20,10 @@ class WIMVariationalNetwork(M):
             self.alternate_prior = alternate_prior
 
     @property
+    def original_prior(self):
+        return self._original_prior
+
+    @property
     def alternate_prior(self):
         return self._alternate_prior
 
@@ -207,7 +211,7 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read(conf_args.config_file)
 
-    config_params = config['DEFAULT']
+    config_params = config['wim-default']
 
     defaults = {}
 
@@ -217,24 +221,31 @@ if __name__ == '__main__':
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('job', type=int)
-    parser.add_argument('--job-dir', default='./jobs')
+    parser.add_argument('-J', '--source-job-dir', default='./jobs')
+    parser.add_argument('--target-job-dir')
     parser.add_argument('--job-number', '-j', type=int)
 
     parser.add_argument('--wim-sets', nargs='*')
-    parser.add_argument('--alpha', type=float, default=0.1)
-    parser.add_argument('--wim-epochs', type=int, default=5)
+    parser.add_argument('--alpha', type=float)
+    parser.add_argument('--wim-epochs', type=int)
 
     parser.add_argument('--test-batch-size', type=int)
+
+    parser.add_argument('--prior', choices=['gaussian', 'tilted', 'uniform'])
+    parser.add_argument('--prior-means', type=float, default=0.)
+    parser.add_argument('--tau', type=float, default=25.)
 
     parser.set_defaults(**defaults)
 
     args = parser.parse_args(remaining_args)
 
-    model_dict = find_by_job_number(args.job, job_dir=args.job_dir)
+    args.target_job_dir = args.target_job_dir or args.source_job_dir
+
+    model_dict = find_by_job_number(args.job, job_dir=args.source_job_dir)
 
     if model_dict is None:
         logging.debug('Model not found, reollecting models')
-        model_dict = find_by_job_number(args.job, job_dir=args.job_dir, flash=False)
+        model_dict = find_by_job_number(args.job, job_dir=args.source_job_dir, flash=False)
 
     if model_dict is None:
         logging.error('Model not found')
@@ -250,7 +261,7 @@ if __name__ == '__main__':
     if not job_number:
         job_number = get_last_jobnumber() + 1
 
-    log_dir = os.path.join(defaults['output_dir'], 'log')
+    log_dir = os.path.join(args.output_dir, 'log')
 
     log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
 
@@ -258,7 +269,7 @@ if __name__ == '__main__':
 
     register_last_jobnumber(job_number)
 
-    save_dir_root = os.path.join(args.job_dir, dataset,
+    save_dir_root = os.path.join(args.target_job_dir, dataset,
                                  model.print_architecture(sampling=False),
                                  'wim')
 
@@ -276,9 +287,14 @@ if __name__ == '__main__':
     model.encoder.prior.mean.requires_grad_(False)
     alternate_prior_params = model.encoder.prior.params
     alternate_prior_params['learned_means'] = False
-    alternate_prior_params['init_mean'] = 0.
+
+    alternate_prior_params['init_mean'] = args.prior_means
+    alternate_prior_params['distribution'] = args.prior
+    alternate_prior_params['tau'] = args.tau
 
     model.alternate_prior = alternate_prior_params
+
+    log.info('WIM from {} to {}'.format(model.original_prior, model.alternate_prior)
 
     try:
         model.to('cuda')

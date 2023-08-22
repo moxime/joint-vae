@@ -221,7 +221,7 @@ if __name__ == '__main__':
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('job', type=int)
-    parser.add_argument('-J', '--source-job-dir', default='./jobs')
+    parser.add_argument('-J', '--source-job-dir')
     parser.add_argument('--target-job-dir')
     parser.add_argument('--job-number', '-j', type=int)
 
@@ -232,8 +232,8 @@ if __name__ == '__main__':
     parser.add_argument('--test-batch-size', type=int)
 
     parser.add_argument('--prior', choices=['gaussian', 'tilted', 'uniform'])
-    parser.add_argument('--prior-means', type=float, default=0.)
-    parser.add_argument('--tau', type=float, default=25.)
+    parser.add_argument('--prior-means', type=float)
+    parser.add_argument('--tau', type=float)
 
     parser.set_defaults(**defaults)
 

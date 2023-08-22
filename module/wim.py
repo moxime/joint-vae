@@ -321,6 +321,7 @@ if __name__ == '__main__':
                    epochs=args.wim_epochs,
                    test_batch_size=args.test_batch_size,
                    alpha=args.alpha,
+                   optimizer=optimizer,
                    outputs=outputs)
 
     model.save(model.saved_dir)

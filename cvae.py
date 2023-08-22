@@ -2813,6 +2813,7 @@ class ClassificationVariationalNetwork(nn.Module):
             try:
                 opt_state_dict = torch.load(w_p)
                 model.optimizer.load_state_dict(opt_state_dict)
+                logging.debug('optimizer loaded')
 
             except FileNotFoundError:
                 logging.warning('Optimizer state file not found')

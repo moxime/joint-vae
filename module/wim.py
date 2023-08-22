@@ -261,6 +261,8 @@ if __name__ == '__main__':
     if not job_number:
         job_number = get_last_jobnumber() + 1
 
+    logging.info('Job #{}'.format(job_number))
+
     log_dir = os.path.join(args.output_dir, 'log')
 
     log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)

@@ -315,6 +315,7 @@ if __name__ == '__main__':
     optimizer = None
 
     if args.lr:
+        logging.info('New optimizer')
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
     model.finetune(*args.wim_sets,
                    epochs=args.wim_epochs,

@@ -239,19 +239,22 @@ if __name__ == '__main__':
 
     args = parser.parse_args(remaining_args)
 
+    log_dir = os.path.join(args.output_dir, 'log')
+    log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
+
     args.target_job_dir = args.target_job_dir or args.source_job_dir
 
     model_dict = find_by_job_number(args.job, job_dir=args.source_job_dir)
 
     if model_dict is None:
-        logging.debug('Model not found, reollecting models')
+        log.debug('Model not found, reollecting models')
         model_dict = find_by_job_number(args.job, job_dir=args.source_job_dir, flash=False)
 
     if model_dict is None:
-        logging.error('Model not found')
+        log.error('Model not found')
         sys.exit(1)
 
-    logging.info('Model found')
+    log.info('Model found')
 
     dataset = model_dict['set']
 
@@ -261,11 +264,7 @@ if __name__ == '__main__':
     if not job_number:
         job_number = get_last_jobnumber() + 1
 
-    logging.info('Job #{}'.format(job_number))
-
-    log_dir = os.path.join(args.output_dir, 'log')
-
-    log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
+    log.info('Job #{}'.format(job_number))
 
     log.debug('$ ' + ' '.join(sys.argv))
 
@@ -279,7 +278,7 @@ if __name__ == '__main__':
 
     output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
 
-    logging.debug(f'Outputs registered in {output_file}')
+    log.debug(f'Outputs registered in {output_file}')
     outputs = EpochOutput()
     outputs.add_file(output_file)
 
@@ -300,13 +299,13 @@ if __name__ == '__main__':
     log.info('WIM from {} to {}'.format(model.original_prior, model.alternate_prior))
 
     if model.encoder.prior.num_priors > 1:
-        logging.info('Means from {:.3} to {:.3}'.format(model.original_prior.std(0).mean(),
-                                                        model.alternate_prior.std(0).mean()))
+        log.info('Means from {:.3} to {:.3}'.format(model.original_prior.std(0).mean(),
+                                                    model.alternate_prior.std(0).mean()))
 
     try:
         model.to('cuda')
     except Exception:
-        logging.warning('Something went wrong when trying to send to cuda')
+        log.warning('Something went wrong when trying to send to cuda')
 
     model.finetune(*args.wim_sets,
                    epochs=args.wim_epochs,

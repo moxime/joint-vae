@@ -202,6 +202,7 @@ if __name__ == '__main__':
     import configparser
     from utils.save_load import find_by_job_number
     from utils.parameters import get_last_jobnumber, register_last_jobnumber, set_log
+    from module.optimizers import Optimizer
 
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument('--debug', action='store_true')
@@ -236,6 +237,7 @@ if __name__ == '__main__':
     parser.add_argument('--prior', choices=['gaussian', 'tilted', 'uniform'])
     parser.add_argument('--prior-means', type=float)
     parser.add_argument('--tau', type=float)
+    parser.add_argument('--lr', type=float)
 
     parser.set_defaults(**defaults)
 
@@ -309,6 +311,10 @@ if __name__ == '__main__':
     except Exception:
         log.warning('Something went wrong when trying to send to cuda')
 
+    optimizer = None
+
+    if args.lr:
+        optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
     model.finetune(*args.wim_sets,
                    epochs=args.wim_epochs,
                    test_batch_size=args.test_batch_size,

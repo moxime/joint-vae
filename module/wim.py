@@ -62,6 +62,8 @@ class WIMVariationalNetwork(M):
         if optimizer is None:
             optimizer = self.optimizer
 
+        logging.debug('Learning rate: {}'.format(optimizer.lr))
+
         max_batch_sizes = self.max_batch_sizes
 
         test_batch_size = min(max_batch_sizes['test'], test_batch_size)

@@ -15,23 +15,26 @@ class WIMVariationalNetwork(M):
         super().__init__(*a, **kw)
         self._original_prior = self.encoder.prior
 
+        for p in self._original_prior.parameters():
+            p.requires_grad_(False)
+
         self._alternate_prior = None
         if alternate_prior is not None:
-            self.alternate_prior = alternate_prior
+            self.set_alternate_prior(alternate_prior)
 
-    @property
     def original_prior(self):
-        return self._original_prior
+        self.encoder.prior = self._original_prior
 
-    @property
     def alternate_prior(self):
-        return self._alternate_prior
+        assert self._alternate_prior is not None
+        self.encoder.prior = self._alternate_prior
 
-    @alternate_prior.setter
-    def alternate_prior(self, p):
+    def set_alternate_prior(self, p):
 
         assert self._alternate_prior is None
         self._alternate_prior = build_prior(**p)
+        for p in self._alternate_prior.parameters():
+            p.requires_grad_(False)
 
     @classmethod
     def load(cls, *a, **kw):
@@ -64,10 +67,11 @@ class WIMVariationalNetwork(M):
 
         logging.debug('Learning rate: {}'.format(optimizer.lr))
 
-        for p in self.alternate_prior.parameters():
-            p.requires_grad_(False)
-        for p in self.original_prior.parameters():
-            p.requires_grad_(False)
+        for p in self._alternate_prior.parameters():
+            assert not p.requires_grad(), 'prior parameter queires grad'
+
+        for p in self._original_prior.parameters():
+            assert not p.requires_grad(), 'prior parameter queires grad'
 
         max_batch_sizes = self.max_batch_sizes
 
@@ -148,7 +152,7 @@ class WIMVariationalNetwork(M):
 
                 optimizer.zero_grad()
 
-                self.encoder.prior = self._original_prior
+                self.original_prior()
                 (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
                                                                    current_measures=current_measures,
                                                                    batch=i,
@@ -164,7 +168,7 @@ class WIMVariationalNetwork(M):
                                 batch_size=batch_size,
                                 end_of_epoch='\n')
 
-                self.encoder.prior = self._alternate_prior
+                self.alternate_prior()
 
                 L = batch_losses['total'].mean()
 
@@ -211,6 +215,8 @@ class WIMVariationalNetwork(M):
                 assert os.path.isdir(d), '{} exists and is not a dir'.format(d)
 
         logging.info('Computing ood fprs')
+
+        self.original_prior()
 
         self.eval()
         with torch.no_grad():
@@ -328,7 +334,7 @@ if __name__ == '__main__':
         alternate_prior_params['distribution'] = args.prior
     alternate_prior_params['tau'] = args.tau
 
-    model.alternate_prior = alternate_prior_params
+    model.set_alternate_prior(alternate_prior_params)
 
     log.info('WIM from {} to {}'.format(model.original_prior, model.alternate_prior))
 

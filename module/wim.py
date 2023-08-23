@@ -372,8 +372,8 @@ if __name__ == '__main__':
     log.info('WIM from {} to {}'.format(model.original_prior(), model.alternate_prior()))
 
     if model.encoder.prior.num_priors > 1:
-        log.info('Means from {:.3} to {:.3}'.format(model.original_prior().std(0).mean(),
-                                                    model.alternate_prior().std(0).mean()))
+        log.info('Means from {:.3} to {:.3}'.format(model.original_prior().mean.std(0).mean(),
+                                                    model.alternate_prior().mean.std(0).mean()))
 
     try:
         model.to('cuda')

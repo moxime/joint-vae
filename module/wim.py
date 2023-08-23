@@ -1,10 +1,13 @@
 import os
-import torch
 import logging
+import time
+
+import torch
 from cvae import ClassificationVariationalNetwork as M
+from module.priors import build_prior
+
 from utils.save_load import MissingKeys, save_json, load_json
 import utils.torch_load as torchdl
-from module.priors import build_prior
 from utils.print_log import EpochOutput
 
 
@@ -145,6 +148,7 @@ class WIMVariationalNetwork(M):
             except FileExistsError:
                 assert os.path.isdir(d), '{} exists and is not a dir'.format(d)
 
+        self.original_prior()
         with torch.no_grad():
             self.ood_detection_rates(batch_size=test_batch_size,
                                      num_batch='all',

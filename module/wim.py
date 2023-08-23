@@ -89,6 +89,8 @@ class WIMVariationalNetwork(M):
         logging.debug('Learning rate: {}'.format(optimizer.lr))
 
         self.wim_params['sets'] = sets
+        self.wim_params['alpha'] = alpha
+        self.wim_params['epochs'] = epochs
 
         for p in self._alternate_prior.parameters():
             assert not p.requires_grad, 'prior parameter queires grad'

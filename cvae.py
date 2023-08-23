@@ -1526,6 +1526,8 @@ class ClassificationVariationalNetwork(nn.Module):
         oodsets = [o for o in oodsets if froms[o.name]['where']
                    ['compute'] or froms[o.name]['where']['recorders']]
 
+        logging.debug('Kept oodsets: {}'.format(','.join(_.name for _ in oodsets)))
+
         if froms['all_sets']['recorders']:
             rec_dir = froms.pop('rec_dir')
 
@@ -1557,7 +1559,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                                  ood_methods if m in all_ood_methods]
 
             oodsets = [o for o in oodsets if o.name in recorders]
-            logging.debug('Kept oodsets: {}'.format(','.join(_.name for _ in oodsets)))
             all_set_names = [s for s in all_set_names if s in recorders]
 
         for s in all_set_names:

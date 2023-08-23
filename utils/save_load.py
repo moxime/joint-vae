@@ -710,6 +710,7 @@ def available_results(model,
         model = model['net']
 
     ood_results = model.ood_results
+    print('***', ood_results)
     test_results = model.testing
     if wanted_epoch == 'min-loss':
         wanted_epoch = model.training_parameters.get('early-min-loss', 'last')

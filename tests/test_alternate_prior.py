@@ -1,4 +1,5 @@
 import logging
+import torch
 from module.wim import WIMVariationalNetwork as W
 from utils.save_load import find_by_job_number
 from utils.torch_load import get_batch, get_dataset
@@ -25,10 +26,13 @@ if __name__ == '__main__':
     logging.info('{:.4} -> {:.4}'.format(m.original_prior().mean.var(0).mean(),
                                          m.alternate_prior().mean.var(0).mean()))
 
+    device = 'cuda' if torch.cuda.is_available else 'cpu'
+
     _, dset = get_dataset(m.training_parameters['set'])
 
     x, y = get_batch(dset, batch_size=args.batch)
 
+    m.to(device)
     m.eval()
 
     m.original_prior()
@@ -41,7 +45,7 @@ if __name__ == '__main__':
     print('total: {:.4}, kl: {:.4}'.format(*(losses[_].min(0)[0].mean() for _ in ('total', 'kl'))))
 
     m.alternate_prior()
-    _, _, losses, _ = m.evaluate(x)
+    _, _, losses, _ = m.evaluate(x.to(device))
 
     print('alternate')
 

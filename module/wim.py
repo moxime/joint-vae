@@ -64,14 +64,17 @@ class WIMVariationalNetwork(M):
 
         logging.debug('Learning rate: {}'.format(optimizer.lr))
 
+        for p in self.alternate_prior.parameters():
+            p.requires_grad_(False)
+        for p in self.original_prior.parameters():
+            p.requires_grad_(False)
+
         max_batch_sizes = self.max_batch_sizes
 
         test_batch_size = min(max_batch_sizes['test'], test_batch_size)
 
         logging.info(
             'Test batch size wanted {} / max {}'.format(test_batch_size, max_batch_sizes['test']))
-
-        self.train()
 
         set_name = self.training_parameters['set']
         transformer = self.training_parameters['transformer']
@@ -113,6 +116,18 @@ class WIMVariationalNetwork(M):
                         metrics=self.metrics,
                         loss_components=self.loss_components,
                         acc_methods=acc_methods)
+
+        self.eval()
+        with torch.no_grad():
+            sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained), 'init')]
+            self.ood_detection_rates(batch_size=test_batch_size,
+                                     num_batch='all',
+                                     outputs=outputs,
+                                     sample_dirs=sample_dirs,
+                                     recorders={},
+                                     print_result='*')
+
+        self.train()
 
         for epoch in range(epochs):
 
@@ -192,6 +207,7 @@ class WIMVariationalNetwork(M):
                                      num_batch='all',
                                      outputs=outputs,
                                      sample_dirs=sample_dirs,
+                                     recorders={},
                                      print_result='*')
 
 

@@ -1475,7 +1475,6 @@ class ClassificationVariationalNetwork(nn.Module):
         ood_methods = make_list(method, self.ood_methods)
 
         if oodsets is None:
-            # print('*** 1291', *testset.same_size)
             oodsets = [torchdl.get_dataset(n, transformer=testset.transformer, splits=['test'])[1]
                        for n in testset.same_size]
             logging.debug('Oodsets loaded: ' +
@@ -1486,6 +1485,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
         ood_methods_per_set = {s: ood_methods for s in all_set_names}
         all_ood_methods = ood_methods
+
+        if recorders == {}:
+            recorders = {n: LossRecorder(batch_size) for n n all_set_names}
 
         if not recorders:
             recorders = {n: None for n in all_set_names}
@@ -1523,11 +1525,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
         oodsets = [o for o in oodsets if froms[o.name]['where']
                    ['compute'] or froms[o.name]['where']['recorders']]
-
-        # for _ in oodsets:
-        #     print('***', _.name, '***\n', froms[_.name])
-
-        #     print('*** all sets ***\n', froms['all_sets'])
 
         if froms['all_sets']['recorders']:
             rec_dir = froms.pop('rec_dir')
@@ -1591,7 +1588,6 @@ class ClassificationVariationalNetwork(nn.Module):
             ind_measures = {m: np.ndarray(0)
                             for m in ood_methods}
 
-            # print('***', ind_measures.keys())
             s = testset.name
             if recorders[s] is not None:
                 recorders[s].init_seed_for_dataloader()
@@ -1610,7 +1606,6 @@ class ClassificationVariationalNetwork(nn.Module):
             num_samples = 0
             for i in range(num_batch[s]):
 
-                # print('*** 1378', i, num_batch[s])
                 if not recorded[s]:
 
                     data = next(test_iterator)
@@ -2837,196 +2832,4 @@ class ClassificationVariationalNetwork(nn.Module):
 
 if __name__ == '__main__':
 
-    dir = save_load.get_path_by_input()
-    argv = ['--debug',
-            # '--force_cpu',
-            # '-c', 'cifar-ola',
-            # '-c', 'fashion-conv-code-linear-decode',
-            # '-c', 'svhn',
-            # '-c', '',
-            # '-c', 'cifar10-vgg16',
-            # '-K', '128',
-            # '-L', '50',
-            # '-m', '50',
-            '-b', '1e-4',
-            '-j', 'test-jobs']
-    argv = None
-    args = get_args(argv)
-
-    debug = args.debug
-    verbose = args.verbose
-
-    force_cpu = args.force_cpu
-
-    epochs = args.epochs
-    batch_size = args.batch_size
-    test_sample_size = args.test_sample_size
-    sigma = args.sigma
-
-    latent_sampling = args.latent_sampling
-    latent_dim = args.latent_dim
-
-    features = args.features
-
-    encoder = args.encoder
-    decoder = args.decoder
-    upsampler = args.upsampler
-    conv_padding = args.conv_padding
-
-    output_activation = args.output_activation
-
-    classifier = args.classifier
-
-    dataset = args.dataset
-    transformer = args.transformer
-
-    refit = args.refit
-    load_dir = args.load_dir
-    print(f'**** LOAD {load_dir} ****')
-    save_dir = load_dir if not refit else None
-    job_dir = args.job_dir
-
-    # load_dir = None
-    save_dir = load_dir
-    rebuild = load_dir is None
-
-    if debug:
-        for k in vars(args).items():
-            print(*k)
-
-    if force_cpu:
-        device = torch.device('cpu')
-    else:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print('Used device:', device)
-
-    trainset, testset = torchdl.get_dataset(dataset, transformer=transformer)
-    _, oodset = torchdl.get_svhn()
-
-    testloader = torch.utils.data.DataLoader(testset, batch_size=2,
-                                             shuffle=True, num_workers=0)
-
-    test_batch = next(iter(testloader))
-    x, y = test_batch[0].to(device), test_batch[1].to(device)
-
-    input_shape = x.shape[1:]
-    num_labels = len(torch.unique(y))
-
-    if not rebuild:
-        print('Loading...', end=' ')
-        try:
-            jvae = ClassificationVariationalNetwork.load(load_dir)
-            print(f'done', end=' ')
-            done_epochs = jvae.train_history['epochs']
-            verb = 'resuming' if done_epochs else 'starting'
-            print(f'{verb} training since epoch {done_epochs}')
-            print(jvae.print_training())
-        except (FileNotFoundError, NameError) as err:
-            print(f'*** NETWORK NOT LOADED -- REBUILDING bc of {err} ***')
-            rebuild = True
-
-    if rebuild:
-        print('Building network...', end=' ')
-        jvae = ClassificationVariationalNetwork(input_shape, num_labels,
-                                                features=features,
-                                                conv_padding=conv_padding,
-                                                # pretrained_features='vgg11.pth',
-                                                encoder=encoder,
-                                                latent_dim=latent_dim,
-                                                latent_sampling=latent_sampling,
-                                                decoder=decoder,
-                                                upsampler=upsampler,
-                                                classifier=classifier,
-                                                sigma=sigma,
-                                                output_activation=output_activation)
-
-        if not save_dir:
-            bs = f'sigma={sigma:.2e}--sampling={latent_sampling}--pretrained=both'
-            save_dir_root = os.path.join(job_dir, dataset,
-                                         jvae.print_architecture(),
-                                         bs)
-            i = 0
-            save_dir = os.path.join(save_dir_root, f'{i:02d}')
-            while os.path.exists(save_dir):
-                i += 1
-                save_dir = os.path.join(save_dir_root, f'{i:02d}')
-
-        print('done.', 'Will be saved in\n' + save_dir)
-
-    arch = jvae.print_architecture()
-    print(arch)
-    print(jvae.print_architecture(True, True))
-
-    pattern = 'classifier=([0-9]+\-)*[0-9]+'
-    vae_arch = re.sub(pattern, 'classifier=.', arch)
-
-    jvae.to(device)
-
-    ae_dir = os.path.join('.', 'jobs',
-                          testset.name, vae_arch,
-                          f'vae-sigma={sigma:.2e}--sampling={latent_sampling}',
-                          '00')
-
-    trained_ae_exists = os.path.exists(ae_dir)
-    print(ae_dir, 'does' + ('' if trained_ae_exists else ' not'), 'exist')
-
-    if trained_ae_exists:
-        autoencoder = ClassificationVariationalNetwork.load(ae_dir)
-        feat_dict = autoencoder.features.state_dict()
-        up_dict = autoencoder.imager.upsampler.state_dict()
-        ae_dict = autoencoder.state_dict()
-
-        # jvae.load_state_dict(ae_dict)
-        jvae.features.load_state_dict(feat_dict)
-        jvae.imager.upsampler.load_state_dict(up_dict)
-
-        for p in jvae.features.parameters():
-            p.requires_grad_(False)
-
-        for p in jvae.imager.upsampler.parameters():
-            p.requires_grad_(False)
-    else:
-        pass
-        logging.warning('Trained autoencoder does not exist')
-    """
-    """
-
-    out = jvae(x, y)
-
-    for o in out:
-        print(o.shape)
-
-    # jvae2 = ClassificationVariationalNetwork.load('/tmp')
-
-    # print('\nTraining\n')
-    # print(refit)
-
-    def train_the_net(epochs=3, **kw):
-        jvae.train(trainset, epochs=epochs,
-                   batch_size=batch_size,
-                   device=device,
-                   testset=testset,
-                   sample_size=test_sample_size,  # 10000,
-                   save_dir=save_dir,
-                   **kw)
-
-    # train_the_net(500, latent_sampling=latent_sampling, sigma=sigma)
-    # jvae3 = ClassificationVariationalNetwork.load('/tmp')
-
-    """
-    for net in (jvae, jvae2, jvae3):
-        print(net.print_architecture())
-    for net in (jvae, jvae2, jvae3):
-        print(net.print_architecture(True, True))
-
-    print(jvae.training_parameters)
-    train_the_net(2, latent_sampling=3, sigma=2e-5)
-    if save_dir is not None:
-        jvae.save(save_dir)
-
-    x_, y_, mu, lv, z = jvae(x, y)
-    x_reco, y_out, batch_losses = jvae.evaluate(x)
-
-    y_est_by_losses = batch_losses.argmin(0)
-    y_est_by_mean = y_out.mean(0).argmax(-1)
-    """
+    pass

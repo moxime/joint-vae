@@ -1521,6 +1521,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         for dset in oodsets_names:
             if froms[dset]['where']['json']:
+                logging.debug('OOD FPR already computed for {}'.format(dset))
                 ood_results[dset] = self.ood_results[epoch][dset]
 
         oodsets = [o for o in oodsets if froms[o.name]['where']

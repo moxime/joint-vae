@@ -106,17 +106,6 @@ class WIMVariationalNetwork(M):
 
         device = next(self.parameters()).device
 
-        acc_methods = self.predict_methods
-
-        outputs.results(0, 0, -2, epochs,
-                        metrics=self.metrics,
-                        loss_components=self.loss_components,
-                        acc_methods=acc_methods)
-        outputs.results(0, 0, -1, epochs,
-                        metrics=self.metrics,
-                        loss_components=self.loss_components,
-                        acc_methods=acc_methods)
-
         self.eval()
         sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained), 'init')]
         for d in sample_dirs:
@@ -134,6 +123,17 @@ class WIMVariationalNetwork(M):
                                      print_result='*')
 
         self.train()
+
+        acc_methods = self.predict_methods
+
+        outputs.results(0, 0, -2, epochs,
+                        metrics=self.metrics,
+                        loss_components=self.loss_components,
+                        acc_methods=acc_methods)
+        outputs.results(0, 0, -1, epochs,
+                        metrics=self.metrics,
+                        loss_components=self.loss_components,
+                        acc_methods=acc_methods)
 
         for epoch in range(epochs):
 

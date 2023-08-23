@@ -102,13 +102,15 @@ class WIMVariationalNetwork(M):
 
         test_batch_size = min(max_batch_sizes['test'], test_batch_size)
 
-        logging.info(
-            'Test batch size wanted {} / max {}'.format(test_batch_size, max_batch_sizes['test']))
+        _s = 'Test batch size wanted {} / max {}'
+        logging.info(_s.format(test_batch_size, max_batch_sizes['test']))
 
         set_name = self.training_parameters['set']
         transformer = self.training_parameters['transformer']
         data_augmentation = self.training_parameters['data_augmentation']
         batch_size = self.training_parameters['batch_size']
+
+        logging.info('Finetune batch size = {}'.format(batch_size))
 
         trainset, testset = torchdl.get_dataset(set_name,
                                                 transformer=transformer,

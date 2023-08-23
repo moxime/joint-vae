@@ -68,10 +68,10 @@ class WIMVariationalNetwork(M):
         logging.debug('Learning rate: {}'.format(optimizer.lr))
 
         for p in self._alternate_prior.parameters():
-            assert not p.requires_grad(), 'prior parameter queires grad'
+            assert not p.requires_grad, 'prior parameter queires grad'
 
         for p in self._original_prior.parameters():
-            assert not p.requires_grad(), 'prior parameter queires grad'
+            assert not p.requires_grad, 'prior parameter queires grad'
 
         max_batch_sizes = self.max_batch_sizes
 

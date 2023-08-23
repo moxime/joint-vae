@@ -56,8 +56,8 @@ class WIMVariationalNetwork(M):
             model = e.args[0]
             s = e.args[1]  # state_dict
             logging.debug('Creating fake params prior means')
-            s['_original_prior.mean'] = torch.zeros_like(s['encoder.prior.mean'])
-            s['_original_prior._var_parameter'] = torch.ones_like(s['encoder.prior._var_parameter'])
+            s['_original_prior.mean'] = torch.clone(s['encoder.prior.mean'])
+            s['_original_prior._var_parameter'] = torch.clone(s['encoder.prior._var_parameter'])
 
             model.load_state_dict(s)
 

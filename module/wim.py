@@ -118,8 +118,14 @@ class WIMVariationalNetwork(M):
                         acc_methods=acc_methods)
 
         self.eval()
+        sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained), 'init')]
+        for d in sample_dirs:
+            try:
+                os.makedirs(d)
+            except FileExistsError:
+                assert os.path.isdir(d), '{} exists and is not a dir'.format(d)
+
         with torch.no_grad():
-            sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained), 'init')]
             self.ood_detection_rates(batch_size=test_batch_size,
                                      num_batch='all',
                                      outputs=outputs,
@@ -198,8 +204,13 @@ class WIMVariationalNetwork(M):
                 optimizer.step()
 
         sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained))]
+        for d in sample_dirs:
+            try:
+                os.makedirs(d)
+            except FileExistsError:
+                assert os.path.isdir(d), '{} exists and is not a dir'.format(d)
 
-        logging.info('Computinog ood fprs')
+        logging.info('Computing ood fprs')
 
         self.eval()
         with torch.no_grad():

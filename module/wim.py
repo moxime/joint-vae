@@ -148,6 +148,7 @@ class WIMVariationalNetwork(M):
                                      sample_dirs=sample_dirs,
                                      recorders={},
                                      print_result='*')
+            self.ood_results = {}
 
         self.train()
 
@@ -326,8 +327,6 @@ if __name__ == '__main__':
     dataset = model_dict['set']
 
     model = WIMVariationalNetwork.load(model_dict['dir'], load_net=True, load_state=True)
-
-    print('***', model.ood_results)
 
     log.info('Job #{}'.format(job_number))
 

@@ -1557,6 +1557,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                  ood_methods if m in all_ood_methods]
 
             oodsets = [o for o in oodsets if o.name in recorders]
+            logging.debug('Kept oodsets: {}'.format(','.join(_.name for _ in oodsets)))
             all_set_names = [s for s in all_set_names if s in recorders]
 
         for s in all_set_names:
@@ -1584,11 +1585,13 @@ class ClassificationVariationalNetwork(nn.Module):
             outputs.results(0, 0, -1, 0, metrics=all_ood_methods,
                             acc_methods=all_ood_methods)
 
-            logging.debug(f'Computing measures for set {testset.name}')
+            s = testset.name
+            _s = '{} measures for {}'.format('Recovering for recorder ' if recorded[s] else 'Computing', s)
+            logging.debug(_s)
+
             ind_measures = {m: np.ndarray(0)
                             for m in ood_methods}
 
-            s = testset.name
             if recorders[s] is not None:
                 recorders[s].init_seed_for_dataloader()
 

@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('job', type=int)
-    parser.add_argument('batch', type=int, default=100)
+    parser.add_argument('--batch', type=int, default=100)
     args = parser.parse_args()
 
     d = find_by_job_number(args.job, load_net=False)['dir']

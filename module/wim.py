@@ -289,6 +289,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(parents=[conf_parser],
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    parser.add_argument('--device')
     parser.add_argument('job', type=int)
     parser.add_argument('-J', '--source-job-dir')
     parser.add_argument('--target-job-dir')
@@ -309,6 +310,8 @@ if __name__ == '__main__':
     parser.set_defaults(**defaults)
 
     args = parser.parse_args(remaining_args)
+
+    device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
 
     job_number = args.job_number
     if not job_number:
@@ -376,9 +379,9 @@ if __name__ == '__main__':
                                                     model.alternate_prior().mean.std(0).mean()))
 
     try:
-        model.to('cuda')
+        model.to(device)
     except Exception:
-        log.warning('Something went wrong when trying to send to cuda')
+        log.warning('Something went wrong when trying to send to {}'.format(device))
 
     optimizer = None
 

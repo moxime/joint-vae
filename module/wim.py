@@ -52,6 +52,7 @@ class WIMVariationalNetwork(M):
             model = super().load(dir_name, strict=False, **kw)
         except MissingKeys as e:
             logging.debug('Model loaded has been detected as not wim')
+            logging.debug('Missing keys: {}'.format(', '.join(e.args[-1])))
             model = e.args[0]
             s = e.args[1]  # state_dict
             logging.debug('Creating fake params prior means')

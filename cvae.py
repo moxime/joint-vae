@@ -2805,7 +2805,7 @@ class ClassificationVariationalNetwork(nn.Module):
             except RuntimeError as e:
                 raise e
             try:
-                keys = model.load_state_dict(state_dict, strict=strict)
+                keys = model.load_state_dict(state_dict, strict=strict).missing_keys
 
             except RuntimeError as e:
                 if strict:

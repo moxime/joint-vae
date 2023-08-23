@@ -32,7 +32,8 @@ class DeletedModelError(NoModelError):
 
 
 class MissingKeys(Exception):
-    pass
+    def __str__(self):
+        return 'MissingKeys({})'.format(', '.join(e.args[-1]))
 
 
 def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False,

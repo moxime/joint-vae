@@ -24,10 +24,12 @@ class WIMVariationalNetwork(M):
 
     def original_prior(self):
         self.encoder.prior = self._original_prior
+        return self.encoder.prior
 
     def alternate_prior(self):
         assert self._alternate_prior is not None
         self.encoder.prior = self._alternate_prior
+        return self.encoder.prior
 
     def set_alternate_prior(self, p):
 
@@ -336,7 +338,7 @@ if __name__ == '__main__':
 
     model.set_alternate_prior(alternate_prior_params)
 
-    log.info('WIM from {} to {}'.format(model.original_prior, model.alternate_prior))
+    log.info('WIM from {} to {}'.format(model.original_prior(), model.alternate_prior()))
 
     if model.encoder.prior.num_priors > 1:
         log.info('Means from {:.3} to {:.3}'.format(model.original_prior.std(0).mean(),

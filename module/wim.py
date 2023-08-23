@@ -26,14 +26,14 @@ class WIMVariationalNetwork(M):
             self.set_alternate_prior(alternate_prior)
 
     def original_prior(self):
-        logging.debug('Swithcing to original prior')
         self.encoder.prior = self._original_prior
+        logging.debug('Switching to original prior: {}'.format(self.encoder.prior))
         return self.encoder.prior
 
     def alternate_prior(self):
-        logging.debug('Swithcing to alternate prior')
         assert self._alternate_prior is not None
         self.encoder.prior = self._alternate_prior
+        logging.debug('Switching to alternate prior: {}'.format(self.encoder.prior))
         return self.encoder.prior
 
     def set_alternate_prior(self, p):

@@ -37,7 +37,7 @@ if __name__ == '__main__':
     m.eval()
 
     m.original_prior()
-    _, _, losses, _ = m.evaluate(x)
+    _, _, losses, _ = m.evaluate(x.to(device))
 
     print(*losses['total'].shape)
 

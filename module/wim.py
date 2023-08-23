@@ -267,6 +267,8 @@ if __name__ == '__main__':
     log_dir = os.path.join(args.output_dir, 'log')
     log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
 
+    log.debug('$ ' + ' '.join(sys.argv))
+
     args.target_job_dir = args.target_job_dir or args.source_job_dir
 
     model_dict = find_by_job_number(args.job, job_dir=args.source_job_dir)

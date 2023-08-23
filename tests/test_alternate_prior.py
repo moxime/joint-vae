@@ -12,6 +12,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('job', type=int)
     parser.add_argument('--batch', type=int, default=100)
+    parser.add_argument('--device')
     args = parser.parse_args()
 
     d = find_by_job_number(args.job, load_net=False)['dir']
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     logging.info('{:.4} -> {:.4}'.format(m.original_prior().mean.var(0).mean(),
                                          m.alternate_prior().mean.var(0).mean()))
 
-    device = 'cuda' if torch.cuda.is_available else 'cpu'
+    device = args.device or ('cuda' if torch.cuda.is_available else 'cpu')
 
     _, dset = get_dataset(m.training_parameters['set'])
 

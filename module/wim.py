@@ -58,7 +58,6 @@ class WIMVariationalNetwork(M):
             model.load_state_dict(s)
 
             logging.debug('Reset results')
-
             model.ood_results = {}
 
         try:
@@ -327,6 +326,8 @@ if __name__ == '__main__':
     dataset = model_dict['set']
 
     model = WIMVariationalNetwork.load(model_dict['dir'], load_net=True, load_state=True)
+
+    print('***', model.ood_results)
 
     log.info('Job #{}'.format(job_number))
 

@@ -2642,6 +2642,8 @@ class ClassificationVariationalNetwork(nn.Module):
             w_p = save_load.get_path(dir_name, 'optimizer.pth')
             torch.save(self.optimizer.state_dict(), w_p)
 
+        return dir_name
+
     @ classmethod
     def load(cls, dir_name,
              load_net=True,

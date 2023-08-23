@@ -2,7 +2,7 @@ import os
 import torch
 import logging
 from cvae import ClassificationVariationalNetwork as M
-from utils.save_load import MissingKeys
+from utils.save_load import MissingKeys, save_json, load_json
 import utils.torch_load as torchdl
 from module.priors import build_prior
 from utils.print_log import EpochOutput
@@ -37,15 +37,18 @@ class WIMVariationalNetwork(M):
 
         assert self._alternate_prior is None
         self._alternate_prior = build_prior(**p)
+        self.wim_params = p.copy()
+
         for p in self._alternate_prior.parameters():
             p.requires_grad_(False)
 
     @classmethod
-    def load(cls, *a, **kw):
+    def load(cls, dir_name, **kw):
 
         try:
-            super().load(*a, strict=False, **kw)
+            model = super().load(dir_name, strict=False, **kw)
         except MissingKeys as e:
+            logging.debug('Model loaded has been detected as not wim')
             model = e.args[0]
             s = e.args[1]  # state_dict
             logging.debug('Creating fake params prior means')
@@ -55,9 +58,24 @@ class WIMVariationalNetwork(M):
             model.load_state_dict(s)
 
             logging.debug('Reset results')
+
+            model.ood_results = {}
+
+        try:
+            wim_params = load_json(dir_name, 'wim.json')
+            model.wim_params = wim_params
+            logging.debug('Model was already a wim')
+
+        except FileNotFoundError:
+            logging.debug('Model loaded has been detected as not wim')
+            logging.debug('Reset results')
             model.ood_results = {}
 
         return model
+
+    def save(self, *a, **kw):
+        dir_name = super().save(*a, **kw)
+        save_json(self.wim_params, dir_name, 'wim.json')
 
     def finetune(self, *sets,
                  epochs=5, alpha=0.1,
@@ -70,6 +88,8 @@ class WIMVariationalNetwork(M):
             optimizer = self.optimizer
 
         logging.debug('Learning rate: {}'.format(optimizer.lr))
+
+        self.wim_params['sets'] = sets
 
         for p in self._alternate_prior.parameters():
             assert not p.requires_grad, 'prior parameter queires grad'

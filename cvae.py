@@ -1487,7 +1487,7 @@ class ClassificationVariationalNetwork(nn.Module):
         all_ood_methods = ood_methods
 
         if recorders == {}:
-            recorders = {n: LossRecorder(batch_size) for n n all_set_names}
+            recorders = {n: LossRecorder(batch_size) for n in all_set_names}
 
         if not recorders:
             recorders = {n: None for n in all_set_names}

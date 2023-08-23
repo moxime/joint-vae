@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-batch', type=int, default=10)
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--accuracy', action='store_true')
-    parser.add_argument('--ood', action='sotre_true')
+    parser.add_argument('--ood', action='store_true')
 
     args_from_file = ('-vvvv '
                       '--jobs 193080 193082'

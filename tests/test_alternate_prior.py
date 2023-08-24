@@ -96,13 +96,13 @@ if __name__ == '__main__':
         m.alternate_prior()
 
     for p in priors:
-        print(p)
+        print('===={}===='.format(p))
         for s in x:
-            print(s)
-            print('total: {:.4}, kl: {:.4}'.format(*(losses[p][s][_] for _ in losses_k)))
+            print('===', s)
+            print(' | ' .join('{}: {:.4}'.format(k, v) for k, v in losses[p][s].items()))
 
-    print('Diffs')
+    print('===Diff===')
 
     for k in ('total', 'kl'):
         for s in x:
-            print(k, s, '{:.4}'.format(losses['original'][s][k] - losses['alternate'][s][k]))
+            print(k, s, '{:.4}'.format(losses['alternate'][s][k] - losses['original'][s][k]))

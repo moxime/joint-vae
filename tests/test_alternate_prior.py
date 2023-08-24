@@ -99,10 +99,10 @@ if __name__ == '__main__':
         print('===={}===='.format(p))
         for s in x:
             print('===', s)
-            print(' | ' .join('{}: {:.4}'.format(k, v) for k, v in losses[p][s].items()))
+            print(' | ' .join('{:6}: {:9.4e}'.format(k, v) for k, v in losses[p][s].items()))
 
     print('===Diff===')
 
-    for k in ('total', 'kl'):
+    for k in losses_k:
         for s in x:
             print(k, s, '{:.4}'.format(losses['alternate'][s][k] - losses['original'][s][k]))

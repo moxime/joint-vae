@@ -104,7 +104,8 @@ if __name__ == '__main__':
     for p in priors:
         for s in x:
             logging.info('Computing {} with {} prior'.format(s, p))
-            _, _, loss, _, mu, _, _ = m.evaluate(x[s].to(device), z_output=True)
+            with torch.no_grad():
+                _, _, loss, _, mu, _, _ = m.evaluate(x[s].to(device), z_output=True)
             mus[p][s] = mu.detach().cpu().numpy()
             losses[p][s] = {_: loss[_].min(0)[0].mean() for _ in losses_k}
         m.alternate_prior()

@@ -67,17 +67,18 @@ if __name__ == '__main__':
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
 
     testset = m.training_parameters['set']
-    oodset = get_same_size_by_name(testset)[0]
+    oodsets = get_same_size_by_name(testset)
 
     _, testset = get_dataset(testset)
-    _, oodset = get_dataset(oodset, splits=['test'])
+    oodsets = [get_dataset(o, splits=['test'])[1] for o in oodsets]
 
     end_of_script(not args.batch)
 
     x = {}
 
     x[testset.name], y = get_batch(testset, batch_size=args.batch)
-    x[oodset.name], y = get_batch(oodset, batch_size=args.batch)
+    for oodset in oodsets:
+        x[oodset.name], y = get_batch(oodset, batch_size=args.batch)
 
     m.to(device)
     m.eval()

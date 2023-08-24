@@ -138,9 +138,9 @@ if __name__ == '__main__':
 
         pca.fit(mu_)
 
-        for i, s in sets:
+        for s in sets:
             z = pca.transform(mus['original'][s])
             plt.scatter(z[:, 0], z[:, 1])
 
-        plt.legend(list(x))
+        plt.legend(sets)
         plt.show()

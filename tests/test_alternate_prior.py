@@ -85,14 +85,14 @@ if __name__ == '__main__':
     m.original_prior()
 
     priors = ('original', 'alternate')
-    losses_k = ('total', 'kl')
+    losses_k = ('total', 'kl', 'zdist')
     losses = {_: {} for _ in priors}
 
     for p in priors:
         for s in x:
             logging.info('Computing {} with {} prior'.format(s, p))
-            _, _, losses[p][s], _ = m.evaluate(x[s].to(device))
-            losses[p][s] = {_: losses[p][s][_].min(0)[0].mean() for _ in losses_k}
+            _, _, loss, _ = m.evaluate(x[s].to(device))
+            losses[p][s] = {_: loss[_].min(0)[0].mean() for _ in losses_k}
         m.alternate_prior()
 
     for p in priors:

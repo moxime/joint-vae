@@ -69,8 +69,8 @@ if __name__ == '__main__':
     try:
         m.alternate_prior()
         _s = 'Had already an alternate prior finetune with {}, ignoring --prior param'
-        logging.info(_s.format(m.wim_params.get('sets', 'unknown set'))
-    except AttributeError:
+        logging.info(_s.format(m.wim_params.get('sets', 'unknown set')))
+     except AttributeError:
         m.set_alternate_prior(alternate_prior)
 
     logging.info('From {} to {}'.format(m.original_prior(), m.alternate_prior()))

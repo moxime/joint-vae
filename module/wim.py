@@ -68,12 +68,12 @@ class WIMVariationalNetwork(M):
 
         try:
             wim_params = load_json(dir_name, 'wim.json')
-            model.wim_params = wim_params
             logging.debug('Model was already a wim')
-            alternate_prior_params = model.wim_params.copy()
+            alternate_prior_params = wim_params.copy()
             for k in ('sets', 'alpha', 'epochs'):
-                alternate_prior_params.pop(k, None)
+                k, alternate_prior_params.pop(k, None)
             model.set_alternate_prior(alternate_prior_params)
+            model.wim_params = wim_params
 
         except FileNotFoundError:
             logging.debug('Model loaded has been detected as not wim')

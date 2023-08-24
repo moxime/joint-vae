@@ -8,9 +8,10 @@ from utils.torch_load import get_batch, get_dataset, get_same_size_by_name
 import argparse
 
 job = 339798
+job = 339814
 
 batch = 0
-batch = 3
+batch = 7
 
 prior = '--prior tilted'
 prior = ''
@@ -78,7 +79,10 @@ if __name__ == '__main__':
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
 
     testset = m.training_parameters['set']
-    oodsets = get_same_size_by_name(testset)[-1 if device == 'cpu' else 0:]
+    oodsets = get_same_size_by_name(testset)
+
+    if device == 'cpu':
+        oodsets = m.wim_params.get('sets', oodsets[:1])
 
     _, testset = get_dataset(testset)
     oodsets = [get_dataset(o, splits=['test'])[1] for o in oodsets]
@@ -129,6 +133,9 @@ if __name__ == '__main__':
         mu_ = np.vstack(list(mus['original'].values()))
 
         pca.fit(mu_)
+
+        sets = list(x)[1:]
+        sets = list(x)[:1] + m.wim_params.get('sets', sets)
 
         for i, s in enumerate(x):
             z = pca.transform(mus['original'][s])

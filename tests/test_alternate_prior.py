@@ -131,14 +131,14 @@ if __name__ == '__main__':
 
         pca = PCA(n_components=2)
 
-        mu_ = np.vstack(list(mus['original'].values()))
-
-        pca.fit(mu_)
-
         sets = list(x)[1:]
         sets = list(x)[:1] + m.wim_params.get('sets', sets)
 
-        for i, s in enumerate(x):
+        mu_ = np.vstack(list(mus['original'][s] for s in sets))
+
+        pca.fit(mu_)
+
+        for i, s in sets:
             z = pca.transform(mus['original'][s])
             plt.scatter(z[:, 0], z[:, 1])
 

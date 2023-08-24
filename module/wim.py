@@ -31,13 +31,15 @@ class WIMVariationalNetwork(M):
         return self.encoder.prior
 
     def alternate_prior(self):
-        assert self._alternate_prior is not None
+        if self._alternate_prior is None:
+            raise AttributeError('Model still not has alternat prior')
         self.encoder.prior = self._alternate_prior
         logging.debug('Switching to alternate prior: {}'.format(self.encoder.prior))
         return self.encoder.prior
 
     def set_alternate_prior(self, p):
 
+        logging.debug('Setting alternate prior')
         assert self._alternate_prior is None
         self._alternate_prior = build_prior(**p)
         self.wim_params = p.copy()
@@ -68,6 +70,10 @@ class WIMVariationalNetwork(M):
             wim_params = load_json(dir_name, 'wim.json')
             model.wim_params = wim_params
             logging.debug('Model was already a wim')
+            alternate_prior_params = model.wim_params.copy()
+            for k in ('sets', 'alpha', 'epochs'):
+                alternate_prior_params.pop(k, None)
+            model.set_alternate_prior(alternate_prior_params)
 
         except FileNotFoundError:
             logging.debug('Model loaded has been detected as not wim')

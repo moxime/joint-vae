@@ -7,15 +7,18 @@ from utils.save_load import find_by_job_number
 from utils.torch_load import get_batch, get_dataset, get_same_size_by_name
 import argparse
 
-job = 317036
+job = 339798
 
 batch = 0
-batch = 5
+batch = 3
 
 prior = '--prior tilted'
 prior = ''
 
-argv = '--batch {} {} {}'.format(batch, prior, job).split()
+show = ''
+show = '--show'
+
+argv = '--batch {} {} {} {}'.format(batch, prior, job, show).split()
 
 
 class EndOfScript(Exception):
@@ -39,6 +42,9 @@ def end_of_script(b, msg=''):
 
 if __name__ == '__main__':
 
+    from sklearn.decomposition import PCA
+    import matplotlib.pyplot as plt
+
     logging.getLogger().setLevel(20)
 
     parser = argparse.ArgumentParser()
@@ -46,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--prior')
     parser.add_argument('--batch', type=int, default=100)
     parser.add_argument('--device')
+    parser.add_argument('--show', action='store_true')
 
     args = parser.parse_args(None if sys.argv[0] else argv)
 
@@ -58,7 +65,11 @@ if __name__ == '__main__':
     if args.prior:
         alternate_prior['distribution'] = args.prior
 
-    m.set_alternate_prior(alternate_prior)
+    try:
+        m.alternate_prior()
+        logging.info('Had already an alternate prior, ignoring --prior param')
+    except AttributeError:
+        m.set_alternate_prior(alternate_prior)
 
     logging.info('From {} to {}'.format(m.original_prior(), m.alternate_prior()))
     logging.info('{:.4} -> {:.4}'.format(m.original_prior().mean.var(0).mean(),
@@ -67,7 +78,7 @@ if __name__ == '__main__':
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
 
     testset = m.training_parameters['set']
-    oodsets = get_same_size_by_name(testset)
+    oodsets = get_same_size_by_name(testset)[-1 if device == 'cpu' else 0:]
 
     _, testset = get_dataset(testset)
     oodsets = [get_dataset(o, splits=['test'])[1] for o in oodsets]
@@ -88,11 +99,13 @@ if __name__ == '__main__':
     priors = ('original', 'alternate')
     losses_k = ('total', 'kl', 'zdist')
     losses = {_: {} for _ in priors}
+    mus = {_: {} for _ in priors}
 
     for p in priors:
         for s in x:
             logging.info('Computing {} with {} prior'.format(s, p))
-            _, _, loss, _ = m.evaluate(x[s].to(device))
+            _, _, loss, _, mu, _, _ = m.evaluate(x[s].to(device), z_output=True)
+            mus[p][s] = mu.detach().cpu().numpy()
             losses[p][s] = {_: loss[_].min(0)[0].mean() for _ in losses_k}
         m.alternate_prior()
 
@@ -107,3 +120,18 @@ if __name__ == '__main__':
     for k in losses_k:
         for s in x:
             print(k, s, '{:.4}'.format(losses['alternate'][s][k] - losses['original'][s][k]))
+
+    if args.show:
+
+        pca = PCA(n_components=2)
+
+        mu_ = np.vstack(list(mus['original'].values()))
+
+        pca.fit(mu_)
+
+        for i, s in enumerate(x):
+            z = pca.transform(mus['original'][s])
+            plt.scatter(z[:, 0], z[:, 1])
+
+        plt.legend(list(x))
+        plt.show()

@@ -70,49 +70,49 @@ if __name__ == '__main__':
         m.alternate_prior()
         _s = 'Had already an alternate prior finetune with {}, ignoring --prior param'
         logging.info(_s.format(m.wim_params.get('sets', 'unknown set')))
-     except AttributeError:
+    except AttributeError:
         m.set_alternate_prior(alternate_prior)
 
     logging.info('From {} to {}'.format(m.original_prior(), m.alternate_prior()))
     logging.info('{:.4} -> {:.4}'.format(m.original_prior().mean.var(0).mean(),
                                          m.alternate_prior().mean.var(0).mean()))
 
-    device=args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
+    device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
 
-    testset=m.training_parameters['set']
-    oodsets=get_same_size_by_name(testset)
+    testset = m.training_parameters['set']
+    oodsets = get_same_size_by_name(testset)
 
     if device == 'cpu':
-        oodsets=m.wim_params.get('sets', oodsets[:1])
+        oodsets = m.wim_params.get('sets', oodsets[:1])
 
-    _, testset=get_dataset(testset)
-    oodsets=[get_dataset(o, splits=['test'])[1] for o in oodsets]
+    _, testset = get_dataset(testset)
+    oodsets = [get_dataset(o, splits=['test'])[1] for o in oodsets]
 
     end_of_script(not args.batch)
 
-    x={}
+    x = {}
 
-    x[testset.name], y=get_batch(testset, batch_size=args.batch)
+    x[testset.name], y = get_batch(testset, batch_size=args.batch)
     for oodset in oodsets:
-        x[oodset.name], y=get_batch(oodset, batch_size=args.batch)
+        x[oodset.name], y = get_batch(oodset, batch_size=args.batch)
 
     m.to(device)
     m.eval()
 
     m.original_prior()
 
-    priors=('original', 'alternate')
-    losses_k=('total', 'kl', 'zdist')
-    losses={_: {} for _ in priors}
-    mus={_: {} for _ in priors}
+    priors = ('original', 'alternate')
+    losses_k = ('total', 'kl', 'zdist')
+    losses = {_: {} for _ in priors}
+    mus = {_: {} for _ in priors}
 
     for p in priors:
         for s in x:
             logging.info('Computing {} with {} prior'.format(s, p))
             with torch.no_grad():
-                _, _, loss, _, mu, _, _=m.evaluate(x[s].to(device), z_output=True)
-            mus[p][s]=mu.detach().cpu().numpy()
-            losses[p][s]={_: loss[_].min(0)[0].mean() for _ in losses_k}
+                _, _, loss, _, mu, _, _ = m.evaluate(x[s].to(device), z_output=True)
+            mus[p][s] = mu.detach().cpu().numpy()
+            losses[p][s] = {_: loss[_].min(0)[0].mean() for _ in losses_k}
         m.alternate_prior()
 
     for p in priors:
@@ -129,17 +129,17 @@ if __name__ == '__main__':
 
     if args.show:
 
-        pca=PCA(n_components=2)
+        pca = PCA(n_components=2)
 
-        mu_=np.vstack(list(mus['original'].values()))
+        mu_ = np.vstack(list(mus['original'].values()))
 
         pca.fit(mu_)
 
-        sets=list(x)[1:]
-        sets=list(x)[:1] + m.wim_params.get('sets', sets)
+        sets = list(x)[1:]
+        sets = list(x)[:1] + m.wim_params.get('sets', sets)
 
         for i, s in enumerate(x):
-            z=pca.transform(mus['original'][s])
+            z = pca.transform(mus['original'][s])
             plt.scatter(z[:, 0], z[:, 1])
 
         plt.legend(list(x))

@@ -108,7 +108,7 @@ class WIMVariationalNetwork(M):
             wim_params = load_json(dir_name, 'wim.json')
             logging.debug('Model was already a wim')
             alternate_prior_params = wim_params.copy()
-            for k in ('sets', 'alpha', 'epochs'):
+            for k in ('sets', 'alpha', 'epochs', 'from'):
                 k, alternate_prior_params.pop(k, None)
             model.set_alternate_prior(alternate_prior_params)
             model.wim_params = wim_params
@@ -418,6 +418,7 @@ if __name__ == '__main__':
     alternate_prior_params['tau'] = args.tau
 
     model.set_alternate_prior(alternate_prior_params)
+    model.wim_params['from'] = args.job
 
     with model.original_prior as p1:
         with model.alternate_prior as p2:

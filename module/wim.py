@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 import logging
 import time
 
@@ -25,17 +26,54 @@ class WIMVariationalNetwork(M):
         if alternate_prior is not None:
             self.set_alternate_prior(alternate_prior)
 
-    def original_prior(self):
-        self.encoder.prior = self._original_prior
-        logging.debug('Switching to original prior: {}'.format(self.encoder.prior))
+        self._is_alternate_prior = False
+
+    @property
+    def is_alternate_prior(self):
+        return self._is_alternate_prior
+
+    @property
+    def is_original_prior(self):
+        return not self.is_alternate_prior
+
+    def _switch_to_alternate_prior(self, b):
+        if b:
+            if self._alternate_prior is None:
+                raise AttributeError('Model still not has alternat prior')
+            self.encoder.prior = self._alternate_prior
+            logging.debug('Switching to alternate prior: {}'.format(self.encoder.prior))
+            self._is_alternate_prior = True
+        else:
+            self.encoder.prior = self._original_prior
+            logging.debug('Switching to original prior: {}'.format(self.encoder.prior))
+            self._is_alternate_prior = False
         return self.encoder.prior
 
+    @property
+    @contextmanager
+    def original_prior(self):
+        state = self.is_original_prior
+        try:
+            yield self._switch_to_alternate_prior(False)
+        finally:
+            self.original_prior = state
+
+    @property
+    @contextmanager
     def alternate_prior(self):
-        if self._alternate_prior is None:
-            raise AttributeError('Model still not has alternat prior')
-        self.encoder.prior = self._alternate_prior
-        logging.debug('Switching to alternate prior: {}'.format(self.encoder.prior))
-        return self.encoder.prior
+        state = self.is_alternate_prior
+        try:
+            yield self._switch_to_alternate_prior(True)
+        finally:
+            self.alternate_prior = state
+
+    @alternate_prior.setter
+    def alternate_prior(self, b):
+        self._switch_to_alternate_prior(b)
+
+    @original_prior.setter
+    def original_prior(self, b):
+        self.alternate_prior = not b
 
     def set_alternate_prior(self, p):
 
@@ -83,8 +121,11 @@ class WIMVariationalNetwork(M):
         return model
 
     def save(self, *a, **kw):
-        dir_name = super().save(*a, **kw)
+
+        with self.original_prior:
+            dir_name = super().save(*a, **kw)
         save_json(self.wim_params, dir_name, 'wim.json')
+        return dir_name
 
     def finetune(self, *sets,
                  epochs=5, alpha=0.1,
@@ -155,7 +196,7 @@ class WIMVariationalNetwork(M):
             except FileExistsError:
                 assert os.path.isdir(d), '{} exists and is not a dir'.format(d)
 
-        self.original_prior()
+        self.original_prior = True
         with torch.no_grad():
             self.ood_detection_rates(batch_size=test_batch_size,
                                      num_batch='all',
@@ -191,7 +232,7 @@ class WIMVariationalNetwork(M):
 
                 optimizer.zero_grad()
 
-                self.original_prior()
+                self.original_prior = True
                 (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
                                                                    current_measures=current_measures,
                                                                    batch=i,
@@ -207,7 +248,7 @@ class WIMVariationalNetwork(M):
                                 batch_size=batch_size,
                                 end_of_epoch='\n')
 
-                self.alternate_prior()
+                self.alternate_prior = True
 
                 L = batch_losses['total'].mean()
 
@@ -255,7 +296,7 @@ class WIMVariationalNetwork(M):
 
         logging.info('Computing ood fprs')
 
-        self.original_prior()
+        self.original_prior = True
 
         self.eval()
         with torch.no_grad():
@@ -301,7 +342,7 @@ if __name__ == '__main__':
     parser.add_argument('--target-job-dir')
     parser.add_argument('--job-number', '-j', type=int)
 
-    parser.add_argument('--wim-sets', nargs='*')
+    parser.add_argument('--wim-sets', nargs='*', default=[])
     parser.add_argument('--alpha', type=float)
     parser.add_argument('--epochs', type=int)
 
@@ -368,7 +409,7 @@ if __name__ == '__main__':
     model.saved_dir = save_dir
 
     model.encoder.prior.mean.requires_grad_(False)
-    alternate_prior_params = model.encoder.prior.params
+    alternate_prior_params = model.encoder.prior.params.copy()
     alternate_prior_params['learned_means'] = False
 
     alternate_prior_params['init_mean'] = args.prior_means
@@ -378,11 +419,13 @@ if __name__ == '__main__':
 
     model.set_alternate_prior(alternate_prior_params)
 
-    log.info('WIM from {} to {}'.format(model.original_prior(), model.alternate_prior()))
+    with model.original_prior as p1:
+        with model.alternate_prior as p2:
+            log.info('WIM from {} to {}'.format(p1, p2))
 
-    if model.encoder.prior.num_priors > 1:
-        log.info('Means from {:.3} to {:.3}'.format(model.original_prior().mean.std(0).mean(),
-                                                    model.alternate_prior().mean.std(0).mean()))
+            if p1.num_priors > 1:
+                log.info('Means from {:.3} to {:.3}'.format(p1.mean.std(0).mean(),
+                                                            p2.mean.std(0).mean()))
 
     try:
         model.to(device)
@@ -394,6 +437,7 @@ if __name__ == '__main__':
     if args.lr:
         logging.info('New optimizer')
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
+
     model.finetune(*args.wim_sets,
                    epochs=args.epochs,
                    test_batch_size=args.test_batch_size,

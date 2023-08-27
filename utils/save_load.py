@@ -1115,6 +1115,13 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     else:
         recorded_epoch = None
 
+    try:
+        wim = model.wim_params
+    except AttributeError:
+        wim = {}
+
+    wim_sets = '-'.join(wim['sets']) if wim.get('sets') else None
+
     finished = model.train_history['epochs'] >= model.training_parameters['epochs']
     return {'net': model,
             'job': model.job_number,
@@ -1179,6 +1186,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'l': architecture.test_latent_sampling,
             'warmup': training.warmup[-1],
             'warmup_gamma': training.warmup_gamma[-1],
+            'wim_sets': wim_sets,
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),
             'batch_norm': architecture.batch_norm or None,
@@ -1262,7 +1270,7 @@ def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw
     return mlist
 
 
-@iterable_over_subdirs(0, iterate_over_subdirs=list)
+@ iterable_over_subdirs(0, iterate_over_subdirs=list)
 def collect_models(directory,
                    wanted_epoch='last',
                    load_state=True, tpr=0.95, **default_load_paramaters):

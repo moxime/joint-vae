@@ -28,6 +28,10 @@ class WIMVariationalNetwork(M):
 
         self._is_alternate_prior = False
 
+    @classmethod
+    def is_wim(cls, d):
+        return os.path.exists(os.path.join(d, 'wim.json'))
+
     @property
     def is_alternate_prior(self):
         return self._is_alternate_prior
@@ -86,10 +90,10 @@ class WIMVariationalNetwork(M):
             p.requires_grad_(False)
 
     @classmethod
-    def load(cls, dir_name, **kw):
+    def load(cls, dir_name, load_net=True, **kw):
 
         try:
-            model = super().load(dir_name, strict=False, **kw)
+            model = super().load(dir_name, strict=False, load_net=load_net, **kw)
         except MissingKeys as e:
             logging.debug('Model loaded has been detected as not wim')
             logging.debug('Missing keys: {}'.format(', '.join(e.args[-1])))
@@ -110,7 +114,8 @@ class WIMVariationalNetwork(M):
             alternate_prior_params = wim_params.copy()
             for k in ('sets', 'alpha', 'epochs', 'from'):
                 k, alternate_prior_params.pop(k, None)
-            model.set_alternate_prior(alternate_prior_params)
+            if load_net:
+                model.set_alternate_prior(alternate_prior_params)
             model.wim_params = wim_params
 
         except FileNotFoundError:

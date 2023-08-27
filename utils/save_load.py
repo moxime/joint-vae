@@ -1250,13 +1250,14 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
 
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw):
 
-    from cvae import ClassificationVariationalNetwork
+    from cvae import ClassificationVariationalNetwork as M
+    from module.wim import WIMVariationalNetwork as W
 
     mlist = []
-    for _ in mdict:
-        if filter is None or filter.filter(mdict[_]):
-            m = ClassificationVariationalNetwork.load(_, **kw)
-            mlist.append(make_dict_from_model(m, _, tpr=tpr, wanted_epoch=wanted_epoch))
+    for d in mdict:
+        if filter is None or filter.filter(mdict[d]):
+            m = W.load(d, **kw) if W.is_wim(d) else M.load(d, **kw)
+            mlist.append(make_dict_from_model(m, d, tpr=tpr, wanted_epoch=wanted_epoch))
 
     return mlist
 
@@ -1266,7 +1267,8 @@ def collect_models(directory,
                    wanted_epoch='last',
                    load_state=True, tpr=0.95, **default_load_paramaters):
 
-    from cvae import ClassificationVariationalNetwork
+    from cvae import ClassificationVariationalNetwork as M
+    from module.wim import WIMVariationalNetwork as W
 
     if 'dump' in directory:
         return
@@ -1275,9 +1277,10 @@ def collect_models(directory,
 
     try:
         logging.debug(f'Loading net in: {directory}')
-        model = ClassificationVariationalNetwork.load(directory,
-                                                      load_state=load_state,
-                                                      **default_load_paramaters)
+        if W.is_wim(directory):
+            model = W.load(directory, load_state=load_state, **default_load_paramaters)
+        else:
+            model = M.load(directory, load_state=load_state, **default_load_paramaters)
 
         return make_dict_from_model(model, directory, tpr=tpr, wanted_epoch=wanted_epoch)
 

@@ -9,6 +9,7 @@ jobs*/
 *-jobs/
 test-jobs/
 old-jobs/
+number-*
 *~
 *.sh
 *.log

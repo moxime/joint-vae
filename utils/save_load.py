@@ -1120,7 +1120,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     except AttributeError:
         wim = {}
 
-    wim_sets = '-'.join(wim['sets']) if wim.get('sets') else None
+    wim_sets = '-'.join(sorted(wim['sets'])) if wim.get('sets') else None
+    wim_prior = wim.get('distribution')
 
     finished = model.train_history['epochs'] >= model.training_parameters['epochs']
     return {'net': model,
@@ -1187,6 +1188,9 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'warmup': training.warmup[-1],
             'warmup_gamma': training.warmup_gamma[-1],
             'wim_sets': wim_sets,
+            'wim_prior': wim_prior,
+            'wim_alpha': wim.get('alpha'),
+            'wim_epochs': wim.get('epochs'),
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),
             'batch_norm': architecture.batch_norm or None,

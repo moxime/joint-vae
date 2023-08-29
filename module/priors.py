@@ -38,7 +38,7 @@ def build_prior(dim, distribution='gaussian', **kw):
     assert distribution in valid_dist, '{} unknown (try one of: {})'.format(distribution, ', '.join(valid_dist))
     if distribution == 'gaussian':
         if kw.pop('tau', None) is not None:
-            logging.info('discarded value of tau for gaussian prior')
+            logging.debug('discarded value of tau for gaussian prior')
         return GaussianPrior(dim, **kw)
     elif distribution == 'tilted':
         if kw.pop('var_dim', 'scalar') != 'scalar':

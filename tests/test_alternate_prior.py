@@ -50,6 +50,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('job', type=int)
+    parser.add_argument('--job-dir', '-J', default='./jobs')
     parser.add_argument('--prior')
     parser.add_argument('--batch', type=int, default=100)
     parser.add_argument('--device')
@@ -57,7 +58,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args(None if sys.argv[0] else argv)
 
-    d = find_by_job_number(args.job, load_net=False)['dir']
+    d = find_by_job_number(args.job, job_dir=args.job_dir, load_net=False)['dir']
 
     m = W.load(d, load_state=True, load_net=True)
 
@@ -67,15 +68,16 @@ if __name__ == '__main__':
         alternate_prior['distribution'] = args.prior
 
     try:
-        m.alternate_prior()
+        m.alternate_prior = True
         _s = 'Had already an alternate prior finetune with {}, ignoring --prior param'
         logging.info(_s.format(m.wim_params.get('sets', 'unknown set')))
     except AttributeError:
         m.set_alternate_prior(alternate_prior)
 
-    logging.info('From {} to {}'.format(m.original_prior(), m.alternate_prior()))
-    logging.info('{:.4} -> {:.4}'.format(m.original_prior().mean.var(0).mean(),
-                                         m.alternate_prior().mean.var(0).mean()))
+    with m.original_prior as p1:
+        with m.alternate_prior as p2:
+            _s = 'From {} ({:.4}) to {} ({:.4})'
+            logging.info(_s.format(p1, p1.mean.var(0).mean(), p2, p2.mean.var(0).mean()))
 
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -99,13 +101,12 @@ if __name__ == '__main__':
     m.to(device)
     m.eval()
 
-    m.original_prior()
-
     priors = ('original', 'alternate')
     losses_k = ('total', 'kl', 'zdist')
     losses = {_: {} for _ in priors}
     mus = {_: {} for _ in priors}
 
+    m.original_prior = True
     for p in priors:
         for s in x:
             logging.info('Computing {} with {} prior'.format(s, p))
@@ -113,7 +114,7 @@ if __name__ == '__main__':
                 _, _, loss, _, mu, _, _ = m.evaluate(x[s].to(device), z_output=True)
             mus[p][s] = mu.detach().cpu().numpy()
             losses[p][s] = {_: loss[_].min(0)[0].mean() for _ in losses_k}
-        m.alternate_prior()
+        m.alternate_prior = True
 
     for p in priors:
         print('===={}===='.format(p))
@@ -139,7 +140,7 @@ if __name__ == '__main__':
         pca.fit(mu_)
 
         for s in sets:
-            z = pca.transform(mus['original'][s])
+            z = pca.fit_transform(mus['original'][s])
             plt.scatter(z[:, 0], z[:, 1])
 
         plt.legend(sets)

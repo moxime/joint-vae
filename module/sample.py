@@ -118,8 +118,6 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
 
         z = torch.randn(L, N, K, device=net.device)
 
-        u = net.decoder(z)
-        x_ = net.imager(u.view(-1, *net.imager.input_shape)).view(L, N, *net.input_shape)
         if net.is_cvae:
             z = z + net.encoder.prior.mean.unsqueeze(0)
 
@@ -127,7 +125,8 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
                   'tensor': torch.zeros((D, 0, L * W), device=net.device)}
         list_of_images = [x_grid]
 
-        x_ = net.imager(net.decoder(z)).view(L, N, D, H, W)
+        u = net.decoder(z)
+        x_ = net.imager(u.view(-1, *net.imager.input_shape)).view(L, N, *net.input_shape)
 
         for row in range(N):
 

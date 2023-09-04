@@ -1407,6 +1407,8 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
             sdir = os.path.join(d, 'samples', epoch_, 'record-{}.pth'.format(s))
             logging.debug('Looking for {}'.format(sdir))
             if not os.path.exists(sdir):
+                if missing_file_stream:
+                    missing_file_stream.write(sdir + '\n')
                 yield d, sdir
 
         if state:

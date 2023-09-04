@@ -444,7 +444,7 @@ if __name__ == '__main__':
                 y[_] = torch.cat(y_correct_or_not)
 
             for s in x:
-                logging.info('sampling ({] of {})'.format(N, s))
+                logging.info('sampling ({} of {})'.format(N, s))
 
                 if N:
                     # N_ = batch_size if s == '?correct' else N

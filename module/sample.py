@@ -116,7 +116,7 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
         (D, H, W) = net.input_shape[-3:]
         K = net.latent_dim
 
-        z = torch.randn(L, N, K, device=m.device)
+        z = torch.randn(L, N, K, device=net.device)
 
         u = net.decoder(z)
         x_ = net.imager(u.view(-1, *net.imager.input_shape)).view(L, N, *net.input_shape)

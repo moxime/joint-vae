@@ -444,7 +444,7 @@ if __name__ == '__main__':
                 y[_] = torch.cat(y_correct_or_not)
 
             for s in x:
-                logging.info('sampling %s', s)
+                logging.info('sampling ({] of% {})'.format(N, s))
 
                 if N:
                     # N_ = batch_size if s == '?correct' else N
@@ -463,6 +463,7 @@ if __name__ == '__main__':
                                 batch_size=m,
                                 root=root, bins=args.bins, directory=s)
 
-            if N and False:
+            if N and True:
+                logging.info('Image generation')
                 list_of_images = sample(model, root=root,
                                         directory='generate', N=N, L=L)

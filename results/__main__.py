@@ -266,7 +266,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             tab.append_cell(meta_headers[_], row='meta_header', width=n_methods)
             for _i in range(len(tab_idx) + 1, n_methods + len(tab_idx)):
                 tab.add_col_sep(i * n_methods + _i, sep='/')
-        tab.append_cell('/'.join(methods), row='header', width=len(cols))
+        tab.append_cell(r'\small{' + '/'.join(methods) + '}', row='header', width=len(cols))
 
     else:
         for _ in tab_idx:

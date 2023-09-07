@@ -1086,9 +1086,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     latent_prior += latent_prior_variance[0]
 
     empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optimizer)
-    depth = (1 + len(architecture.encoder)
-             + len(architecture.decoder))
-    # + len(architecture.classifier))
 
     try:
         class_width = sum(architecture.classifier)
@@ -1101,6 +1098,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
              sum(architecture.encoder) +
              sum(architecture.decoder) +
              class_width)
+
+    depth = (1 + len(architecture.encoder)
+             + len(architecture.decoder)
+             + len(architecture.classifier) if class_type == 'linear' else 0)
 
     # print('TBR', architecture.type, model.job_number, *loss_['test'].keys())
 
@@ -1122,6 +1123,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     wim_sets = '-'.join(sorted(wim['sets'])) if wim.get('sets') else None
     wim_prior = wim.get('distribution')
+    wim_from = wim.get('from')
 
     finished = model.train_history['epochs'] >= model.training_parameters['epochs']
     return {'net': model,
@@ -1191,6 +1193,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'wim_prior': wim_prior,
             'wim_alpha': wim.get('alpha'),
             'wim_epochs': wim.get('epochs'),
+            'wim_from': wim.get('from'),
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),
             'batch_norm': architecture.batch_norm or None,

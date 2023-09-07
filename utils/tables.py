@@ -382,8 +382,17 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         large_df = large_df.droplevel(removed_index)
         harddebug('removed index', *large_df.index.names)
 
+    # print('***Before average***')
+    # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+
     if average:
         large_df.loc[average] = large_df.mean()
+        acc_columns = large_df.columns[large_df.columns.isin(['acc'], level='metrics')]
+        large_df.loc[average][acc_columns] = np.nan
+
+    # print('***After average***')
+    # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+
     return large_df.reorder_levels(['metrics', 'method'], axis=1)
 
 
@@ -536,7 +545,7 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
     # df_.index = index_.set_levels([idx.format(formatter=return_as_type) for idx in index_.levels])
     df_.index = pd.MultiIndex.from_frame(index_df)
 
-    df.index.names = [indices_replacement.get(_, _)for _ in df.index.names]
+    df_.index.names = [indices_replacement.get(_, _)for _ in df.index.names]
 
     if not inplace:
         return df_

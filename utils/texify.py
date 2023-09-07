@@ -652,11 +652,15 @@ class TexTab(object):
 
         self._col_sep[before_col] = sep
 
-    def render(self, io=sys.stdout):
+    def render(self, io=sys.stdout, robustify=True):
 
         for comment in self._comments.get(None, []):
             io.write(comment)
             io.write('\n')
+
+        if robustify:
+            for _ in tex_faces:
+                io.write(r'\robustify' + tex_faces[_] + '\n')
 
         col_formats = []
         for i, f in enumerate(self._col_format):

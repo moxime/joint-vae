@@ -142,6 +142,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         header = [int(_) for _ in config[k]['header'].split()]
 
         df = pd.read_csv(csv_file, index_col=index_col, header=header)
+        df.rename(columns={'fpr': 'rate', 'acc': 'rate', 'accuracy': 'rate'}, inplace=True)
         if df.index.nlevels > 1:
             df.index = df.index.set_levels([_.astype(str) for _ in df.index.levels])
 

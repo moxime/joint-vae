@@ -333,6 +333,7 @@ if __name__ == '__main__':
     df = results_dataframe(models_to_be_kept,
                            ood_methods=args.ood_methods or all_methods,
                            predict_methods=args.predict_methods or all_methods,
+                           misclass_methods='first',
                            ood=oodsets,
                            show_measures=10,
                            tnr=args.tnr,

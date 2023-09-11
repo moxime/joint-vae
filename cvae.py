@@ -2539,6 +2539,10 @@ class ClassificationVariationalNetwork(nn.Module):
         self.optimizer.to(d)
 
     @ property
+    def nparams(self):
+        return sum(p.nelement() for p in self.parameters())
+
+    @ property
     def latent_sampling(self):
         return self._latent_sampling
 

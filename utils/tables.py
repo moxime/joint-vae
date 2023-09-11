@@ -236,6 +236,7 @@ def results_dataframe(models,
     method_cols = {_: True for _ in methods}
     for _ in method_cols:
         if methods[_] is not None:
+            # print('***', _, *methods[_])
             method_cols[_] = cols.isin(methods[_], level='method')
 
     acc_cols = cols.isin(['acc'], level='metrics') & method_cols['predict']
@@ -246,6 +247,7 @@ def results_dataframe(models,
         ood_cols = ood_cols & cols.isin(ood, level='set')
 
     misclass_cols_set_level = ['errors-' + _ for _ in methods['predict']]
+    # print('***', cols[cols.isin(misclass_cols_set_level, level='set')])
     misclass_cols = cols.isin(misclass_cols_set_level, level='set') & method_cols['misclass']
 
     measures_cols = cols.isin(['measures'], level='set')

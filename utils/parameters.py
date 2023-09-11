@@ -510,10 +510,11 @@ def get_args_for_results(argv=None):
                                                                                      type=locate(ftype or 'str')))
 
         if 'sets' in config:
+            sets_set_by_arg = [_[0] for _ in args.sets]
             for _ in config['sets']:
                 sets = config['sets'][_].split()
-                args.sets.append([_, *sets])
-
+                if _ not in sets_set_by_arg:
+                    args.sets.append([_, *sets])
     return args
 
 

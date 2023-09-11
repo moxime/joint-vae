@@ -1,4 +1,5 @@
 from functools import partial
+import hashlib
 import argparse
 import configparser
 import sys
@@ -83,6 +84,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             logging.debug('| | %s: %s', _, ' '.join(str(__) for __ in f[_]))
 
     models_by_type = {k: [] for k in filters}
+    archs_by_type = {k: set() for k in filters}
 
     for n in models:
         for k, filter in filters.items():
@@ -99,11 +101,13 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
                 with turnoff_debug():
                     n = make_dict_from_model(n['net'], n['dir'], wanted_epoch=epoch)
                 models_by_type[k].append(n)
+                archs_by_type[k].add(n['arch'])
 
     tpr_ = default_config['tpr']
     tpr = float(tpr_) / 100
     raw_df = {}
     job_list = {}
+    df_string = {}
     for k in which_from_filters:
         job_list[k] = [_['job'] for _ in models_by_type[k]]
         job_list_str = ' '.join(str(_) for _ in job_list[k])
@@ -123,11 +127,11 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             idx.remove('job')
 
         df_short = format_df_index(df)
-        df_string = df_short[df_short.columns[:3]].to_string(float_format='{:.1f}'.format)
-        df_width = len(df_string.split('\n')[0])
+        df_string[k] = df_short[df_short.columns[:3]].to_string(float_format='{:.1f}'.format)
+        df_width = len(df_string[k].split('\n')[0])
         if show_dfs:
             print('\n{k:=^{w}s}'.format(k=k, w=df_width))
-            print(df_string)
+            print(df_string[k])
             print('{k:=^{w}s}\n'.format(k='', w=df_width))
 
         # print('****', df.columns.names)
@@ -331,8 +335,18 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         tab.add_midrule(row=average_row, start=len(idx_), after=False)
 
     for k in job_list:
+        tab.comment('{:=^80}'.format(k.upper()))
         tab.comment('{:2} models for {:12}: {}'.format(len(job_list[k]), k,
                                                        ' '.join(str(_) for _ in job_list[k])))
+        tab.comment('Index table:')
+        for cl in df_string[k].split('\n'):
+            tab.comment(cl)
+        tab.comment('Archs:')
+        for a in archs_by_type[k]:
+            tab.comment('{}: {}'.format(hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6], a))
+        tab.comment('\n')
+        tab.comment('\n')
+        tab.comment('\n')
 
     with open(tab_file, 'w') as f:
         tab.render(f)

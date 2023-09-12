@@ -44,10 +44,10 @@ class Optimizer:
         self._opt = constructor(parameters, lr=lr, weight_decay=weight_decay, **kw)
 
         nparams = sum(_.nelement() for _ in parameters)
-        logging.debug('Creating optimizer for {n} parameters with {t} and lr={l:.g}'.format(n=nparams,
-                                                                                            t=optim_type,
-                                                                                            l=lr
-                                                                                            ))
+        logging.debug('Creating optimizer for {n} parameters with {t} and lr={l:g}'.format(n=nparams,
+                                                                                           t=optim_type,
+                                                                                           l=lr
+                                                                                           ))
 
         self.lr_decay = lr_decay
         if lr_decay:

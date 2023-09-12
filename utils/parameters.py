@@ -30,6 +30,13 @@ def gethostname():
     return raw_host.split('.')[0].lower()
 
 
+def next_jobnumber():
+
+    j = get_last_jobnumber()
+    register_last_jobnumber(j + 1)
+    return j + 1
+
+
 def get_last_jobnumber():
 
     hostname = gethostname()

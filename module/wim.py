@@ -319,7 +319,7 @@ if __name__ == '__main__':
     import argparse
     import configparser
     from utils.save_load import find_by_job_number
-    from utils.parameters import get_last_jobnumber, register_last_jobnumber, set_log
+    from utils.parameters import next_jobnumber, set_log
     from module.optimizers import Optimizer
 
     conf_parser = argparse.ArgumentParser(add_help=False)
@@ -367,7 +367,7 @@ if __name__ == '__main__':
 
     job_number = args.job_number
     if not job_number:
-        job_number = get_last_jobnumber() + 1
+        job_number = next_jobnumber()
 
     log_dir = os.path.join(args.output_dir, 'log')
     log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
@@ -395,8 +395,6 @@ if __name__ == '__main__':
     log.info('Job #{}'.format(job_number))
 
     log.debug('$ ' + ' '.join(sys.argv))
-
-    register_last_jobnumber(job_number)
 
     save_dir_root = os.path.join(args.target_job_dir, dataset,
                                  model.print_architecture(sampling=False),

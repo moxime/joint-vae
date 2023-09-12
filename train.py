@@ -9,7 +9,7 @@ import os
 import sys
 import argparse
 
-from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname
+from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname, next_jobnumber
 from utils.save_load import collect_models, find_by_job_number, NoModelError, get_submodule
 from utils.print_log import EpochOutput
 from utils.signaling import SIGHandler
@@ -31,19 +31,15 @@ if __name__ == '__main__':
     job_dir = args.job_dir
     job_number = args.job_number
 
+    if not job_number:
+        job_number = next_jobnumber()
+
     log_dir = os.path.join(args.output_dir, 'log')
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     log = set_log(verbose, debug, log_dir, job_number=job_number)
 
     log.debug('$ ' + ' '.join(sys.argv))
-
-    if not job_number:
-        try:
-            with open(os.path.join(job_dir, f'number-{hostname}')) as f:
-                job_number = int(f.read())
-        except FileNotFoundError:
-            log.warning(f'File number-{hostname} not found in {job_dir}')
 
     for k in args.__dict__.items():
         log.debug('%s: %s', *k)

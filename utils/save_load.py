@@ -31,6 +31,11 @@ class DeletedModelError(NoModelError):
     pass
 
 
+class MissingKeys(Exception):
+    def __str__(self):
+        return 'MissingKeys({})'.format(', '.join(e.args[-1]))
+
+
 def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False,
                           iterate_over_subdirs_if_found=False):
     def iterate_over_subdirs_wrapper(func):
@@ -1081,9 +1086,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     latent_prior += latent_prior_variance[0]
 
     empty_optimizer = Optimizer([torch.nn.Parameter()], **training.optimizer)
-    depth = (1 + len(architecture.encoder)
-             + len(architecture.decoder))
-    # + len(architecture.classifier))
 
     try:
         class_width = sum(architecture.classifier)
@@ -1097,6 +1099,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
              sum(architecture.decoder) +
              class_width)
 
+    depth = (1 + len(architecture.encoder)
+             + len(architecture.decoder)
+             + len(architecture.classifier) if class_type == 'linear' else 0)
+
     # print('TBR', architecture.type, model.job_number, *loss_['test'].keys())
 
     rec_dir = os.path.join(directory, 'samples', 'last')
@@ -1109,6 +1115,15 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         recorded_epoch = last_samples(directory)
     else:
         recorded_epoch = None
+
+    try:
+        wim = model.wim_params
+    except AttributeError:
+        wim = {}
+
+    wim_sets = '-'.join(sorted(wim['sets'])) if wim.get('sets') else None
+    wim_prior = wim.get('distribution')
+    wim_from = wim.get('from')
 
     finished = model.train_history['epochs'] >= model.training_parameters['epochs']
     return {'net': model,
@@ -1174,6 +1189,11 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'l': architecture.test_latent_sampling,
             'warmup': training.warmup[-1],
             'warmup_gamma': training.warmup_gamma[-1],
+            'wim_sets': wim_sets,
+            'wim_prior': wim_prior,
+            'wim_alpha': wim.get('alpha'),
+            'wim_epochs': wim.get('epochs'),
+            'wim_from': wim.get('from'),
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),
             'batch_norm': architecture.batch_norm or None,
@@ -1245,23 +1265,25 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
 
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw):
 
-    from cvae import ClassificationVariationalNetwork
+    from cvae import ClassificationVariationalNetwork as M
+    from module.wim import WIMVariationalNetwork as W
 
     mlist = []
-    for _ in mdict:
-        if filter is None or filter.filter(mdict[_]):
-            m = ClassificationVariationalNetwork.load(_, **kw)
-            mlist.append(make_dict_from_model(m, _, tpr=tpr, wanted_epoch=wanted_epoch))
+    for d in mdict:
+        if filter is None or filter.filter(mdict[d]):
+            m = W.load(d, **kw) if W.is_wim(d) else M.load(d, **kw)
+            mlist.append(make_dict_from_model(m, d, tpr=tpr, wanted_epoch=wanted_epoch))
 
     return mlist
 
 
-@iterable_over_subdirs(0, iterate_over_subdirs=list)
+@ iterable_over_subdirs(0, iterate_over_subdirs=list)
 def collect_models(directory,
                    wanted_epoch='last',
                    load_state=True, tpr=0.95, **default_load_paramaters):
 
-    from cvae import ClassificationVariationalNetwork
+    from cvae import ClassificationVariationalNetwork as M
+    from module.wim import WIMVariationalNetwork as W
 
     if 'dump' in directory:
         return
@@ -1270,9 +1292,10 @@ def collect_models(directory,
 
     try:
         logging.debug(f'Loading net in: {directory}')
-        model = ClassificationVariationalNetwork.load(directory,
-                                                      load_state=load_state,
-                                                      **default_load_paramaters)
+        if W.is_wim(directory):
+            model = W.load(directory, load_state=load_state, **default_load_paramaters)
+        else:
+            model = M.load(directory, load_state=load_state, **default_load_paramaters)
 
         return make_dict_from_model(model, directory, tpr=tpr, wanted_epoch=wanted_epoch)
 
@@ -1333,7 +1356,10 @@ def find_by_job_number(*job_numbers, job_dir='jobs',
     return d if len(job_numbers) > 1 or force_dict else d.get(job_numbers[0])
 
 
-def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, missing_file_stream=None):
+def needed_remote_files(*mdirs, epoch='last', which_rec='all',
+                        state=False,
+                        optimizer=False,
+                        missing_file_stream=None):
     r""" list missing recorders to be fetched on a remote
 
     -- mdirs: list of directories
@@ -1353,6 +1379,8 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, miss
     from cvae import ClassificationVariationalNetwork as M
 
     for d in mdirs:
+
+        logging.debug('Inspecting {}'.format(d))
 
         m = M.load(d, load_net=False)
         epoch_ = epoch
@@ -1380,11 +1408,23 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all', state=False, miss
 
         for s in sets:
             sdir = os.path.join(d, 'samples', epoch_, 'record-{}.pth'.format(s))
+            logging.debug('Looking for {}'.format(sdir))
             if not os.path.exists(sdir):
+                if missing_file_stream:
+                    missing_file_stream.write(sdir + '\n')
                 yield d, sdir
 
         if state:
             sdir = os.path.join(d, 'state.pth')
+            logging.debug('Looking for {}'.format(sdir))
+            if not os.path.exists(sdir):
+                if missing_file_stream:
+                    missing_file_stream.write(sdir + '\n')
+                yield d, sdir
+
+        if optimizer:
+            sdir = os.path.join(d, 'optimizer.pth')
+            logging.debug('Looking for {}'.format(sdir))
             if not os.path.exists(sdir):
                 if missing_file_stream:
                     missing_file_stream.write(sdir + '\n')
@@ -1423,13 +1463,36 @@ def get_submodule(model, sub='features', job_dir='jobs', name=None, **kw):
 
 if __name__ == '__main__':
     import sys
+    import tempfile
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('jobs', nargs='+')
+    parser.add_argument('--job-dir', default='./jobs')
+    parser.add_argument('--state', action='store_true')
+    parser.add_argument('--optimizer', action='store_true')
+    parser.add_argument('--output', default=os.path.join(tempfile.gettempdir(), 'files'))
+    parser.add_argument('--rec-files', default='ind')
+    parser.add_argument('--register', dest='flash', action='store_false')
 
     logging.getLogger().setLevel(logging.DEBUG)
 
-    print(os.path.abspath('.'))
+    args = parser.parse_args()
 
-    # collect_models('jobs', load_state=False, load_net=False)
+    output_file = args.output
 
-    # fetch_models('jobs', load_state=False, load_net=False, flash=False)
+    job_dict = find_by_job_number(*args.jobs, job_dir=args.job_dir, force_dict=True, flash=args.flash)
 
-    s = get_submodule(sys.argv[1], flash=False)
+    logging.info('Will recover jobs {}'.format(', '.join(str(_) for _ in job_dict)))
+
+    mdirs = [job_dict[_]['dir'] for _ in job_dict]
+
+    with open(output_file, 'w') as f:
+        for _ in needed_remote_files(*mdirs, which_rec=args.rec_files,
+                                     state=args.state, optimizer=args.optimizer,
+                                     missing_file_stream=f):
+            pass
+
+    with open('/tmp/rsync-files', 'w') as f:
+        f.write('rsync -avP --files-from={f} $1 .\n'.format(f=output_file))

@@ -125,7 +125,8 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
                   'tensor': torch.zeros((D, 0, L * W), device=net.device)}
         list_of_images = [x_grid]
 
-        x_ = net.imager(net.decoder(z)).view(L, N, D, H, W)
+        u = net.decoder(z)
+        x_ = net.imager(u.view(-1, *net.imager.input_shape)).view(L, N, *net.input_shape)
 
         for row in range(N):
 
@@ -186,7 +187,7 @@ def zsample(x, net, y=None, batch_size=128,
         with torch.no_grad():
             out = net.evaluate(x[start:end], z_output=True)
 
-        x_,  _, _, _, mu_z[start:end], log_var_z[start:end], _ = out
+        x_, _, _, _, mu_z[start:end], log_var_z[start:end], _ = out
 
     var_z = log_var_z.exp()
 
@@ -271,7 +272,7 @@ if __name__ == '__main__':
     parser.add_argument('--sampling', type=int, default=0)
     parser.add_argument('--total-width', type=int, default=30)
     parser.add_argument('-N', '--grid-height', type=int, default=0)
-    parser.add_argument('-D', '--directory', default=root)
+    parser.add_argument('--directory', default=root)
     parser.add_argument('--seed', type=int, const=1, nargs='?', default=False)
     parser.add_argument('--z-sample', type=int, default=0)
     parser.add_argument('--bins', type=int, default=20)
@@ -288,7 +289,7 @@ if __name__ == '__main__':
         # 224385,
     ]
 
-    args_from_file = ['-D', '/tmp/%j/samples',
+    args_from_file = ['--directory', '/tmp/%j/samples',
                       '-N', '10',
                       # '--list',
                       # '--debug',
@@ -412,7 +413,7 @@ if __name__ == '__main__':
             logging.info('done')
             logging.info('Compute max batch size')
 
-            batch_size = min(m, model.compute_max_batch_size(batch_size=2*m, which='test'))
+            batch_size = min(m, model.compute_max_batch_size(batch_size=2 * m, which='test'))
             logging.info(f'done ({batch_size})')
 
             y_predicted = bool(model.y_is_decoded)
@@ -438,13 +439,13 @@ if __name__ == '__main__':
                         x_correct_or_not.append(x_batch[i_])
                         y_correct_or_not.append(y_batch[i_])
                 _s = 'Collected {n} images for {w} amongst {b} images'
-                logging.info(_s.format(n=completed[_], w=_, b=b*batch_size))
+                logging.info(_s.format(n=completed[_], w=_, b=b * batch_size))
 
                 x[_] = torch.cat(x_correct_or_not)
                 y[_] = torch.cat(y_correct_or_not)
 
             for s in x:
-                logging.info('sampling %s', s)
+                logging.info('sampling ({} of {})'.format(N, s))
 
                 if N:
                     # N_ = batch_size if s == '?correct' else N
@@ -463,6 +464,7 @@ if __name__ == '__main__':
                                 batch_size=m,
                                 root=root, bins=args.bins, directory=s)
 
-            if N and False:
+            if N and True:
+                logging.info('Image generation')
                 list_of_images = sample(model, root=root,
                                         directory='generate', N=N, L=L)

@@ -40,8 +40,6 @@ target=$(dirname $0)/../$jobdir
 
 source="~/joint-vae/$jobdir"
 
-echo $remote $source
-
 if [ -z $push ]
 then
    from=$remote:$source/
@@ -49,7 +47,6 @@ then
 else
    to=$remote:$source/
    from=$target/
-
 fi
 
 echo rsync  "${opt[@]}" $@ $from $to

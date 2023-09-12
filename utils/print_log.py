@@ -123,7 +123,6 @@ class EpochOutput:
         K_epochs = 5
         cell_width = self.CELL_WIDTH
         K_preambule = 9
-
         num_format = {'default': '{' + f':{cell_width-1}.2e' + '} ',
                       'odin': '{' + f':>{cell_width}' + '}',
                       'dB': '{' + f':{cell_width-4}.1f' + '} dB '}

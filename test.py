@@ -333,6 +333,7 @@ if __name__ == '__main__':
     df = results_dataframe(models_to_be_kept,
                            ood_methods=args.ood_methods or all_methods,
                            predict_methods=args.predict_methods or all_methods,
+                           misclass_methods='first',
                            ood=oodsets,
                            show_measures=10,
                            tnr=args.tnr,
@@ -388,15 +389,11 @@ if __name__ == '__main__':
                 f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
         if args.remove_index is not None:
-            removable_index = ['L', 'l', 'K', 'optim_str', 'options', 'features', 'activation_str',
-                               'upsampler',
-                               'output_distribution', 'prior', 'tilted_tau', 'batch_norm',
-                               # 'type',
-                               'depth', 'arch_code',
-                               'sigma_train', 'sigma', 'beta', 'gamma', 'forced_var', 'output_activation_str']
+            non_removable_index = ['job', 'type']
+
             if are_auto_removed_index:
                 removed_index = [i for i, l in enumerate(d.index.levels)
-                                 if len(l) < 2 and l.name in removable_index]
+                                 if len(l) < 2 and l.name not in non_removable_index]
             else:
                 removed_index = []
             for i in removed_index:

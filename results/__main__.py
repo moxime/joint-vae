@@ -1,4 +1,5 @@
 from functools import partial
+import hashlib
 import argparse
 import configparser
 import sys
@@ -8,7 +9,7 @@ import pandas as pd
 import numpy as np
 from utils.save_load import fetch_models, make_dict_from_model
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
-from utils.tables import agg_results, results_dataframe
+from utils.tables import agg_results, results_dataframe, format_df_index
 from pydoc import locate
 import re
 from utils.print_log import turnoff_debug
@@ -28,7 +29,7 @@ args_from_file = ['-vv',
 tex_output = sys.stdout
 
 
-def process_config_file(models, config_file, filter_keys, which=['all'], keep_auc=True, root=root):
+def process_config_file(models, config_file, filter_keys, which=['all'], keep_auc=True, root=root, show_dfs=True):
 
     config = configparser.ConfigParser()
     config.read(config_file)
@@ -83,6 +84,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             logging.debug('| | %s: %s', _, ' '.join(str(__) for __ in f[_]))
 
     models_by_type = {k: [] for k in filters}
+    archs_by_type = {k: set() for k in filters}
 
     for n in models:
         for k, filter in filters.items():
@@ -99,11 +101,13 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
                 with turnoff_debug():
                     n = make_dict_from_model(n['net'], n['dir'], wanted_epoch=epoch)
                 models_by_type[k].append(n)
+                archs_by_type[k].add(n['arch'])
 
     tpr_ = default_config['tpr']
     tpr = float(tpr_) / 100
     raw_df = {}
     job_list = {}
+    df_string = {}
     for k in which_from_filters:
         job_list[k] = [_['job'] for _ in models_by_type[k]]
         job_list_str = ' '.join(str(_) for _ in job_list[k])
@@ -122,11 +126,13 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         if 'job' in idx:
             idx.remove('job')
 
-        df_string = df[df.columns[:30]].to_string(float_format='{:.1f}'.format)
-        df_width = len(df_string.split('\n')[0])
-        print('\n{k:=^{w}s}'.format(k=k, w=df_width))
-        print(df_string)
-        print('{k:=^{w}s}\n'.format(k='', w=df_width))
+        df_short = format_df_index(df)
+        df_string[k] = df_short[df_short.columns[:3]].to_string(float_format='{:.1f}'.format)
+        df_width = len(df_string[k].split('\n')[0])
+        if show_dfs:
+            print('\n{k:=^{w}s}'.format(k=k, w=df_width))
+            print(df_string[k])
+            print('{k:=^{w}s}\n'.format(k='', w=df_width))
 
         # print('****', df.columns.names)
         raw_df[k] = df.groupby(level=idx).agg('mean')
@@ -140,6 +146,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         header = [int(_) for _ in config[k]['header'].split()]
 
         df = pd.read_csv(csv_file, index_col=index_col, header=header)
+        df.rename(columns={'fpr': 'rate', 'acc': 'rate', 'accuracy': 'rate'}, inplace=True)
         if df.index.nlevels > 1:
             df.index = df.index.set_levels([_.astype(str) for _ in df.index.levels])
 
@@ -176,21 +183,30 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             cols = cols[cols.isin(sets[w], level='set') & filtered_auc_metrics]
             df = df[cols]
             cols_m = cols[cols.isin([kept_methods[k][w]], level='method')]
-            agg_df[k] = agg_df[k].append(df[cols_m].rename(columns={kept_methods[k][w]: k},
-                                                           level='method'))
+            agg_df[k] = pd.concat([agg_df[k],
+                                   df[cols_m].rename(columns={kept_methods[k][w]: k}, level='method')])
 
     results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
 
+    # print('***Before sort***')
+    # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+
     results_df = results_df.groupby(results_df.columns, axis=1).agg(np.max)
+
+    # print('***After agg***')
+    # print(results_df.to_string(float_format='{:2.1f}'.format))
 
     results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'methods'])
 
     sorting_sets = {_: i for i, _ in enumerate(sum((sets[w] for w in what), []))}
 
     def key_(idx):
-        return pd.Index([sorting_sets.get(_, -1) for _ in idx], name='set')
+        return pd.Index([sorting_sets.get(_, 10000) for _ in idx], name='set')
 
     results_df = results_df.sort_index(level='set', key=key_)
+
+    # print('***After sort***')
+    # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 
     acc_row_name = 'acc'
     results_df.rename({dataset: acc_row_name}, inplace=True)
@@ -215,7 +231,14 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     results_df = results_df[cols]
 
+    # print('*** Before agg 2 ***')
+    # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+
     results_df = results_df.groupby(results_df.columns, axis=1).agg(np.max)[cols]
+
+    # print('*** After agg ***')
+    # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+
     results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'methods'])
     cols = results_df.columns
 
@@ -266,7 +289,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             tab.append_cell(meta_headers[_], row='meta_header', width=n_methods)
             for _i in range(len(tab_idx) + 1, n_methods + len(tab_idx)):
                 tab.add_col_sep(i * n_methods + _i, sep='/')
-        tab.append_cell('/'.join(methods), row='header', width=len(cols))
+        tab.append_cell(r'\small{' + '/'.join(methods) + '}', row='header', width=len(cols))
 
     else:
         for _ in tab_idx:
@@ -277,11 +300,15 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     no_multi_index = results_df.index.nlevels == 1
 
     last_acc_row = None
+    average_row = None
     for idx, r in results_df.iterrows():
         idx_ = (idx,) if no_multi_index else idx
         is_an_acc_row = idx_[0] == texify['datasets'][acc_row_name]
         if is_an_acc_row:
             last_acc_row = idx
+
+        if idx_[0] == average:
+            average_row = idx
 
         for ind in idx_:
             tab.append_cell(ind, row=idx)
@@ -304,9 +331,22 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     if last_acc_row is not None:
         tab.add_midrule(row=last_acc_row, after=True)
 
+    if average_row is not None:
+        tab.add_midrule(row=average_row, start=len(idx_), after=False)
+
     for k in job_list:
+        tab.comment('{:=^80}'.format(k.upper()))
         tab.comment('{:2} models for {:12}: {}'.format(len(job_list[k]), k,
                                                        ' '.join(str(_) for _ in job_list[k])))
+        tab.comment('Index table:')
+        for cl in df_string[k].split('\n'):
+            tab.comment(cl)
+        tab.comment('Archs:')
+        for a in archs_by_type[k]:
+            tab.comment('{}: {}'.format(hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6], a))
+        tab.comment('\n')
+        tab.comment('\n')
+        tab.comment('\n')
 
     with open(tab_file, 'w') as f:
         tab.render(f)
@@ -358,5 +398,7 @@ if __name__ == '__main__':
     for config_file in args.config_files:
 
         keep_auc = [False, True] if args.auc else [False]
+        show_dfs = True
         for auc in keep_auc:
-            process_config_file(all_models, config_file, filter_keys, keep_auc=auc, root=root)
+            process_config_file(all_models, config_file, filter_keys, keep_auc=auc, root=root, show_dfs=show_dfs)
+            show_dfs = False

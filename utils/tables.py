@@ -155,6 +155,11 @@ def results_dataframe(models,
         'prior',
         #        'forced_var',
         'tilted_tau',
+        'wim_prior',
+        'wim_from',
+        'wim_sets',
+        'wim_alpha',
+        'wim_epochs',
         'L',
         'l',
         'sigma_train',
@@ -231,6 +236,7 @@ def results_dataframe(models,
     method_cols = {_: True for _ in methods}
     for _ in method_cols:
         if methods[_] is not None:
+            # print('***', _, *methods[_])
             method_cols[_] = cols.isin(methods[_], level='method')
 
     acc_cols = cols.isin(['acc'], level='metrics') & method_cols['predict']
@@ -241,6 +247,7 @@ def results_dataframe(models,
         ood_cols = ood_cols & cols.isin(ood, level='set')
 
     misclass_cols_set_level = ['errors-' + _ for _ in methods['predict']]
+    # print('***', cols[cols.isin(misclass_cols_set_level, level='set')])
     misclass_cols = cols.isin(misclass_cols_set_level, level='set') & method_cols['misclass']
 
     measures_cols = cols.isin(['measures'], level='set')
@@ -377,8 +384,17 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         large_df = large_df.droplevel(removed_index)
         harddebug('removed index', *large_df.index.names)
 
+    # print('***Before average***')
+    # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+
     if average:
         large_df.loc[average] = large_df.mean()
+        acc_columns = large_df.columns[large_df.columns.isin(['acc'], level='metrics')]
+        large_df.loc[average][acc_columns] = np.nan
+
+    # print('***After average***')
+    # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+
     return large_df.reorder_levels(['metrics', 'method'], axis=1)
 
 
@@ -480,6 +496,11 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
                                          'optim_str': 'optim',
                                          # 'tilted_tau': 'tilt',
                                          'tilted_tau': '\u03c4',
+                                         'wim_sets': '\u2207-sets',
+                                         'wim_prior': '\u2207-prior',
+                                         'wim_alpha': '\u2207-\u03b1',
+                                         'wim_epochs': '\u2207-N',
+                                         'wim_from': '\u2207#',
                                          'beta': '\u03b2',
                                          'gamma': '\u03b3',
                                          'depth': 'D',
@@ -526,7 +547,7 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
     # df_.index = index_.set_levels([idx.format(formatter=return_as_type) for idx in index_.levels])
     df_.index = pd.MultiIndex.from_frame(index_df)
 
-    df.index.names = [indices_replacement.get(_, _)for _ in df.index.names]
+    df_.index.names = [indices_replacement.get(_, _)for _ in df.index.names]
 
     if not inplace:
         return df_

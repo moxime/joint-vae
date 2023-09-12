@@ -21,6 +21,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--num-batch', type=int, default=10)
     parser.add_argument('--device', default='cuda')
+    parser.add_argument('--accuracy', action='store_true')
+    parser.add_argument('--ood', action='store_true')
 
     args_from_file = ('-vvvv '
                       '--jobs 193080 193082'
@@ -98,18 +100,19 @@ if __name__ == '__main__':
         with turnoff_debug():
             with torch.no_grad():
 
-                acc = model.accuracy(batch_size=args.batch_size,
-                                     num_batch=args.num_batch,
-                                     sample_dirs=[sample_dir],
-                                     from_where=('compute'),
-                                     print_result='ACC',
-                                     update_self_testing=False,
-                                     )
-
-                ood = model.ood_detection_rates(batch_size=batch_size,
-                                                num_batch=num_batch,
-                                                print_result='OOD',
-                                                sample_dirs=[sample_dir],
-                                                update_self_ood=False,
-                                                recorders=recorders,
-                                                from_where=('compute'))
+                if args.accuracy:
+                    acc = model.accuracy(batch_size=args.batch_size,
+                                         num_batch=args.num_batch,
+                                         sample_dirs=[sample_dir],
+                                         from_where=('compute'),
+                                         print_result='ACC',
+                                         update_self_testing=False,
+                                         )
+                if args.ood:
+                    ood = model.ood_detection_rates(batch_size=batch_size,
+                                                    num_batch=num_batch,
+                                                    print_result='OOD',
+                                                    sample_dirs=[sample_dir],
+                                                    update_self_ood=False,
+                                                    recorders=recorders,
+                                                    from_where=('compute'))

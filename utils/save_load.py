@@ -1072,16 +1072,20 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         latent_means = prior_params['init_mean']
         if latent_means == 'onehot':
             latent_prior += '1'
+            latent_init_means = 1
         elif learned_prior_means:
+            latent_init_means = latent_means
             latent_means = 'learned'
             latent_prior += 'l'
         else:
+            latent_init_means = latent_means
             latent_means = 'random'
             latent_prior += 'r'
         latent_prior += '-'
     else:
         latent_means = None
         learned_prior_means = False
+        latent_init_means = 0.
 
     latent_prior += latent_prior_variance[0]
 
@@ -1141,6 +1145,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'learned_prior_means': learned_prior_means,
             'latent_prior_variance': latent_prior_variance,
             'latent_prior_means': latent_means,
+            'latent_prior_init_means': latent_init_means,
             'prior': latent_prior,
             'encoder_forced_variance': encoder_forced_variance,
             'gamma': model.training_parameters['gamma'],

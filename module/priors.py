@@ -73,7 +73,7 @@ class GaussianPrior(nn.Module):
 
         if num_priors == 1:
             self.conditional = False
-            mean_tensor = torch.tensor(0.)
+            mean_tensor = init_mean * torch.tensor(1.)
 
         else:
             self.conditional = True
@@ -113,10 +113,11 @@ class GaussianPrior(nn.Module):
         self._inv_var = None
 
         self.params = {'distribution': 'gaussian', 'dim': dim,
+                       'init_mean': init_mean,
                        'var_dim': self.var_dim, 'num_priors': self.num_priors}
         if self.conditional:
             self.params.update({'learned_means': self.learned_means,
-                                'init_mean': init_mean, 'freeze_means': freeze_means})
+                                'freeze_means': freeze_means})
 
     def thaw_means(self, epoch=None):
         if not self.learned_means or not self._frozen_means:
@@ -333,6 +334,8 @@ class GaussianPrior(nn.Module):
         mean = ''
         if self.conditional:
             mean = '{} {}means and '.format(self.num_priors, 'learned ' if self.learned_means else '')
+        else:
+            mean = 'mean centered on {} '.format(self.params['init_mean']) if self.params['init_mean'] else ''
         return 'gaussian {p}prior of dim {K} with {m}{v}'.format(p=pre, m=mean, v=var, K=self.dim)
 
 

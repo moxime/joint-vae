@@ -180,6 +180,7 @@ class EpochOutput:
                 kept_kvs['time']['total'] = time_per_i * batch_size * batches
 
         if not batch:
+            print('***', *self.last_row, '***', *kept_kvs)
             if self.last_row != [*kept_kvs]:
                 line = '\r' + self.result_row(header=2, sep=sep, double_sep=double_sep, **kept_kvs)
                 self.write(line + '\n', when=self.END_OF_EPOCH)

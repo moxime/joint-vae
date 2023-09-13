@@ -218,7 +218,7 @@ class WIMVariationalNetwork(M):
         for epoch in range(epochs):
 
             t0 = time.time()
-            time_per_i = 0
+            time_per_i = 1e-9
 
             logging.info('Starting epoch {}'.format(epoch + 1))
 

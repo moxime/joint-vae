@@ -161,7 +161,8 @@ class EpochOutput:
             sep = ' | '
             double_sep = ' || '
 
-        kept_kvs = {'': {'epoch': '{}/{}'.format(epoch, epochs) if preambule.lower() == 'train' else '',
+        kept_kvs = {'': {'epoch':
+                         '{}/{}'.format(epoch, epochs) if preambule.lower() in ('train', 'finetune') else '',
                          '': preambule}}
 
         for title in kvs:
@@ -246,7 +247,7 @@ class Time(float):
                 str += f'{n}{unit}'
             t -= q * n
 
-            if t <= orig_t / 100:
+            if t <= orig_t / 20:
                 break
 
         return str

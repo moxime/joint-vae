@@ -141,7 +141,7 @@ class EpochOutput:
                 **kvs,
                 ):
 
-        if preambule == 'train':
+        if preambule == 'train' and False:
             preambule = '%I' + preambule
             end_of_format = '%i'
             sep = '%i' + ' | ' + '%I'

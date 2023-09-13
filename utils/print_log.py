@@ -112,9 +112,11 @@ class EpochOutput:
         col_width = self.CELL_WIDTH
 
         if header:
-            h1 = sep.join('{k:^{w}}'.format(k=k, w=col_width) for k in kv if k not in masked)
-            h0 = '{t:_^{w}}'.format(t=title, w=len(h1))
-            return h0 if header == 2 else h1
+            h = {}
+            h[1] = sep.join('{k:^{w}}'.format(k=k, w=col_width) for k in kv if k not in masked)
+            h[2] = '{t:_^{w}}'.format(t=title, w=len(h1))
+            h[3] = '-' * len(h[2])
+            return h[header]
         else:
             return sep.join(self.cell_formats.get(k, default_cell_format).format(kv[k])
                             for k in kv if k not in masked)
@@ -172,15 +174,17 @@ class EpochOutput:
 
         if time_per_i > 0:
             time_per_i = Time(time_per_i)
-            kept_kvs['time'] = {'/i': time_per_i}
+            kept_kvs['time'] = {'/img': time_per_i / batch_size}
 
             if batch < batches - 1:
-                kept_kvs['time']['eta'] = time_per_i * batch_size * (batches - batch)
+                kept_kvs['time']['eta'] = time_per_i * (batches - batch)
             else:
-                kept_kvs['time']['total'] = time_per_i * batch_size * batches
+                kept_kvs['time']['total'] = time_per_i * batches
 
         if not batch:
             if self.last_row != [*kept_kvs]:
+                line = '\r' + self.result_row(header=3, sep=sep, double_sep=double_sep, **kept_kvs)
+                self.write(line + '\n', when=self.END_OF_EPOCH)
                 line = '\r' + self.result_row(header=2, sep=sep, double_sep=double_sep, **kept_kvs)
                 self.write(line + '\n', when=self.END_OF_EPOCH)
                 line = '\r' + self.result_row(header=1, sep=sep, double_sep=double_sep, **kept_kvs)

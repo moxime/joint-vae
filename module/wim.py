@@ -272,7 +272,7 @@ class WIMVariationalNetwork(M):
                     _, y_est, batch_losses, measures = o
 
                     train_running_loss.update({'{}_{}*'.format(_, k):
-                                               batch_losses[_].mean().item() for k in batch_losses})
+                                               batch_losses[k].mean().item() for k in batch_losses})
 
                     L += alpha * batch_losses['total'].mean()
 

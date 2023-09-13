@@ -282,10 +282,12 @@ class WIMVariationalNetwork(M):
                     train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
                                        for k in train_running_loss}
 
-                print('***', *train_mean_loss)
+                printed_losses = ['train_kl']
+                for s in moving_batches:
+                    printed_losses.append('{}_kl*'.format(s))
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',
-                                losses={k: train_mean_loss[k] for k in train_mean_loss if 'kl_' in k},
+                                losses={k: train_mean_loss[k] for k in train_mean_loss if k in printed_losses},
                                 batch_size=batch_size * (1 + len(moving_iters)),
                                 time_per_i=time_per_i,
                                 end_of_epoch='\n')

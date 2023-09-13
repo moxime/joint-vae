@@ -215,15 +215,6 @@ class WIMVariationalNetwork(M):
 
         acc_methods = self.predict_methods
 
-        outputs.results(0, 0, -2, epochs,
-                        metrics=self.metrics,
-                        loss_components=self.loss_components,
-                        acc_methods=acc_methods)
-        outputs.results(0, 0, -1, epochs,
-                        metrics=self.metrics,
-                        loss_components=self.loss_components,
-                        acc_methods=acc_methods)
-
         for epoch in range(epochs):
 
             logging.info('Starting epoch {}'.format(epoch + 1))

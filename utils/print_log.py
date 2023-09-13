@@ -142,7 +142,6 @@ class EpochOutput:
                                for k in kvs)
 
     def results(self, batch, batches, epoch, epochs,
-                loss_components=None,
                 masked_components=['z_logdet', 'z_mahala', 'z_tr_inv_cov'],
                 best_of={'odin': -1},
                 time_per_i=0,
@@ -152,7 +151,7 @@ class EpochOutput:
                 **kvs,
                 ):
 
-        if preambule == 'train' and False:
+        if preambule == 'train' and batch:
             preambule = '%I' + preambule
             end_of_format = '%i'
             sep = '%i' + ' | ' + '%I'

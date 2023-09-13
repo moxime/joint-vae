@@ -151,11 +151,11 @@ class EpochOutput:
             sep = ' | '
             double_sep = ' || '
 
-        kepts_kvs = {'': {'epoch': '{}/{}'.format(epoch, epochs) if preambule.lower() == 'train' else '',
-                          '': preambule}}
+        kept_kvs = {'': {'epoch': '{}/{}'.format(epoch, epochs) if preambule.lower() == 'train' else '',
+                         '': preambule}}
 
         for title in kvs:
-            done_best = []
+            done_best = []
             kept_kvs[title] = {}
             for k in kvs[title]:
                 if k in masked_components:

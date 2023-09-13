@@ -112,7 +112,7 @@ class EpochOutput:
         col_width = self.CELL_WIDTH
 
         if header:
-            h1 = sep.join('{k:_^{w}}'.format(k=k, w=col_width) for k in kv if k not in masked)
+            h1 = sep.join('{k:^{w}}'.format(k=k, w=col_width) for k in kv if k not in masked)
             h0 = '{t:_^{w}}'.format(t=title, w=len(h1))
             return h0 if header == 2 else h1
         else:

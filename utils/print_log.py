@@ -123,7 +123,7 @@ class EpochOutput:
             h[3] = '-' * len(h[2])
             return h[header]
         else:
-            return sep.join(self.cell_formats.get(k, _shorten(default_cell_format).format(kv[k]))
+            return sep.join(_shorten(self.cell_formats.get(k, default_cell_format.format(kv[k])))
                             for k in kv if k not in masked)
 
     def result_row(self, header=False, masked=[], sep=' | ', double_sep=' || ', **kvs):

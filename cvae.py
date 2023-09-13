@@ -1367,18 +1367,6 @@ class ClassificationVariationalNetwork(nn.Module):
             for m in predict_methods:
                 acc[m] = 1 - n_err[m] / n
 
-            if print_result:
-                outputs.results(i, num_batch, 0, 0,
-                                loss_components=self.loss_components,
-                                losses=mean_loss,
-                                acc_methods=predict_methods,
-                                accuracies=acc,
-                                metrics=self.metrics,
-                                measures=measures,
-                                time_per_i=time_per_i,
-                                batch_size=batch_size,
-                                preambule=print_result)
-
         self.test_losses = mean_loss
         if measures:
             self.test_measures = measures
@@ -1581,11 +1569,6 @@ class ClassificationVariationalNetwork(nn.Module):
         device = next(self.parameters()).device
 
         if oodsets:
-            outputs.results(0, 0, -2, 0,
-                            metrics=all_ood_methods,
-                            acc_methods=all_ood_methods)
-            outputs.results(0, 0, -1, 0, metrics=all_ood_methods,
-                            acc_methods=all_ood_methods)
 
             s = testset.name
             _s = '{} measures for {}'.format('Recovering for recorder ' if recorded[s] else 'Computing', s)
@@ -1676,10 +1659,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 t_per_i = t_i / (i + 1)
 
                 outputs.results(i, num_batch[s], 0, 1,
-                                metrics=ood_methods_per_set[s],
-                                measures={m: ind_measures[m].mean()
-                                          for m in ood_methods_per_set[s]},
-                                acc_methods=ood_methods_per_set[s],
+                                metrics={m: ind_measures[m].mean()
+                                         for m in ood_methods_per_set[s]},
                                 time_per_i=t_per_i,
                                 batch_size=batch_size[s],
                                 preambule=testset.name)
@@ -1822,9 +1803,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                            thresholds_[m])
 
                     outputs.results(i, ood_n_batch, 0, 1,
-                                    metrics=ood_methods_per_set[oodset.name],
-                                    measures=meaned_measures,
-                                    acc_methods=ood_methods_per_set[oodset.name],
+                                    metrics=meaned_measures,
                                     accuracies=r_,
                                     time_per_i=t_per_i,
                                     batch_size=batch_size[s],
@@ -1914,10 +1893,6 @@ class ClassificationVariationalNetwork(nn.Module):
 
         _p = 5.2
         _p_1 = 4.1
-
-        if print_result:
-            outputs.results(-1, 0, 0, 0,
-                            acc_methods=methods['miss'], preambule=print_result)
 
         for predict_method in methods['predict']:
 
@@ -2218,15 +2193,6 @@ class ClassificationVariationalNetwork(nn.Module):
         if oodsets:
             ood_methods = self.ood_methods
 
-        outputs.results(0, 0, -2, epochs,
-                        metrics=self.metrics,
-                        loss_components=self.loss_components,
-                        acc_methods=acc_methods)
-        outputs.results(0, 0, -1, epochs,
-                        metrics=self.metrics,
-                        loss_components=self.loss_components,
-                        acc_methods=acc_methods)
-
         if fine_tuning:
             for p in self.parameters():
                 p.requires_grad_(True)
@@ -2290,15 +2256,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                              recorders=recorders,
                                              sample_dirs=sample_dirs,
                                              print_result='*')
-
-                    outputs.results(0, 0, -2, epochs,
-                                    metrics=self.metrics,
-                                    loss_components=self.loss_components,
-                                    acc_methods=acc_methods)
-                    outputs.results(0, 0, -1, epochs,
-                                    metrics=self.metrics,
-                                    loss_components=self.loss_components,
-                                    acc_methods=acc_methods)
 
                 if full_test:
                     test_accuracy = self.accuracy(testset,
@@ -2436,11 +2393,8 @@ class ClassificationVariationalNetwork(nn.Module):
                 t_per_i = (time.time() - t_start_train) / (i + 1)
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='train',
-                                acc_methods=acc_methods,
-                                loss_components=self.loss_components,
                                 losses=train_mean_loss,
-                                metrics=self.metrics,
-                                measures=measures,
+                                metrics=measures,
                                 time_per_i=t_per_i,
                                 batch_size=train_batch_size,
                                 end_of_epoch='\n')
@@ -2493,15 +2447,6 @@ class ClassificationVariationalNetwork(nn.Module):
                                          print_result='*')
 
         if testset and not signal_handler.sig > 1:
-
-            outputs.results(0, 0, -2, epochs,
-                            metrics=self.metrics,
-                            loss_components=self.loss_components,
-                            acc_methods=acc_methods)
-            outputs.results(0, 0, -1, epochs,
-                            metrics=self.metrics,
-                            loss_components=self.loss_components,
-                            acc_methods=acc_methods)
 
             recorder = recorders[set_name]
             # print(num_batch, sample_size)

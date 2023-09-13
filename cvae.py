@@ -1804,7 +1804,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                     outputs.results(i, ood_n_batch, 0, 1,
                                     metrics=meaned_measures,
-                                    accuracies=r_,
+                                    accuracy=r_,
                                     time_per_i=t_per_i,
                                     batch_size=batch_size[s],
                                     preambule=oodset.name)

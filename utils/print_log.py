@@ -121,7 +121,7 @@ class EpochOutput:
         if header:
             h = {}
             h[1] = sep.join(_shorten('{k:^{w}}'.format(k=k, w=col_width)) for k in kv if k not in masked)
-            h[2] = '{t:_^{w}}'.format(t=title, w=len(h[1]))
+            h[2] = '{t:_^{w}}'.format(t=title, w=len(h[1]) - h[1].count('\b'))
             h[3] = '-' * len(h[2])
             return h[header]
         else:

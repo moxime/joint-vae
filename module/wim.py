@@ -241,7 +241,7 @@ class WIMVariationalNetwork(M):
                                                                    batch=i,
                                                                    with_beta=True)
 
-                train_running_loss = {'train_' + k: batch_losses[_].mean().item() for k in batch_losses}
+                train_running_loss = {'train_' + k: batch_losses[k].mean().item() for k in batch_losses}
 
                 self.alternate_prior = True
 
@@ -255,14 +255,14 @@ class WIMVariationalNetwork(M):
                         moving_iters[_] = iter(moving_loaders[_])
                         moving_batches[_] = next(moving_iters[_])
 
-                for _ in moving_batches:
+                for s in moving_batches:
 
                     if not alpha:
                         break
 
-                    logging.debug('Epoch {} Batch {} -- set {}'.format(epoch + 1, i + 1, _))
+                    logging.debug('Epoch {} Batch {} -- set {}'.format(epoch + 1, i + 1, s))
 
-                    x, y = moving_batches[_]
+                    x, y = moving_batches[s]
                     y = torch.zeros_like(y, dtype=int)
                     o = self.evaluate(x.to(device), y.to(device),
                                       current_measures=moving_current_measures,
@@ -271,7 +271,7 @@ class WIMVariationalNetwork(M):
 
                     _, y_est, batch_losses, measures = o
 
-                    train_running_loss.update({'{}_{}*'.format(_, k):
+                    train_running_loss.update({'{}_{}*'.format(s, k):
                                                batch_losses[k].mean().item() for k in batch_losses})
 
                     L += alpha * batch_losses['total'].mean()
@@ -284,7 +284,7 @@ class WIMVariationalNetwork(M):
 
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',
-                                losses={_: train_mean_loss[_] for _ in train_mean_loss if 'kl_' in _},
+                                losses={k: train_mean_loss[k] for k in train_mean_loss if 'kl_' in k},
                                 batch_size=batch_size * (1 + len(moving_iters)),
                                 time_per_i=time_per_i,
                                 end_of_epoch='\n')

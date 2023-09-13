@@ -84,7 +84,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                          'sigma', 'wmse',
                                          'z_logdet', 'z_tr_inv_cov'),
                                 'xvae': ('cross_x', 'kl', 'total', 'zdist', 'iws'),
-                                'vae': ('cross_x', 'kl', 'var_kl', 'total', 'iws'),
+                                'vae': ('cross_x', 'kl', 'zdist', 'var_kl', 'total', 'iws'),
                                 'vib': ('cross_y', 'kl', 'total')}
 
     predict_methods_per_type = {'jvae': ['loss', 'esty'],

@@ -2394,7 +2394,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='train',
                                 losses=train_mean_loss,
-                                metrics={_: measures[_] for _ in self.metrics},
+                                metrics={_: measures[_] for _ in self.metrics},
                                 time_per_i=t_per_i,
                                 batch_size=train_batch_size,
                                 end_of_epoch='\n')

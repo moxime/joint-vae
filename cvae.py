@@ -2405,6 +2405,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                 preambule='train',
                                 losses={_: train_mean_loss[_] for _ in self.loss_components},
                                 metrics={_: measures[_] for _ in self.metrics},
+                                accuracy={_: np.nan for _ in self.predict_methods}
                                 time_per_i=t_per_i,
                                 batch_size=train_batch_size,
                                 end_of_epoch='\n')

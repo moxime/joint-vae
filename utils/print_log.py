@@ -109,8 +109,7 @@ class EpochOutput:
                    **kv):
 
         def _shorten(s):
-            if len(s) > self.CELL_WIDTH:
-                return '\b' + s
+            retrun min(max(0, len(s) - self.CELL_WIDTH), 3) * '\b' + s
             return s
 
         default_cell_format = self.cell_formats.get(default_format) or self.cell_formats['text']
@@ -125,7 +124,7 @@ class EpochOutput:
             h[3] = '-' * len(h[2])
             return h[header]
         else:
-            return sep.join(self.cell_formats.get(k, default_cell_format).format(kv[k])
+            return sep.join(self.cell_formats.get(k, _shorten(default_cell_format).format(kv[k]))
                             for k in kv if k not in masked)
 
     def result_row(self, header=False, masked=[], sep=' | ', double_sep=' || ', **kvs):

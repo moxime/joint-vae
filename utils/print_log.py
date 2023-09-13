@@ -111,18 +111,18 @@ class EpochOutput:
         def _shorten(s):
             if len(s) > self.CELL_WIDTH:
                 return '*' + s
-            return str(len(s)
+            return str(len(s))
 
-        default_cell_format=self.cell_formats.get(default_format) or self.cell_formats['text']
-        col_width=self.CELL_WIDTH
+        default_cell_format = self.cell_formats.get(default_format) or self.cell_formats['text']
+        col_width = self.CELL_WIDTH
 
-        sep=sep if title else ' ' * len(sep)
+        sep = sep if title else ' ' * len(sep)
 
         if header:
-            h={}
-            h[1]=sep.join('{k:^{w}}'.format(k=k, w=col_width) for k in kv if k not in masked)
-            h[2]='{t:_^{w}}'.format(t=title, w=len(h[1]))
-            h[3]='-' * len(h[2])
+            h = {}
+            h[1] = sep.join('{k:^{w}}'.format(k=k, w=col_width) for k in kv if k not in masked)
+            h[2] = '{t:_^{w}}'.format(t=title, w=len(h[1]))
+            h[3] = '-' * len(h[2])
             return h[header]
         else:
             return sep.join(_shorten(self.cell_formats.get(k, default_cell_format).format(kv[k]))
@@ -130,7 +130,7 @@ class EpochOutput:
 
     def result_row(self, header=False, masked=[], sep=' | ', double_sep=' || ', **kvs):
 
-        self.last_row=[*kvs]
+        self.last_row = [*kvs]
 
         return double_sep.join(self.result_col(k, header=header,
                                                masked=masked,
@@ -151,21 +151,21 @@ class EpochOutput:
                 ):
 
         if preambule == 'train' and False:
-            preambule='%I' + preambule
-            end_of_format='%i'
-            sep='%i' + ' | ' + '%I'
-            double_sep='%i' + ' || ' + '%I'
+            preambule = '%I' + preambule
+            end_of_format = '%i'
+            sep = '%i' + ' | ' + '%I'
+            double_sep = '%i' + ' || ' + '%I'
         else:
-            end_of_format=''
-            sep=' | '
-            double_sep=' || '
+            end_of_format = ''
+            sep = ' | '
+            double_sep = ' || '
 
-        kept_kvs={'': {'epoch': '{}/{}'.format(epoch, epochs) if preambule.lower() == 'train' else '',
+        kept_kvs = {'': {'epoch': '{}/{}'.format(epoch, epochs) if preambule.lower() == 'train' else '',
                          '': preambule}}
 
         for title in kvs:
-            done_best=[]
-            kept_kvs[title]={}
+            done_best = []
+            kept_kvs[title] = {}
             for k in kvs[title]:
                 if k in masked_components:
                     continue
@@ -173,31 +173,31 @@ class EpochOutput:
                     continue
                 for best_k in best_of:
                     if k.startswith(best_k) and best_k not in done_best:
-                        kept_kvs[title][best_k]=_s * max(_s * kvs[title][_]
+                        kept_kvs[title][best_k] = _s * max(_s * kvs[title][_]
                                                            for _ in kvs[title] if _.startswith(best_k))
                         done_best.append(best_k)
                     continue
-                kept_kvs[title][k]=kvs[title][k]
+                kept_kvs[title][k] = kvs[title][k]
 
         if time_per_i > 0:
-            time_per_i=Time(time_per_i)
-            kept_kvs['time']={'/img': time_per_i / batch_size}
+            time_per_i = Time(time_per_i)
+            kept_kvs['time'] = {'/img': time_per_i / batch_size}
 
             if batch < batches - 1:
-                kept_kvs['time']['eta']=time_per_i * (batches - batch)
+                kept_kvs['time']['eta'] = time_per_i * (batches - batch)
             else:
-                kept_kvs['time']['total']=time_per_i * batches
+                kept_kvs['time']['total'] = time_per_i * batches
 
         if not batch:
             if self.last_row != [*kept_kvs]:
-                line='\r' + self.result_row(header=3, sep=sep, double_sep=double_sep, **kept_kvs)
+                line = '\r' + self.result_row(header=3, sep=sep, double_sep=double_sep, **kept_kvs)
                 self.write(line + '\n', when=self.END_OF_EPOCH)
-                line='\r' + self.result_row(header=2, sep=sep, double_sep=double_sep, **kept_kvs)
+                line = '\r' + self.result_row(header=2, sep=sep, double_sep=double_sep, **kept_kvs)
                 self.write(line + '\n', when=self.END_OF_EPOCH)
-                line='\r' + self.result_row(header=1, sep=sep, double_sep=double_sep, **kept_kvs)
+                line = '\r' + self.result_row(header=1, sep=sep, double_sep=double_sep, **kept_kvs)
                 self.write(line + '\n', when=self.END_OF_EPOCH)
 
-        line='\r' + self.result_row(header=False, sep=sep, double_sep=double_sep, **kept_kvs)
+        line = '\r' + self.result_row(header=False, sep=sep, double_sep=double_sep, **kept_kvs)
         self.write(line, when=self.EVERY_BATCH)
 
         if batch == batches - 1:
@@ -212,11 +212,11 @@ def texify_str(s, num=False, space=None, underscore=None, verbatim=False):
         return s
     except ValueError:
         pass
-    s=s.replace('->', '\\ensuremath{\\to{}}')
+    s = s.replace('->', '\\ensuremath{\\to{}}')
     if space:
-        s=s.replace(' ', space)
+        s = s.replace(' ', space)
     if underscore:
-        s=s.replace('_', underscore)
+        s = s.replace('_', underscore)
     if not num:
         return s
     return re.sub(r'[-+]?\d*\.\d+', r'\\num{\g<0>}', s)
@@ -226,21 +226,21 @@ class Time(float):
 
     def __str__(self, max=2):
 
-        t=self
+        t = self
 
-        units=['d', 'h', 'm', 's', 'ms', '\u03bcs', 'ns']
-        qs=[24 * 3600, 3600, 60, 1, 1e-3, 1e-6, 1e-9]
+        units = ['d', 'h', 'm', 's', 'ms', '\u03bcs', 'ns']
+        qs = [24 * 3600, 3600, 60, 1, 1e-3, 1e-6, 1e-9]
 
         if t == 0:
             return '0s'
 
-        str='-' if t < 0 else ''
-        t=abs(t)
+        str = '-' if t < 0 else ''
+        t = abs(t)
 
-        orig_t=t
+        orig_t = t
         for i, (unit, q) in enumerate(zip(units, qs)):
 
-            n=int(t / q)
+            n = int(t / q)
             if n:
                 str += f'{n}{unit}'
             t -= q * n
@@ -278,23 +278,23 @@ class Time(float):
 def text_dataviz(start, end, *marks, N=100, min_val=None, max_val=None, default='-'):
 
     if min_val is None:
-        min_val=start
+        min_val = start
     if max_val is None:
-        max_val=end
+        max_val = end
 
-    width=max_val - min_val
+    width = max_val - min_val
 
     def f2i(x):
-        i=int(N * (x - min_val) / width)
+        i = int(N * (x - min_val) / width)
         return max(min(i, N - 1), 0)
 
-    start_=f2i(start)
-    end_=f2i(end)
+    start_ = f2i(start)
+    end_ = f2i(end)
 
-    chars={_: (default if (start_ <= _ <= end_) else ' ') for _ in range(N)}
+    chars = {_: (default if (start_ <= _ <= end_) else ' ') for _ in range(N)}
 
     for m in marks:
-        chars[f2i(m[0])]=m[1]
+        chars[f2i(m[0])] = m[1]
 
     return ''.join([chars[_] for _ in range(N)])
 
@@ -304,9 +304,9 @@ def timerun(func):
 
     @ functools.wraps(func)
     def wrapper(*args, **kwargs):
-        start=time.time()
-        result=func(*args, **kwargs)
-        duration=time.time() - start
+        start = time.time()
+        result = func(*args, **kwargs)
+        duration = time.time() - start
 
         logger.debug(f"Duration of {func.__name__} function was {duration}.")
         return result
@@ -315,12 +315,12 @@ def timerun(func):
 
 if __name__ == '__main__':
 
-    kvs={'': {'epoch': '400/600', '': 'VALID'},
+    kvs = {'': {'epoch': '400/600', '': 'VALID'},
            'losses': {'total': -1.2332e-1, 'kl': 32.5454e-2, 'dB': -52.22325, 'odin': 'yes!'},
            'accuracy': {'iws': 0.84846, 'iws-2': 0.987, 'foo': 0.6545},
            'time': {'/i': Time(122.1511e-6), 'eta': Time(617.65154)}
            }
 
-    o=EpochOutput()
+    o = EpochOutput()
     for header in (2, 1, False, False, False, False):
         print(o.result_row(header=header, masked=['foo'], **kvs))

@@ -110,7 +110,7 @@ class EpochOutput:
 
         def _shorten(s):
             if len(s) > self.CELL_WIDTH:
-                return '*' + s
+                return '\b' + s
             return s
 
         default_cell_format = self.cell_formats.get(default_format) or self.cell_formats['text']

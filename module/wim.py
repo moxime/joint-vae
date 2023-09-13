@@ -243,7 +243,7 @@ class WIMVariationalNetwork(M):
                                                                    batch=i,
                                                                    with_beta=True)
                 outputs.results(i, per_epoch, epoch + 1, epochs,
-                                preambule='train',
+                                preambule='finetune',
                                 acc_methods=acc_methods,
                                 loss_components=self.loss_components,
                                 # losses=train_mean_loss,

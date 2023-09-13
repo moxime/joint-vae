@@ -78,6 +78,8 @@ if __name__ == '__main__':
         with m.alternate_prior as p2:
             _s = 'From {} ({:.4}) to {} ({:.4})'
             logging.info(_s.format(p1, p1.mean.var(0).mean(), p2, p2.mean.var(0).mean()))
+            print('original', p1.params)
+            print('alternate', p2.params)
 
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
 

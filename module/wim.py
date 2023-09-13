@@ -220,7 +220,7 @@ class WIMVariationalNetwork(M):
             t0 = time.time()
             time_per_i = 1e-9
 
-            logging.info('Starting epoch {}'.format(epoch + 1))
+            # logging.info('Starting epoch {}'.format(epoch + 1))
 
             moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
 

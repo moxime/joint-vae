@@ -1370,8 +1370,8 @@ class ClassificationVariationalNetwork(nn.Module):
             if print_result:
                 outputs.results(i, num_batch, 0, 0,
                                 losses={_: mean_loss[_] for _ in self.loss_components},
+                                metrics={_: measures.get(_, np.nan) for _ in self.metrics},
                                 accuracy=acc,
-                                metrics={_: measures[_] for _ in self.metrics},
                                 time_per_i=time_per_i,
                                 batch_size=batch_size,
                                 preambule=print_result)

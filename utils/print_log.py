@@ -172,7 +172,7 @@ class EpochOutput:
 
         if time_per_i > 0:
             time_per_i = Time(time_per_i)
-            kept_kvs['time']['/i'] = time_per_i
+            kept_kvs['time'] = {'/i': time_per_i}
 
             if batch < batches - 1:
                 kept_kvs['time']['eta'] = time_per_i * batch_size * (batches - batch)

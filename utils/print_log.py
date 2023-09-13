@@ -109,7 +109,7 @@ class EpochOutput:
                    **kv):
 
         def _shorten(s):
-            return min(max(0, len(s) - self.CELL_WIDTH), 3) * '*' + s
+            return min(max(0, len(s) - self.CELL_WIDTH), 3) * '\b' + s
 
         default_cell_format = self.cell_formats.get(default_format) or self.cell_formats['text']
         col_width = self.CELL_WIDTH

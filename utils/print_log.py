@@ -111,10 +111,12 @@ class EpochOutput:
         default_cell_format = self.cell_formats.get(default_format) or self.cell_formats['text']
         col_width = self.CELL_WIDTH
 
+        sep = sep if title else ' ' * len(sep)
+
         if header:
             h = {}
             h[1] = sep.join('{k:^{w}}'.format(k=k, w=col_width) for k in kv if k not in masked)
-            h[2] = '{t:_^{w}}'.format(t=title, w=len(h1))
+            h[2] = '{t:_^{w}}'.format(t=title, w=len(h[1]))
             h[3] = '-' * len(h[2])
             return h[header]
         else:

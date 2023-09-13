@@ -2393,7 +2393,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 t_per_i = (time.time() - t_start_train) / (i + 1)
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='train',
-                                losses=train_mean_loss,
+                                losses={_: train_mean_loss for _ in self.loss_components},
                                 metrics={_: measures[_] for _ in self.metrics},
                                 time_per_i=t_per_i,
                                 batch_size=train_batch_size,

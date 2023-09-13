@@ -111,7 +111,7 @@ class EpochOutput:
         def _shorten(s):
             if len(s) > self.CELL_WIDTH:
                 return '*' + s
-            return str(len(s))
+            return s
 
         default_cell_format = self.cell_formats.get(default_format) or self.cell_formats['text']
         col_width = self.CELL_WIDTH
@@ -120,12 +120,12 @@ class EpochOutput:
 
         if header:
             h = {}
-            h[1] = sep.join('{k:^{w}}'.format(k=k, w=col_width) for k in kv if k not in masked)
+            h[1] = sep.join(_shorten('{k:^{w}}'.format(k=k, w=col_width)) for k in kv if k not in masked)
             h[2] = '{t:_^{w}}'.format(t=title, w=len(h[1]))
             h[3] = '-' * len(h[2])
             return h[header]
         else:
-            return sep.join(_shorten(self.cell_formats.get(k, default_cell_format).format(kv[k]))
+            return sep.join(self.cell_formats.get(k, default_cell_format).format(kv[k])
                             for k in kv if k not in masked)
 
     def result_row(self, header=False, masked=[], sep=' | ', double_sep=' || ', **kvs):

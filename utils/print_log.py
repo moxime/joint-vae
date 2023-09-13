@@ -173,14 +173,18 @@ class EpochOutput:
                     continue
                 if title == 'metrics' and '-a-' in k or k.endswith('-2s'):
                     continue
+
+                done = False
                 for best_k in best_of:
                     _s = best_of[best_k]
-                    if k.startswith(best_k) and best_k not in done_best:
-                        kept_kvs[title][best_k] = _s * max(_s * kvs[title][_]
-                                                           for _ in kvs[title] if _.startswith(best_k))
-                        done_best.append(best_k)
-                    continue
-                kept_kvs[title][k] = kvs[title][k]
+                    if k.startswith(best_k):
+                        done = True
+                        if best_k not in done_best:
+                            kept_kvs[title][best_k] = _s * max(_s * kvs[title][_]
+                                                               for _ in kvs[title] if _.startswith(best_k))
+                            done_best.append(best_k)
+                if not done:
+                    kept_kvs[title][k] = kvs[title][k]
 
         if time_per_i > 0:
             time_per_i = Time(time_per_i)

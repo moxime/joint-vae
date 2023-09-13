@@ -132,6 +132,8 @@ class EpochOutput:
 
         self.last_row = [*kvs]
 
+        if header == 3:
+            double_sep = '-' * len(double_sep)
         return double_sep.join(self.result_col(k, header=header,
                                                masked=masked,
                                                default_format=k,

@@ -255,9 +255,9 @@ class WIMVariationalNetwork(M):
                         moving_iters[_] = iter(moving_loaders[_])
                         moving_batches[_] = next(moving_iters[_])
 
-                for s in moving_batches:
+                self.alternate_prior = True
 
-                    self.alternate_prior = True
+                for s in moving_batches:
 
                     if not alpha:
                         break
@@ -281,29 +281,29 @@ class WIMVariationalNetwork(M):
 
                     L += alpha * batch_losses['total'].mean()
 
-                    self.eval()
-                    self.original_prior = True
-                    if not i % 10 and False:
-                        with torch.no_grad():
-                            o = self.evaluate(x, y.to(device),
-                                              current_measures=moving_current_measures_on_original,
-                                              batch=i,
-                                              with_beta=True)
+                #     self.eval()
+                #     self.original_prior = True
+                #     if not i % 10 and False:
+                #         with torch.no_grad():
+                #             o = self.evaluate(x, y.to(device),
+                #                               current_measures=moving_current_measures_on_original,
+                #                               batch=i,
+                #                               with_beta=True)
 
-                        _, y_est, batch_losses_eval, measures = o
-                    if False:
-                        train_running_loss.update({'{}_{}'.format(s, k):
-                                                   batch_losses_eval[k].mean().item() for k in batch_losses})
-                # print('\n*** running', i, ':', *train_running_loss)  #
-                if not i:
-                    train_mean_loss = train_running_loss
-                else:
-                    train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
-                                       for k in train_mean_loss}
+                #         _, y_est, batch_losses_eval, measures = o
+                #     if False:
+                #         train_running_loss.update({'{}_{}'.format(s, k):
+                #                                    batch_losses_eval[k].mean().item() for k in batch_losses})
+                # # print('\n*** running', i, ':', *train_running_loss)  #
+                # if not i:
+                #     train_mean_loss = train_running_loss
+                # else:
+                #     train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
+                #                        for k in train_mean_loss}
 
                 printed_losses = ['train_zdist']
                 for s in moving_batches:
-                    printed_losses.append('{}_zdist'.format(s))
+                    # printed_losses.append('{}_zdist'.format(s))
                     printed_losses.append('{}_zdist*'.format(s))
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',

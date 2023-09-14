@@ -301,7 +301,7 @@ class WIMVariationalNetwork(M):
                     x, y = moving_batches[s]
                     x = x.to(device)
                     y_zero = torch.zeros_like(y, dtype=int)
-                    o = self.evaluate(x, y_zero.to(device),
+                    o = self.evaluate(x, y.to(device),
                                       current_measures=current_measures,
                                       batch=i,
                                       with_beta=True)

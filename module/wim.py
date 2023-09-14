@@ -218,7 +218,6 @@ class WIMVariationalNetwork(M):
 
         for epoch in range(epochs):
             running_loss = {}
-            print('***', running_loss)
             self.eval()
 
             moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
@@ -249,9 +248,8 @@ class WIMVariationalNetwork(M):
                                                                            current_measures=current_measures,
                                                                            batch=i,
                                                                            with_beta=True)
-                    print('***', s, running_loss)
-                    running_loss = running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
-                                                        for k in batch_losses})
+                    running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
+                                         for k in batch_losses})
                 if not i:
                     mean_loss = running_loss
                 else:
@@ -316,13 +314,10 @@ class WIMVariationalNetwork(M):
                     L += alpha * batch_losses['total'].mean()
 
                 if not i:
-                    print('*** first batch', *mean_loss)
-                    mean_loss = mean_loss.update(running_loss)
-                    print('*** first batch', *mean_loss)
+                    mean_loss.update(running_loss)
                 else:
                     mean_loss.update({k: (mean_loss[k] * i + running_loss[k]) / (i + 1)
                                       for k in running_loss})
-                    print('*** nth batch', *mean_loss)
 
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',

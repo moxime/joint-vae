@@ -253,7 +253,7 @@ class WIMVariationalNetwork(M):
                                           with_beta=True)
                         _, y_est, batch_losses, measures = o
                     _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
-                    logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
+                    logging.debug(_s.format(epoch + 1, i + 1, s, 'alternate'))
                     zdist_alternate = batch_losses['zdist']
                     logging.debug('zdist={:.3g}'.format(zdist_alternate))
 
@@ -265,7 +265,7 @@ class WIMVariationalNetwork(M):
                                           with_beta=True)
                         _, y_est, batch_losses, measures = o
                     _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
-                    logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
+                    logging.debug(_s.format(epoch + 1, i + 1, s, 'original'))
                     zdist_original = batch_losses['zdist']
                     logging.debug('zdist={:.3g}'.format(zdist_original))
 

@@ -211,8 +211,6 @@ class WIMVariationalNetwork(M):
                                      print_result='*')
             self.ood_results = {}
 
-        acc_methods = self.predict_methods
-
         printed_losses = ['train_zdist']
         for s in moving_loaders:
             printed_losses.append('{}_zdist'.format(s))
@@ -251,7 +249,7 @@ class WIMVariationalNetwork(M):
                                                                            batch=i,
                                                                            with_beta=True)
 
-                train_running_loss = {'{}_{}': batch_losses[k].mean().item() for k in batch_losses}
+                train_running_loss = {'{}_{}'.format(s, k): batch_losses[k].mean().item() for k in batch_losses}
                 if not i:
                     train_mean_loss = train_running_loss
                 else:

@@ -261,16 +261,16 @@ class WIMVariationalNetwork(M):
                 else:
                     mean_loss = {k: (mean_loss[k] * i + running_loss[k]) / (i + 1)
                                  for k in mean_loss}
-                    self.alternate_prior = True
-                    _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
-                    logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
-                    with torch.no_grad():
-                        (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
-                                                                           current_measures=current_measures,
-                                                                           batch=i,
-                                                                           with_beta=True)
-                    zdist = batch_losses['zdist'].mean().item()
-                    logging.debug('zdist={:.3g}'.format(zdist))
+                self.alternate_prior = True
+                _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
+                logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
+                with torch.no_grad():
+                    (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
+                                                                       current_measures=current_measures,
+                                                                       batch=i,
+                                                                       with_beta=True)
+                zdist = batch_losses['zdist'].mean().item()
+                logging.debug('zdist={:.3g}'.format(zdist))
 
             t0 = time.time()
             time_per_i = 1e-9

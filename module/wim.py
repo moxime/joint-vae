@@ -189,8 +189,6 @@ class WIMVariationalNetwork(M):
                           for _ in moving_sets}
 
         current_measures = {}
-        moving_current_measures_on_alternate = {}
-        moving_current_measures_on_original = {}
 
         device = next(self.parameters()).device
 
@@ -216,7 +214,7 @@ class WIMVariationalNetwork(M):
         acc_methods = self.predict_methods
 
         printed_losses = ['train_zdist']
-        for s in moving_batches:
+        for s in moving_loaders:
             printed_losses.append('{}_zdist'.format(s))
             printed_losses.append('{}_zdist*'.format(s))
 
@@ -245,7 +243,8 @@ class WIMVariationalNetwork(M):
                     break
 
                 for s in moving_iters:
-                    with torch.no_grad:
+                    x, y = moving_batches[s]
+                    with torch.no_grad():
                         (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
                                                                            current_measures=current_measures,
                                                                            batch=i,
@@ -279,11 +278,10 @@ class WIMVariationalNetwork(M):
                 optimizer.zero_grad()
 
                 self.original_prior = True
-                with_torch.no_grad():
-                    (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
-                                                                       current_measures=current_measures,
-                                                                       batch=i,
-                                                                       with_beta=True)
+                (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
+                                                                   current_measures=current_measures,
+                                                                   batch=i,
+                                                                   with_beta=True)
 
                 train_running_loss = {'train_' + k: batch_losses[k].mean().item() for k in batch_losses}
 
@@ -312,7 +310,7 @@ class WIMVariationalNetwork(M):
                     x = x.to(device)
                     y_zero = torch.zeros_like(y, dtype=int)
                     o = self.evaluate(x, y_zero.to(device),
-                                      current_measures=moving_current_measures_on_alternate,
+                                      current_measures=current_measures,
                                       batch=i,
                                       with_beta=True)
 

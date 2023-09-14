@@ -376,6 +376,7 @@ class WIMVariationalNetwork(M):
                                      outputs=outputs,
                                      sample_dirs=sample_dirs,
                                      recorders={},
+                                     update_self_ood=False,
                                      print_result='*')
 
 

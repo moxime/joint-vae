@@ -84,7 +84,7 @@ if __name__ == '__main__':
     testset = m.training_parameters['set']
     oodsets = get_same_size_by_name(testset)
 
-    if device == 'cpu':
+    if device == 'cpu' or True:
         oodsets = m.wim_params.get('sets', oodsets[:1])
 
     _, testset = get_dataset(testset)

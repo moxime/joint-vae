@@ -113,9 +113,13 @@ if __name__ == '__main__':
             with torch.no_grad():
                 _, _, loss, _, mu, _, _ = m.evaluate(x[s].to(device), z_output=True)
             mus[p][s] = mu.detach().cpu().numpy()
+            print('*** Y in losses;', m.losses_computed_for_each_class)
             for _ in losses_k:
                 print('***', _, *loss[_].shape)
-            losses[p][s] = {_: loss[_].min(0)[0].mean() for _ in losses_k}
+            if m.losses_computed_for_each_class:
+                losses[p][s] = {_: loss[_].min(0)[0].mean() for _ in losses_k}
+            else:
+                losses[p][s] = {_: loss[_].mean() for _ in losses_k}
         m.alternate_prior = True
 
     for p in priors:

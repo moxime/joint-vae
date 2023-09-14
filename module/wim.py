@@ -300,6 +300,7 @@ class WIMVariationalNetwork(M):
 
                 printed_losses = ['train_zdist']
                 for s in moving_batches:
+                    printed_losses.append('{}_zdist'.format(s))
                     printed_losses.append('{}_zdist*'.format(s))
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',

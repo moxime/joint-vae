@@ -106,7 +106,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             'jvae': ['max', 'sum', 'std'],  # 'mag'],
                             'vae': ['iws', 'iws-2s', 'iws-a-1-1', 'iws-a-4-1',
                                     'elbo', 'elbo-2s', 'elbo-a-1-1', 'elbo-a-4-1',
-                                    'zdsit'],
+                                    'zdist'],
                             'vib': ['odin*', 'baseline', 'logits']}
 
     misclass_methods_per_type = {'cvae': ['softkl*', 'iws', 'softiws*', 'kl', 'max',

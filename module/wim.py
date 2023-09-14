@@ -295,11 +295,11 @@ class WIMVariationalNetwork(M):
                 #         train_running_loss.update({'{}_{}'.format(s, k):
                 #                                    batch_losses_eval[k].mean().item() for k in batch_losses})
                 # # print('\n*** running', i, ':', *train_running_loss)  #
-                # if not i:
-                #     train_mean_loss = train_running_loss
-                # else:
-                #     train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
-                #                        for k in train_mean_loss}
+                if not i:
+                    train_mean_loss = train_running_loss
+                else:
+                    train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
+                                       for k in train_mean_loss}
 
                 printed_losses = ['train_zdist']
                 for s in moving_batches:

@@ -267,8 +267,9 @@ class WIMVariationalNetwork(M):
                     logging.debug('Epoch {} Batch {} -- set {}'.format(epoch + 1, i + 1, s))
 
                     x, y = moving_batches[s]
-                    y = torch.zeros_like(y, dtype=int)
-                    o = self.evaluate(x.to(device), y.to(device),
+                    x = x.to(device)
+                    y_zero = torch.zeros_like(y, dtype=int)
+                    o = self.evaluate(x, y_zero.to(device),
                                       current_measures=moving_current_measures_on_alternate,
                                       batch=i,
                                       with_beta=True)
@@ -284,7 +285,7 @@ class WIMVariationalNetwork(M):
                     self.original_prior = True
                     if not i % 10:
                         with torch.no_grad():
-                            o = self.evaluate(x.to(device), y.to(device),
+                            o = self.evaluate(x, y.to(device),
                                               current_measures=moving_current_measures_on_original,
                                               batch=i,
                                               with_beta=True)

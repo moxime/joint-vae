@@ -204,6 +204,7 @@ class WIMVariationalNetwork(M):
         self.original_prior = True
         with torch.no_grad():
             self.ood_detection_rates(batch_size=test_batch_size,
+                                     oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
                                      num_batch=1024 // test_batch_size,
                                      outputs=outputs,
                                      sample_dirs=sample_dirs,
@@ -329,6 +330,7 @@ class WIMVariationalNetwork(M):
         self.eval()
         with torch.no_grad():
             self.ood_detection_rates(batch_size=test_batch_size,
+                                     oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
                                      num_batch='all',
                                      outputs=outputs,
                                      sample_dirs=sample_dirs,

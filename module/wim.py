@@ -250,12 +250,11 @@ class WIMVariationalNetwork(M):
                         o = self.evaluate(x.to(device), y.to(device),
                                           current_measures=current_measures,
                                           batch=i,
-                                          z_output=True,
                                           with_beta=True)
-                        _, y_est, batch_losses, measures, mu_alternate, _, _ = o
+                        _, y_est, batch_losses, measures = o
                     _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
                     logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
-                    zdist_alternate = batch_losses['zdist'].mean().item()
+                    zdist_alternate = batch_losses['zdist']
                     logging.debug('zdist={:.3g}'.format(zdist_alternate))
 
                     self.original_prior = True
@@ -263,17 +262,15 @@ class WIMVariationalNetwork(M):
                         o = self.evaluate(x.to(device), y.to(device),
                                           current_measures=current_measures,
                                           batch=i,
-                                          z_output=True,
                                           with_beta=True)
-                        _, y_est, batch_losses, measures, mu_original, _, _ = o
+                        _, y_est, batch_losses, measures = o
                     _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
                     logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
-                    zdist_original = batch_losses['zdist'].mean().item()
+                    zdist_original = batch_losses['zdist']
                     logging.debug('zdist={:.3g}'.format(zdist_original))
 
-                    dzdist = (mu_original - mu_alternate).square().sum(-1)
-                    logging.debug(dzdist.shape)
-                    _s = 'mu dist {:.2g} -- {:.2g} -- {:.2g}'
+                    dzdist = zdist_original - zdist_alternate
+                    _s = 'dzdist {:.2g} -- {:.2g} -- {:.2g}'
                     logging.debug(_s.format(dzdist.quantile(0.25),
                                             dzdist.quantile(0.5),
                                             dzdist.quantile(0.75)))

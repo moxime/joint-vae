@@ -1026,7 +1026,10 @@ class ClassificationVariationalNetwork(nn.Module):
                 T = float(m[7:])
                 measures = (- losses['kl'] / T).softmax(0).max(axis=0)[0]
             elif m in ('zdist', 'fisher_rao', 'mahala', 'kl_rec'):
-                measures = (-losses[m]).max(axis=0)[0]
+                if self.is_vae:
+                    measures = -losses[m]
+                else:
+                    measures = (-losses[m]).max(axis=0)[0]
             elif m.startswith('soft') and '-' in m:
                 T = float(m.split('-')[-1])
                 k = m.split('-')[0][4:]

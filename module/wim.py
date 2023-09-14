@@ -217,6 +217,7 @@ class WIMVariationalNetwork(M):
             printed_losses.append('{}_zdist*'.format(s))
 
         for epoch in range(epochs):
+            train_running_loss = {}
 
             self.eval()
 
@@ -249,24 +250,21 @@ class WIMVariationalNetwork(M):
                                                                            batch=i,
                                                                            with_beta=True)
 
-                train_running_loss = {'{}_{}'.format(s, k): batch_losses[k].mean().item() for k in batch_losses}
+                    train_running_loss = train_running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
+                                                                    for k in batch_losses})
                 if not i:
                     train_mean_loss = train_running_loss
                 else:
                     train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
                                        for k in train_mean_loss}
-            print('*** after eval:', *train_mean_loss)
             t0 = time.time()
             time_per_i = 1e-9
 
             self.train()
 
-            # logging.info('Starting epoch {}'.format(epoch + 1))
-
             moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
 
             per_epoch = len(trainloader)
-            train_running_loss = {}
             for i, (x, y) in enumerate(trainloader):
 
                 if i:
@@ -300,9 +298,6 @@ class WIMVariationalNetwork(M):
 
                     if not alpha:
                         break
-
-                    self.train()
-
                     logging.debug('Epoch {} Batch {} -- set {}'.format(epoch + 1, i + 1, s))
 
                     x, y = moving_batches[s]
@@ -321,6 +316,7 @@ class WIMVariationalNetwork(M):
                     L += alpha * batch_losses['total'].mean()
 
                 if not i:
+                    print('*** first batch', *train_mean_loss)
                     train_mean_loss = train_mean_loss.update(train_running_loss)
                     print('*** first batch', *train_mean_loss)
                 else:

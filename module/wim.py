@@ -295,6 +295,7 @@ class WIMVariationalNetwork(M):
                     try:
                         moving_batches[_] = next(moving_iters[_])
                     except StopIteration:
+                        logging.info('Reinitializing iter {} at batch {}'.format(_, i))
                         moving_iters[_] = iter(moving_loaders[_])
                         moving_batches[_] = next(moving_iters[_])
 

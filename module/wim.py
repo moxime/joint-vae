@@ -232,6 +232,7 @@ class WIMVariationalNetwork(M):
             t0 = time.time()
             time_per_i = 1e-9
 
+            logging.info('Evaluation on epoch {}'.format(epoch + 1))
             for i in range(val_batches):
                 if i:
                     time_per_i = (time.time() - t0) / i
@@ -256,7 +257,7 @@ class WIMVariationalNetwork(M):
                 else:
                     train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
                                        for k in train_mean_loss}
-
+            print('*** after eval:', *train_mean_loss)
             t0 = time.time()
             time_per_i = 1e-9
 
@@ -321,25 +322,13 @@ class WIMVariationalNetwork(M):
 
                     L += alpha * batch_losses['total'].mean()
 
-                #     self.eval()
-                #     self.original_prior = True
-                #     if not i % 10 and False:
-                #         with torch.no_grad():
-                #             o = self.evaluate(x, y.to(device),
-                #                               current_measures=moving_current_measures_on_original,
-                #                               batch=i,
-                #                               with_beta=True)
-
-                #         _, y_est, batch_losses_eval, measures = o
-                #     if False:
-                #         train_running_loss.update({'{}_{}'.format(s, k):
-                #                                    batch_losses_eval[k].mean().item() for k in batch_losses})
-                # # print('\n*** running', i, ':', *train_running_loss)  #
                 if not i:
                     train_mean_loss = train_mean_loss.update(train_running_loss)
+                    print('*** first batch', *train_mean_loss)
                 else:
                     train_mean_loss.update({k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
                                             for k in train_running_loss})
+                    print('*** nth batch', *train_mean_loss)
 
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',

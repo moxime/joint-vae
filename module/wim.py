@@ -213,14 +213,57 @@ class WIMVariationalNetwork(M):
                                      print_result='*')
             self.ood_results = {}
 
-        self.train()
-
         acc_methods = self.predict_methods
 
         for epoch in range(epochs):
 
+            self.eval()
+
+            moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
             t0 = time.time()
             time_per_i = 1e-9
+
+            # EVAL
+            self.original_prior = True
+            val_batches = 1024 // batch_size
+            t0 = time.time()
+            time_per_i = 1e-9
+
+            for i in range(val_batches):
+                if i:
+                    time_per_i = (time.time() - t0) / i
+                moving_batches = {}
+                try:
+                    for _ in moving_iters[]:
+                        moving_batches[_] = next(moving_iters[_])
+                except StopIteration:
+                    break
+
+                for s in moving_iters:
+                    with torch.no_grad:
+                        (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
+                                                                           current_measures=current_measures,
+                                                                           batch=i,
+                                                                           with_beta=True)
+
+                train_running_loss = {'{}_{}': batch_losses[k].mean().item() for k in batch_losses}
+                if not i:
+                    train_mean_loss = train_running_loss
+                else:
+                    train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
+                                       for k in train_mean_loss}
+
+                outputs.results(i, val_batches, epoch + 1, epochs,
+                                preambule='original',
+                                losses={k: train_mean_loss[k] for k in train_mean_loss if k in printed_losses},
+                                batch_size=batch_size * len(moving_iters),
+                                time_per_i=time_per_i,
+                                end_of_epoch='\n')
+
+            t0 = time.time()
+            time_per_i = 1e-9
+
+            self.train()
 
             # logging.info('Starting epoch {}'.format(epoch + 1))
 
@@ -238,10 +281,11 @@ class WIMVariationalNetwork(M):
                 optimizer.zero_grad()
 
                 self.original_prior = True
-                (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
-                                                                   current_measures=current_measures,
-                                                                   batch=i,
-                                                                   with_beta=True)
+                with_torch.no_grad():
+                    (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
+                                                                       current_measures=current_measures,
+                                                                       batch=i,
+                                                                       with_beta=True)
 
                 train_running_loss = {'train_' + k: batch_losses[k].mean().item() for k in batch_losses}
 

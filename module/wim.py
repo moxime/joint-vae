@@ -247,25 +247,36 @@ class WIMVariationalNetwork(M):
 
                     self.alternate_prior = True
                     with torch.no_grad():
-                        (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
-                                                                           current_measures=current_measures,
-                                                                           batch=i,
-                                                                           with_beta=True)
+                        o = self.evaluate(x.to(device), y.to(device),
+                                          current_measures=current_measures,
+                                          batch=i,
+                                          z_output=True,
+                                          with_beta=True)
+                        _, y_est, batch_losses, measures, mu_alternate, _, _ = o
                     _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
                     logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
-                    zdist = batch_losses['zdist'].mean().item()
-                    logging.debug('zdist={:.3g}'.format(zdist))
+                    zdist_alternate = batch_losses['zdist'].mean().item()
+                    logging.debug('zdist={:.3g}'.format(zdist_alternate))
 
                     self.original_prior = True
                     with torch.no_grad():
-                        (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
-                                                                           current_measures=current_measures,
-                                                                           batch=i,
-                                                                           with_beta=True)
+                        o = self.evaluate(x.to(device), y.to(device),
+                                          current_measures=current_measures,
+                                          batch=i,
+                                          z_output=True,
+                                          with_beta=True)
+                        _, y_est, batch_losses, measures, mu_original, _, _ = o
                     _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
                     logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
-                    zdist = batch_losses['zdist'].mean().item()
-                    logging.debug('zdist={:.3g}'.format(zdist))
+                    zdist_original = batch_losses['zdist'].mean().item()
+                    logging.debug('zdist={:.3g}'.format(zdist_original))
+
+                    dzdist = (mu_original - mu_alternate).square().sum(-1)
+                    logging.debug(dzdist.shape)
+                    _s = 'mu dist {:.2g} -- {:.2g} -- {:.2g}'
+                    logging.debug(_s.format(dzdist.quantile(0.25),
+                                            dzdist.quantile(0.5),
+                                            dzdist.quantile(0.75)))
 
                     running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
                                          for k in batch_losses})

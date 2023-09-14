@@ -251,6 +251,8 @@ class WIMVariationalNetwork(M):
                                                                            current_measures=current_measures,
                                                                            batch=i,
                                                                            with_beta=True)
+                    zdist = batch_losses['zdist'].mean().item()
+                    logging.debug('zdist={:.3g}'.format(zdist))
                     running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
                                          for k in batch_losses})
                 if not i:
@@ -281,6 +283,8 @@ class WIMVariationalNetwork(M):
                                                                    current_measures=current_measures,
                                                                    batch=i,
                                                                    with_beta=True)
+                zdist = batch_losses['zdist'].mean().item()
+                logging.debug('zdist={:.3g}'.format(zdist))
 
                 running_loss = {'train_' + k: batch_losses[k].mean().item() for k in batch_losses}
 
@@ -306,12 +310,15 @@ class WIMVariationalNetwork(M):
                     x, y = moving_batches[s]
                     x = x.to(device)
                     y_zero = torch.zeros_like(y, dtype=int)
-                    o = self.evaluate(x, y.to(device),
+                    o = self.evaluate(x, y_zero.to(device),
                                       current_measures=current_measures,
                                       batch=i,
                                       with_beta=True)
 
                     _, y_est, batch_losses, measures = o
+
+                    zdist = batch_losses['zdist'].mean().item()
+                    logging.debug('zdist={:.3g}'.format(zdist))
 
                     running_loss.update({'{}_{}*'.format(s, k):
                                          batch_losses[k].mean().item() for k in batch_losses})

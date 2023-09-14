@@ -356,6 +356,15 @@ class WIMVariationalNetwork(M):
                                      recorders={},
                                      print_result='*')
 
+            self.alternate_prior = True
+            self.ood_detection_rates(batch_size=test_batch_size,
+                                     oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
+                                     num_batch='all',
+                                     outputs=outputs,
+                                     sample_dirs=sample_dirs,
+                                     recorders={},
+                                     print_result='*')
+
 
 if __name__ == '__main__':
 

@@ -281,7 +281,7 @@ class WIMVariationalNetwork(M):
                     self.eval()
                     self.original_prior = True
                     o = self.evaluate(x.to(device), y.to(device),
-                                      current_measures=moving_current_measures_on_orginal,
+                                      current_measures=moving_current_measures_on_original,
                                       batch=i,
                                       with_beta=True)
 

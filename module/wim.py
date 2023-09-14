@@ -245,8 +245,6 @@ class WIMVariationalNetwork(M):
 
                 train_running_loss = {'train_' + k: batch_losses[k].mean().item() for k in batch_losses}
 
-                self.alternate_prior = True
-
                 L = batch_losses['total'].mean()
 
                 moving_batches = {}
@@ -259,8 +257,12 @@ class WIMVariationalNetwork(M):
 
                 for s in moving_batches:
 
+                    self.alternate_prior = True
+
                     if not alpha:
                         break
+
+                    self.train()
 
                     logging.debug('Epoch {} Batch {} -- set {}'.format(epoch + 1, i + 1, s))
 
@@ -289,8 +291,6 @@ class WIMVariationalNetwork(M):
 
                     train_running_loss.update({'{}_{}'.format(s, k):
                                                batch_losses[k].mean().item() for k in batch_losses})
-
-                    self.train()
 
                 if not i:
                     train_mean_loss = train_running_loss

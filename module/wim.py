@@ -215,6 +215,11 @@ class WIMVariationalNetwork(M):
 
         acc_methods = self.predict_methods
 
+        printed_losses = ['train_zdist']
+        for s in moving_batches:
+            printed_losses.append('{}_zdist'.format(s))
+            printed_losses.append('{}_zdist*'.format(s))
+
         for epoch in range(epochs):
 
             self.eval()
@@ -252,13 +257,6 @@ class WIMVariationalNetwork(M):
                 else:
                     train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
                                        for k in train_mean_loss}
-
-                outputs.results(i, val_batches, epoch + 1, epochs,
-                                preambule='original',
-                                losses={k: train_mean_loss[k] for k in train_mean_loss if k in printed_losses},
-                                batch_size=batch_size * len(moving_iters),
-                                time_per_i=time_per_i,
-                                end_of_epoch='\n')
 
             t0 = time.time()
             time_per_i = 1e-9
@@ -340,15 +338,11 @@ class WIMVariationalNetwork(M):
                 #                                    batch_losses_eval[k].mean().item() for k in batch_losses})
                 # # print('\n*** running', i, ':', *train_running_loss)  #
                 if not i:
-                    train_mean_loss = train_running_loss
+                    train_mean_loss = train_mean_loss.update(train_running_loss)
                 else:
-                    train_mean_loss = {k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
-                                       for k in train_mean_loss}
+                    train_mean_loss.update({k: (train_mean_loss[k] * i + train_running_loss[k]) / (i + 1)
+                                            for k in train_running_loss})
 
-                printed_losses = ['train_zdist']
-                for s in moving_batches:
-                    # printed_losses.append('{}_zdist'.format(s))
-                    printed_losses.append('{}_zdist*'.format(s))
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',
                                 losses={k: train_mean_loss[k] for k in train_mean_loss if k in printed_losses},

@@ -226,7 +226,7 @@ class WIMVariationalNetwork(M):
 
             # EVAL
             self.original_prior = True
-            val_batches = 1024 // batch_size
+            val_batches = 3000 // batch_size
             t0 = time.time()
             time_per_i = 1e-9
 
@@ -242,7 +242,7 @@ class WIMVariationalNetwork(M):
                     break
 
                 for s in moving_iters:
-                    _s = 'Epoch {} Batch {} -- eval set {} --- prior {}'
+                    _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
                     logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
 
                     x, y = moving_batches[s]

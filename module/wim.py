@@ -242,6 +242,9 @@ class WIMVariationalNetwork(M):
                     break
 
                 for s in moving_iters:
+                    _s = 'Epoch {} Batch {} -- eval set {} --- prior {}'
+                    logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
+
                     x, y = moving_batches[s]
                     with torch.no_grad():
                         (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
@@ -268,11 +271,12 @@ class WIMVariationalNetwork(M):
                 if i:
                     time_per_i = (time.time() - t0) / i
 
-                logging.debug('Epoch {} Batch {}'.format(epoch + 1, i + 1))
-
                 optimizer.zero_grad()
 
                 self.original_prior = True
+                _s = 'Epoch {} Batch {} -- set {} --- prior {}'
+                logging.debug(_s.format(epoch + 1, i + 1, 'train', self.encoder.prior))
+
                 (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
                                                                    current_measures=current_measures,
                                                                    batch=i,
@@ -296,7 +300,8 @@ class WIMVariationalNetwork(M):
 
                     if not alpha:
                         break
-                    logging.debug('Epoch {} Batch {} -- set {}'.format(epoch + 1, i + 1, s))
+                    _s = 'Epoch {} Batch {} -- set {} --- prior {}'
+                    logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
 
                     x, y = moving_batches[s]
                     x = x.to(device)
@@ -344,10 +349,10 @@ class WIMVariationalNetwork(M):
 
         logging.info('Computing ood fprs')
 
-        self.original_prior = True
-
         self.eval()
         with torch.no_grad():
+            self.original_prior = True
+            outputs.write('With orginal prior\n')
             self.ood_detection_rates(batch_size=test_batch_size,
                                      oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
                                      num_batch='all',
@@ -357,6 +362,7 @@ class WIMVariationalNetwork(M):
                                      print_result='*')
 
             self.alternate_prior = True
+            outputs.write('With alternate prior\n')
             self.ood_detection_rates(batch_size=test_batch_size,
                                      oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
                                      num_batch='all',

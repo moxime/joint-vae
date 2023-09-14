@@ -282,16 +282,17 @@ class WIMVariationalNetwork(M):
 
                     self.eval()
                     self.original_prior = True
-                    with torch.no_grad():
-                        o = self.evaluate(x.to(device), y.to(device),
-                                          current_measures=moving_current_measures_on_original,
-                                          batch=i,
-                                          with_beta=True)
+                    if not i % 10:
+                        with torch.no_grad():
+                            o = self.evaluate(x.to(device), y.to(device),
+                                              current_measures=moving_current_measures_on_original,
+                                              batch=i,
+                                              with_beta=True)
 
-                        _, y_est, batch_losses, measures = o
+                            _, y_est, batch_losses, measures = o
 
-                        train_running_loss.update({'{}_{}'.format(s, k):
-                                                   batch_losses[k].mean().item() for k in batch_losses})
+                            train_running_loss.update({'{}_{}'.format(s, k):
+                                                       batch_losses[k].mean().item() for k in batch_losses})
 
                 # print('\n*** running', i, ':', *train_running_loss)  #
                 if not i:

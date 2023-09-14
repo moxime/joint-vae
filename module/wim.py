@@ -239,7 +239,7 @@ class WIMVariationalNetwork(M):
                     time_per_i = (time.time() - t0) / i
                 moving_batches = {}
                 try:
-                    for _ in moving_iters[]:
+                    for _ in moving_iters:
                         moving_batches[_] = next(moving_iters[_])
                 except StopIteration:
                     break

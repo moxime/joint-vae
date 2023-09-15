@@ -100,6 +100,7 @@ if __name__ == '__main__':
         with turnoff_debug():
             with torch.no_grad():
 
+                print('ACCURACY')
                 if args.accuracy:
                     acc = model.accuracy(batch_size=args.batch_size,
                                          num_batch=args.num_batch,
@@ -108,6 +109,8 @@ if __name__ == '__main__':
                                          print_result='ACC',
                                          update_self_testing=False,
                                          )
+
+                print('OOD DETECTION')
                 if args.ood:
                     ood = model.ood_detection_rates(batch_size=batch_size,
                                                     num_batch=num_batch,
@@ -115,4 +118,5 @@ if __name__ == '__main__':
                                                     sample_dirs=[sample_dir],
                                                     update_self_ood=False,
                                                     recorders=recorders,
+                                                    print_result='*',
                                                     from_where=('compute'))

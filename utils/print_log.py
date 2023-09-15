@@ -230,8 +230,8 @@ def texify_str(s, num=False, space=None, underscore=None, verbatim=False):
 
 class Time(float):
 
-    def __init__(self, *a, **kw):
-        super().__init__(self, *a, **kw)
+    def __init__(self, a):
+        super().__init__()
         self.finished = False
 
     def __str__(self, max=2):
@@ -258,7 +258,7 @@ class Time(float):
             if t <= orig_t / 20:
                 break
 
-        return str + ('*' if self.finished else 0)
+        return str + ('*' if self.finished else '')
 
     def __add__(self, t_):
 

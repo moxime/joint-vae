@@ -118,5 +118,4 @@ if __name__ == '__main__':
                                                     sample_dirs=[sample_dir],
                                                     update_self_ood=False,
                                                     recorders=recorders,
-                                                    print_result='*',
                                                     from_where=('compute'))

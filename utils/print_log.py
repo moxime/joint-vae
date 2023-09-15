@@ -123,7 +123,7 @@ class EpochOutput:
             h[3] = '-' * len(h[2])
             return h[header]
         else:
-            return sep.join(_shorten(self.cell_formats.get(k, default_cell_format.format(kv[k])))
+            return sep.join(_shorten(self.cell_formats.get(k, default_cell_format).format(kv[k]))
                             for k in kv if k not in masked)
 
     def result_row(self, header=False, masked=[], sep=' | ', double_sep=' || ', **kvs):
@@ -313,7 +313,7 @@ def timerun(func):
         result = func(*args, **kwargs)
         duration = time.time() - start
 
-        logger.debug(f"Duration of {func.__name__} function was {duration}.")
+        logging.debug(f"Duration of {func.__name__} function was {duration}.")
         return result
     return wrapper
 
@@ -321,7 +321,11 @@ def timerun(func):
 if __name__ == '__main__':
 
     kvs = {'': {'epoch': '400/600', '': 'VALID'},
-           'losses': {'total': -1.2332e-1, 'kl': 32.5454e-2, 'dB': -52.22325, 'odin': 'yes!'},
+           'losses': {'total': -1.2332e-1,
+                      'kl': 32.5454e-2,
+                      'dB': -52.22325,
+                      'odin': 'yes!'
+                      },
            'accuracy': {'iws': 0.84846, 'iws-2': 0.987, 'foo': 0.6545},
            'time': {'/i': Time(122.1511e-6), 'eta': Time(617.65154)}
            }

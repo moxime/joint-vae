@@ -139,8 +139,8 @@ class WIMVariationalNetwork(M):
                  outputs=EpochOutput(),
                  ):
 
-        logging.warning('DEBUG MODE MODEL IN MODE TRAIN')
-        self.train()  # TBR
+        # logging.warning('DEBUG MODE MODEL IN MODE TRAIN')
+        # self.train()  # TBR
 
         def zdbg(*a):
             debug_str = '### {:10} epoch {:2} batch {:2} set {:8} {:10} prior <zdist> = {:9.4g}'
@@ -199,7 +199,7 @@ class WIMVariationalNetwork(M):
 
         device = next(self.parameters()).device
 
-        # self.eval()
+        self.eval()
         sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained), 'init')]
         for d in sample_dirs:
             try:
@@ -225,7 +225,7 @@ class WIMVariationalNetwork(M):
 
         for epoch in range(epochs):
             running_loss = {}
-            # self.eval()
+            self.eval()
 
             moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
             t0 = time.time()
@@ -377,7 +377,7 @@ class WIMVariationalNetwork(M):
 
         logging.info('Computing ood fprs')
 
-        # self.eval()
+        self.eval()
         with torch.no_grad():
             self.original_prior = True
             outputs.write('With orginal prior\n')

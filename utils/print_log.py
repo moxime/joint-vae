@@ -274,7 +274,9 @@ class Time(float):
 
     def __mul__(self, k):
 
-        return Time(float(self) * k)
+        t = Time(float(self) * k)
+        t.finished = self.finished
+        return t
 
     def __truediv__(self, k):
 

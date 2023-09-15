@@ -191,6 +191,7 @@ class EpochOutput:
             if batch < batches - 1:
                 kept_kvs['time']['eta'] = time_per_i * (batches - batch)
             else:
+                time_per_i.finished = True
                 kept_kvs['time']['total'] = time_per_i * batches
 
         if not batch:
@@ -229,6 +230,10 @@ def texify_str(s, num=False, space=None, underscore=None, verbatim=False):
 
 class Time(float):
 
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.finished = False
+
     def __str__(self, max=2):
 
         t = self
@@ -253,7 +258,7 @@ class Time(float):
             if t <= orig_t / 20:
                 break
 
-        return str
+        return str + ('*' if self.finished else 0)
 
     def __add__(self, t_):
 

@@ -985,9 +985,12 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if 'iws' in losses:
             iws = losses['iws']
-            if self.losses_might_be_computed_for_each_class:
-                iws_max = iws.max(axis=0)[0]
-                d_iws = iws - iws_max
+        else:
+            logging.warning('Asking for iws not computed; will use elo')
+            iws = -losses['total']
+        if self.losses_might_be_computed_for_each_class:
+            iws_max = iws.max(axis=0)[0]
+            d_iws = iws - iws_max
 
         for m in methods:
 

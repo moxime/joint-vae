@@ -231,7 +231,7 @@ def texify_str(s, num=False, space=None, underscore=None, verbatim=False):
 class Time(float):
 
     def __init__(self, *a, **kw):
-        super().__init__(*a, **kw)
+        super().__init__(self, *a, **kw)
         self.finished = False
 
     def __str__(self, max=2):

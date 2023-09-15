@@ -139,6 +139,7 @@ class WIMVariationalNetwork(M):
                  outputs=EpochOutput(),
                  ):
 
+        logging.warning('DEBUG MODE MODEL IN MODE TRAIN')
         self.train()  # TBR
 
         def zdbg(*a):

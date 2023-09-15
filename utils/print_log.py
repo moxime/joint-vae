@@ -137,7 +137,7 @@ class EpochOutput:
                                                default_format=k,
                                                sep=sep,
                                                **kvs[k])
-                               for k in kvs)
+                               for k in kvs if kvs[k])
 
     def results(self, batch, batches, epoch, epochs,
                 masked_components=['z_logdet', 'z_mahala', 'z_tr_inv_cov'],
@@ -326,7 +326,8 @@ if __name__ == '__main__':
                       'dB': -52.22325,
                       'odin': 'yes!'
                       },
-           'accuracy': {'iws': 0.84846, 'iws-2': 0.987, 'foo': 0.6545},
+           # 'accuracy': {'iws': 0.84846, 'iws-2': 0.987, 'foo': 0.6545},
+           'accuracy': {},
            'time': {'/i': Time(122.1511e-6), 'eta': Time(617.65154)}
            }
 

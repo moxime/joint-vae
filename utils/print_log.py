@@ -258,7 +258,7 @@ class Time(float):
             if t <= orig_t / 20:
                 break
 
-        return str + ('*' if self.finished else '')
+        return str + ('.' if self.finished else '')
 
     def __add__(self, t_):
 

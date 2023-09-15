@@ -139,6 +139,10 @@ class WIMVariationalNetwork(M):
                  outputs=EpochOutput(),
                  ):
 
+        def zdbg(*a):
+            debug_str = '### {:10} epoch {:2} batch {:2} set {:8} {:10} prior <zdist> = {:9.4g}'
+            logging.debug(debug_str.format(*a))
+
         if optimizer is None:
             optimizer = self.optimizer
 
@@ -252,11 +256,8 @@ class WIMVariationalNetwork(M):
                                           batch=i,
                                           with_beta=True)
                         _, y_est, batch_losses, measures = o
-                    _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
-                    logging.debug(_s.format(epoch + 1, i + 1, s, 'alternate'))
-                    zdist_alternate = batch_losses['zdist']
-                    logging.debug('zdist={:.3g}'.format(zdist_alternate))
-
+                    zdist = batch_losses['zdist']
+                    zdbg('validation', epoch + 1, i + 1, s, 'alternate', zdist.mean())
                     self.original_prior = True
                     with torch.no_grad():
                         o = self.evaluate(x.to(device), y.to(device),
@@ -264,16 +265,9 @@ class WIMVariationalNetwork(M):
                                           batch=i,
                                           with_beta=True)
                         _, y_est, batch_losses, measures = o
-                    _s = 'Val Epoch {} Batch {} -- set {} --- prior {}'
-                    logging.debug(_s.format(epoch + 1, i + 1, s, 'original'))
-                    zdist_original = batch_losses['zdist']
-                    logging.debug('zdist={:.3g}'.format(zdist_original))
 
-                    dzdist = zdist_original - zdist_alternate
-                    _s = 'dzdist {:.2g} -- {:.2g} -- {:.2g}'
-                    logging.debug(_s.format(dzdist.quantile(0.25),
-                                            dzdist.quantile(0.5),
-                                            dzdist.quantile(0.75)))
+                    zdist = batch_losses['zdist']
+                    zdbg('validation', epoch + 1, i + 1, s, 'original', zdist.mean())
 
                     running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
                                          for k in batch_losses})
@@ -306,8 +300,8 @@ class WIMVariationalNetwork(M):
                                                                    current_measures=current_measures,
                                                                    batch=i,
                                                                    with_beta=True)
-                zdist = batch_losses['zdist'].mean().item()
-                logging.debug('zdist={:.3g}'.format(zdist))
+                zdist = batch_losses['zdist']
+                zdbg('finetune', epoch + 1, i + 1, 'train', 'original', zdist.mean())
 
                 running_loss = {'train_' + k: batch_losses[k].mean().item() for k in batch_losses}
 
@@ -341,8 +335,8 @@ class WIMVariationalNetwork(M):
 
                     _, y_est, batch_losses, measures = o
 
-                    zdist = batch_losses['zdist'].mean().item()
-                    logging.debug('zdist={:.3g}'.format(zdist))
+                    zdist = batch_losses['zdist']
+                    zdbg('finetune', epoch + 1, i + 1, s, 'alternate', zdist.mean())
 
                     running_loss.update({'{}_{}*'.format(s, k):
                                          batch_losses[k].mean().item() for k in batch_losses})
@@ -392,16 +386,16 @@ class WIMVariationalNetwork(M):
                                      recorders={},
                                      print_result='*')
 
-            self.alternate_prior = True
-            outputs.write('With alternate prior\n')
-            self.ood_detection_rates(batch_size=test_batch_size,
-                                     oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
-                                     num_batch='all',
-                                     outputs=outputs,
-                                     sample_dirs=sample_dirs,
-                                     recorders={},
-                                     update_self_ood=False,
-                                     print_result='*')
+            # self.alternate_prior = True
+            # outputs.write('With alternate prior\n')
+            # self.ood_detection_rates(batch_size=test_batch_size,
+            #                          oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
+            #                          num_batch='all',
+            #                          outputs=outputs,
+            #                          sample_dirs=sample_dirs,
+            #                          recorders={},
+            #                          update_self_ood=False,
+            #                          print_result='*')
 
 
 if __name__ == '__main__':

@@ -198,7 +198,9 @@ class MixtureDataset(Dataset):
 
         # print('*** sample {} of {}'.format(sub_idx, which_dataset))
 
-        return self._subdatasets[which_dataset][sub_idx][0], which_dataset
+        x, y = self._subdatasets[which_dataset][sub_idx]
+
+        return x, which_dataset
 
 
 def create_image_dataset(classes_file):
@@ -534,6 +536,9 @@ def get_batch(dataset, shuffle=True, batch_size=100, device=None):
     if manual_seed:
         torch.manual_seed(initial_seed)
 
+    x, y = data
+
+    print(y)
     return data[0].to(device), data[1].to(device)
 
 

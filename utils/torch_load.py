@@ -150,6 +150,40 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         return classes, self.node_to_idx
 
 
+class MixtureDataset(Dataset):
+
+    def __init__(self, *datasets, cycle_on_short=False, **kw):
+
+        super().__init__(**kw)
+        lengths = [len(dataset) for dataset in datasets]
+
+        self.num_datasets = len(datasets)
+
+        self._subdatasets = datasets
+
+        self.classes = [getattr(_, 'name', i) for i, _ in enumerate(datasets)]
+
+        self._length = (max(lengths) if cycle_on_short else min(lengths)) * self.num_datasets
+
+        self._lengths = lengths
+
+    def __len__(self):
+
+        return self._length
+
+    def __getitem__(self, idx):
+
+        if idx >= len(self):
+            raise IndexError('Idx {} for length {}'.format(idx, len(self)))
+
+        which_dataset = idx % self.num_datasets
+        sub_idx = (idx // self.num_datasets) % self._lengths[which_dataset]
+
+        print('*** sample {} of {}'.format(sub_idx, which_dataset))
+
+        return self._subdatasets[which_dataset][sub_idx][0], which_dataset
+
+
 def create_image_dataset(classes_file):
 
     class Dataset(ImageFolderWithClassesInFile):

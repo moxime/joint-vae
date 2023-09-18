@@ -152,20 +152,37 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
 
 class MixtureDataset(Dataset):
 
-    def __init__(self, *datasets, cycle_on_short=False, **kw):
+    def __init__(self, *datasets, cycle_on_short=False, **dict_of_datasets):
 
-        super().__init__(**kw)
+        assert not datasets or not dict_of_datasets
+
+        if not datasets:
+            datasets = tuple(dict_of_datasets.values())
+            for n, d in dict_of_datasets.items():
+                d.name = n
+
+        super().__init__()
         lengths = [len(dataset) for dataset in datasets]
 
         self.num_datasets = len(datasets)
 
         self._subdatasets = datasets
 
-        self.classes = [getattr(_, 'name', i) for i, _ in enumerate(datasets)]
+        self.classes = tuple(getattr(_, 'name', i) for i, _ in enumerate(datasets))
 
         self._length = (max(lengths) if cycle_on_short else min(lengths)) * self.num_datasets
 
         self._lengths = lengths
+
+    def rename(self, *a, **kv):
+
+        assert not a or not kv, 'To rename, choose a list of name or a dict of old names: new names'
+        assert not a or len(a) == len(self.classes)
+
+        if a:
+            self.classes = a
+
+        self.classes = (kv.get(c, c) for c in self.classes)
 
     def __len__(self):
 
@@ -179,7 +196,7 @@ class MixtureDataset(Dataset):
         which_dataset = idx % self.num_datasets
         sub_idx = (idx // self.num_datasets) % self._lengths[which_dataset]
 
-        print('*** sample {} of {}'.format(sub_idx, which_dataset))
+        # print('*** sample {} of {}'.format(sub_idx, which_dataset))
 
         return self._subdatasets[which_dataset][sub_idx][0], which_dataset
 

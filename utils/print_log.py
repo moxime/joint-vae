@@ -72,6 +72,7 @@ class EpochOutput:
                     'odin': '{{{sep}>{c}}}'.format(sep=':', c=CELL_WIDTH),
                     'text': '{{{sep}>{c}}}'.format(sep=':', c=CELL_WIDTH),
                     }
+    cell_formats['fpr'] = cell_formats['accuracy']
 
     def __init__(self):
 

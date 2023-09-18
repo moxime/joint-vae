@@ -1678,7 +1678,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 outputs.results(i, num_batch[s], 0, 1,
                                 metrics={m: ind_measures[m].mean()
                                          for m in ood_methods_per_set[s]},
-                                accuracy={m: np.nan for m in ood_methods_per_set[s]},
+                                fpr={m: np.nan for m in ood_methods_per_set[s]},
                                 time_per_i=t_per_i,
                                 batch_size=batch_size[s],
                                 preambule=testset.name)
@@ -1822,7 +1822,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                     outputs.results(i, ood_n_batch, 0, 1,
                                     metrics=meaned_measures,
-                                    accuracy=r_,
+                                    fpr=r_,
                                     time_per_i=t_per_i,
                                     batch_size=batch_size[s],
                                     preambule=oodset.name)

@@ -239,6 +239,7 @@ class WIMVariationalNetwork(M):
 
             n_ind = 0
             n_ood = 0
+            i_ = {}
 
             logging.info('Evaluation on epoch {}'.format(epoch + 1))
             for i, (x, y) in enumerate(moving_loader):
@@ -247,8 +248,8 @@ class WIMVariationalNetwork(M):
                 time_per_i = (time.time() - t0) / i
                 y_zeros = torch.zeros(len(x))
 
-                i_ind = [*moving_set.subsets(*y, which='ind')]
-                i_ood = ~i_ind
+                i['ind'] = [*moving_set.subsets(*y, which='ind')]
+                i['ood'] = ~i_ind
 
                 logging.debug('{} ind (:.1%) / {}'.format(sum(i_ind), sum(i_ind) / len(i_ind), len(i_ind)))
 
@@ -259,8 +260,10 @@ class WIMVariationalNetwork(M):
                                       batch=i,
                                       with_beta=True)
                     _, y_est, batch_losses, measures = o
-                zdist = batch_losses['zdist']
-                zdbg('validation', epoch + 1, i + 1, s, 'alternate', zdist.mean())
+                zdist = {w: batch_losses['zdist'][i_[w]] for w in ('ind', 'ood')}
+                for _ in zdist:
+                    zdbg('validation', epoch + 1, i + 1, _, 'alternate', zdist[_].mean())
+
                 self.original_prior = True
                 with torch.no_grad():
                     o = self.evaluate(x.to(device), y.to(device),

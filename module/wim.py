@@ -180,21 +180,21 @@ class WIMVariationalNetwork(M):
                                                 transformer=transformer,
                                                 data_augmentation=data_augmentation)
 
-        moving_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
-        moving_sets['test'] = testset
+        ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
+
+        ood_set = MixtureDataset(**ood_sets, cycle_on_short=True)
+
+        moving_set = MixtureDataset(ood=ood_set, ind=testset, cycle_on_short=True)
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,
                                                   # pin_memory=True,
                                                   shuffle=True,
                                                   num_workers=0)
-
-        moving_loaders = {_: torch.utils.data.DataLoader(moving_sets[_],
-                                                         batch_size=batch_size,
-                                                         # pin_memory=True,
-                                                         shuffle=True,
-                                                         num_workers=0)
-                          for _ in moving_sets}
+        moving_loader = torch.utils.data.DataLoader(moving_set,
+                                                    batch_size=batch_size,
+                                                    shuffle=True,
+                                                    num_workers=0)
 
         current_measures = {}
 
@@ -211,7 +211,7 @@ class WIMVariationalNetwork(M):
         self.original_prior = True
         with torch.no_grad():
             self.ood_detection_rates(batch_size=test_batch_size,
-                                     oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
+                                     oodsets=[ood_sets[_] for _ in ood_sets],
                                      num_batch=1024 // test_batch_size,
                                      outputs=outputs,
                                      sample_dirs=sample_dirs,
@@ -220,7 +220,7 @@ class WIMVariationalNetwork(M):
             self.ood_results = {}
 
         printed_losses = ['train_zdist']
-        for s in moving_loaders:
+        for s in ('ind', 'ood'):
             printed_losses.append('{}_zdist'.format(s))
             printed_losses.append('{}_zdist*'.format(s))
 
@@ -228,7 +228,6 @@ class WIMVariationalNetwork(M):
             running_loss = {}
             self.eval()
 
-            moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
             t0 = time.time()
             time_per_i = 1e-9
 
@@ -238,43 +237,44 @@ class WIMVariationalNetwork(M):
             t0 = time.time()
             time_per_i = 1e-9
 
+            n_ind = 0
+            n_ood = 0
+
             logging.info('Evaluation on epoch {}'.format(epoch + 1))
-            for i in range(val_batches):
-                if i:
-                    time_per_i = (time.time() - t0) / i
-                moving_batches = {}
-                try:
-                    for _ in moving_iters:
-                        moving_batches[_] = next(moving_iters[_])
-                except StopIteration:
+            for i, (x, y) in enumerate(moving_loader):
+                if i > val_batches:
                     break
+                time_per_i = (time.time() - t0) / i
+                y_zeros = torch.zeros(len(x))
 
-                for s in moving_iters:
+                i_ind = [*moving_set.subsets(*y, which='ind')]
+                i_ood = ~i_ind
 
-                    x, y = moving_batches[s]
+                logging.debug('{} ind (:.1%) / {}'.format(sum(i_ind), sum(i_ind) / len(i_ind), len(i_ind)))
 
-                    self.alternate_prior = True
-                    with torch.no_grad():
-                        o = self.evaluate(x.to(device), y.to(device),
-                                          current_measures=current_measures,
-                                          batch=i,
-                                          with_beta=True)
-                        _, y_est, batch_losses, measures = o
-                    zdist = batch_losses['zdist']
-                    zdbg('validation', epoch + 1, i + 1, s, 'alternate', zdist.mean())
-                    self.original_prior = True
-                    with torch.no_grad():
-                        o = self.evaluate(x.to(device), y.to(device),
-                                          current_measures=current_measures,
-                                          batch=i,
-                                          with_beta=True)
-                        _, y_est, batch_losses, measures = o
+                self.alternate_prior = True
+                with torch.no_grad():
+                    o = self.evaluate(x.to(device), y_zeros.to(device),
+                                      current_measures=current_measures,
+                                      batch=i,
+                                      with_beta=True)
+                    _, y_est, batch_losses, measures = o
+                zdist = batch_losses['zdist']
+                zdbg('validation', epoch + 1, i + 1, s, 'alternate', zdist.mean())
+                self.original_prior = True
+                with torch.no_grad():
+                    o = self.evaluate(x.to(device), y.to(device),
+                                      current_measures=current_measures,
+                                      batch=i,
+                                      with_beta=True)
+                    _, y_est, batch_losses, measures = o
 
-                    zdist = batch_losses['zdist']
-                    zdbg('validation', epoch + 1, i + 1, s, 'original', zdist.mean())
+                zdist = batch_losses['zdist']
+                zdbg('validation', epoch + 1, i + 1, s, 'original', zdist.mean())
 
-                    running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
-                                         for k in batch_losses})
+                running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
+                                     for k in batch_losses})
+
                 if not i:
                     mean_loss = running_loss
                 else:

@@ -184,6 +184,14 @@ class MixtureDataset(Dataset):
 
         self.classes = (kv.get(c, c) for c in self.classes)
 
+    def subsets(self, *y, which=None):
+
+        for _ in y:
+            if which:
+                yield self.classes[_] == which
+            else:
+                yield self.classes[_]
+
     def __len__(self):
 
         return self._length
@@ -538,7 +546,6 @@ def get_batch(dataset, shuffle=True, batch_size=100, device=None):
 
     x, y = data
 
-    print(y)
     return data[0].to(device), data[1].to(device)
 
 

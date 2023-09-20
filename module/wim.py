@@ -264,8 +264,8 @@ class WIMVariationalNetwork(M):
 
                 self.original_prior = True
                 self.train()
-                _s = 'Epoch {} Batch {} -- set {} --- prior {}'
-                logging.debug(_s.format(epoch + 1, batch + 1, 'train', self.encoder.prior))
+                _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
+                logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
                 (_, y_est, batch_losses, _) = self.evaluate(x_a.to(device), y_a.to(device),
                                                             batch=batch,
@@ -278,6 +278,8 @@ class WIMVariationalNetwork(M):
                 L = batch_losses['total'].mean()
 
                 self.eval()
+                _s = 'Val   {:2} Batch {} -- set {} --- prior {}'
+                logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'orignal'))
                 with torch.no_grad():
                     (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
                                                             batch=batch,
@@ -304,7 +306,7 @@ class WIMVariationalNetwork(M):
 
                 self.alternate_prior = True
 
-                _s = 'Epoch {} Batch {} -- set {} --- prior {}'
+                _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'moving', 'alternate'))
 
                 self.train()
@@ -329,13 +331,16 @@ class WIMVariationalNetwork(M):
                                      for _, k in product(i_, printed_losses)})
 
                 self.eval()
+                _s = 'Val   {:2} Batch {:2} -- set {} --- prior {}'
+                logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'alternate'))
+
                 with torch.no_grad():
                     (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
                                                             y_a.to(device),
                                                             batch=batch,
                                                             with_beta=True)
-                if self.is_cvae:
-                    batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
+                # if self.is_cvae:
+                #     batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 
                 zdbg('eval', epoch + 1, batch + 1, 'train', 'alternate', batch_losses['zdist'].mean())
 

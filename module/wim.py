@@ -157,7 +157,7 @@ class WIMVariationalNetwork(M):
                  outputs=EpochOutput(),
                  ):
 
-        logging.warning('DEBUG MODE MODEL IN MODE EVAL')
+        # logging.warning('DEBUG MODE MODEL IN MODE EVAL')
 
         def zdbg(*a):
             debug_str = '### {:10} epoch {:2} batch {:2} set {:8} {:10} prior <zdist> = {:9.4g}'

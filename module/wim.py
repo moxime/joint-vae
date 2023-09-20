@@ -354,7 +354,7 @@ class WIMVariationalNetwork(M):
 
                 outputs.results(batch, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',
-                                losses={k: mean_loss[k] for k in mean_loss if k in printed_losses},
+                                losses=mean_loss,
                                 batch_size=2 * batch_size,
                                 time_per_i=time_per_i,
                                 end_of_epoch='\n')

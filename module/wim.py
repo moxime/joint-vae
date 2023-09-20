@@ -337,7 +337,7 @@ class WIMVariationalNetwork(M):
                 if self.is_cvae:
                     batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 
-                zdbg('eval', epoch + 1, batch + 1, _, 'train', batch_losses['zdist'].mean())
+                zdbg('eval', epoch + 1, batch + 1, 'train', 'alternate', batch_losses['zdist'].mean())
 
                 running_loss.update({'train_' + k + '*': batch_losses[k].mean().item()
                                      for k in printed_losses})

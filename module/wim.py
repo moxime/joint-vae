@@ -249,7 +249,7 @@ class WIMVariationalNetwork(M):
 
                 i_ = {}
                 i_['ind'] = list(moving_set.subsets(*y_u, which='ind'))
-                i_['ood'] = ~i_['ind']
+                i_['ood'] = [~_ for _ in i_['ind']]
 
                 n_per_i_ = {_: sum(i_[_]) for _ in i_}
                 n_per_i_['train'] = len(x_a)

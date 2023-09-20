@@ -26,6 +26,8 @@ def adapt_batch_dim(func, arg=1, last_shapes=1):
             print('***  ERROR', 'x', *x.shape, 'w:', *working_shape)
             raise e
         res = func(*a, **kw)
+        if isinstance(res, float):
+            logging.error('\n'.join(str(_) for _ in a))
         return res.view(batch_shape)
     return func_
 

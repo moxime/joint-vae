@@ -242,14 +242,14 @@ class WIMVariationalNetwork(M):
 
             n_ = {'ind': 0, 'ood': 0, 'train': 0}
 
-            for i, ((x_a, y_a), (x_u, y_u)) in enumerate(zip(trainloader, cycle(moving_loader))):
+            for batch, ((x_a, y_a), (x_u, y_u)) in enumerate(zip(trainloader, cycle(moving_loader))):
 
-                if i:
-                    time_per_i = (time.time() - t0) / i
+                if batch:
+                    time_per_i = (time.time() - t0) / batch
 
                 i_ = {}
                 i_['ind'] = list(moving_set.subsets(*y_u, which='ind'))
-                i_['ood'] = ~i['ind']
+                i_['ood'] = ~i_['ind']
 
                 n_per_i_ = {_: sum(i_[_]) for _ in i_}
                 n_per_i_['train'] = len(x_a)
@@ -265,13 +265,13 @@ class WIMVariationalNetwork(M):
                 self.original_prior = True
                 self.train()
                 _s = 'Epoch {} Batch {} -- set {} --- prior {}'
-                logging.debug(_s.format(epoch + 1, i + 1, 'train', self.encoder.prior))
+                logging.debug(_s.format(epoch + 1, batch + 1, 'train', self.encoder.prior))
 
                 (_, y_est, batch_losses, _) = self.evaluate(x_a.to(device), y_a.to(device),
-                                                            batch=i,
+                                                            batch=batch,
                                                             with_beta=True)
 
-                zdbg('finetune', epoch + 1, i + 1, 'train', 'original', batch_losses['zdist'].mean())
+                zdbg('finetune', epoch + 1, batch + 1, 'train', 'original', batch_losses['zdist'].mean())
 
                 running_loss = {'train_' + k: batch_losses[k].mean().item() for k in printed_losses}
 
@@ -280,7 +280,7 @@ class WIMVariationalNetwork(M):
                 self.eval()
                 with torch.no_grad():
                     (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
-                                                            batch=i,
+                                                            batch=batch,
                                                             with_beta=True)
 
                     if self.is_cvae:
@@ -294,7 +294,7 @@ class WIMVariationalNetwork(M):
                                          for _, k in product(i_, printed_losses)})
 
                     for _ in i_:
-                        zdbg('eval', epoch + 1, i + 1, _, 'original', batch_losses['zdist'].mean())
+                        zdbg('eval', epoch + 1, batch + 1, _, 'original', batch_losses['zdist'].mean())
 
                 """
 
@@ -305,11 +305,11 @@ class WIMVariationalNetwork(M):
                 self.alternate_prior = True
 
                 _s = 'Epoch {} Batch {} -- set {} --- prior {}'
-                logging.debug(_s.format(epoch + 1, i + 1, 'moving', 'alternate'))
+                logging.debug(_s.format(epoch + 1, batch + 1, 'moving', 'alternate'))
 
                 self.train()
                 o = self.evaluate(x_u.to(device), y_u_est,
-                                  batch=i,
+                                  batch=batch,
                                   with_beta=True)
 
                 _, _, batch_losses, _ = o
@@ -323,7 +323,7 @@ class WIMVariationalNetwork(M):
                     batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 
                 for _ in i_:
-                    zdbg('finetune', epoch + 1, i + 1, _, 'alternate', batch_losses['zdist'][i_[_]].mean())
+                    zdbg('finetune', epoch + 1, batch + 1, _, 'alternate', batch_losses['zdist'][i_[_]].mean())
 
                 running_loss.update({_ + '_' + k + '*': batch_losses[k][i_[_]].mean().item()
                                      for _, k in product(i_, printed_losses)})
@@ -332,17 +332,17 @@ class WIMVariationalNetwork(M):
                 with torch.no_grad():
                     (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
                                                             y_a.to(device),
-                                                            batch=i,
+                                                            batch=batch,
                                                             with_beta=True)
                 if self.is_cvae:
                     batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 
-                zdbg('eval', epoch + 1, i + 1, _, 'train', batch_losses['zdist'].mean())
+                zdbg('eval', epoch + 1, batch + 1, _, 'train', batch_losses['zdist'].mean())
 
                 running_loss.update({'train_' + k + '*': batch_losses[k].mean().item()
                                      for k in printed_losses})
 
-                if not i:
+                if not batch:
                     mean_loss = running_loss
                 else:
                     for _, k, suf in product(n_per_i_, printed_losses, ('*', '')):
@@ -352,7 +352,7 @@ class WIMVariationalNetwork(M):
                 for _ in n_:
                     n_[_] += n_per_i_[_]
 
-                outputs.results(i, per_epoch, epoch + 1, epochs,
+                outputs.results(batch, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',
                                 losses={k: mean_loss[k] for k in mean_loss if k in printed_losses},
                                 batch_size=2 * batch_size,

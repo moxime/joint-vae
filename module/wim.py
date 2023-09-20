@@ -346,7 +346,7 @@ class WIMVariationalNetwork(M):
                     mean_loss = running_loss
                 else:
                     for _, k, suf in product(n_per_i_, printed_losses, ('*', '')):
-                        k_ = k + '_' + suf
+                        k_ = k + '_' + _ + suf
                         mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_]) / n_[_]
 
                 for _ in n_:

@@ -247,12 +247,12 @@ class WIMVariationalNetwork(M):
                 if i:
                     time_per_i = (time.time() - t0) / i
 
-                    i_ = {}
-                    i_['ind'] = list(moving_set.subsets(*y_u, which='ind'))
-                    i_['ood'] = ~i['ind']
+                i_ = {}
+                i_['ind'] = list(moving_set.subsets(*y_u, which='ind'))
+                i_['ood'] = ~i['ind']
 
-                    n_per_i_ = {_: sum(i_[_]) for _ in i_}
-                    n_per_i_['train'] = len(x_a)
+                n_per_i_ = {_: sum(i_[_]) for _ in i_}
+                n_per_i_['train'] = len(x_a)
 
                 optimizer.zero_grad()
 

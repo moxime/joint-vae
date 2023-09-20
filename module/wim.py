@@ -278,7 +278,7 @@ class WIMVariationalNetwork(M):
                 """
 
                 self.original_prior = True
-                # self.train()
+                self.train()
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
@@ -325,7 +325,7 @@ class WIMVariationalNetwork(M):
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'moving', 'alternate'))
 
-                # self.train()
+                self.train()
                 o = self.evaluate(x_u.to(device), y_u_est,
                                   batch=batch,
                                   with_beta=True)

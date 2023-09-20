@@ -304,6 +304,7 @@ class WIMVariationalNetwork(M):
 
                         if self.is_cvae:
                             y_u_est = batch_losses['zdist'].min(0)[1]
+                            logging.debug('zdist shape: {}'.format(batch_losses['zdist'].shape))
                             batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 
                         else:

@@ -296,7 +296,7 @@ class WIMVariationalNetwork(M):
                                          for _, k in product(i_, printed_losses)})
 
                     for _ in i_:
-                        zdbg('eval', epoch + 1, batch + 1, _, 'original', batch_losses['zdist'].mean())
+                        zdbg('eval', epoch + 1, batch + 1, _, 'original', batch_losses['zdist'][i_[_]].mean())
 
                 """
 

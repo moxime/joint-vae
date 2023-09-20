@@ -93,19 +93,20 @@ class WIMVariationalNetwork(M):
             p.requires_grad_(False)
 
     @classmethod
-    def _recurse_train(cls, module, counter=0):
+    def _recurse_train(cls, module):
 
         if isinstance(module, torch.nn.BatchNorm2d):
             module.eval()
+            return 1
 
-        for child in module.children():
-            cls._recurse_train(child)
+        return sum([cls._recurse_train(child) for child in module.children()])
 
     def train(self, *a, **kw):
 
         super().train(*a, **kw)
         if self.training:
-            self._recurse_train(self)
+            n = self._recurse_train(self)
+            logging.debug('Kept {} bn layers in eval mode'.format(n))
 
     @classmethod
     def load(cls, dir_name, load_net=True, **kw):

@@ -293,7 +293,7 @@ class WIMVariationalNetwork(M):
 
                 L = batch_losses['total'].mean()
 
-                if val_batch:
+                if val_batch or self.is_cvae:
                     self.eval()
                     _s = 'Val   {:2} Batch {} -- set {} --- prior {}'
                     logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'orignal'))

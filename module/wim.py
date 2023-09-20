@@ -338,9 +338,6 @@ class WIMVariationalNetwork(M):
                 optimizer.step()
                 optimizer.clip(self.parameters())
 
-                if self.is_cvae:
-                    batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
-
                 for _ in i_:
                     zdbg('finetune', epoch + 1, batch + 1, _, 'alternate', batch_losses['zdist'][i_[_]].mean())
 

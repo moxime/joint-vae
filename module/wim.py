@@ -334,25 +334,24 @@ class WIMVariationalNetwork(M):
                 _s = 'Val   {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'alternate'))
 
-                with torch.no_grad():
-                    (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
-                                                            y_a.to(device),
-                                                            batch=batch,
-                                                            with_beta=True)
-                # if self.is_cvae:
-                #     batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
+                # with torch.no_grad():
+                #     (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
+                #                                             y_a.to(device),
+                #                                             batch=batch,
+                #                                             with_beta=True)
 
-                zdbg('eval', epoch + 1, batch + 1, 'train', 'alternate', batch_losses['zdist'].mean())
+                # zdbg('eval', epoch + 1, batch + 1, 'train', 'alternate', batch_losses['zdist'].mean())
 
-                running_loss.update({'train_' + k + '*': batch_losses[k].mean().item()
-                                     for k in printed_losses})
+                # running_loss.update({'train_' + k + '*': batch_losses[k].mean().item()
+                #                      for k in printed_losses})
 
                 if not batch:
                     mean_loss = running_loss
                 else:
                     for _, k, suf in product(n_per_i_, printed_losses, ('*', '')):
                         k_ = _ + '_' + k + suf
-                        mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_]) / n_[_]
+                        if k in mean_loss:
+                            mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_]) / n_[_]
 
                 for _ in n_:
                     n_[_] += n_per_i_[_]

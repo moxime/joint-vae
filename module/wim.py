@@ -326,7 +326,7 @@ class WIMVariationalNetwork(M):
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'moving', 'alternate'))
 
-                logging.debug('x_u shape: {} y_u shape'.format(x_u.shape, y_u.shape))
+                logging.debug('x_u shape: {} y_u shape {}'.format(x_u.shape, y_u.shape))
 
                 self.train()
                 o = self.evaluate(x_u.to(device), y_u_est,

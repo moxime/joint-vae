@@ -236,7 +236,7 @@ class GaussianPrior(nn.Module):
         except RuntimeError as e:
             error_msg = '*** var: {} diag: {}'.format(' '.join(str(_) for _ in var.shape),
                                                       ' '.join(str(_) for _ in prior_inv_var_diag.shape))
-            logging.error(error_msg + ' error msg: {}'.forma(str(e)))
+            logging.error(error_msg + ' error msg: {}'.format(str(e)))
             return 0.
 
     def kl(self, mu, log_var, y=None, output_dict=True, var_weighting=1.):

@@ -344,6 +344,7 @@ class WIMVariationalNetwork(M):
 
                 if not batch:
                     mean_loss = running_loss
+                    print('***', running_loss)
                 else:
                     for _, k, suf in product(n_per_i_, printed_losses, ('*', '')):
                         k_ = k + '_' + _ + suf

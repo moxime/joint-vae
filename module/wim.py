@@ -3,6 +3,8 @@ from contextlib import contextmanager
 import logging
 import time
 
+from itertools import cycle, product
+
 import torch
 from cvae import ClassificationVariationalNetwork as M
 from module.priors import build_prior
@@ -208,6 +210,10 @@ class WIMVariationalNetwork(M):
             except FileExistsError:
                 assert os.path.isdir(d), '{} exists and is not a dir'.format(d)
 
+        """
+        Compute ood fprs before wim finetuning
+
+        """
         self.original_prior = True
         with torch.no_grad():
             self.ood_detection_rates(batch_size=test_batch_size,
@@ -219,158 +225,139 @@ class WIMVariationalNetwork(M):
                                      print_result='*')
             self.ood_results = {}
 
-        printed_losses = ['train_zdist']
-        for s in ('ind', 'ood'):
-            printed_losses.append('{}_zdist'.format(s))
-            printed_losses.append('{}_zdist*'.format(s))
+        printed_losses = ['zdist']
+        # for s in ('ind', 'ood' 'train'):
+        #     printed_losses.append('{}_zdist'.format(s))
+        #     printed_losses.append('{}_zdist*'.format(s))
 
         for epoch in range(epochs):
+
             running_loss = {}
             self.eval()
 
             t0 = time.time()
             time_per_i = 1e-9
 
-            # EVAL
-            self.original_prior = True
-            val_batches = 3000 // batch_size
-            t0 = time.time()
-            time_per_i = 1e-9
-
-            n_ind = 0
-            n_ood = 0
-            i_ = {}
-
-            logging.info('Evaluation on epoch {}'.format(epoch + 1))
-            for i, (x, y) in enumerate(moving_loader):
-                if i > val_batches:
-                    break
-                time_per_i = (time.time() - t0) / i
-                y_zeros = torch.zeros(len(x))
-
-                i['ind'] = [*moving_set.subsets(*y, which='ind')]
-                i['ood'] = ~i_ind
-
-                logging.debug('{} ind (:.1%) / {}'.format(sum(i_ind), sum(i_ind) / len(i_ind), len(i_ind)))
-
-                self.alternate_prior = True
-                with torch.no_grad():
-                    o = self.evaluate(x.to(device), y_zeros.to(device),
-                                      current_measures=current_measures,
-                                      batch=i,
-                                      with_beta=True)
-                    _, y_est, batch_losses, measures = o
-                zdist = {w: batch_losses['zdist'][i_[w]] for w in ('ind', 'ood')}
-                for _ in zdist:
-                    zdbg('validation', epoch + 1, i + 1, _, 'alternate', zdist[_].mean())
-
-                self.original_prior = True
-                with torch.no_grad():
-                    o = self.evaluate(x.to(device), y.to(device),
-                                      current_measures=current_measures,
-                                      batch=i,
-                                      with_beta=True)
-                    _, y_est, batch_losses, measures = o
-
-                zdist = batch_losses['zdist']
-                zdbg('validation', epoch + 1, i + 1, s, 'original', zdist.mean())
-
-                running_loss.update({'{}_{}'.format(s, k): batch_losses[k].mean().item()
-                                     for k in batch_losses})
-
-                if not i:
-                    mean_loss = running_loss
-                else:
-                    mean_loss = {k: (mean_loss[k] * i + running_loss[k]) / (i + 1)
-                                 for k in mean_loss}
-
-            t0 = time.time()
-            time_per_i = 1e-9
-
-            self.train()
-
-            moving_iters = {_: iter(moving_loaders[_]) for _ in moving_loaders}
-
             per_epoch = len(trainloader)
-            for i, (x, y) in enumerate(trainloader):
+
+            n_ = {'ind': 0, 'ood': 0, 'train': 0}
+
+            for i, ((x_a, y_a), (x_u, y_u)) in enumerate(zip(trainloader, cycle(moving_loader))):
 
                 if i:
                     time_per_i = (time.time() - t0) / i
 
+                    i_ = {}
+                    i_['ind'] = list(moving_set.subsets(*y_u, which='ind'))
+                    i_['ood'] = ~i['ind']
+
+                    n_per_i_ = {_: sum(i_[_]) for _ in i_}
+                    n_per_i_['train'] = len(x_a)
+
                 optimizer.zero_grad()
 
+                """
+
+                On original prior
+
+                """
+
                 self.original_prior = True
+                self.train()
                 _s = 'Epoch {} Batch {} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, i + 1, 'train', self.encoder.prior))
 
-                (_, y_est, batch_losses, measures) = self.evaluate(x.to(device), y.to(device),
-                                                                   current_measures=current_measures,
-                                                                   batch=i,
-                                                                   with_beta=True)
-                zdist = batch_losses['zdist']
-                zdbg('finetune', epoch + 1, i + 1, 'train', 'original', zdist.mean())
+                (_, y_est, batch_losses, _) = self.evaluate(x_a.to(device), y_a.to(device),
+                                                            batch=i,
+                                                            with_beta=True)
 
-                running_loss = {'train_' + k: batch_losses[k].mean().item() for k in batch_losses}
+                zdbg('finetune', epoch + 1, i + 1, 'train', 'original', batch_losses['zdist'].mean())
+
+                running_loss = {'train_' + k: batch_losses[k].mean().item() for k in printed_losses}
 
                 L = batch_losses['total'].mean()
 
-                moving_batches = {}
-                for _ in moving_iters:
-                    try:
-                        moving_batches[_] = next(moving_iters[_])
-                    except StopIteration:
-                        logging.info('Reinitializing iter {} at batch {}'.format(_, i))
-                        moving_iters[_] = iter(moving_loaders[_])
-                        moving_batches[_] = next(moving_iters[_])
+                self.eval()
+                with torch.no_grad():
+                    (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
+                                                            batch=i,
+                                                            with_beta=True)
+
+                    if self.is_cvae:
+                        y_u_est = batch_losses['zdist'].min(0)[1]
+                        batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
+
+                    else:
+                        y_u_est = torch.zeros(batch_size, device=device, dtype=int)
+
+                    running_loss.update({_ + '_' + k: batch_losses[k][i_[_]].mean().item()
+                                         for _, k in product(i_, printed_losses)})
+
+                    for _ in i_:
+                        zdbg('eval', epoch + 1, i + 1, _, 'original', batch_losses['zdist'].mean())
+
+                """
+
+                On alternate prior
+
+                """
 
                 self.alternate_prior = True
 
-                for s in moving_batches:
+                _s = 'Epoch {} Batch {} -- set {} --- prior {}'
+                logging.debug(_s.format(epoch + 1, i + 1, 'moving', 'alternate'))
 
-                    if not alpha:
-                        break
-                    _s = 'Epoch {} Batch {} -- set {} --- prior {}'
-                    logging.debug(_s.format(epoch + 1, i + 1, s, self.encoder.prior))
+                self.train()
+                o = self.evaluate(x_u.to(device), y_u_est,
+                                  batch=i,
+                                  with_beta=True)
 
-                    x, y = moving_batches[s]
-                    x = x.to(device)
-                    y_zero = torch.zeros_like(y, dtype=int)
-                    o = self.evaluate(x, y_zero.to(device),
-                                      current_measures=current_measures,
-                                      batch=i,
-                                      with_beta=True)
+                _, _, batch_losses, _ = o
+                L += alpha * batch_losses['total'].mean()
 
-                    _, y_est, batch_losses, measures = o
+                L.backward()
+                optimizer.step()
+                optimizer.clip(self.parameters())
 
-                    zdist = batch_losses['zdist']
-                    zdbg('finetune', epoch + 1, i + 1, s, 'alternate', zdist.mean())
+                if self.is_cvae:
+                    batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 
-                    running_loss.update({'{}_{}*'.format(s, k):
-                                         batch_losses[k].mean().item() for k in batch_losses})
+                for _ in i_:
+                    zdbg('finetune', epoch + 1, i + 1, _, 'alternate', batch_losses['zdist'][i_[_]].mean())
 
-                    L += alpha * batch_losses['total'].mean()
+                running_loss.update({_ + '_' + k + '*': batch_losses[k][i_[_]].mean().item()
+                                     for _, k in product(i_, printed_losses)})
+
+                self.eval()
+                with torch.no_grad():
+                    (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
+                                                            y_a.to(device),
+                                                            batch=i,
+                                                            with_beta=True)
+                if self.is_cvae:
+                    batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
+
+                zdbg('eval', epoch + 1, i + 1, _, 'train', batch_losses['zdist'].mean())
+
+                running_loss.update({'train_' + k + '*': batch_losses[k].mean().item()
+                                     for k in printed_losses})
 
                 if not i:
-                    mean_loss.update(running_loss)
+                    mean_loss = running_loss
                 else:
-                    mean_loss.update({k: (mean_loss[k] * i + running_loss[k]) / (i + 1)
-                                      for k in running_loss})
+                    for _, k, suf in product(n_per_i_, printed_losses, ('*', '')):
+                        k_ = k + '_' + suf
+                        mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_]) / n_[_]
+
+                for _ in n_:
+                    n_[_] += n_per_i_[_]
 
                 outputs.results(i, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',
                                 losses={k: mean_loss[k] for k in mean_loss if k in printed_losses},
-                                batch_size=batch_size * (1 + len(moving_iters)),
+                                batch_size=2 * batch_size,
                                 time_per_i=time_per_i,
                                 end_of_epoch='\n')
-
-                logging.debug('Epoch {} Batch {} -- backprop'.format(epoch + 1, i + 1))
-
-                L.backward()
-                optimizer.clip(self.parameters())
-
-                logging.debug('Epoch {} Batch {} -- step'.format(epoch + 1, i + 1))
-
-                optimizer.step()
 
         sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained))]
         for d in sample_dirs:

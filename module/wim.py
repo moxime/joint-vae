@@ -142,8 +142,7 @@ class WIMVariationalNetwork(M):
                  outputs=EpochOutput(),
                  ):
 
-        # logging.warning('DEBUG MODE MODEL IN MODE TRAIN')
-        # self.train()  # TBR
+        logging.warning('DEBUG MODE MODEL IN MODE EVAL')
 
         def zdbg(*a):
             debug_str = '### {:10} epoch {:2} batch {:2} set {:8} {:10} prior <zdist> = {:9.4g}'
@@ -264,7 +263,7 @@ class WIMVariationalNetwork(M):
                 """
 
                 self.original_prior = True
-                self.train()
+                # self.train()
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
@@ -311,7 +310,7 @@ class WIMVariationalNetwork(M):
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'moving', 'alternate'))
 
-                self.train()
+                # self.train()
                 o = self.evaluate(x_u.to(device), y_u_est,
                                   batch=batch,
                                   with_beta=True)

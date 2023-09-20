@@ -244,7 +244,7 @@ class WIMVariationalNetwork(M):
 
             for batch, ((x_a, y_a), (x_u, y_u)) in enumerate(zip(trainloader, cycle(moving_loader))):
 
-                val_batch = not (batch % (per_epoch // 3000))
+                val_batch = not (batch % (per_epoch * batch_size // 3000))
                 if batch:
                     time_per_i = (time.time() - t0) / batch
 

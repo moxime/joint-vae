@@ -373,7 +373,7 @@ class WIMVariationalNetwork(M):
             self.original_prior = True
             outputs.write('With orginal prior\n')
             self.ood_detection_rates(batch_size=test_batch_size,
-                                     oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
+                                     oodsets=[ood_sets[_] for _ in ood_sets],
                                      num_batch='all',
                                      outputs=outputs,
                                      sample_dirs=sample_dirs,

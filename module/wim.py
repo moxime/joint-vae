@@ -208,8 +208,8 @@ class WIMVariationalNetwork(M):
         moving_set = MixtureDataset(ind=testset, ood=ood_set, mix=ind_ood_mix)
 
         _s = 'Moving set of length {}, with mixture {}'
-        _s = _s.format(len(oood_set), ','.join('{}:{}'.format(n, m)
-                                               for n, m in zip(moving_set.classes, moving_set._mix)))
+        _s = _s.format(len(ood_set), ','.join('{}:{}'.format(n, m)
+                                              for n, m in zip(moving_set.classes, moving_set._mix)))
         logging.debug(_s)
 
         trainloader = torch.utils.data.DataLoader(trainset,

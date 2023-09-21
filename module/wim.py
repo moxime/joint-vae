@@ -205,7 +205,7 @@ class WIMVariationalNetwork(M):
 
         logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))
 
-        moving_set = MixtureDataset(ind=testset, ood=ood_sets, mix=ind_ood_mix)
+        moving_set = MixtureDataset(ind=testset, ood=ood_set, mix=ind_ood_mix)
 
         _s = 'Moving set of length {}, with mixture {}'
         _s = _s.format(len(_s), ','.join('{}:{}'.format(n, m)

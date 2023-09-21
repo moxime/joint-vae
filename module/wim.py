@@ -27,7 +27,7 @@ class WIMVariationalNetwork(M):
 
         self._alternate_prior = None
         if alternate_prior is not None:
-            self.set_alternate_prior(alternate_prior)
+            self.set_alternate_prior(**alternate_prior)
 
         self._is_alternate_prior = False
 
@@ -82,7 +82,7 @@ class WIMVariationalNetwork(M):
     def original_prior(self, b):
         self.alternate_prior = not b
 
-    def set_alternate_prior(self, p):
+    def set_alternate_prior(self, **p):
 
         logging.debug('Setting alternate prior')
         assert self._alternate_prior is None
@@ -134,7 +134,7 @@ class WIMVariationalNetwork(M):
             for k in ('sets', 'alpha', 'epochs', 'from'):
                 k, alternate_prior_params.pop(k, None)
             if load_net:
-                model.set_alternate_prior(alternate_prior_params)
+                model.set_alternate_prior(**alternate_prior_params)
             model.wim_params = wim_params
 
         except FileNotFoundError:
@@ -520,7 +520,7 @@ if __name__ == '__main__':
         alternate_prior_params['distribution'] = args.prior
     alternate_prior_params['tau'] = args.tau
 
-    model.set_alternate_prior(alternate_prior_params)
+    model.set_alternate_prior(**alternate_prior_params)
     model.wim_params['from'] = args.job
 
     with model.original_prior as p1:

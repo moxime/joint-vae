@@ -152,39 +152,69 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
 
 class MixtureDataset(Dataset):
 
-    def __init__(self, *datasets, cycle_on_short=False, **dict_of_datasets):
+    COARSE = 100
 
-        assert not datasets or not dict_of_datasets
-
-        if not datasets:
-            datasets = tuple(dict_of_datasets.values())
-            for n, d in dict_of_datasets.items():
-                d.name = n
+    def __init__(self, *datasets, mix=None, **dict_of_datasets):
 
         super().__init__()
-        lengths = [len(dataset) for dataset in datasets]
+        assert not datasets or not dict_of_datasets
+
+        if not dict_of_datasets:
+            dict_of_datasets = {getattr(d, 'name', str(i)): d for i, d in enumerate(datasets)}
+        self._build_classes_from_dict(**dict_of_datasets)
 
         self.num_datasets = len(datasets)
 
-        self._subdatasets = datasets
+        if not mix:
+            mix = [max(1, 12 * len(d) // sum(len(_) for _ in self._subdatasets)) for d in self._subdatasets]
 
-        self.classes = tuple(getattr(_, 'name', i) for i, _ in enumerate(datasets))
+        if isinstance(mix, dict):
+            self._mix = [mix[_] for _ in self.classes]
+        else:
+            self._mix = mix
 
-        self._length = (max(lengths) if cycle_on_short else min(lengths)) * self.num_datasets
+        self._dataset_selector = []
+        self._index_remainder = []
+        for i, m in enumerate(self._mix):
+            for _ in range(m):
+                self._dataset_selector.append(i)
+                self._index_remainder.append(_)
 
-        self._lengths = lengths
+        self._cum_mix = len(self._dataset_selector)
 
-    def rename(self, *a, **kv):
+        unit_length = min(len(d) // m for d, m in zip(self._subdatasets, self._mix))
 
-        assert not a or not kv, 'To rename, choose a list of name or a dict of old names: new names'
+        self._lengths = [unit_length * m for m in self._mix]
+
+        self._sample_every = [self.COARSE * len(d) // l for d, l in zip(self._subdatasets, self._lengths)]
+
+        self._length = sum(_ for _ in self._lengths)
+
+    def _build_classes_from_dict(self, **datasets):
+
+        self._classes = []
+        self._subdatasets = []
+        for _ in datasets:
+            self._classes.append(_)
+            self._subdatasets.append(datasets[_])
+
+        self._classes = tuple(self._classes)
+
+    @ property
+    def classes(self):
+        return self._classes
+
+    def rename(self, *a, **kw):
+
+        assert not a or not kw, 'To rename, choose a list of name or a dict of old names: new names'
         assert not a or len(a) == len(self.classes)
 
         if a:
-            self.classes = a
+            self._classes = tuple(a)
+        else:
+            self._classes = tuple(kw.get(_, _) for _ in self._classes)
 
-        self.classes = (kv.get(c, c) for c in self.classes)
-
-    def subsets(self, *y, which=None):
+    def which_subsets(self, *y, which=None):
 
         for _ in y:
             if which:
@@ -196,19 +226,34 @@ class MixtureDataset(Dataset):
 
         return self._length
 
+    def __geti__(self, idx):
+
+        idx_remainder = idx % self._cum_mix
+        which = self._dataset_selector[idx_remainder]
+
+        sub_idx = idx // self._cum_mix * self._mix[which] + self._index_remainder[idx_remainder]
+
+        return which, (sub_idx * self._sample_every[which]) // self.COARSE
+
     def __getitem__(self, idx):
 
         if idx >= len(self):
             raise IndexError('Idx {} for length {}'.format(idx, len(self)))
 
-        which_dataset = idx % self.num_datasets
-        sub_idx = (idx // self.num_datasets) % self._lengths[which_dataset]
+        which, sub_idx = self.__geti__(idx)
 
-        # print('*** sample {} of {}'.format(sub_idx, which_dataset))
+        x, y = self._subdatasets[which][sub_idx]
 
-        x, y = self._subdatasets[which_dataset][sub_idx]
+        return x, which
 
-        return x, which_dataset
+    def __str__(self):
+
+        return '\n\n'.join('Subdataset {}: {}\n{}'.format(i, n, d)
+                           for i, (n, d) in enumerate(zip(self.classes, self._subdatasets)))
+
+    def __repr__(self):
+
+        return str(self)
 
 
 def create_image_dataset(classes_file):
@@ -746,23 +791,17 @@ if __name__ == '__main__':
     plt.set_loglevel(level='warning')
     import time
 
-    dset = 'cifar100'
-    dset = 'letters'
-    dset = 'lsunr'
-    splits = ['train', 'test']
-    splits = ['test']
-    shuffle = True
+    _, s1 = get_dataset('cifar10', splits=['test'])
 
-    logging.getLogger().setLevel(logging.DEBUG)
-    logging.debug('Going to build dataset')
-    t0 = time.time()
-    # dset = _imagenet_getter(transform=transforms.ToTensor())
-    train, test = get_dataset(dset, splits=splits)
-    logging.debug('Built in {:.1f}s'.format(time.time() - t0))
+    _, s2 = get_dataset('lsunr', splits=['test'])
 
-    if 'train' in splits:
-        plt.figure()
-        show_images(train, num=36, ncols=6, shuffle=shuffle)
-    if 'test' in splits:
-        plt.figure()
-        show_images(test, num=36, ncols=6, shuffle=shuffle)
+    s = MixtureDataset(ind=s1, ood=s2)
+
+    s.rename('t', 'u')
+
+    for _ in range(10):
+
+        i = np.random.randint(len(s))
+        x, y = s[i]
+
+        print('{:7}: {}'.format(i, s.classes[y]))

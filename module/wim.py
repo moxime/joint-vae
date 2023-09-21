@@ -153,6 +153,7 @@ class WIMVariationalNetwork(M):
 
     def finetune(self, *sets,
                  epochs=5, alpha=0.1,
+                 ind_ood_mix=(1, 1),
                  test_batch_size=8192,
                  optimizer=None,
                  outputs=EpochOutput(),
@@ -172,6 +173,7 @@ class WIMVariationalNetwork(M):
         self.wim_params['sets'] = sets
         self.wim_params['alpha'] = alpha
         self.wim_params['epochs'] = epochs
+        self.wim_params['mix'] = ind_ood_mix
 
         for p in self._alternate_prior.parameters():
             assert not p.requires_grad, 'prior parameter queires grad'
@@ -199,15 +201,16 @@ class WIMVariationalNetwork(M):
 
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
 
-        ood_set = MixtureDataset(**ood_sets, cycle_on_short=True)
+        ood_set = MixtureDataset(**ood_sets)
 
-        moving_set = MixtureDataset(ood=ood_set, ind=testset, cycle_on_short=True)
+        moving_set = MixtureDataset(ind=testset, ood=ood_sets, mix=ind_ood_mix)
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,
                                                   # pin_memory=True,
                                                   shuffle=True,
                                                   num_workers=0)
+
         moving_loader = torch.utils.data.DataLoader(moving_set,
                                                     batch_size=batch_size,
                                                     shuffle=True,
@@ -264,7 +267,7 @@ class WIMVariationalNetwork(M):
                     time_per_i = (time.time() - t0) / batch
 
                 i_ = {}
-                i_['ind'] = list(moving_set.subsets(*y_u, which='ind'))
+                i_['ind'] = list(moving_set.which_subsets(*y_u, which='ind'))
                 i_['ood'] = [~_ for _ in i_['ind']]
 
                 n_per_i_ = {_: sum(i_[_]) for _ in i_}
@@ -380,6 +383,8 @@ class WIMVariationalNetwork(M):
                                 time_per_i=time_per_i,
                                 end_of_epoch='\n')
 
+            logging.debug('During this epoch we went through {} inds and {} oods'.format(n_['ind'], n_['ood']))
+
         sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained))]
         for d in sample_dirs:
             try:
@@ -450,6 +455,8 @@ if __name__ == '__main__':
     parser.add_argument('--wim-sets', nargs='*', default=[])
     parser.add_argument('--alpha', type=float)
     parser.add_argument('--epochs', type=int)
+
+    parser.add_argument('--mix', type=int)
 
     parser.add_argument('--test-batch-size', type=int)
 
@@ -546,6 +553,7 @@ if __name__ == '__main__':
                    epochs=args.epochs,
                    test_batch_size=args.test_batch_size,
                    alpha=args.alpha,
+                   mix=(args.mix, 1),
                    optimizer=optimizer,
                    outputs=outputs)
 

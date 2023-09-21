@@ -553,7 +553,7 @@ if __name__ == '__main__':
                    epochs=args.epochs,
                    test_batch_size=args.test_batch_size,
                    alpha=args.alpha,
-                   mix=(args.mix, 1),
+                   ind_ood_mix=(args.mix, 1),
                    optimizer=optimizer,
                    outputs=outputs)
 

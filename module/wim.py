@@ -203,7 +203,11 @@ class WIMVariationalNetwork(M):
 
         ood_set = MixtureDataset(**ood_sets)
 
+        logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))
+
         moving_set = MixtureDataset(ind=testset, ood=ood_sets, mix=ind_ood_mix)
+
+        logging.debug('moving set with sets {}'.format(','.join(moving_set.classes)))
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,

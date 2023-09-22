@@ -1,3 +1,4 @@
+from collections import namedtuple
 from torchvision import datasets, transforms
 import torchvision
 import torch
@@ -150,11 +151,30 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         return classes, self.node_to_idx
 
 
+class SubSampledDataset(Dataset):
+
+    COARSE = 120
+
+    def __init__(self, dataset, length):
+
+        self._dataset = dataset
+        self._sample_every = self.COARSE * len(dataset) // length
+
+        self._length = len(dataset) * self.COARSE // self._sample_every
+
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+
+        return self._dataset[idx * self._sample_every // self.COARSE]
+
+
 class MixtureDataset(Dataset):
 
-    COARSE = 100
+    COARSE = 120
 
-    def __init__(self, *datasets, mix=None, **dict_of_datasets):
+    def __init__(self, *datasets, mix=None, length=None, **dict_of_datasets):
 
         super().__init__()
         assert not datasets or not dict_of_datasets
@@ -163,10 +183,13 @@ class MixtureDataset(Dataset):
             dict_of_datasets = {getattr(d, 'name', str(i)): d for i, d in enumerate(datasets)}
         self._build_classes_from_dict(**dict_of_datasets)
 
-        self.num_datasets = len(datasets)
+        self.num_datasets = len(self._subdatasets)
 
         if not mix:
             mix = [max(1, 12 * len(d) // sum(len(_) for _ in self._subdatasets)) for d in self._subdatasets]
+
+        if isinstance(mix, int):
+            mix = tuple(1 for _ in self._subdatasets)
 
         if isinstance(mix, dict):
             self._mix = [mix[_] for _ in self.classes]
@@ -186,9 +209,17 @@ class MixtureDataset(Dataset):
 
         self._lengths = [unit_length * m for m in self._mix]
 
+        if length and sum(self._lengths) >= length:
+            unit_length = length // sum(self._mix)
+            self._lengths = [unit_length * m for m in self._mix]
+
         self._sample_every = [self.COARSE * len(d) // l for d, l in zip(self._subdatasets, self._lengths)]
 
         self._length = sum(_ for _ in self._lengths)
+
+        if length and 1 - self._length / length > 0.1:
+            _s = 'In mixture dataset {}; wanted length: {}, maximum length: {}'
+            logging.warning(_s.format('-'.join(self.classes), length, sum(self._lengths)))
 
     def _build_classes_from_dict(self, **datasets):
 
@@ -222,6 +253,14 @@ class MixtureDataset(Dataset):
             else:
                 yield self.classes[_]
 
+    @property
+    def subdatasets(self):
+        return self._subdatasets
+
+    @property
+    def mix(self):
+        return self._mix
+
     def __len__(self):
 
         return self._length
@@ -254,6 +293,52 @@ class MixtureDataset(Dataset):
     def __repr__(self):
 
         return str(self)
+
+    def extract_subdataset(self, name, new_name=None):
+
+        i = self.classes.index(name)
+        return SubDataset(self, i, name=new_name)
+
+
+Parent = namedtuple('parent', ['coarse', 'cum_mix', 'sample_every', 'mix', 'index_remainder'])
+
+
+class SubDataset(Dataset):
+
+    def __init__(self, mixed_dataset, i, name=None):
+
+        super().__init__()
+        self._dataset = mixed_dataset.subdatasets[i]
+        self._length = mixed_dataset._lengths[i]
+
+        self._parent = Parent(mix=mixed_dataset.mix[i],
+                              index_remainder=mixed_dataset._index_remainder,
+                              cum_mix=mixed_dataset._cum_mix,
+                              sample_every=mixed_dataset._sample_every[i],
+                              coarse=mixed_dataset.COARSE)
+
+        if name is None:
+            name = mixed_dataset.classes[i]
+
+        self.name = name
+
+    def __len__(self):
+
+        return self._length
+
+    def __getitem__(self, idx):
+
+        if idx >= len(self):
+            raise IndexError
+
+        idx_remainder = idx % self._parent.cum_mix
+
+        idx_ = idx // self._parent.cum_mix * self._parent.mix + self._parent.index_remainder[idx_remainder]
+        idx_ = idx * self._parent.sample_every // self._parent.coarse
+        # + self._parent.index_remainder[idx_remainder])
+
+        #  print('in {}: {} -> {}'.format(self.name, idx, idx_))
+        return self._dataset[idx_]
 
 
 def create_image_dataset(classes_file):

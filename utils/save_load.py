@@ -1129,6 +1129,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     wim_prior = wim.get('distribution')
     wim_from = wim.get('from', model.job_number)
     wim_mean = wim.get('init_mean')
+    wim_mix = ':'.join(str(_) for _ in wim.get('mix', (1, 1))) if wim else None
 
     finished = model.train_history['epochs'] >= model.training_parameters['epochs']
     return {'net': model,
@@ -1198,6 +1199,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'wim_sets': wim_sets,
             'wim_prior': wim_prior,
             'wim_mean': wim_mean,
+            'wim_mix': wim_mix,
             'wim_alpha': wim.get('alpha'),
             'wim_epochs': wim.get('epochs'),
             'wim_from': wim_from,

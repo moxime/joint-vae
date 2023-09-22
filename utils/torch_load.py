@@ -153,18 +153,26 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
 
 class SubSampledDataset(Dataset):
 
-    COARSE = 100
+    COARSE = 120
 
     def __init__(self, dataset, length):
 
         self._dataset = dataset
-
         self._sample_every = self.COARSE * len(dataset) // length
+
+        self._length = len(dataset) * self.COARSE // self._sample_every
+
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+
+        return self._dataset[idx * self._sample_every // self.COARSE]
 
 
 class MixtureDataset(Dataset):
 
-    COARSE = 100
+    COARSE = 120
 
     def __init__(self, *datasets, mix=None, length=None, **dict_of_datasets):
 

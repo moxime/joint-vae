@@ -26,6 +26,8 @@ def adapt_batch_dim(func, arg=1, last_shapes=1):
             print('***  ERROR', 'x', *x.shape, 'w:', *working_shape)
             raise e
         res = func(*a, **kw)
+        if isinstance(res, float):
+            logging.error('\n'.join(str(_) for _ in a))
         return res.view(batch_shape)
     return func_
 
@@ -234,7 +236,7 @@ class GaussianPrior(nn.Module):
         except RuntimeError as e:
             error_msg = '*** var: {} diag: {}'.format(' '.join(str(_) for _ in var.shape),
                                                       ' '.join(str(_) for _ in prior_inv_var_diag.shape))
-            logging.error(error_msg)
+            logging.error(error_msg + ' error msg: {}'.format(str(e)))
             return 0.
 
     def kl(self, mu, log_var, y=None, output_dict=True, var_weighting=1.):

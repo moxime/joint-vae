@@ -1,4 +1,5 @@
 from collections import namedtuple
+from itertools import accumulate
 from torchvision import datasets, transforms
 import torchvision
 import torch
@@ -155,17 +156,33 @@ class SubSampledDataset(Dataset):
 
     COARSE = 120
 
-    def __init__(self, dataset, length):
+    def __init__(self, dataset, length=None):
 
         self._dataset = dataset
-        self._sample_every = self.COARSE * len(dataset) // length
+        self.shrink(length)
 
-        self._length = len(dataset) * self.COARSE // self._sample_every
+    def shrink(self, length=None):
+
+        if length is None:
+            length = len(self._dataset)
+
+        if not length:
+            self._length = 0
+            return
+
+        length = min(length, len(self._dataset))
+
+        self._sample_every = self.COARSE * len(self._dataset) // length
+
+        self._length = len(self._dataset) * self.COARSE // self._sample_every
 
     def __len__(self):
         return self._length
 
     def __getitem__(self, idx):
+
+        if idx > self._length:
+            raise IndexError
 
         return self._dataset[idx * self._sample_every // self.COARSE]
 
@@ -183,39 +200,55 @@ class MixtureDataset(Dataset):
             dict_of_datasets = {getattr(d, 'name', str(i)): d for i, d in enumerate(datasets)}
         self._build_classes_from_dict(**dict_of_datasets)
 
-        self.num_datasets = len(self._subdatasets)
+        self.num_datasets = len(self._datasets)
 
         if not mix:
-            mix = [max(1, 12 * len(d) // sum(len(_) for _ in self._subdatasets)) for d in self._subdatasets]
+            mix = [len(d) / sum(len(_) for _ in self._datasets) for d in self._datasets]
 
         if isinstance(mix, int):
-            mix = tuple(1 for _ in self._subdatasets)
+            mix = tuple(1/len(self._datasets) for _ in self._datasets)
 
         if isinstance(mix, dict):
-            self._mix = [mix[_] for _ in self.classes]
+            mix = [mix[_] for _ in self.classes]
+
+        mix = [_ / sum(mix) for _ in mix]
+
+        self._mix = mix
+
+        self.shrink(length)
+
+    def shrink(self, length=None):
+
+        unit_length = min(np.floor(len(d) / m) for d, m in zip(self._datasets, self._mix))
+
+        if length is None:
+            length = unit_length
         else:
-            self._mix = mix
+            unit_length = min(unit_length, length)
 
-        self._dataset_selector = []
-        self._index_remainder = []
-        for i, m in enumerate(self._mix):
-            for _ in range(m):
-                self._dataset_selector.append(i)
-                self._index_remainder.append(_)
+        if not length:
+            self._length = 0
+            self._mix_ = self._mix
+            return
 
-        self._cum_mix = len(self._dataset_selector)
+        lengths = [int(np.floor(unit_length * m)) for m in self._mix]
+        target_lengths = [length * m for m in self._mix]
 
-        unit_length = min(len(d) // m for d, m in zip(self._subdatasets, self._mix))
+        for d, l in zip(self._datasets, lengths):
+            d.shrink(l)
 
-        self._lengths = [unit_length * m for m in self._mix]
+        while sum(lengths) < length:
+            i_d = np.argmax(np.array(np.array(target_lengths) - np.array(lengths)))
+            print('***', *lengths, i_d)
+            lengths[i_d] += 1
+            self._datasets[i_d].shrink(lengths[i_d])
 
-        if length and sum(self._lengths) >= length:
-            unit_length = length // sum(self._mix)
-            self._lengths = [unit_length * m for m in self._mix]
+        self._lengths = [len(d) for d in self._datasets]
+        self._length = sum(self._lengths)
 
-        self._sample_every = [self.COARSE * len(d) // l for d, l in zip(self._subdatasets, self._lengths)]
+        self._cum_lengths = [0] + list(accumulate(self._lengths))
 
-        self._length = sum(_ for _ in self._lengths)
+        self._mix_ = [l / self._length for l in self._lengths]
 
         if length and 1 - self._length / length > 0.1:
             _s = 'In mixture dataset {}; wanted length: {}, maximum length: {}'
@@ -224,10 +257,13 @@ class MixtureDataset(Dataset):
     def _build_classes_from_dict(self, **datasets):
 
         self._classes = []
-        self._subdatasets = []
-        for _ in datasets:
+        self._datasets = []
+        for _, d in datasets.items():
             self._classes.append(_)
-            self._subdatasets.append(datasets[_])
+            if isinstance(d, MixtureDataset):
+                self._datasets.append(d)
+            else:
+                self._datasets.append(SubSampledDataset(d))
 
         self._classes = tuple(self._classes)
 
@@ -253,13 +289,13 @@ class MixtureDataset(Dataset):
             else:
                 yield self.classes[_]
 
-    @property
+    @ property
     def subdatasets(self):
-        return self._subdatasets
+        return self._datasets
 
-    @property
+    @ property
     def mix(self):
-        return self._mix
+        return self._mix_
 
     def __len__(self):
 
@@ -267,12 +303,11 @@ class MixtureDataset(Dataset):
 
     def __geti__(self, idx):
 
-        idx_remainder = idx % self._cum_mix
-        which = self._dataset_selector[idx_remainder]
+        which, l_ = max((w, l) for w, l in enumerate(self._cum_lengths) if l <= idx)
 
-        sub_idx = idx // self._cum_mix * self._mix[which] + self._index_remainder[idx_remainder]
+        sub_idx = idx - l_
 
-        return which, (sub_idx * self._sample_every[which]) // self.COARSE
+        return which, sub_idx
 
     def __getitem__(self, idx):
 
@@ -281,14 +316,14 @@ class MixtureDataset(Dataset):
 
         which, sub_idx = self.__geti__(idx)
 
-        x, y = self._subdatasets[which][sub_idx]
+        x, y = self._datasets[which][sub_idx]
 
         return x, which
 
     def __str__(self):
 
         return '\n\n'.join('Subdataset {}: {}\n{}'.format(i, n, d)
-                           for i, (n, d) in enumerate(zip(self.classes, self._subdatasets)))
+                           for i, (n, d) in enumerate(zip(self.classes, self._datasets)))
 
     def __repr__(self):
 
@@ -297,7 +332,10 @@ class MixtureDataset(Dataset):
     def extract_subdataset(self, name, new_name=None):
 
         i = self.classes.index(name)
-        return SubDataset(self, i, name=new_name)
+        d = self._datasets[i]
+        if new_name:
+            d.name = new_name
+        return d
 
 
 Parent = namedtuple('parent', ['coarse', 'cum_mix', 'sample_every', 'mix', 'index_remainder'])

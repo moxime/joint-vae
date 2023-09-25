@@ -697,7 +697,7 @@ def needed_components(*methods):
 
 def available_results(model,
                       testset='trained',
-                      min_samples_by_class=200,
+                      min_samples_by_class=10,
                       samples_available_by_class=800,
                       predict_methods='all',
                       misclass_methods='all',
@@ -749,7 +749,7 @@ def available_results(model,
         min_samples[s] = C * min_samples_by_class
         samples_available_by_compute[s] = C * samples_available_by_class
 
-    # print(*min_samples.values())
+    # print(min_samples)
     # print(*samples_available_by_compute.values())
 
     methods = {testset: [(m,) for m in predict_methods]}

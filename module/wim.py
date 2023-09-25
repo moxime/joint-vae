@@ -333,8 +333,8 @@ class WIMVariationalNetwork(M):
 
                 if val_batch or self.is_cvae:
                     self.eval()
-                    _s = 'Val   {:2} Batch {} -- set {} --- prior {} ({})'
-                    logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original', val_batch))
+                    _s = 'Val   {:2} Batch {} -- set {} --- prior {}'
+                    logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
                     with torch.no_grad():
                         (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
                                                                 batch=batch,

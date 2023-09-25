@@ -218,7 +218,7 @@ class WIMVariationalNetwork(M):
         _s = 'Moving set of length {}, with mixture {}'
         _s = _s.format(len(moving_set), ', '.join('{}:{}'.format(n, m)
                                                   for n, m in zip(moving_set.classes, moving_set.mix)))
-        logging.warning(_s)
+        logging.info(_s)
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,

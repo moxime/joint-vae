@@ -486,7 +486,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--wim-sets', nargs='*', default=[])
     parser.add_argument('--alpha', type=float)
-    parser.add_argument('--epochs', type=int)
 
     parser.add_argument('--mix', type=float)
 

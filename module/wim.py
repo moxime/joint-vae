@@ -273,6 +273,7 @@ class WIMVariationalNetwork(M):
             logging.debug('Train size override by epochs: {}'.format(train_size))
             self.wim_params['train_size'] = train_size
         epochs = int(np.ceil(train_size / len(trainset)))
+        logging.debug('Epochs: {} / {} = {}'.format(train_size, len(trainset), epochs))
         for epoch in range(epochs):
 
             per_epoch = min(train_size, len(trainset)) // batch_size

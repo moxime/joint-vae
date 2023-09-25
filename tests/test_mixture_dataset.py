@@ -70,4 +70,5 @@ print('===REAL DATASETS')
 
 ood = MixtureDataset(lsunr=get_dataset('lsunr', splits=['test'])[1])
 
-mix2 = MixtureDataset(ind=get_dataset('cifar10')[1], ood=ood, mix=(0.75, 0.25))
+print('***', len(ood))
+mix2 = MixtureDataset(ind=get_dataset('cifar10')[1], ood=ood, mix=(0.8, 0.2), length=2999)

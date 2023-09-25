@@ -269,12 +269,13 @@ class WIMVariationalNetwork(M):
         #     printed_losses.append('{}_zdist*'.format(s))
 
         if epochs:
-            train_size = epochs * len(trainloader)
+            train_size = epochs * len(trainset)
             logging.debug('Train size override by epochs: {}'.format(train_size))
-        epochs = int(np.ceil(train_size / len(trainloader)))
+            wim_params['train_size'] = train_size
+        epochs = int(np.ceil(train_size / len(trainset)))
         for epoch in range(epochs):
 
-            per_epoch = min(train_size, len(trainloader))
+            per_epoch = min(train_size, len(trainset))
             train_size -= per_epoch
             running_loss = {}
             self.eval()

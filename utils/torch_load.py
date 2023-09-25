@@ -159,6 +159,7 @@ class SubSampledDataset(Dataset):
     def __init__(self, dataset, length=None):
 
         self._dataset = dataset
+        self.maxlength = len(dataset)
         self.shrink(length)
 
     def shrink(self, length=None):
@@ -170,7 +171,7 @@ class SubSampledDataset(Dataset):
             self._length = 0
             return
 
-        length = min(length, len(self._dataset))
+        length = min(length, self.maxlength)
 
         self._sample_every = self.COARSE * len(self._dataset) // length
 
@@ -215,12 +216,14 @@ class MixtureDataset(Dataset):
 
         self._mix = mix
 
+        self.maxlength = min(int(np.ceil(d.maxlength / m)) for d, m in zip(self._datasets, self._mix))
+
         self.shrink(length)
 
     def shrink(self, length=None):
 
-        unit_length = min(np.floor(len(d) / m) for d, m in zip(self._datasets, self._mix))
-        max_length = min(np.ceil(len(d) / m) for d, m in zip(self._datasets, self._mix))
+        unit_length = min(int(np.floor(len(d) / m)) for d, m in zip(self._datasets, self._mix))
+        max_length = self.maxlength
 
         if length is None:
             length = unit_length
@@ -230,6 +233,8 @@ class MixtureDataset(Dataset):
         if length > max_length:
             logging.warning('Length {} non attainable, will stop at {}'.format(length, max_length))
             length = max_length
+        # for i, (s, d, m) in enumerate(zip(self.classes, self._datasets, self._mix)):
+        #     print('*** {} : {}/{}={}'.format(s, len(d), m, len(d) / m))
 
         if not length:
             self._length = 0

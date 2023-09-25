@@ -174,7 +174,7 @@ class SubSampledDataset(Dataset):
 
         self._sample_every = self.COARSE * len(self._dataset) // length
 
-        self._length = len(self._dataset) * self.COARSE // self._sample_every
+        self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
 
     def __len__(self):
         return self._length
@@ -220,11 +220,16 @@ class MixtureDataset(Dataset):
     def shrink(self, length=None):
 
         unit_length = min(np.floor(len(d) / m) for d, m in zip(self._datasets, self._mix))
+        max_length = min(np.ceil(len(d) / m) for d, m in zip(self._datasets, self._mix))
 
         if length is None:
             length = unit_length
         else:
             unit_length = min(unit_length, length)
+
+        if length > max_length:
+            logging.warning('Length {} non attainable, will stop at {}'.format(length, max_length))
+            length = max_length
 
         if not length:
             self._length = 0
@@ -234,6 +239,7 @@ class MixtureDataset(Dataset):
         lengths = [int(np.floor(unit_length * m)) for m in self._mix]
         target_lengths = [length * m for m in self._mix]
 
+        # print('***', target_lengths)
         for d, l in zip(self._datasets, lengths):
             d.shrink(l)
 

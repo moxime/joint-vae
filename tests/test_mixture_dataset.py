@@ -1,9 +1,10 @@
 from utils.torch_load import MixtureDataset, SubSampledDataset, get_dataset
 import logging
 logging.getLogger().setLevel(logging.ERROR)
+logging.getLogger().setLevel(logging.INFO)
 
 names = ('ind__', 'ood_a', 'ood_b')
-sizes = (50000, 11100, 53)
+sizes = (50000, 11100, 530)
 
 wanted_length = 512
 
@@ -69,4 +70,4 @@ print('===REAL DATASETS')
 
 ood = MixtureDataset(lsunr=get_dataset('lsunr', splits=['test'])[1])
 
-mix = MixtureDataset(ind=get_dataset('cifar10')[1], ood=ood, mix=1, length=10000)
+mix2 = MixtureDataset(ind=get_dataset('cifar10')[1], ood=ood, mix=(0.75, 0.25))

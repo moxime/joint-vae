@@ -218,7 +218,7 @@ class WIMVariationalNetwork(M):
         _s = 'Moving set of length {}, with mixture {}'
         _s = _s.format(len(moving_set), ', '.join('{}:{}'.format(n, m)
                                                   for n, m in zip(moving_set.classes, moving_set.mix)))
-        logging.debug(_s)
+        logging.warning(_s)
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,
@@ -407,7 +407,7 @@ class WIMVariationalNetwork(M):
                 for _ in n_:
                     n_[_] += n_per_i_[_]
 
-                outputs.results(batch, per_epoch, epoch + 1, train_size,
+                outputs.results(batch, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',
                                 losses=mean_loss,
                                 batch_size=2 * batch_size,
@@ -528,7 +528,7 @@ if __name__ == '__main__':
         log.error('Model not found')
         sys.exit(1)
 
-    log.info('Model found')
+    log.info('Model found of type {}'.format(model_dict['type']))
 
     dataset = model_dict['set']
 

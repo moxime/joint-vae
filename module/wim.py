@@ -221,7 +221,7 @@ class WIMVariationalNetwork(M):
         logging.info(_s)
 
         if len(moving_set) < moving_size:
-            wim_params['moving_size'] = moving_size
+            self.wim_params['moving_size'] = moving_size
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,

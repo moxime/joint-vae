@@ -275,8 +275,8 @@ class WIMVariationalNetwork(M):
         epochs = int(np.ceil(train_size / len(trainset)))
         for epoch in range(epochs):
 
-            per_epoch = min(train_size, len(trainset))
-            train_size -= per_epoch
+            per_epoch = min(train_size, len(trainset)) // batch_size
+            train_size -= per_epoch * batch_size
             running_loss = {}
             self.eval()
 

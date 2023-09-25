@@ -155,6 +155,7 @@ class WIMVariationalNetwork(M):
 
     def finetune(self, *sets,
                  train_size=100000,
+                 epochs=None,
                  moving_size=10000,
                  alpha=0.1,
                  ood_mix=0.5,
@@ -264,6 +265,9 @@ class WIMVariationalNetwork(M):
         #     printed_losses.append('{}_zdist'.format(s))
         #     printed_losses.append('{}_zdist*'.format(s))
 
+        if epochs:
+            train_size = epochs * len(trainloader)
+            logging.debug('Train size override by epochs: {}'.format(train_size))
         epochs = int(np.ceil(train_size / len(trainloader)))
         for epoch in range(epochs):
 
@@ -486,6 +490,10 @@ if __name__ == '__main__':
 
     parser.add_argument('--mix', type=float)
 
+    parser.add_argument('--train-size', type=int)
+    parser.add_argument('--moving-size', type=int)
+    parser.add_argument('--epochs', type=int)
+
     parser.add_argument('--test-batch-size', type=int)
 
     parser.add_argument('--prior', choices=['gaussian', 'tilted', 'uniform'])
@@ -578,10 +586,12 @@ if __name__ == '__main__':
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
     model.finetune(*args.wim_sets,
+                   train_size=args.train_size,
                    epochs=args.epochs,
+                   moving_size=args.moving_size,
                    test_batch_size=args.test_batch_size,
                    alpha=args.alpha,
-                   ood_mix=(args.mix, 1 - args.mix),
+                   ood_mix=args.mix,
                    optimizer=optimizer,
                    outputs=outputs)
 

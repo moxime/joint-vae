@@ -181,7 +181,7 @@ class SubSampledDataset(Dataset):
 
     def __getitem__(self, idx):
 
-        if idx > self._length:
+        if idx >= self._length:
             raise IndexError
 
         return self._dataset[idx * self._sample_every // self.COARSE]
@@ -206,7 +206,7 @@ class MixtureDataset(Dataset):
             mix = [len(d) / sum(len(_) for _ in self._datasets) for d in self._datasets]
 
         if isinstance(mix, int):
-            mix = tuple(1/len(self._datasets) for _ in self._datasets)
+            mix = tuple(1 / len(self._datasets) for _ in self._datasets)
 
         if isinstance(mix, dict):
             mix = [mix[_] for _ in self.classes]
@@ -333,8 +333,9 @@ class MixtureDataset(Dataset):
 
         i = self.classes.index(name)
         d = self._datasets[i]
-        if new_name:
-            d.name = new_name
+        if new_name is None:
+            new_name = self.classes[i]
+        d.name = new_name
         return d
 
 

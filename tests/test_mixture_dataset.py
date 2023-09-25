@@ -1,21 +1,20 @@
 from utils.torch_load import MixtureDataset, SubSampledDataset
 
 names = ('ind__', 'ood_a', 'ood_b')
-sizes = (50000, 11100, 2700)
+sizes = (50000, 11100, 53)
 
 wanted_length = 512
 
 mix_ood = (1, 1)
+mix_ind = 0.8
 
 s = {_: [('{}_{:05}_{}'.format(_, i, i % 10), i % 10) for i in range(n)] for _, n in zip(names, sizes)}
 
 
 ood = MixtureDataset(ood_a=s['ood_a'], ood_b=s['ood_b'], mix=mix_ood)
 
-mix_ind = (0.8, 0.2)
-mix = MixtureDataset(ind=s['ind__'], ood=ood, mix=mix_ind, length=wanted_length)
+mix = MixtureDataset(ind=s['ind__'], ood=ood, mix={'ind': mix_ind, 'ood': 1 - mix_ind}, length=wanted_length)
 
-# raise StopIteration
 
 print('=== mix')
 count = {_: 0 for _ in s}
@@ -31,7 +30,7 @@ for i in range(len(mix)):
 print('=== count')
 count['total'] = sum(count.values())
 
-th_count = {'ind__': mix_ind[0] / (mix_ind[0] + mix_ind[1])}
+th_count = {'ind__': mix_ind}
 for _, m in zip(ood.classes, mix_ood):
     th_count[_] = (1 - th_count['ind__']) * m / sum(mix_ood)
     th_count['total'] = 1

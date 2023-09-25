@@ -271,7 +271,7 @@ class WIMVariationalNetwork(M):
         if epochs:
             train_size = epochs * len(trainset)
             logging.debug('Train size override by epochs: {}'.format(train_size))
-            wim_params['train_size'] = train_size
+            self.wim_params['train_size'] = train_size
         epochs = int(np.ceil(train_size / len(trainset)))
         for epoch in range(epochs):
 

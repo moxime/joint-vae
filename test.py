@@ -349,7 +349,8 @@ if __name__ == '__main__':
 
     try:
         filters_file = '--or--'.join(os.path.splitext(os.path.basename(f))[0] for f in args.from_files)
-        filters_file += '--and--{}'.format(args.filters['args'])
+        if str(args.filters['args']):
+            filters_file += '--and--{}'.format(args.filters['args'])
     except TypeError:
         filters_file = None
 

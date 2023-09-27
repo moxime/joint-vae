@@ -387,8 +387,8 @@ class WIMVariationalNetwork(M):
                                      for _, k in product(i_, printed_losses)})
 
                 self.eval()
-                _s = 'Val   {:2} Batch {:2} -- set {} --- prior {}'
-                logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'alternate'))
+                # _s = 'Val   {:2} Batch {:2} -- set {} --- prior {}'
+                # logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'alternate'))
 
                 # with torch.no_grad():
                 #     (_, _, batch_losses, _) = self.evaluate(x_a.to(device),

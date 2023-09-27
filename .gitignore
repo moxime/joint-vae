@@ -6,7 +6,7 @@ tests
 *_data/
 jobs/
 jobs*/
-*-jobs/
+*-jobs*/
 test-jobs/
 old-jobs/
 number-*

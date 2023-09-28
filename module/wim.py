@@ -488,9 +488,11 @@ class WIMVariationalNetwork(M):
 
         y_est = recorders[testset.name]['kl'].argmin(0)
         testset.append_estimated(y_est)
+        testset.return_estimated = True
         for s in oodsets:
             y_est = recorders[s.name]['kl'].argmin(0)
             s.append_estimated(y_est)
+            s.return_estimated = True
 
         with self.estimated_labels():
             with torch.no_grad():

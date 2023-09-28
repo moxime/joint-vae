@@ -483,6 +483,9 @@ class WIMVariationalNetwork(M):
         testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
         oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]
 
+        _s = 'Collecting loss for {} with {} of size {}'
+        logging.debug(_s.format(testset.name, recorders[testset.name], len(recorders[testset.name])))
+
         testset.append_estimated(recorders[testset.name]['y_est'])
         for s in oodsets:
             s.append_estimated(recorders[s.name]['y_est'])

@@ -668,12 +668,14 @@ def develop_starred_methods(methods, methods_params, inplace=True):
     return methods
 
 
-def needed_components(*methods):
+*def needed_components(*methods):
 
     total = ('loss', 'logpx', 'sum', 'max', 'mag', 'std', 'mean')
     ncd = {'iws': ('iws',),
            'softiws': ('iws',),
            'closest': ('zdist',),
+           'zdist': ('zdist',),
+           'zdist~': ('zdist', 'y_est_before_wim'),
            'kl': ('kl',),
            'soft': ('kl',),
            'mse': ('cross_x',)}
@@ -1389,12 +1391,14 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
     assert not state or epoch == 'last'
 
     from cvae import ClassificationVariationalNetwork as M
+    from module.wim import WIMVariationalNetwork as W
 
     for d in mdirs:
 
         logging.debug('Inspecting {}'.format(d))
 
-        m = M.load(d, load_net=False)
+        is_wim = W.is_wim(d)
+        m = (W if is_wim else M).load(d, load_net=False)
         epoch_ = epoch
         if epoch_ == 'min-loss':
             epoch_ = m.training_parameters.get('early-min-loss', 'last')
@@ -1414,33 +1418,40 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
         if which_rec_ in ('all', 'ind'):
             sets.append(testset)
             if which_rec_ == 'all':
-                sets += get_same_size_by_name(testset)
-                for _ in [_ for _ in recs_to_exclude if _ in sets]:
-                    sets.remove(_)
-
+                if is_wim:
+                    for s in m.wim_params['sets']:
+                        sets.append(s)
+                else:
+                    sets += get_same_size_by_name(testset)
+                    for _ in [_ for _ in recs_to_exclude if _ in sets]:
+                        sets.remove(_)
+        sub_dirs = ['']
+        if is_wim:
+            sub_dirs.append('init')
         for s in sets:
-            sdir = os.path.join(d, 'samples', epoch_, 'record-{}.pth'.format(s))
-            logging.debug('Looking for {}'.format(sdir))
-            if not os.path.exists(sdir):
-                if missing_file_stream:
-                    missing_file_stream.write(sdir + '\n')
-                yield d, sdir
+            for sub in sub_dirs:
+                sfile = os.path.join(d, 'samples', epoch_, sub, 'record-{}.pth'.format(s))
+                logging.debug('Looking for {}'.format(sfile))
+                if not os.path.exists(sfile):
+                    if missing_file_stream:
+                        missing_file_stream.write(sfile + '\n')
+                        yield d, sfile
 
         if state:
-            sdir = os.path.join(d, 'state.pth')
-            logging.debug('Looking for {}'.format(sdir))
-            if not os.path.exists(sdir):
+            sfile = os.path.join(d, 'state.pth')
+            logging.debug('Looking for {}'.format(sfile))
+            if not os.path.exists(sfile):
                 if missing_file_stream:
-                    missing_file_stream.write(sdir + '\n')
-                yield d, sdir
+                    missing_file_stream.write(sfile + '\n')
+                yield d, sfile
 
         if optimizer:
-            sdir = os.path.join(d, 'optimizer.pth')
-            logging.debug('Looking for {}'.format(sdir))
-            if not os.path.exists(sdir):
+            sfile = os.path.join(d, 'optimizer.pth')
+            logging.debug('Looking for {}'.format(sfile))
+            if not os.path.exists(sfile):
                 if missing_file_stream:
-                    missing_file_stream.write(sdir + '\n')
-                yield d, sdir
+                    missing_file_stream.write(sfile + '\n')
+                yield d, sfile
 
 
 def get_submodule(model, sub='features', job_dir='jobs', name=None, **kw):

@@ -152,11 +152,57 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         return classes, self.node_to_idx
 
 
+class EstimatedLabelsDataset(Dataset):
+
+    def __init__(self, dataset):
+
+        super().__init__()
+
+        self._dataset = dataset
+
+        self._return_estimated = False
+
+        self._estimated_labels = []
+
+    @property
+    def name(self):
+        return self._dataset.name
+
+    @property
+    def return_estimated(self):
+        return self._return_estimated
+
+    @return_estimated.setter
+    def return_estimated(self, b):
+        assert not b or len(self) == len(self._estimated_labels), 'You did not collect etimated labels'
+        self._return_estimated = b
+
+    def append_estimated(self, y_):
+        if isinstance(y_, torch.Tensor):
+            y_ = y_.cpu()
+        self._estimated_labels += list(np.asarray(y_))
+
+    def __len__(self):
+
+        return len(self._dataset)
+
+    def __getitem__(self, i):
+
+        x, y = self._dataset[i]
+
+        if self.return_estimated:
+            x = (x, self._estimated_labels[i])
+
+        return x, y
+
+
 class SubSampledDataset(Dataset):
 
     COARSE = 120
 
     def __init__(self, dataset, length=None):
+
+        super().__init__()
 
         self._dataset = dataset
         self.maxlength = len(dataset)

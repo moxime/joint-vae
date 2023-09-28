@@ -1,7 +1,9 @@
-from utils.torch_load import MixtureDataset, SubSampledDataset, get_dataset
+import torch
+from utils.torch_load import MixtureDataset, SubSampledDataset, EstimatedLabelsDataset, get_dataset
 import logging
 logging.getLogger().setLevel(logging.ERROR)
 logging.getLogger().setLevel(logging.INFO)
+
 
 names = ('ind__', 'ood_a', 'ood_b')
 sizes = (50000, 11100, 530)
@@ -72,3 +74,11 @@ ood = MixtureDataset(lsunr=get_dataset('lsunr', splits=['test'])[1])
 
 print('***', len(ood))
 mix2 = MixtureDataset(ind=get_dataset('cifar10')[1], ood=ood, mix=(0.8, 0.2), length=2999)
+
+print('=== ESTIMATED LABELS')
+
+ood_b_y = EstimatedLabelsDataset(ood_b)
+
+ood_b_y.append_estimated(torch.ones(len(ood_b), dtype=int))
+
+ood_b_y.return_estimated = True

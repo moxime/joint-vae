@@ -11,13 +11,15 @@ import torch
 from cvae import ClassificationVariationalNetwork as M
 from module.priors import build_prior
 
-from utils.save_load import MissingKeys, save_json, load_json
+from utils.save_load import MissingKeys, save_json, load_json, LossRecorder
 import utils.torch_load as torchdl
-from utils.torch_load import MixtureDataset
+from utils.torch_load import MixtureDataset, EstimatedLabelsDataset
 from utils.print_log import EpochOutput
 
 
 class WIMVariationalNetwork(M):
+
+    ood_methods_per_type = {'cvae': ('zdist',), 'vae': ('zdist', 'zdist~')}
 
     def __init__(self, *a, alternate_prior=None, **kw):
 
@@ -32,6 +34,10 @@ class WIMVariationalNetwork(M):
             self.set_alternate_prior(**alternate_prior)
 
         self._is_alternate_prior = False
+
+        self._with_estimated_labels = False
+
+        self.ood_methods = tuple(_ for _ in self.ood_methods_by_type[self.type] if _[-1] != '~')
 
     @classmethod
     def is_wim(cls, d):
@@ -94,7 +100,30 @@ class WIMVariationalNetwork(M):
         for p in self._alternate_prior.parameters():
             p.requires_grad_(False)
 
-    @classmethod
+    @contextmanager
+    def estimated_labels(self):
+        try:
+            self._with_estimated_labels = True
+            self.ood_methods = self.ood_methods_by_type[self.type]
+            logging.debug('With estimated labels')
+            yield
+        finally:
+            self._with_estimated_labels = False
+            self.ood_methods = tuple(_ for _ in self.ood_methods_by_type[self.type] if _[-1] != '~')
+            logging.debug('Back to non estimated_labels')
+
+    def evaluate(self, x, *a, **kw):
+
+        if self._with_estimated_labels:
+            x, y_ = x
+            o = super().evaluate(x, *a, **kw)
+            # losses is o[2]
+            o[2]['y_est_before_wim'] = y_
+            return o
+
+        return super().evaluate(x, *a, **kw)
+
+    @ classmethod
     def _recurse_train(cls, module):
 
         if isinstance(module, torch.nn.BatchNorm2d):
@@ -110,7 +139,7 @@ class WIMVariationalNetwork(M):
             n = self._recurse_train(self)
             logging.debug('Kept {} bn layers in eval mode'.format(n))
 
-    @classmethod
+    @ classmethod
     def load(cls, dir_name, load_net=True, **kw):
 
         try:
@@ -251,6 +280,8 @@ class WIMVariationalNetwork(M):
 
         """
         self.original_prior = True
+        recorders = {_: LossRecorder(test_batch_size) for _ in sets + [set_name]}
+
         with torch.no_grad():
             ood_ = moving_set.extract_subdataset('ood')
             self.ood_detection_rates(batch_size=test_batch_size,
@@ -259,7 +290,7 @@ class WIMVariationalNetwork(M):
                                      # num_batch=1024 // test_batch_size,  #
                                      outputs=outputs,
                                      sample_dirs=sample_dirs,
-                                     recorders={},
+                                     recorders=recorders,
                                      print_result='*')
             self.ood_results = {}
 
@@ -431,17 +462,25 @@ class WIMVariationalNetwork(M):
         logging.info('Computing ood fprs')
 
         self.eval()
-        with torch.no_grad():
-            self.original_prior = True
-            outputs.write('With orginal prior\n')
-            self.ood_detection_rates(batch_size=test_batch_size,
-                                     testset=moving_set.extract_subdataset('ind', new_name=testset.name),
-                                     oodsets=[ood_.extract_subdataset(_) for _ in ood_sets],
-                                     num_batch='all',
-                                     outputs=outputs,
-                                     sample_dirs=sample_dirs,
-                                     recorders={},
-                                     print_result='*')
+        testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
+        oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]
+
+        testset.append_estimated(recorders[testset.name]['y_est'])
+        for s in oodsets:
+            s.append_estimated(recorders[s.name]['y_est'])
+
+        with self.estimated_labels():
+            with torch.no_grad():
+                self.original_prior = True
+                outputs.write('With original prior\n')
+                self.ood_detection_rates(batch_size=test_batch_size,
+                                         testset=testset,
+                                         oodsets=oodsets,
+                                         num_batch='all',
+                                         outputs=outputs,
+                                         sample_dirs=sample_dirs,
+                                         recorders={},
+                                         print_result='*')
 
             # self.alternate_prior = True
             # outputs.write('With alternate prior\n')

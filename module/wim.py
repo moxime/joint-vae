@@ -105,13 +105,12 @@ class WIMVariationalNetwork(M):
         try:
             self._with_estimated_labels = True
             self.ood_methods = self.ood_methods_per_type[self.type]
-            print('***', self.ood_methods)
-            logging.debug('With estimated labels')
+            logging.debug('With estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
             yield
         finally:
             self._with_estimated_labels = False
             self.ood_methods = tuple(_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~')
-            logging.debug('Back to non estimated_labels')
+            logging.debug('Back to non estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
 
     def evaluate(self, x, *a, **kw):
 

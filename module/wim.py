@@ -118,28 +118,12 @@ class WIMVariationalNetwork(M):
             x, y_ = x
             o = super().evaluate(x, *a, **kw)
             # losses is o[2]
-            o[2]['y_est_before_wim'] = y_
+            k_ = ('kl', 'zdist')
+            if self.is_cvae:
+                o[2].update({k + '~': o[2][k].gather(y_.squueze().unsquueze(0), 0).squeeze()} for k in k_)
             return o
 
         return super().evaluate(x, *a, **kw)
-
-    def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
-        dist_measures = {}
-        for m in methods:
-            m_ = m
-            with_estimated_y = m.endswith('~')
-            if with_estimated_y:
-                m = m[:-1]
-            if m in ('kl', 'zdist'):
-                measures = losses[m]
-                if with_estimated_y:
-                    y_ = losses['y_est_before_wim']
-                    measures = measures.gather(y_.squueze().unsquueze(0), 0).squeeze()
-                else:
-                    measures = measures.min(0)[0]
-            dist_measures[m_] = measures.cpu() if to_cpu else measures
-
-        return dist_measures
 
     @ classmethod
     def _recurse_train(cls, module):

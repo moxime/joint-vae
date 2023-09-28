@@ -347,7 +347,7 @@ class WIMVariationalNetwork(M):
                     moving_iter = iter(moving_loader)
                     x_u, y_u = next(moving_iter)
 
-                val_batch = not (batch % (per_epoch * batch_size // 3000))
+                val_batch = not (batch % max(per_epoch * batch_size // 3000, 1))
                 if batch:
                     time_per_i = (time.time() - t0) / batch
 

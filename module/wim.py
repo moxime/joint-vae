@@ -486,8 +486,10 @@ class WIMVariationalNetwork(M):
         _s = 'Collecting loss for {} with {} of size {}'
         logging.debug(_s.format(testset.name, recorders[testset.name], len(recorders[testset.name])))
 
-        testset.append_estimated(recorders[testset.name]['y_est'])
+        y_est = recorders[testset.name]['kl'].argmin(0)
+        testset.append_estimated(y_est)
         for s in oodsets:
+            y_est = recorders[s.name]['kl'].argmin(0)
             s.append_estimated(recorders[s.name]['y_est'])
 
         with self.estimated_labels():

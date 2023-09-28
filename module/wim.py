@@ -37,7 +37,7 @@ class WIMVariationalNetwork(M):
 
         self._with_estimated_labels = False
 
-        self.ood_methods = tuple(_ for _ in self.ood_methods_by_type[self.type] if _[-1] != '~')
+        self.ood_methods = tuple(_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~')
 
     @classmethod
     def is_wim(cls, d):

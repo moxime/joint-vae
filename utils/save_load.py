@@ -676,7 +676,8 @@ def needed_components(*methods):
            'softiws': ('iws',),
            'closest': ('zdist',),
            'zdist': ('zdist',),
-           'zdist~': ('zdist', 'y_est_before_wim'),
+           'zdist~': ('zdist~',),
+           'zdist~': ('kl~',),
            'kl': ('kl',),
            'soft': ('kl',),
            'mse': ('cross_x',)}

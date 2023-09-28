@@ -127,7 +127,8 @@ class WIMVariationalNetwork(M):
         dist_measures = {}
         for m in methods:
             m_ = m
-            if with_estimated_y := m.endswith('~'):
+            with_estimated_y = m.endswith('~')
+            if with_estimated_y:
                 m = m[:-1]
             if m in ('kl', 'zdist'):
                 measures = losses[m]

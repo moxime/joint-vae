@@ -120,7 +120,7 @@ class WIMVariationalNetwork(M):
             # losses is o[2]
             k_ = ('kl', 'zdist')
             if self.is_cvae:
-                o[2].update({k + '~': o[2][k].gather(y_.squeeze().unsquueze(0), 0).squeeze()} for k in k_)
+                o[2].update({k + '~': o[2][k].gather(y_.squeeze().unsqueeze(0), 0).squeeze()} for k in k_)
             return o
 
         return super().evaluate(x, *a, **kw)

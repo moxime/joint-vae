@@ -8,7 +8,7 @@ from torch import nn
 from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, mse_loss, categorical_loss
-from utils.save_load import LossRecorder, available_results, develop_starred_methods, MissingKeys,
+from utils.save_load import LossRecorder, available_results, develop_starred_methods, MissingKeys
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
 from module.vae_layers import Encoder, Classifier, Sigma, build_de_conv_layers, find_input_shape

@@ -298,7 +298,7 @@ class WIMVariationalNetwork(M):
 
         """
         self.original_prior = True
-        recorders = {_: LossRecorder(test_batch_size) for _ in sets + [set_name]}
+        recorders = {_: LossRecorder(test_batch_size) for _ in list(sets) + [set_name]}
 
         with torch.no_grad():
             ood_ = moving_set.extract_subdataset('ood')

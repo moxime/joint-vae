@@ -1483,6 +1483,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         ood_methods = make_list(method, self.ood_methods)
 
+        print('***', *ood_methods)
+
         if oodsets is None:
             oodsets = [torchdl.get_dataset(n, transformer=testset.transformer, splits=['test'])[1]
                        for n in testset.same_size]

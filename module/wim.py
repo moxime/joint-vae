@@ -105,6 +105,7 @@ class WIMVariationalNetwork(M):
         try:
             self._with_estimated_labels = True
             self.ood_methods = self.ood_methods_per_type[self.type]
+            print('***', self.ood_methods)
             logging.debug('With estimated labels')
             yield
         finally:

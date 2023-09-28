@@ -1,6 +1,6 @@
-import torch
-from utils.torch_load import MixtureDataset, SubSampledDataset, EstimatedLabelsDataset, get_dataset
 import logging
+import torch
+from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, get_dataset, FooDataset, collate
 logging.getLogger().setLevel(logging.ERROR)
 logging.getLogger().setLevel(logging.INFO)
 
@@ -68,12 +68,12 @@ print('\n'.join('{}:{:5} {:6.1%}'.format(k, v, v / len(ood_b))
                 for k, v in count.items()))
 
 
-print('===REAL DATASETS')
+# print('===REAL DATASETS')
 
-ood = MixtureDataset(lsunr=get_dataset('lsunr', splits=['test'])[1])
+# ood = MixtureDataset(lsunr=get_dataset('lsunr', splits=['test'])[1])
 
-print('***', len(ood))
-mix2 = MixtureDataset(ind=get_dataset('cifar10')[1], ood=ood, mix=(0.8, 0.2), length=2999)
+# print('***', len(ood))
+# mix2 = MixtureDataset(ind=get_dataset('cifar10')[1], ood=ood, mix=(0.8, 0.2), length=2999)
 
 print('=== ESTIMATED LABELS')
 
@@ -82,3 +82,8 @@ ood_b_y = EstimatedLabelsDataset(ood_b)
 ood_b_y.append_estimated(torch.ones(len(ood_b), dtype=int))
 
 ood_b_y.return_estimated = True
+
+loader = torch.utils.data.DataLoader(FooDataset(), batch_size=16, collate_fn=collate)
+loader = torch.utils.data.DataLoader(ood_b_y, batch_size=16, collate_fn=collate)
+
+d = next(iter(loader)).to('cuda')

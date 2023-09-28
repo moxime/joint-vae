@@ -9,11 +9,15 @@ import sys
 import os
 import logging
 import string
+import re
+import collections
 import numpy as np
+import torch
 from torchvision.utils import save_image
 from torch.utils.data import Dataset
 import configparser
 from matplotlib import pyplot as plt
+# from torch.utils.data._utils import collate
 
 
 class LoggerAsfile(object):
@@ -152,6 +156,26 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         return classes, self.node_to_idx
 
 
+class ListofTensors(list):
+
+    def to(self, device):
+
+        return ListofTensors(_.to(device) for _ in self)
+
+
+class FooDataset(Dataset):
+
+    def __init__(self):
+        super().__init__()
+
+    def __len__(self):
+        return 10000
+
+    def __getitem__(self, i):
+
+        return ListofTensors([torch.randn(4), 0, 1])
+
+
 class EstimatedLabelsDataset(Dataset):
 
     def __init__(self, dataset):
@@ -191,7 +215,7 @@ class EstimatedLabelsDataset(Dataset):
         x, y = self._dataset[i]
 
         if self.return_estimated:
-            x = (x, self._estimated_labels[i])
+            x = ListofTensors([x, self._estimated_labels[i]])
 
         return x, y
 
@@ -965,6 +989,59 @@ def export_png(imageset, directory, by_class=False):
             print(i, c, *image_tensor.shape)
             save_image(image_tensor, filename)
             i += 1
+
+
+np_str_obj_array_pattern = re.compile(r'[SaUO]')
+
+collate_err_msg_format = (
+    "default_collate: batch must contain tensors, numpy arrays, numbers, "
+    "dicts or lists; found {}")
+
+
+def collate(batch):
+    r"""Puts each data field into a tensor with outer dimension batch size"""
+
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        out = None
+        if torch.utils.data.get_worker_info() is not None:
+            # If we're in a background process, concatenate directly into a
+            # shared memory tensor to avoid an extra copy
+            numel = sum(x.numel() for x in batch)
+            storage = elem.storage()._new_shared(numel)
+            out = elem.new(storage)
+        return torch.stack(batch, 0, out=out)
+    elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
+            and elem_type.__name__ != 'string_':
+        if elem_type.__name__ == 'ndarray' or elem_type.__name__ == 'memmap':
+            # array of string classes and object
+            if np_str_obj_array_pattern.search(elem.dtype.str) is not None:
+                raise TypeError(collate_err_msg_format.format(elem.dtype))
+
+            return collate([torch.as_tensor(b) for b in batch])
+        elif elem.shape == ():  # scalars
+            return torch.as_tensor(batch)
+    elif isinstance(elem, float):
+        return torch.tensor(batch, dtype=torch.float64)
+    elif isinstance(elem, int):
+        return torch.tensor(batch)
+    elif isinstance(elem, torch._six.string_classes):
+        return batch
+    elif isinstance(elem, collections.abc.Mapping):
+        return elem_type({key: collate([d[key] for d in batch]) for key in elem})
+    elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
+        return elem_type(*(collate(samples) for samples in zip(*batch)))
+    elif isinstance(elem, collections.abc.Sequence):
+        # check to make sure that the elements in batch have consistent size
+        it = iter(batch)
+        elem_size = len(next(it))
+        if not all(len(elem) == elem_size for elem in it):
+            raise RuntimeError('each element in list of batch should be of equal size')
+        transposed = zip(*batch)
+        return elem_type([collate(samples) for samples in transposed])
+
+    raise TypeError(collate_err_msg_format.format(elem_type))
 
 
 if __name__ == '__main__':

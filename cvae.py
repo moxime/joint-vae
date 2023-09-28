@@ -8,7 +8,7 @@ from torch import nn
 from module.optimizers import Optimizer
 from torch.nn import functional as F
 from module.losses import x_loss, mse_loss, categorical_loss
-from utils.save_load import LossRecorder, available_results, develop_starred_methods, find_by_job_number, MissingKeys
+from utils.save_load import LossRecorder, available_results, develop_starred_methods, MissingKeys,
 from utils.save_load import DeletedModelError, NoModelError, StateFileNotFoundError
 from utils.misc import make_list
 from module.vae_layers import Encoder, Classifier, Sigma, build_de_conv_layers, find_input_shape
@@ -18,7 +18,7 @@ import shutil
 import random
 
 import utils.torch_load as torchdl
-from utils.torch_load import choose_device
+from utils.torch_load import choose_device, collate
 from utils import save_load
 import numpy as np
 
@@ -1288,6 +1288,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                  batch_size=batch_size,
                                                  pin_memory=True,
                                                  num_workers=0,
+                                                 collate_fn=collate,
                                                  shuffle=shuffle)
         test_iterator = iter(testloader)
         start = time.time()
@@ -1600,6 +1601,7 @@ class ClassificationVariationalNetwork(nn.Module):
             loader = torch.utils.data.DataLoader(testset,
                                                  shuffle=shuffle[s],
                                                  num_workers=0,
+                                                 collate_fn=collate,
                                                  batch_size=batch_size[testset.name])
 
             t_0 = time.time()
@@ -1727,6 +1729,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             loader = torch.utils.data.DataLoader(oodset,
                                                  num_workers=0,
+                                                 collate_fn=collate,
                                                  shuffle=shuffle[s],
                                                  batch_size=batch_size[s])
 

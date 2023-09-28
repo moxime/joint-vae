@@ -19,7 +19,7 @@ from utils.print_log import EpochOutput
 
 class WIMVariationalNetwork(M):
 
-    ood_methods_per_type = {'cvae': ('zdist',), 'vae': ('zdist', 'zdist~')}
+    ood_methods_per_type = {'cvae': ['zdist'], 'vae': ['zdist', 'zdist~']}
 
     def __init__(self, *a, alternate_prior=None, **kw):
 

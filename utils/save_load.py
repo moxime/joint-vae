@@ -421,7 +421,8 @@ class LossRecorder:
 
     def __getitem__(self, k):
 
-        return self._tensors[k]
+        end = (len(self) - 1) * self.batch_size + self.last_batch_size
+        return self._tensors[k][..., 0:end]
 
     def __iter__(self):
 
@@ -668,7 +669,7 @@ def develop_starred_methods(methods, methods_params, inplace=True):
     return methods
 
 
-*def needed_components(*methods):
+def needed_components(*methods):
 
     total = ('loss', 'logpx', 'sum', 'max', 'mag', 'std', 'mean')
     ncd = {'iws': ('iws',),

@@ -123,6 +123,23 @@ class WIMVariationalNetwork(M):
 
         return super().evaluate(x, *a, **kw)
 
+    def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
+        dist_measures = {}
+        for m in methods:
+            m_ = m
+            if with_estimated_y := m.endswith('~'):
+                m = m[:-1]
+            if m in ('kl', 'zdist'):
+                measures = losses[m]
+                if with_estimated_y:
+                    y_ = losses['y_est_before_wim']
+                    measures = measures.gather(y_.squueze().unsquueze(0), 0).squeeze()
+                else:
+                    measures = measures.min(0)[0]
+            dist_measures[m_] = measures.cpu() if to_cpu else measures
+
+        return dist_measures
+
     @ classmethod
     def _recurse_train(cls, module):
 

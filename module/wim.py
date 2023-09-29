@@ -488,7 +488,7 @@ class WIMVariationalNetwork(M):
                 s.append_estimated(y_est)
                 s.return_estimated = True
 
-        if True:  # debug
+                #        if True:  # debug
 
             loader = torch.utils.data.DataLoader(testset, collate_fn=collate, batch_size=100)
             for i, batch in enumerate(loader):

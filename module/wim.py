@@ -559,8 +559,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--mix', type=float)
 
-    parser.add_argument('--train-size', type=int)
-    parser.add_argument('--moving-size', type=int)
+    parser.add_argument('-N', '--train-size', type=int)
+    parser.add_argument('-n', '--moving-size', type=int)
     parser.add_argument('--epochs', type=int)
 
     parser.add_argument('--test-batch-size', type=int)

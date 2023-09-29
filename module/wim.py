@@ -101,16 +101,23 @@ class WIMVariationalNetwork(M):
             p.requires_grad_(False)
 
     @contextmanager
-    def estimated_labels(self):
-        try:
-            self._with_estimated_labels = True
-            self.ood_methods = self.ood_methods_per_type[self.type]
-            logging.debug('With estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
-            yield
-        finally:
-            self._with_estimated_labels = False
-            self.ood_methods = tuple(_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~')
-            logging.debug('Back to non estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
+    def estimated_labels(self, v=True):
+        if v:
+            try:
+                self._with_estimated_labels = True
+                self.ood_methods = self.ood_methods_per_type[self.type]
+                logging.debug('With estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
+                yield
+            finally:
+                self._with_estimated_labels = False
+                self.ood_methods = tuple(_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~')
+                logging.debug('Back to non estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
+        else:
+            try:
+                logging.debug('Will not switch to estimated labels')
+                yield
+            finally:
+                pass
 
     def evaluate(self, x, *a, **kw):
 
@@ -488,7 +495,7 @@ class WIMVariationalNetwork(M):
                 (x, y_), y = batch
                 logging.debug('y = y_ with {:.1%}'.format((y == y_).float().mean()))
 
-        with self.estimated_labels():
+        with self.estimated_labels(self.is_cvae):
             with torch.no_grad():
                 self.original_prior = True
                 outputs.write('With original prior\n')

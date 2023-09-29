@@ -13,7 +13,7 @@ from module.priors import build_prior
 
 from utils.save_load import MissingKeys, save_json, load_json, LossRecorder
 import utils.torch_load as torchdl
-from utils.torch_load import MixtureDataset, EstimatedLabelsDataset
+from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
 from utils.print_log import EpochOutput
 
 
@@ -479,6 +479,13 @@ class WIMVariationalNetwork(M):
             y_est = recorders[s.name]['kl'].argmin(0)
             s.append_estimated(y_est)
             s.return_estimated = True
+
+        if True:  # debug
+
+            loader = torch.data.utils.DataLoader(testset, collate_fn=collate, batch_size=100)
+            for i, batch in enumerate(loader):
+                (x, y_), y = batch
+                logging.debug('y = y_ with {:.1%}'.format((y == y_).float().mean()))
 
         with self.estimated_labels():
             with torch.no_grad():

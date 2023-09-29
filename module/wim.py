@@ -367,7 +367,7 @@ class WIMVariationalNetwork(M):
 
                 y_u_est = torch.zeros(batch_size, device=device, dtype=int)
 
-                if val_batch:  # or self.is_cvae:
+                if val_batch or self.is_cvae:
                     self.eval()
                     _s = 'Val   {:2} Batch {} -- set {} --- prior {}'
                     logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))

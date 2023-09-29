@@ -36,7 +36,7 @@ do
     if [ "$dir" ]
     then
 	while [ -z $force ]; do
-	    read -p "Do you wish to erase folder $dir? [yn]" yn
+	    read -p "Do you wish to erase folder $dir? [yn]? " yn
 	    case $yn in
 		[Yy]* ) break;;
 		[Nn]* ) exit;;

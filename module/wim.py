@@ -482,7 +482,7 @@ class WIMVariationalNetwork(M):
 
         if True:  # debug
 
-            loader = torch.data.utils.DataLoader(testset, collate_fn=collate, batch_size=100)
+            loader = torch.utils.data.DataLoader(testset, collate_fn=collate, batch_size=100)
             for i, batch in enumerate(loader):
                 (x, y_), y = batch
                 logging.debug('y = y_ with {:.1%}'.format((y == y_).float().mean()))

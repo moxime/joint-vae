@@ -86,4 +86,4 @@ ood_b_y.return_estimated = True
 loader = torch.utils.data.DataLoader(FooDataset(), batch_size=16, collate_fn=collate)
 loader = torch.utils.data.DataLoader(ood_b_y, batch_size=16, collate_fn=collate)
 
-d = next(iter(loader)).to('cuda')
+d = next(iter(loader))

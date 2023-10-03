@@ -452,14 +452,10 @@ if __name__ == '__main__':
         drop_cols = [_ for _ in d.columns if col_show_levels[_] > args.show_measures]
 
         if drop_cols:
-            d.drop(columns=drop_cols, inplace=True)
-            d_mean.drop(columns=drop_cols, inplace=True)
-
-        format_df_index(d, inplace=True)
-        format_df_index(d_mean, inplace=True)
-
-        d.rename(columns={'validation': 'val'}, inplace=True)
-        d_mean.rename(columns={'validation': 'val'}, inplace=True)
+            for d_ in (d, d_mean, d_std):
+                d_.drop(columns=drop_cols, inplace=True)
+                format_df_index(d_, inplace=True)
+                d_.rename(columns={'validation': 'val'}, inplace=True)
 
         d_str = d.to_string(na_rep='', float_format='{:.3g}'.format, sparsify=True)
 
@@ -474,19 +470,20 @@ if __name__ == '__main__':
         if not args.only_average:
             print(d_str)
 
-        if args.average:
+        if args.average or args.only_average:
             # d_mean.index = d_mean.index.format(formatter=_f)
             m_str = d_mean.to_string(na_rep='', float_format='{:.3g}'.format).split('\n')
             width = len(m_str[0])
             first_row = '{:-^{w}}'.format('AVERAGE', w=width)
             header = d.columns.nlevels
-            second_row = m_str[header - 1]
+            # second_row = '\n'm_str[:header]
             if not args.only_average:
                 print()
                 print(first_row)
                 print()
-            print(second_row)
-            print('\n'.join(m_str[header + 1:]))
+            # print(second_row)
+            # print('\n'.join(m_str[header + 1:]))
+            print('\n'.join(m_str))
 
         print('\nArchs')
         for a in archs[s]:

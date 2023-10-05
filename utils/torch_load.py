@@ -233,6 +233,11 @@ class SubSampledDataset(Dataset):
         self.maxlength = len(dataset)
         self.shrink(length)
 
+        try:
+            self.classes = dataset.classes
+        except AttributeError:
+            pass
+
     def shrink(self, length=None):
 
         if length is None:

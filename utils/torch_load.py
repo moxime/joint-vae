@@ -1,3 +1,5 @@
+from collections import namedtuple
+from itertools import accumulate
 from torchvision import datasets, transforms
 import torchvision
 import torch
@@ -7,11 +9,15 @@ import sys
 import os
 import logging
 import string
+import re
+import collections
 import numpy as np
+import torch
 from torchvision.utils import save_image
 from torch.utils.data import Dataset
 import configparser
 from matplotlib import pyplot as plt
+# from torch.utils.data._utils import collate
 
 
 class LoggerAsfile(object):
@@ -150,47 +156,303 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         return classes, self.node_to_idx
 
 
-class MixtureDataset(Dataset):
+class ListofTensors(list):
 
-    def __init__(self, *datasets, cycle_on_short=False, **dict_of_datasets):
+    def to(self, device):
 
-        assert not datasets or not dict_of_datasets
+        return ListofTensors(_.to(device) for _ in self)
 
-        if not datasets:
-            datasets = tuple(dict_of_datasets.values())
-            for n, d in dict_of_datasets.items():
-                d.name = n
+
+class FooDataset(Dataset):
+
+    def __init__(self):
+        super().__init__()
+
+    def __len__(self):
+        return 10000
+
+    def __getitem__(self, i):
+
+        return ListofTensors([torch.randn(4), 0, 1])
+
+
+class EstimatedLabelsDataset(Dataset):
+
+    def __init__(self, dataset):
 
         super().__init__()
-        lengths = [len(dataset) for dataset in datasets]
 
-        self.num_datasets = len(datasets)
+        self._dataset = dataset
 
-        self._subdatasets = datasets
+        self._return_estimated = False
 
-        self.classes = tuple(getattr(_, 'name', i) for i, _ in enumerate(datasets))
+        self._estimated_labels = []
 
-        self._length = (max(lengths) if cycle_on_short else min(lengths)) * self.num_datasets
+    @property
+    def name(self):
+        return self._dataset.name
 
-        self._lengths = lengths
+    @property
+    def return_estimated(self):
+        return self._return_estimated
 
-    def rename(self, *a, **kv):
+    @return_estimated.setter
+    def return_estimated(self, b):
+        assert not b or len(self) == len(self._estimated_labels), 'You did not collect etimated labels'
+        self._return_estimated = b
 
-        assert not a or not kv, 'To rename, choose a list of name or a dict of old names: new names'
+    def append_estimated(self, y_):
+        if isinstance(y_, torch.Tensor):
+            y_ = y_.cpu()
+        self._estimated_labels += list(np.asarray(y_))
+
+    def __len__(self):
+
+        return len(self._dataset)
+
+    def __getitem__(self, i):
+
+        x, y = self._dataset[i]
+
+        if self.return_estimated:
+            x = ListofTensors([x, self._estimated_labels[i]])
+
+        return x, y
+
+
+class SubSampledDataset(Dataset):
+
+    COARSE = 120
+
+    def __init__(self, dataset, length=None, shift_key=0):
+
+        super().__init__()
+
+        self._dataset = dataset
+        self._shift_key = shift_key
+        self.maxlength = len(dataset)
+        self.shrink(length)
+
+        try:
+            self.classes = dataset.classes
+        except AttributeError:
+            pass
+
+    def shrink(self, length=None):
+
+        if length is None:
+            length = len(self._dataset)
+
+        if not length:
+            self._length = 0
+            return
+
+        length = min(length, self.maxlength)
+
+        self._sample_every_coarse = self.COARSE * len(self._dataset) // length
+        self._sample_every = len(self._dataset) // length
+
+        self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
+
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+
+        if idx >= self._length:
+            raise IndexError
+        if self._shift_key:
+            shift = (self._shift_key ** (idx + 7)) % self._sample_every
+        else:
+            shift = 0
+        return self._dataset[idx * self._sample_every_coarse // self.COARSE + shift]
+
+
+class MixtureDataset(Dataset):
+
+    COARSE = 120
+
+    def __init__(self, *datasets, mix=None, length=None, shift_key=0, **dict_of_datasets):
+
+        super().__init__()
+        assert not datasets or not dict_of_datasets
+
+        self._shift_key = shift_key
+
+        if not dict_of_datasets:
+            dict_of_datasets = {getattr(d, 'name', str(i)): d for i, d in enumerate(datasets)}
+        self._build_classes_from_dict(**dict_of_datasets)
+
+        self.num_datasets = len(self._datasets)
+
+        if not mix:
+            mix = [len(d) / sum(len(_) for _ in self._datasets) for d in self._datasets]
+
+        if isinstance(mix, int):
+            mix = tuple(1 / len(self._datasets) for _ in self._datasets)
+
+        if isinstance(mix, dict):
+            mix = [mix[_] for _ in self.classes]
+
+        mix = [_ / sum(mix) for _ in mix]
+
+        self._mix = mix
+
+        self.maxlength = min(int(np.ceil(d.maxlength / m)) for d, m in zip(self._datasets, self._mix))
+
+        self.shrink(length)
+
+    def shrink(self, length=None):
+
+        unit_length = min(int(np.floor(len(d) / m)) for d, m in zip(self._datasets, self._mix))
+        max_length = self.maxlength
+
+        if length is None:
+            length = unit_length
+        else:
+            unit_length = min(unit_length, length)
+
+        if length > max_length:
+            logging.warning('Length {} non attainable, will stop at {}'.format(length, max_length))
+            length = max_length
+        # for i, (s, d, m) in enumerate(zip(self.classes, self._datasets, self._mix)):
+        #     print('*** {} : {}/{}={}'.format(s, len(d), m, len(d) / m))
+
+        if not length:
+            self._length = 0
+            self._mix_ = self._mix
+            return
+
+        lengths = [int(np.floor(unit_length * m)) for m in self._mix]
+        target_lengths = [length * m for m in self._mix]
+
+        # print('***', target_lengths)
+        for d, l in zip(self._datasets, lengths):
+            d.shrink(l)
+
+        while sum(lengths) < length:
+            i_d = np.argmax(np.array(np.array(target_lengths) - np.array(lengths)))
+            # print('***', *lengths, i_d)
+            lengths[i_d] += 1
+            self._datasets[i_d].shrink(lengths[i_d])
+
+        self._lengths = [len(d) for d in self._datasets]
+        self._length = sum(self._lengths)
+
+        self._cum_lengths = [0] + list(accumulate(self._lengths))
+
+        self._mix_ = [l / self._length for l in self._lengths]
+
+        if length and 1 - self._length / length > 0.1:
+            _s = 'In mixture dataset {}; wanted length: {}, maximum length: {}'
+            logging.warning(_s.format('-'.join(self.classes), length, sum(self._lengths)))
+
+    def _build_classes_from_dict(self, **datasets):
+
+        self._classes = []
+        self._datasets = []
+        for _, d in datasets.items():
+            self._classes.append(_)
+            if isinstance(d, MixtureDataset):
+                self._datasets.append(d)
+            else:
+                self._datasets.append(SubSampledDataset(d, shift_key=self._shift_key))
+
+        self._classes = tuple(self._classes)
+
+    @ property
+    def classes(self):
+        return self._classes
+
+    def rename(self, *a, **kw):
+
+        assert not a or not kw, 'To rename, choose a list of name or a dict of old names: new names'
         assert not a or len(a) == len(self.classes)
 
         if a:
-            self.classes = a
+            self._classes = tuple(a)
+        else:
+            self._classes = tuple(kw.get(_, _) for _ in self._classes)
 
-        self.classes = (kv.get(c, c) for c in self.classes)
-
-    def subsets(self, *y, which=None):
+    def which_subsets(self, *y, which=None):
 
         for _ in y:
             if which:
                 yield self.classes[_] == which
             else:
                 yield self.classes[_]
+
+    @ property
+    def subdatasets(self):
+        return self._datasets
+
+    @ property
+    def mix(self):
+        return self._mix_
+
+    def __len__(self):
+
+        return self._length
+
+    def __geti__(self, idx):
+
+        which, l_ = max((w, l) for w, l in enumerate(self._cum_lengths) if l <= idx)
+
+        sub_idx = idx - l_
+
+        return which, sub_idx
+
+    def __getitem__(self, idx):
+
+        if idx >= len(self):
+            raise IndexError('Idx {} for length {}'.format(idx, len(self)))
+
+        which, sub_idx = self.__geti__(idx)
+
+        x, y = self._datasets[which][sub_idx]
+
+        return x, which
+
+    def __str__(self):
+
+        return '\n\n'.join('Subdataset {}: {}\n{}'.format(i, n, d)
+                           for i, (n, d) in enumerate(zip(self.classes, self._datasets)))
+
+    def __repr__(self):
+
+        return str(self)
+
+    def extract_subdataset(self, name, new_name=None):
+
+        i = self.classes.index(name)
+        d = self._datasets[i]
+        if new_name is None:
+            new_name = self.classes[i]
+        d.name = new_name
+        return d
+
+
+Parent = namedtuple('parent', ['coarse', 'cum_mix', 'sample_every', 'mix', 'index_remainder'])
+
+
+class SubDataset(Dataset):
+
+    def __init__(self, mixed_dataset, i, name=None):
+
+        super().__init__()
+        self._dataset = mixed_dataset.subdatasets[i]
+        self._length = mixed_dataset._lengths[i]
+
+        self._parent = Parent(mix=mixed_dataset.mix[i],
+                              index_remainder=mixed_dataset._index_remainder,
+                              cum_mix=mixed_dataset._cum_mix,
+                              sample_every=mixed_dataset._sample_every[i],
+                              coarse=mixed_dataset.COARSE)
+
+        if name is None:
+            name = mixed_dataset.classes[i]
+
+        self.name = name
 
     def __len__(self):
 
@@ -199,16 +461,16 @@ class MixtureDataset(Dataset):
     def __getitem__(self, idx):
 
         if idx >= len(self):
-            raise IndexError('Idx {} for length {}'.format(idx, len(self)))
+            raise IndexError
 
-        which_dataset = idx % self.num_datasets
-        sub_idx = (idx // self.num_datasets) % self._lengths[which_dataset]
+        idx_remainder = idx % self._parent.cum_mix
 
-        # print('*** sample {} of {}'.format(sub_idx, which_dataset))
+        idx_ = idx // self._parent.cum_mix * self._parent.mix + self._parent.index_remainder[idx_remainder]
+        idx_ = idx * self._parent.sample_every // self._parent.coarse
+        # + self._parent.index_remainder[idx_remainder])
 
-        x, y = self._subdatasets[which_dataset][sub_idx]
-
-        return x, which_dataset
+        #  print('in {}: {} -> {}'.format(self.name, idx, idx_))
+        return self._dataset[idx_]
 
 
 def create_image_dataset(classes_file):
@@ -741,28 +1003,75 @@ def export_png(imageset, directory, by_class=False):
             i += 1
 
 
+np_str_obj_array_pattern = re.compile(r'[SaUO]')
+
+collate_err_msg_format = (
+    "default_collate: batch must contain tensors, numpy arrays, numbers, "
+    "dicts or lists; found {}")
+
+
+def collate(batch):
+    r"""Puts each data field into a tensor with outer dimension batch size"""
+
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        out = None
+        if torch.utils.data.get_worker_info() is not None:
+            # If we're in a background process, concatenate directly into a
+            # shared memory tensor to avoid an extra copy
+            numel = sum(x.numel() for x in batch)
+            storage = elem.storage()._new_shared(numel)
+            out = elem.new(storage)
+        return torch.stack(batch, 0, out=out)
+    elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
+            and elem_type.__name__ != 'string_':
+        if elem_type.__name__ == 'ndarray' or elem_type.__name__ == 'memmap':
+            # array of string classes and object
+            if np_str_obj_array_pattern.search(elem.dtype.str) is not None:
+                raise TypeError(collate_err_msg_format.format(elem.dtype))
+
+            return collate([torch.as_tensor(b) for b in batch])
+        elif elem.shape == ():  # scalars
+            return torch.as_tensor(batch)
+    elif isinstance(elem, float):
+        return torch.tensor(batch, dtype=torch.float64)
+    elif isinstance(elem, int):
+        return torch.tensor(batch)
+    elif isinstance(elem, torch._six.string_classes):
+        return batch
+    elif isinstance(elem, collections.abc.Mapping):
+        return elem_type({key: collate([d[key] for d in batch]) for key in elem})
+    elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
+        return elem_type(*(collate(samples) for samples in zip(*batch)))
+    elif isinstance(elem, collections.abc.Sequence):
+        # check to make sure that the elements in batch have consistent size
+        it = iter(batch)
+        elem_size = len(next(it))
+        if not all(len(elem) == elem_size for elem in it):
+            raise RuntimeError('each element in list of batch should be of equal size')
+        transposed = zip(*batch)
+        return elem_type([collate(samples) for samples in transposed])
+
+    raise TypeError(collate_err_msg_format.format(elem_type))
+
+
 if __name__ == '__main__':
 
     plt.set_loglevel(level='warning')
     import time
 
-    dset = 'cifar100'
-    dset = 'letters'
-    dset = 'lsunr'
-    splits = ['train', 'test']
-    splits = ['test']
-    shuffle = True
+    _, s1 = get_dataset('cifar10', splits=['test'])
 
-    logging.getLogger().setLevel(logging.DEBUG)
-    logging.debug('Going to build dataset')
-    t0 = time.time()
-    # dset = _imagenet_getter(transform=transforms.ToTensor())
-    train, test = get_dataset(dset, splits=splits)
-    logging.debug('Built in {:.1f}s'.format(time.time() - t0))
+    _, s2 = get_dataset('lsunr', splits=['test'])
 
-    if 'train' in splits:
-        plt.figure()
-        show_images(train, num=36, ncols=6, shuffle=shuffle)
-    if 'test' in splits:
-        plt.figure()
-        show_images(test, num=36, ncols=6, shuffle=shuffle)
+    s = MixtureDataset(ind=s1, ood=s2)
+
+    s.rename('t', 'u')
+
+    for _ in range(10):
+
+        i = np.random.randint(len(s))
+        x, y = s[i]
+
+        print('{:7}: {}'.format(i, s.classes[y]))

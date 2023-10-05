@@ -207,7 +207,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
 
     tex_cols = pd.MultiIndex.from_tuples([tuple(_r(w) for w in c) for c in cols])
 
-    tab_cols = ['-'.join([str(c) for c in col if c]).replace('_', '-') for col in cols]
+    tab_cols = ['-'.join([str(c) for c in col if c]).replace('_', '-').replace('~', '\~') for col in cols]
 
     oodsets = [c[:-4] for c in tab_cols if c.endswith('-auc')]
 

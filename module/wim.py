@@ -5,17 +5,21 @@ import time
 
 from itertools import cycle, product
 
+import numpy as np
+
 import torch
 from cvae import ClassificationVariationalNetwork as M
 from module.priors import build_prior
 
-from utils.save_load import MissingKeys, save_json, load_json
+from utils.save_load import MissingKeys, save_json, load_json, LossRecorder
 import utils.torch_load as torchdl
-from utils.torch_load import MixtureDataset
+from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
 from utils.print_log import EpochOutput
 
 
 class WIMVariationalNetwork(M):
+
+    ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~']}
 
     def __init__(self, *a, alternate_prior=None, **kw):
 
@@ -27,9 +31,13 @@ class WIMVariationalNetwork(M):
 
         self._alternate_prior = None
         if alternate_prior is not None:
-            self.set_alternate_prior(alternate_prior)
+            self.set_alternate_prior(**alternate_prior)
 
         self._is_alternate_prior = False
+
+        self._with_estimated_labels = False
+
+        self.ood_methods = tuple(_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~')
 
     @classmethod
     def is_wim(cls, d):
@@ -82,7 +90,7 @@ class WIMVariationalNetwork(M):
     def original_prior(self, b):
         self.alternate_prior = not b
 
-    def set_alternate_prior(self, p):
+    def set_alternate_prior(self, **p):
 
         logging.debug('Setting alternate prior')
         assert self._alternate_prior is None
@@ -92,7 +100,39 @@ class WIMVariationalNetwork(M):
         for p in self._alternate_prior.parameters():
             p.requires_grad_(False)
 
-    @classmethod
+    @contextmanager
+    def estimated_labels(self, v=True):
+        if v:
+            try:
+                self._with_estimated_labels = True
+                self.ood_methods = self.ood_methods_per_type[self.type]
+                logging.debug('With estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
+                yield
+            finally:
+                self._with_estimated_labels = False
+                self.ood_methods = tuple(_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~')
+                logging.debug('Back to non estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
+        else:
+            try:
+                logging.debug('Will not switch to estimated labels')
+                yield
+            finally:
+                pass
+
+    def evaluate(self, x, *a, **kw):
+
+        if self._with_estimated_labels:
+            x, y_ = x
+            o = super().evaluate(x, *a, **kw)
+            # losses is o[2]
+            k_ = ('kl', 'zdist')
+            if self.is_cvae:
+                o[2].update({k + '~': o[2][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
+            return o
+
+        return super().evaluate(x, *a, **kw)
+
+    @ classmethod
     def _recurse_train(cls, module):
 
         if isinstance(module, torch.nn.BatchNorm2d):
@@ -108,7 +148,7 @@ class WIMVariationalNetwork(M):
             n = self._recurse_train(self)
             logging.debug('Kept {} bn layers in eval mode'.format(n))
 
-    @classmethod
+    @ classmethod
     def load(cls, dir_name, load_net=True, **kw):
 
         try:
@@ -131,10 +171,10 @@ class WIMVariationalNetwork(M):
             wim_params = load_json(dir_name, 'wim.json')
             logging.debug('Model was already a wim')
             alternate_prior_params = wim_params.copy()
-            for k in ('sets', 'alpha', 'epochs', 'from'):
+            for k in ('sets', 'alpha', 'train_size', 'moving_size', 'from', 'mix'):
                 k, alternate_prior_params.pop(k, None)
             if load_net:
-                model.set_alternate_prior(alternate_prior_params)
+                model.set_alternate_prior(**alternate_prior_params)
             model.wim_params = wim_params
 
         except FileNotFoundError:
@@ -152,7 +192,11 @@ class WIMVariationalNetwork(M):
         return dir_name
 
     def finetune(self, *sets,
-                 epochs=5, alpha=0.1,
+                 train_size=100000,
+                 epochs=None,
+                 moving_size=10000,
+                 alpha=0.1,
+                 ood_mix=0.5,
                  test_batch_size=8192,
                  optimizer=None,
                  outputs=EpochOutput(),
@@ -171,7 +215,9 @@ class WIMVariationalNetwork(M):
 
         self.wim_params['sets'] = sets
         self.wim_params['alpha'] = alpha
-        self.wim_params['epochs'] = epochs
+        self.wim_params['train_size'] = train_size
+        self.wim_params['moving_size'] = moving_size
+        self.wim_params['mix'] = ood_mix
 
         for p in self._alternate_prior.parameters():
             assert not p.requires_grad, 'prior parameter queires grad'
@@ -199,15 +245,37 @@ class WIMVariationalNetwork(M):
 
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
 
-        ood_set = MixtureDataset(**ood_sets, cycle_on_short=True)
+        try:
+            subset_idx_shift_key = model.job_number % 100 + 7
+        except AttributeError:
+            logging.warning('Will not attribute a pseudo randomization on subsets indices')
+            subset_idx_shift_key = 0
 
-        moving_set = MixtureDataset(ood=ood_set, ind=testset, cycle_on_short=True)
+        logging.debug('Pseudo randomization of subdatasets idx with key {}'.format(subset_idx_shift_key))
+
+        ood_set = MixtureDataset(**ood_sets, mix=1, shift_key=subset_idx_shift_key,)
+
+        logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))
+
+        moving_set = MixtureDataset(ood=ood_set, ind=testset,
+                                    mix={'ood': ood_mix, 'ind': 1 - ood_mix},
+                                    shift_key=subset_idx_shift_key,
+                                    length=moving_size)
+
+        _s = 'Moving set of length {}, with mixture {}'
+        _s = _s.format(len(moving_set), ', '.join('{}:{:.1%}'.format(n, m)
+                                                  for n, m in zip(moving_set.classes, moving_set.mix)))
+        logging.info(_s)
+
+        if len(moving_set) < moving_size:
+            self.wim_params['moving_size'] = moving_size
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,
                                                   # pin_memory=True,
                                                   shuffle=True,
                                                   num_workers=0)
+
         moving_loader = torch.utils.data.DataLoader(moving_set,
                                                     batch_size=batch_size,
                                                     shuffle=True,
@@ -230,13 +298,17 @@ class WIMVariationalNetwork(M):
 
         """
         self.original_prior = True
+        recorders = {_: LossRecorder(test_batch_size) for _ in list(sets) + [set_name]}
+
         with torch.no_grad():
+            ood_ = moving_set.extract_subdataset('ood')
             self.ood_detection_rates(batch_size=test_batch_size,
-                                     oodsets=[ood_sets[_] for _ in ood_sets],
-                                     num_batch=1024 // test_batch_size,
+                                     testset=moving_set.extract_subdataset('ind', new_name=testset.name),
+                                     oodsets=[ood_.extract_subdataset(_) for _ in ood_sets],
+                                     # num_batch=1024 // test_batch_size,  #
                                      outputs=outputs,
                                      sample_dirs=sample_dirs,
-                                     recorders={},
+                                     recorders=recorders,
                                      print_result='*')
             self.ood_results = {}
 
@@ -245,26 +317,42 @@ class WIMVariationalNetwork(M):
         #     printed_losses.append('{}_zdist'.format(s))
         #     printed_losses.append('{}_zdist*'.format(s))
 
+        if epochs:
+            train_size = epochs * len(trainset)
+            logging.debug('Train size override by epochs: {}'.format(train_size))
+            self.wim_params['train_size'] = train_size
+        epochs = int(np.ceil(train_size / len(trainset)))
+        logging.debug('Epochs: {} / {} = {}'.format(train_size, len(trainset), epochs))
         for epoch in range(epochs):
 
+            per_epoch = min(train_size, len(trainset)) // batch_size
+            train_size -= per_epoch * batch_size
             running_loss = {}
             self.eval()
 
             t0 = time.time()
             time_per_i = 1e-9
 
-            per_epoch = len(trainloader)
-
             n_ = {'ind': 0, 'ood': 0, 'train': 0}
 
-            for batch, ((x_a, y_a), (x_u, y_u)) in enumerate(zip(trainloader, cycle(moving_loader))):
+            train_iter = iter(trainloader)
+            moving_iter = iter(moving_loader)
 
-                val_batch = not (batch % (per_epoch * batch_size // 3000))
+            for batch in range(per_epoch):
+
+                x_a, y_a = next(train_iter)
+                try:
+                    x_u, y_u = next(moving_iter)
+                except StopIteration:
+                    moving_iter = iter(moving_loader)
+                    x_u, y_u = next(moving_iter)
+
+                val_batch = not (batch % max(per_epoch * batch_size // 3000, 1))
                 if batch:
                     time_per_i = (time.time() - t0) / batch
 
                 i_ = {}
-                i_['ind'] = list(moving_set.subsets(*y_u, which='ind'))
+                i_['ind'] = list(moving_set.which_subsets(*y_u, which='ind'))
                 i_['ood'] = [~_ for _ in i_['ind']]
 
                 n_per_i_ = {_: sum(i_[_]) for _ in i_}
@@ -293,17 +381,20 @@ class WIMVariationalNetwork(M):
 
                 L = batch_losses['total'].mean()
 
-                if val_batch or self.is_cvae:
+                y_u_est = torch.zeros(batch_size, device=device, dtype=int)
+
+                if val_batch:  # or self.is_cvae:
                     self.eval()
                     _s = 'Val   {:2} Batch {} -- set {} --- prior {}'
-                    logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'orignal'))
+                    logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
                     with torch.no_grad():
                         (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
                                                                 batch=batch,
                                                                 with_beta=True)
 
                         if self.is_cvae:
-                            y_u_est = batch_losses['zdist'].min(0)[1]
+                            y_u_est = torch.zeros(batch_size, device=device, dtype=int)
+                            # y_u_est = batch_losses['zdist'].min(0)[1]
                             logging.debug('zdist shape: {}'.format(batch_losses['zdist'].shape))
                             batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 
@@ -348,8 +439,8 @@ class WIMVariationalNetwork(M):
                                      for _, k in product(i_, printed_losses)})
 
                 self.eval()
-                _s = 'Val   {:2} Batch {:2} -- set {} --- prior {}'
-                logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'alternate'))
+                # _s = 'Val   {:2} Batch {:2} -- set {} --- prior {}'
+                # logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'alternate'))
 
                 # with torch.no_grad():
                 #     (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
@@ -380,6 +471,8 @@ class WIMVariationalNetwork(M):
                                 time_per_i=time_per_i,
                                 end_of_epoch='\n')
 
+            logging.debug('During this epoch we went through {} inds and {} oods'.format(n_['ind'], n_['ood']))
+
         sample_dirs = [os.path.join(self.saved_dir, 'samples', '{:04d}'.format(self.trained))]
         for d in sample_dirs:
             try:
@@ -390,16 +483,42 @@ class WIMVariationalNetwork(M):
         logging.info('Computing ood fprs')
 
         self.eval()
-        with torch.no_grad():
-            self.original_prior = True
-            outputs.write('With orginal prior\n')
-            self.ood_detection_rates(batch_size=test_batch_size,
-                                     oodsets=[ood_sets[_] for _ in ood_sets],
-                                     num_batch='all',
-                                     outputs=outputs,
-                                     sample_dirs=sample_dirs,
-                                     recorders={},
-                                     print_result='*')
+        testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
+        oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]
+
+        _s = 'Collecting loss for {} with {} of size {}'
+        logging.debug(_s.format(testset.name, recorders[testset.name], len(recorders[testset.name])))
+
+        if self.is_cvae:
+            y_est = recorders[testset.name]['kl'].argmin(0)
+            testset.append_estimated(y_est)
+            testset.return_estimated = True
+            for s in oodsets:
+                y_est = recorders[s.name]['kl'].argmin(0)
+                s.append_estimated(y_est)
+                s.return_estimated = True
+
+                #        if True:  # debug
+
+            loader = torch.utils.data.DataLoader(testset, collate_fn=collate, batch_size=100)
+            for i, batch in enumerate(loader):
+                (x, y_), y = batch
+                logging.debug('y = y_ with {:.1%}'.format((y == y_).float().mean()))
+                if not i:
+                    logging.debug('First labels: {}'.format(' '.join(str(_.item()) for _ in y[:10])))
+
+        with self.estimated_labels(self.is_cvae):
+            with torch.no_grad():
+                self.original_prior = True
+                outputs.write('With original prior\n')
+                self.ood_detection_rates(batch_size=test_batch_size,
+                                         testset=testset,
+                                         oodsets=oodsets,
+                                         num_batch='all',
+                                         outputs=outputs,
+                                         sample_dirs=sample_dirs,
+                                         recorders={},
+                                         print_result='*')
 
             # self.alternate_prior = True
             # outputs.write('With alternate prior\n')
@@ -449,6 +568,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--wim-sets', nargs='*', default=[])
     parser.add_argument('--alpha', type=float)
+
+    parser.add_argument('--mix', type=float)
+
+    parser.add_argument('-N', '--train-size', type=int)
+    parser.add_argument('-n', '--moving-size', type=int)
     parser.add_argument('--epochs', type=int)
 
     parser.add_argument('--test-batch-size', type=int)
@@ -486,7 +610,7 @@ if __name__ == '__main__':
         log.error('Model not found')
         sys.exit(1)
 
-    log.info('Model found')
+    log.info('Model found of type {}'.format(model_dict['type']))
 
     dataset = model_dict['set']
 
@@ -515,12 +639,12 @@ if __name__ == '__main__':
     alternate_prior_params = model.encoder.prior.params.copy()
     alternate_prior_params['learned_means'] = False
 
-    alternate_prior_params['init_mean'] = args.prior_means
+    alternate_prior_params['mean_shift'] = args.prior_means
     if args.prior:
         alternate_prior_params['distribution'] = args.prior
     alternate_prior_params['tau'] = args.tau
 
-    model.set_alternate_prior(alternate_prior_params)
+    model.set_alternate_prior(**alternate_prior_params)
     model.wim_params['from'] = args.job
 
     with model.original_prior as p1:
@@ -543,9 +667,12 @@ if __name__ == '__main__':
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
     model.finetune(*args.wim_sets,
+                   train_size=args.train_size,
                    epochs=args.epochs,
+                   moving_size=args.moving_size,
                    test_batch_size=args.test_batch_size,
                    alpha=args.alpha,
+                   ood_mix=args.mix,
                    optimizer=optimizer,
                    outputs=outputs)
 

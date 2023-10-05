@@ -55,7 +55,7 @@ def build_prior(dim, distribution='gaussian', **kw):
 class GaussianPrior(nn.Module):
 
     def __init__(self, dim, var_dim='scalar', num_priors=1,
-                 init_mean=0, learned_means=False, freeze_means=0):
+                 init_mean=0, mean_shift=0, learned_means=False, freeze_means=0):
         """
         var_dim : scalar, diag or full
         num_priors: 1 for non conditional prior, else number of classes
@@ -75,7 +75,7 @@ class GaussianPrior(nn.Module):
 
         if num_priors == 1:
             self.conditional = False
-            mean_tensor = init_mean * torch.tensor(1.)
+            mean_tensor = init_mean * torch.tensor(1.) + mean_shift
 
         else:
             self.conditional = True
@@ -90,7 +90,7 @@ class GaussianPrior(nn.Module):
 
                 try:
                     float(init_mean)
-                    mean_tensor = init_mean * unit_mean
+                    mean_tensor = init_mean * unit_mean + mean_shift
                 except ValueError:
                     mean_tensor = init_mean.squeeze()
 

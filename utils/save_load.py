@@ -421,7 +421,8 @@ class LossRecorder:
 
     def __getitem__(self, k):
 
-        return self._tensors[k]
+        end = (len(self) - 1) * self.batch_size + self.last_batch_size
+        return self._tensors[k][..., 0:end]
 
     def __iter__(self):
 
@@ -674,6 +675,9 @@ def needed_components(*methods):
     ncd = {'iws': ('iws',),
            'softiws': ('iws',),
            'closest': ('zdist',),
+           'zdist': ('zdist',),
+           'zdist~': ('zdist~',),
+           'zdist~': ('kl~',),
            'kl': ('kl',),
            'soft': ('kl',),
            'mse': ('cross_x',)}
@@ -697,7 +701,7 @@ def needed_components(*methods):
 
 def available_results(model,
                       testset='trained',
-                      min_samples_by_class=200,
+                      min_samples_by_class=10,
                       samples_available_by_class=800,
                       predict_methods='all',
                       misclass_methods='all',
@@ -749,7 +753,7 @@ def available_results(model,
         min_samples[s] = C * min_samples_by_class
         samples_available_by_compute[s] = C * samples_available_by_class
 
-    # print(*min_samples.values())
+    # print(min_samples)
     # print(*samples_available_by_compute.values())
 
     methods = {testset: [(m,) for m in predict_methods]}
@@ -1128,7 +1132,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     wim_sets = '-'.join(sorted(wim['sets'])) if wim.get('sets') else None
     wim_prior = wim.get('distribution')
     wim_from = wim.get('from', model.job_number)
-    wim_mean = wim.get('init_mean')
+    wim_mean = wim.get('mean_shift') or wim.get('init_mean')
+    wim_mix = wim.get('mix')
+    if isinstance(wim_mix, (list, tuple)):
+        wim_mix = wim_mix[1] / sum(wim_mix)
 
     finished = model.train_history['epochs'] >= model.training_parameters['epochs']
     return {'net': model,
@@ -1198,8 +1205,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'wim_sets': wim_sets,
             'wim_prior': wim_prior,
             'wim_mean': wim_mean,
+            'wim_mix': wim_mix,
             'wim_alpha': wim.get('alpha'),
-            'wim_epochs': wim.get('epochs'),
+            'wim_train_size': wim.get('train_size'),
+            'wim_moving_size': wim.get('moving_size'),
             'wim_from': wim_from,
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),
@@ -1384,12 +1393,14 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
     assert not state or epoch == 'last'
 
     from cvae import ClassificationVariationalNetwork as M
+    from module.wim import WIMVariationalNetwork as W
 
     for d in mdirs:
 
         logging.debug('Inspecting {}'.format(d))
 
-        m = M.load(d, load_net=False)
+        is_wim = W.is_wim(d)
+        m = (W if is_wim else M).load(d, load_net=False)
         epoch_ = epoch
         if epoch_ == 'min-loss':
             epoch_ = m.training_parameters.get('early-min-loss', 'last')
@@ -1409,33 +1420,40 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
         if which_rec_ in ('all', 'ind'):
             sets.append(testset)
             if which_rec_ == 'all':
-                sets += get_same_size_by_name(testset)
-                for _ in [_ for _ in recs_to_exclude if _ in sets]:
-                    sets.remove(_)
-
+                if is_wim:
+                    for s in m.wim_params['sets']:
+                        sets.append(s)
+                else:
+                    sets += get_same_size_by_name(testset)
+                    for _ in [_ for _ in recs_to_exclude if _ in sets]:
+                        sets.remove(_)
+        sub_dirs = ['']
+        if is_wim:
+            sub_dirs.append('init')
         for s in sets:
-            sdir = os.path.join(d, 'samples', epoch_, 'record-{}.pth'.format(s))
-            logging.debug('Looking for {}'.format(sdir))
-            if not os.path.exists(sdir):
-                if missing_file_stream:
-                    missing_file_stream.write(sdir + '\n')
-                yield d, sdir
+            for sub in sub_dirs:
+                sfile = os.path.join(d, 'samples', epoch_, sub, 'record-{}.pth'.format(s))
+                logging.debug('Looking for {}'.format(sfile))
+                if not os.path.exists(sfile):
+                    if missing_file_stream:
+                        missing_file_stream.write(sfile + '\n')
+                        yield d, sfile
 
         if state:
-            sdir = os.path.join(d, 'state.pth')
-            logging.debug('Looking for {}'.format(sdir))
-            if not os.path.exists(sdir):
+            sfile = os.path.join(d, 'state.pth')
+            logging.debug('Looking for {}'.format(sfile))
+            if not os.path.exists(sfile):
                 if missing_file_stream:
-                    missing_file_stream.write(sdir + '\n')
-                yield d, sdir
+                    missing_file_stream.write(sfile + '\n')
+                yield d, sfile
 
         if optimizer:
-            sdir = os.path.join(d, 'optimizer.pth')
-            logging.debug('Looking for {}'.format(sdir))
-            if not os.path.exists(sdir):
+            sfile = os.path.join(d, 'optimizer.pth')
+            logging.debug('Looking for {}'.format(sfile))
+            if not os.path.exists(sfile):
                 if missing_file_stream:
-                    missing_file_stream.write(sdir + '\n')
-                yield d, sdir
+                    missing_file_stream.write(sfile + '\n')
+                yield d, sfile
 
 
 def get_submodule(model, sub='features', job_dir='jobs', name=None, **kw):

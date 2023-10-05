@@ -503,6 +503,8 @@ class WIMVariationalNetwork(M):
             for i, batch in enumerate(loader):
                 (x, y_), y = batch
                 logging.debug('y = y_ with {:.1%}'.format((y == y_).float().mean()))
+                if not i:
+                    logging.debug('First labels: {}'.format(' '.join(str(_) for _ in y[:10])))
 
         with self.estimated_labels(self.is_cvae):
             with torch.no_grad():

@@ -245,12 +245,21 @@ class WIMVariationalNetwork(M):
 
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
 
-        ood_set = MixtureDataset(**ood_sets, mix=1)
+        try:
+            subset_idx_shift_key = model.job_number % 100 + 7
+        except AttributeError:
+            logging.warning('Will not attribute a pseudo randomization on subsets indices')
+            subset_idx_shift_key = 0
+
+        logging.debug('Pseudo randomization of subdatasets idx with key'.format(subset_idx_shift_key))
+
+        ood_set = MixtureDataset(**ood_sets, mix=1, shift_key=subset_idx_shift_key,)
 
         logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))
 
         moving_set = MixtureDataset(ood=ood_set, ind=testset,
                                     mix={'ood': ood_mix, 'ind': 1 - ood_mix},
+                                    shift_key=subset_idx_shift_key,
                                     length=moving_size)
 
         _s = 'Moving set of length {}, with mixture {}'

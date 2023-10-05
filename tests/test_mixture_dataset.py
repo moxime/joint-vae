@@ -16,9 +16,10 @@ mix_ind = 0.8
 s = {_: [('{}_{:05}_{}'.format(_, i, i % 10), i % 10) for i in range(n)] for _, n in zip(names, sizes)}
 
 
-ood = MixtureDataset(ood_a=s['ood_a'], ood_b=s['ood_b'], mix=mix_ood)
+ood = MixtureDataset(ood_a=s['ood_a'], ood_b=s['ood_b'], mix=mix_ood, shift_key=94)
 
-mix = MixtureDataset(ind=s['ind__'], ood=ood, mix={'ind': mix_ind, 'ood': 1 - mix_ind}, length=wanted_length)
+mix = MixtureDataset(ind=s['ind__'], ood=ood, mix={'ind': mix_ind,
+                     'ood': 1 - mix_ind}, length=wanted_length, shift_key=67)
 
 
 print('=== mix')

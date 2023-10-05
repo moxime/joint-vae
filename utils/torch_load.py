@@ -224,11 +224,12 @@ class SubSampledDataset(Dataset):
 
     COARSE = 120
 
-    def __init__(self, dataset, length=None):
+    def __init__(self, dataset, length=None, shift_key=0):
 
         super().__init__()
 
         self._dataset = dataset
+        self._shift_key = shift_key
         self.maxlength = len(dataset)
         self.shrink(length)
 
@@ -243,7 +244,8 @@ class SubSampledDataset(Dataset):
 
         length = min(length, self.maxlength)
 
-        self._sample_every = self.COARSE * len(self._dataset) // length
+        self._sample_every_coarse = self.COARSE * len(self._dataset) // length
+        self._sample_every = len(self._dataset) // length
 
         self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
 
@@ -254,18 +256,23 @@ class SubSampledDataset(Dataset):
 
         if idx >= self._length:
             raise IndexError
-
-        return self._dataset[idx * self._sample_every // self.COARSE]
+        if self._shift_key:
+            shift = (self._shift_key ** (idx + 7)) % self._sample_every
+        else:
+            shift = 0
+        return self._dataset[idx * self._sample_every_coarse // self.COARSE + shift]
 
 
 class MixtureDataset(Dataset):
 
     COARSE = 120
 
-    def __init__(self, *datasets, mix=None, length=None, **dict_of_datasets):
+    def __init__(self, *datasets, mix=None, length=None, shift_key=0, **dict_of_datasets):
 
         super().__init__()
         assert not datasets or not dict_of_datasets
+
+        self._shift_key = shift_key
 
         if not dict_of_datasets:
             dict_of_datasets = {getattr(d, 'name', str(i)): d for i, d in enumerate(datasets)}
@@ -344,7 +351,7 @@ class MixtureDataset(Dataset):
             if isinstance(d, MixtureDataset):
                 self._datasets.append(d)
             else:
-                self._datasets.append(SubSampledDataset(d))
+                self._datasets.append(SubSampledDataset(d, shift_key=self._shift_key))
 
         self._classes = tuple(self._classes)
 

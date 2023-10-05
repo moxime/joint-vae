@@ -1132,7 +1132,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     wim_sets = '-'.join(sorted(wim['sets'])) if wim.get('sets') else None
     wim_prior = wim.get('distribution')
     wim_from = wim.get('from', model.job_number)
-    wim_mean = wim.get('init_mean')
+    wim_mean = wim.get('mean_shift') or wim.get('init_mean')
     wim_mix = wim.get('mix')
     if isinstance(wim_mix, (list, tuple)):
         wim_mix = wim_mix[1] / sum(wim_mix)

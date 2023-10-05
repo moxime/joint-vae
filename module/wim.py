@@ -383,7 +383,7 @@ class WIMVariationalNetwork(M):
 
                 y_u_est = torch.zeros(batch_size, device=device, dtype=int)
 
-                if val_batch or self.is_cvae:
+                if val_batch:  # or self.is_cvae:
                     self.eval()
                     _s = 'Val   {:2} Batch {} -- set {} --- prior {}'
                     logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
@@ -393,7 +393,8 @@ class WIMVariationalNetwork(M):
                                                                 with_beta=True)
 
                         if self.is_cvae:
-                            y_u_est = batch_losses['zdist'].min(0)[1]
+                            y_u_est = torch.zeros(batch_size, device=device, dtype=int)
+                            # y_u_est = batch_losses['zdist'].min(0)[1]
                             logging.debug('zdist shape: {}'.format(batch_losses['zdist'].shape))
                             batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 
@@ -638,7 +639,7 @@ if __name__ == '__main__':
     alternate_prior_params = model.encoder.prior.params.copy()
     alternate_prior_params['learned_means'] = False
 
-    alternate_prior_params['init_mean'] = args.prior_means
+    alternate_prior_params['mean_shift'] = args.prior_means
     if args.prior:
         alternate_prior_params['distribution'] = args.prior
     alternate_prior_params['tau'] = args.tau

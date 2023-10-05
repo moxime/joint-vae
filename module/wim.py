@@ -251,7 +251,7 @@ class WIMVariationalNetwork(M):
             logging.warning('Will not attribute a pseudo randomization on subsets indices')
             subset_idx_shift_key = 0
 
-        logging.debug('Pseudo randomization of subdatasets idx with key'.format(subset_idx_shift_key))
+        logging.debug('Pseudo randomization of subdatasets idx with key {}'.format(subset_idx_shift_key))
 
         ood_set = MixtureDataset(**ood_sets, mix=1, shift_key=subset_idx_shift_key,)
 

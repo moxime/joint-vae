@@ -186,6 +186,7 @@ class WIMVariationalNetwork(M):
 
     def save(self, *a, **kw):
 
+        kw['except_optimizer'] = True
         with self.original_prior:
             dir_name = super().save(*a, **kw)
         save_json(self.wim_params, dir_name, 'wim.json')

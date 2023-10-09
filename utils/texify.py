@@ -462,7 +462,6 @@ class TexCell(object):
         #         return self.na_rep
         # except TypeError:
         #     pass
-
         if self._value is None:
             return self.na_rep
 
@@ -511,7 +510,7 @@ class TexRow(list):
     def render(self, spec='x', prev_row_for_sparse=[]):
 
         while len(prev_row_for_sparse) < len(self):
-            prev_row_for_sparse.append(None)
+            prev_row_for_sparse.append('xxxfooxxx')
 
         tex = spec.endswith('x')
         if tex:
@@ -776,7 +775,7 @@ if __name__ == '__main__':
     tab.append_cell('', row=0)
     tab.append_cell(None, row=0)
     tab.append_cell('fg', row=0)
-    tab.append_cell(4.5)
+    tab.append_cell(nan)
     tab.append_cell(None, row=1, face='it')
     tab.append_cell('fr', width=2, row=1)
     tab.append_cell('fr', width=2, row=2)

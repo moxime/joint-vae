@@ -146,10 +146,10 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         header = [int(_) for _ in config[k]['header'].split()]
 
         df = pd.read_csv(csv_file, index_col=index_col, header=header)
+
         df.rename(columns={'fpr': 'rate', 'acc': 'rate', 'accuracy': 'rate'}, inplace=True)
         if df.index.nlevels > 1:
             df.index = df.index.set_levels([_.astype(str) for _ in df.index.levels])
-
         raw_df[k] = df.groupby(level=df.index.names).agg('mean')
         raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
 
@@ -289,7 +289,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             tab.append_cell(meta_headers[_], row='meta_header', width=n_methods)
             for _i in range(len(tab_idx) + 1, n_methods + len(tab_idx)):
                 tab.add_col_sep(i * n_methods + _i, sep='/')
-        tab.append_cell(r'\small{' + '/'.join(methods) + '}', row='header', width=len(cols))
+        tab.append_cell(r'\smaller{' + '/'.join(methods) + '}', row='header', width=len(cols))
 
     else:
         for _ in tab_idx:
@@ -313,7 +313,6 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         for ind in idx_:
             tab.append_cell(ind, row=idx)
         for i, c in enumerate(r):
-
             is_an_auc_col = 'auc' in cols[i]
             best = best_values['auc' if is_an_auc_col else 'rate'][idx]
             # print('***', *idx, '*** best: {:2.1f}'.format(best))

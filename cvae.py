@@ -119,7 +119,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     ODIN_TEMPS = [_ * 10 ** i for i in (0, 1, 2) for _ in (1, 2, 5)] + [1000]
     ODIN_EPS = [_ / 20 * 0.004 for _ in range(21)]
-    ODIN_EPS = [0]
+    # ODIN_EPS = [0]
 
     odin_params = []
     for T in ODIN_TEMPS:
@@ -2593,7 +2593,7 @@ class ClassificationVariationalNetwork(nn.Module):
     print_architecture = save_load.print_architecture
     option_vector = save_load.option_vector
 
-    def save(self, dir_name=None):
+    def save(self, dir_name=None, except_optimizer=False):
         """Save the params in params.json file in the directroy dir_name and, if
         trained, the weights inweights.h5.
 
@@ -2614,8 +2614,9 @@ class ClassificationVariationalNetwork(nn.Module):
             w_p = save_load.get_path(dir_name, 'state.pth')
             torch.save(self.state_dict(), w_p)
             # print('**** state saved')
-            w_p = save_load.get_path(dir_name, 'optimizer.pth')
-            torch.save(self.optimizer.state_dict(), w_p)
+            if not except_optimizer:
+                w_p = save_load.get_path(dir_name, 'optimizer.pth')
+                torch.save(self.optimizer.state_dict(), w_p)
 
         return dir_name
 

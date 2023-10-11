@@ -1,0 +1,5 @@
+set,lsunr,lsunr,lsunr,lsunr,lsunr,lsunr,svhn,svhn,svhn,svhn,svhn,svhn
+method,ratio,ratio,regret,regret,wim-vae,wim-vae,ratio,ratio,regret,regret,wim-vae,wim-vae
+measures,auc,fpr,auc,fpr,auc,fpr,auc,fpr,auc,fpr,auc,fpr
+type,,,,,,,,,,,,
+vae,50.8,,60.6,,94.1,,40.4,,73.8,,99.1

@@ -81,7 +81,7 @@ if __name__ == '__main__':
     list_of_networks = fetch_models(search_dir, registered_models_file, filter=filters,
                                     flash=flash,
                                     tpr=args.tpr[0] / 100,
-                                    load_net=False,
+                                    build_module=False,
                                     load_state=False)
 
     total = len(list_of_networks)
@@ -173,9 +173,11 @@ if __name__ == '__main__':
 
             kept_epochs = []
             for wanted_epoch in wanted_epochs:
+                logging.debug('Looking for wanted epodh {}'.format(wanted_epoch))
                 to_be_kept = False
                 epoch_tolerance = 0
                 while not to_be_kept and epoch_tolerance <= 10:
+
                     available = available_results(n, wanted_epoch=wanted_epoch,
                                                   where=where, epoch_tolerance=epoch_tolerance)
 
@@ -191,12 +193,14 @@ if __name__ == '__main__':
                             kept_epochs.append(result_epoch)
                             oodsets_n = oodsets.get(n['set'])
                             # print('*** test.py:200', oodsets_n)  #
+                            logging.debug('Making dict')
                             models_to_be_kept.append(dict(model=make_dict_from_model(n['net'],
                                                                                      directory=n['dir'],
                                                                                      oodsets=oodsets_n,
                                                                                      wanted_epoch=result_epoch),
                                                           epoch=result_epoch,
                                                           plan=a_))
+                            logging.debug('Dict done')
                             to_be_kept = True
 
                     epoch_tolerance += 5
@@ -263,11 +267,10 @@ if __name__ == '__main__':
         m = m_['model']
         epoch = m_['epoch']
         plan = m_['plan']
-
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch))
             logging.debug('Plan for {}; {}'.format(m['job'], plan))
-            model = CVNet.load(m['dir'], load_net=True, load_state=plan['compute'] and True)
+            model = CVNet.load(m['dir'], build_module=True, load_state=plan['compute'] and True)
             if plan['compute']:
                 device = args.device or 'cuda'
             else:

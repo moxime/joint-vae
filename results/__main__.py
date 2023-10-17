@@ -390,7 +390,7 @@ if __name__ == '__main__':
 
     registered_models_file = 'models-' + gethostname() + '.json'
 
-    all_models = fetch_models(args.job_dir, registered_models_file, load_net=False, flash=flash)
+    all_models = fetch_models(args.job_dir, registered_models_file, build_module=False, flash=flash)
 
     filter_keys = get_filter_keys(args.filters_file, by='key')
 

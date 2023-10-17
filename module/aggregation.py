@@ -144,7 +144,7 @@ if __name__ == '__main__':
     jobs = args.jobs
     device = args.device
 
-    models = find_by_job_number(*jobs, load_state=False, load_net=True)
+    models = find_by_job_number(*jobs, load_state=False, build_module=True)
 
     assert len(models) == 2
 
@@ -229,7 +229,7 @@ if __name__ == '__main__':
             if s == sets[0]:
                 res_str += 'acc: {a:.1%}'
 
-            print(res_str.format(n=n, N=N, t=1000*t_per_i, T=eta, a=accuracy), end='\r')
+            print(res_str.format(n=n, N=N, t=1000 * t_per_i, T=eta, a=accuracy), end='\r')
             if n >= N:
                 break
 

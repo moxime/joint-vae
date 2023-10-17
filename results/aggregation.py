@@ -192,7 +192,7 @@ if __name__ == '__main__':
 
     for mdir in mdirs:
 
-        model = M.load(mdir, load_net=False)
+        model = M.load(mdir, build_module=False)
         name = str(model.job_number)
 
         current_testset = model.training_parameters['set']
@@ -268,7 +268,7 @@ if __name__ == '__main__':
 
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
-    
+
     saved_dir = os.path.join(result_dir, 'saved')
 
     if not os.path.exists(saved_dir):

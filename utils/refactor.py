@@ -140,7 +140,7 @@ def refactor_from_log_file(json_file,
                         is_resumed = int(f_r_.read())
                         to_follow[is_resumed] = vals[key]
 
-    nets = find_by_job_number(*to_follow.keys(), load_net=False)
+    nets = find_by_job_number(*to_follow.keys(), build_module=False)
 
     print('==== RESUMED ====')
 

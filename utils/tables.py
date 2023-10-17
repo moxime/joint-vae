@@ -422,7 +422,7 @@ def digest_table(*jobs,
     f = {j: create_file(j, directory, filename) if filename else None for j in jobs}
     printouts = {j: create_printout(file_id=f[j], std=stdout, end='') for j in jobs}
 
-    models = find_by_job_number(*jobs, tpr_for_max=tpr, load_net=False, force_dict=True)
+    models = find_by_job_number(*jobs, tpr_for_max=tpr, build_module=False, force_dict=True)
     for j in jobs:
 
         printout = printouts[j]

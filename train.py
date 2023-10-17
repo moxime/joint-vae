@@ -84,7 +84,7 @@ if __name__ == '__main__':
             try:
                 log.info('Looking for job %d to be resumed', job_TBR_num)
                 model_dict = find_by_job_number(job_TBR_num, job_dir=args.job_dir, flash=False,
-                                                load_net=True, load_state=True)
+                                                build_module=True, load_state=True)
                 if model_dict is None:
                     raise NoModelError
                 model = model_dict['net']

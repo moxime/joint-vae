@@ -2622,7 +2622,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
     @ classmethod
     def load(cls, dir_name,
-             load_net=True,
+             build_module=True,
              load_state=True,
              load_train=True,
              load_test=True,
@@ -2638,7 +2638,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if os.path.exists(os.path.join(dir_name, 'deleted')):
             raise DeletedModelError(dir_name)
 
-        if not load_net:
+        if not build_module:
             load_state = False
 
         # default
@@ -2702,7 +2702,7 @@ class ClassificationVariationalNetwork(nn.Module):
             train_history = {'epochs': 0}
 
         resave_arch = False
-        if not load_net:
+        if not build_module:
             model = save_load.Shell()
             model.architecture = params.copy()
             model.type = model.architecture['type']
@@ -2729,7 +2729,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 model.sigma = Sigma(**train_params['sigma'])
             else:
                 model.sigma = Sigma(train_params['sigma'])
-        if load_net:
+        if build_module:
             logging.debug('Building the network')
             keys_out = ('set', 'epochs', 'data_augmentation',
                         'batch_size', 'fine_tuning', 'warmup',
@@ -2807,7 +2807,7 @@ class ClassificationVariationalNetwork(nn.Module):
         s = ''.join([random.choice('0123456789abcedf') for _ in range(30)])
         d = os.path.join(tempfile.gettempdir(), s)
         self.save(d)
-        m = self.load(d, load_net=True, load_state=with_state)
+        m = self.load(d, build_module=True, load_state=with_state)
         shutil.rmtree(d)
         return m
 

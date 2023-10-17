@@ -149,10 +149,10 @@ class WIMVariationalNetwork(M):
             logging.debug('Kept {} bn layers in eval mode'.format(n))
 
     @ classmethod
-    def load(cls, dir_name, load_net=True, **kw):
+    def load(cls, dir_name, build_module=True, **kw):
 
         try:
-            model = super().load(dir_name, strict=False, load_net=load_net, **kw)
+            model = super().load(dir_name, strict=False, build_module=build_module, **kw)
         except MissingKeys as e:
             logging.debug('Model loaded has been detected as not wim')
             logging.debug('Missing keys: {}'.format(', '.join(e.args[-1])))
@@ -173,7 +173,7 @@ class WIMVariationalNetwork(M):
             alternate_prior_params = wim_params.copy()
             for k in ('sets', 'alpha', 'train_size', 'moving_size', 'from', 'mix'):
                 k, alternate_prior_params.pop(k, None)
-            if load_net:
+            if build_module:
                 model.set_alternate_prior(**alternate_prior_params)
             model.wim_params = wim_params
 
@@ -615,7 +615,7 @@ if __name__ == '__main__':
 
     dataset = model_dict['set']
 
-    model = WIMVariationalNetwork.load(model_dict['dir'], load_net=True, load_state=True)
+    model = WIMVariationalNetwork.load(model_dict['dir'], build_module=True, load_state=True)
 
     log.info('Job #{}'.format(job_number))
 

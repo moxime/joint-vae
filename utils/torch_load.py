@@ -18,6 +18,72 @@ from torch.utils.data import Dataset
 import configparser
 from matplotlib import pyplot as plt
 # from torch.utils.data._utils import collate
+import time
+
+CONF_FILE = 'data/sets.ini'
+
+set_props = None
+
+
+def dataset_properties(conf_file='data/sets.ini', all_keys=True):
+
+    global set_props
+
+    if not set_props is None:
+        return set_props
+
+    parsed_props = configparser.ConfigParser()
+    parsed_props.read(conf_file)
+
+    properties = {}
+
+    bool_keys = ('downloadable',)
+
+    for s in parsed_props.sections():
+
+        p_ = parsed_props[s]
+        p = {}
+        p['shape'] = tuple(int(_) for _ in p_['shape'].split())
+
+        if 'classes_from_file' in p_:
+            p['classes'] = []
+            class_file = p_['classes_from_file']
+
+            with open(class_file) as f:
+                for i, line in enumerate(f):
+                    if not line.startswith('#'):
+                        splitted_line = line.split()
+                        p['classes'].append(' '.join(splitted_line[1:]))
+
+        elif 'classes' in p_:
+            classes = p_.get('classes', '')
+            if classes.startswith('$'):
+                if classes == '$letters':
+                    p['classes'] = list(string.ascii_lowercase)
+                elif classes == '$numbers':
+                    p['classes'] = [str(_) for _ in range(10)]
+            elif classes:
+                p['classes'] = classes.split()
+        else:
+            p['classes'] = None
+
+        if p['classes']:
+            p['classes'] = [_.replace('_', ' ') for _ in p['classes']]
+
+        p['labels'] = 0 if not p['classes'] else len(p['classes'])
+
+        if all_keys:
+            keys = ('default_transform', 'pre_transform', 'target_transform', 'folder', 'kw_for_split',
+                    'root', 'classes_from_file', 'downloadable', 'by_shape')
+        else:
+            keys = ()
+        for k in keys:
+            p[k] = p_.getboolean(k) if k in bool_keys else p_.get(k)
+
+        properties[s] = p
+
+    set_props = properties
+    return properties
 
 
 class LoggerAsfile(object):
@@ -494,61 +560,6 @@ getters = {'const': ConstantDataset,
            'lsunc': datasets.LSUN,
            'lsunr': datasets.LSUN,
            }
-
-
-def dataset_properties(conf_file='data/sets.ini', all_keys=True):
-
-    parsed_props = configparser.ConfigParser()
-    parsed_props.read(conf_file)
-
-    properties = {}
-
-    bool_keys = ('downloadable',)
-
-    for s in parsed_props.sections():
-
-        p_ = parsed_props[s]
-        p = {}
-        p['shape'] = tuple(int(_) for _ in p_['shape'].split())
-
-        if 'classes_from_file' in p_:
-            p['classes'] = []
-            class_file = p_['classes_from_file']
-
-            with open(class_file) as f:
-                for i, line in enumerate(f):
-                    if not line.startswith('#'):
-                        splitted_line = line.split()
-                        p['classes'].append(' '.join(splitted_line[1:]))
-
-        elif 'classes' in p_:
-            classes = p_.get('classes', '')
-            if classes.startswith('$'):
-                if classes == '$letters':
-                    p['classes'] = list(string.ascii_lowercase)
-                elif classes == '$numbers':
-                    p['classes'] = [str(_) for _ in range(10)]
-            elif classes:
-                p['classes'] = classes.split()
-        else:
-            p['classes'] = None
-
-        if p['classes']:
-            p['classes'] = [_.replace('_', ' ') for _ in p['classes']]
-
-        p['labels'] = 0 if not p['classes'] else len(p['classes'])
-
-        if all_keys:
-            keys = ('default_transform', 'pre_transform', 'target_transform', 'folder', 'kw_for_split',
-                    'root', 'classes_from_file', 'downloadable', 'by_shape')
-        else:
-            keys = ()
-        for k in keys:
-            p[k] = p_.getboolean(k) if k in bool_keys else p_.get(k)
-
-        properties[s] = p
-
-    return properties
 
 
 def get_dataset(dataset='mnist',
@@ -1058,20 +1069,27 @@ def collate(batch):
 
 if __name__ == '__main__':
 
-    plt.set_loglevel(level='warning')
-    import time
+    # plt.set_loglevel(level='warning')
+    # import time
 
-    _, s1 = get_dataset('cifar10', splits=['test'])
+    # _, s1 = get_dataset('cifar10', splits=['test'])
 
-    _, s2 = get_dataset('lsunr', splits=['test'])
+    # _, s2 = get_dataset('lsunr', splits=['test'])
 
-    s = MixtureDataset(ind=s1, ood=s2)
+    # s = MixtureDataset(ind=s1, ood=s2)
 
-    s.rename('t', 'u')
+    # s.rename('t', 'u')
 
-    for _ in range(10):
+    # for _ in range(10):
 
-        i = np.random.randint(len(s))
-        x, y = s[i]
+    #     i = np.random.randint(len(s))
+    #     x, y = s[i]
 
-        print('{:7}: {}'.format(i, s.classes[y]))
+    #     print('{:7}: {}'.format(i, s.classes[y]))
+    t0 = time.time()
+    for i in range(1000):
+        set_props = dataset_properties('data/sets.ini')
+        # _ = get_shape_by_name('cifar10')
+    t = time.time() - t0
+
+    print('*** {:.3f}'.format(t * 1000 / 1000))

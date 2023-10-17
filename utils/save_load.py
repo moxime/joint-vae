@@ -1,3 +1,4 @@
+# from inspect import getframeinfo, stack
 import os
 import json
 import logging
@@ -154,7 +155,7 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_paths) if os.path.isdir(d)]
     print(f'<enter>: choose {dir_path}', end='')
     if count_nets:
-        list_of_nets = collect_models(dir_path, load_net=False)
+        list_of_nets = collect_models(dir_path, build_module=False)
         num_of_nets = len(list_of_nets)
         print(f' ({num_of_nets} networks)')
     else:
@@ -163,7 +164,7 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     for i, d in enumerate(sub_dirs_rel_paths):
         print(f'{i+1:2d}: enter {d}', end='')
         if count_nets:
-            list_of_nets = collect_models(os.path.join(dir_path, d), load_net=False)
+            list_of_nets = collect_models(os.path.join(dir_path, d), build_module=False)
             num_of_nets = len(list_of_nets)
             print(f' ({num_of_nets} networks)')
         else:
@@ -711,6 +712,13 @@ def available_results(model,
                       where='all',
                       ood_methods='all'):
 
+    def debug_step():
+        pass
+        # caller = getframeinfo(stack()[1][0])
+        # logging.debug('Step {}'.format(caller.lineno))
+
+    logging.debug('Retreiving availale results for {}'.format(wanted_epoch))
+
     if isinstance(model, dict):
         model = model['net']
 
@@ -746,12 +754,19 @@ def available_results(model,
     min_samples = {}
     samples_available_by_compute = {}
 
+    debug_step()
+
     for s in sets:
+        # debug_step()
         C = get_shape_by_name(s)[-1]
+        # debug_step()
+
         if not C:
             C = model.architecture['num_labels']
         min_samples[s] = C * min_samples_by_class
         samples_available_by_compute[s] = C * samples_available_by_class
+
+    debug_step()
 
     # print(min_samples)
     # print(*samples_available_by_compute.values())
@@ -770,6 +785,8 @@ def available_results(model,
 
     epochs = set(sample_sub_dirs)
 
+    debug_step()
+
     epochs.add(model.trained)
     # print('****', *epochs, '/', *test_results, '/', *ood_results)
     epochs = sorted(set.union(epochs, set(test_results), set(ood_results)))
@@ -780,6 +797,7 @@ def available_results(model,
 
     results = {}
 
+    debug_step()
     for e in sorted(epochs):
         pm_ = list(test_results[e].keys())
         results[e] = {s: clean_results(ood_results.get(e, {}).get(s, {}), ood_methods) for s in sets}
@@ -794,6 +812,8 @@ def available_results(model,
                  for e in results}
 
     # print(available['json'])
+
+    debug_step()
 
     for e in available:
         for s in available[e]:
@@ -844,6 +864,9 @@ def available_results(model,
     for epoch in available:
         available[epoch]['all_sets'] = {w: sum(available[epoch][s]['where'][w] for s in sets) for w in anywhere}
         available[epoch]['all_sets']['anywhere'] = sum(available[epoch]['all_sets'][w] for w in anywhere)
+
+    logging.debug('Availale results retrieved')
+
     return available
 
 
@@ -1238,8 +1261,8 @@ def _register_models(models, *keys):
 
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
                  tpr=0.95,
-                 load_net=False,
-                 show_debug=False,
+                 build_module=False,
+                 show_debug=True,
                  **kw):
     """Fetches models matching filter.
 
@@ -1256,7 +1279,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
         try:
             rmodels = load_json(search_dir, registered_models_file)
             with turnoff_debug(turnoff=not show_debug):
-                return _gather_registered_models(rmodels, filter, tpr=tpr, load_net=load_net, **kw)
+                return _gather_registered_models(rmodels, filter, tpr=tpr, build_module=build_module, **kw)
 
         except StateFileNotFoundError as e:
             raise e
@@ -1270,13 +1293,13 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
         logging.debug('Collecting networks')
         with turnoff_debug(turnoff=not show_debug):
             list_of_networks = collect_models(search_dir,
-                                              load_net=False,
+                                              build_module=False,
                                               **kw)
         filter_keys = get_filter_keys()
         rmodels = _register_models(list_of_networks, *filter_keys)
         save_json(rmodels, search_dir, registered_models_file)
         return fetch_models(search_dir, registered_models_file, filter=filter, flash=True,
-                            tpr=tpr, load_net=load_net, **kw)
+                            tpr=tpr, build_module=build_module, **kw)
 
 
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw):
@@ -1400,7 +1423,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
         logging.debug('Inspecting {}'.format(d))
 
         is_wim = W.is_wim(d)
-        m = (W if is_wim else M).load(d, load_net=False)
+        m = (W if is_wim else M).load(d, build_module=False)
         epoch_ = epoch
         if epoch_ == 'min-loss':
             epoch_ = m.training_parameters.get('early-min-loss', 'last')
@@ -1461,7 +1484,8 @@ def get_submodule(model, sub='features', job_dir='jobs', name=None, **kw):
     if isinstance(model, int):
         model_number = model
         logging.debug('Will find model {} in {}'.format(model_number, job_dir))
-        model = find_by_job_number(model_number, job_dir=job_dir, load_net=True, load_state=True, **kw)['net']
+        model = find_by_job_number(model_number, job_dir=job_dir,
+                                   build_module=True, load_state=True, **kw)['net']
         logging.debug('Had to search {} found model of type {}'.format(model_number, model.type))
         return get_submodule(model, sub=sub, job_dir=job_dir, name='job-{}'.format(model.job_number), **kw)
 

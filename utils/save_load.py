@@ -678,7 +678,7 @@ def needed_components(*methods):
            'closest': ('zdist',),
            'zdist': ('zdist',),
            'zdist~': ('zdist~',),
-           'already': ('y_est_already'),
+           'already': ('y_est_already',),
            'zdist~': ('kl~',),
            'kl': ('kl',),
            'soft': ('kl',),

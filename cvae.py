@@ -1901,6 +1901,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         methods = {'predict': predict_methods, 'miss': misclass_methods}
 
+        logging.debug('Computing mdr for methods'.format(methods))
+
         for which, all_methods in zip(('predict', 'miss'),
                                       (self.predict_methods, self.misclass_methods)):
 

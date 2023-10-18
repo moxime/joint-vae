@@ -1656,7 +1656,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     logits = recorders[s].get_batch(i, 'logits').T
                     odin_softmax = {}
 
-                _test_losses.append({k: losses[k].mean().item() for k in losses})
+                _test_losses.append({k: losses[k].float().mean().item() for k in losses})
 
                 if recording[s]:
                     recorders[s].append_batch(

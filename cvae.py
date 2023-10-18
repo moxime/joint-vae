@@ -963,6 +963,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if method == 'iws':
             return losses['iws'].argmax(0)
+
+        if method == 'already':
+            return losses['y_est_already']
+
         raise ValueError(f'Unknown method {method}')
 
     def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
@@ -1862,15 +1866,15 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return ood_results
 
-    def misclassification_detection_rate(self,
-                                         predict_methods='all',
-                                         misclass_methods='all',
-                                         epoch='last',
-                                         shown_tpr=0.95,
-                                         from_where=('json', 'recorders'),
-                                         print_result=False,
-                                         update_self_results=True,
-                                         outputs=EpochOutput()):
+    def misclassification_detection_rates(self,
+                                          predict_methods='all',
+                                          misclass_methods='all',
+                                          epoch='last',
+                                          shown_tpr=0.95,
+                                          from_where=('json', 'recorders'),
+                                          print_result=False,
+                                          update_self_results=True,
+                                          outputs=EpochOutput()):
 
         froms = available_results(self,
                                   where=from_where,

@@ -299,10 +299,10 @@ if __name__ == '__main__':
                                                    outputs=outputs,
                                                    print_result='TFR' if not plan['compute'] else 'TFM')
                     print('Misclassification')
-                    model.misclassification_detection_rate(epoch=epoch,
-                                                           from_where=where,
-                                                           outputs=outputs,
-                                                           print_result='MFR' if not plan['compute'] else 'MFM')
+                    model.misclassification_detection_rates(epoch=epoch,
+                                                            from_where=where,
+                                                            outputs=outputs,
+                                                            print_result='MFR' if not plan['compute'] else 'MFM')
                     history_checkpoint['test_accuracy'] = test_accuracy
                 test_loss = model.test_losses
                 test_measures = model.test_measures

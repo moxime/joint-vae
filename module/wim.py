@@ -524,8 +524,9 @@ class WIMVariationalNetwork(M):
                                          sample_dirs=sample_dirs,
                                          recorders={},
                                          print_result='*')
-
+                logging.info('Computing misclass detection rates')
                 self.misclassification_detection_rates(print_result='~')
+                logging.info('Computing misclass detection rates: done')
 
             # self.alternate_prior = True
             # outputs.write('With alternate prior\n')

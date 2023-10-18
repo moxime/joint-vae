@@ -1263,7 +1263,7 @@ def _register_models(models, *keys):
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
                  tpr=0.95,
                  build_module=False,
-                 show_debug=True,
+                 show_debug=False,
                  **kw):
     """Fetches models matching filter.
 

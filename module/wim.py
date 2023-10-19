@@ -307,6 +307,7 @@ class WIMVariationalNetwork(M):
 
         with torch.no_grad():
             ood_ = moving_set.extract_subdataset('ood')
+            logging.debug('OOD set of size {}'.format(len(ood_)))
             self.ood_detection_rates(batch_size=test_batch_size,
                                      testset=moving_set.extract_subdataset('ind', new_name=testset.name),
                                      oodsets=[ood_.extract_subdataset(_) for _ in ood_sets],

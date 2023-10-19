@@ -386,13 +386,18 @@ class MixtureDataset(Dataset):
 
         if not length:
             self._length = 0
+            self._lengths = [0 for _ in self._datasets]
             self._mix_ = self._mix
+            for d in self._datasets:
+                d.shrink(0)
+
             return
 
         lengths = [int(np.floor(unit_length * m)) for m in self._mix]
         target_lengths = [length * m for m in self._mix]
 
-        # print('***', target_lengths)
+        print('*** target', target_lengths)
+        print('*** lengths', lengths)
         for d, l in zip(self._datasets, lengths):
             d.shrink(l)
 

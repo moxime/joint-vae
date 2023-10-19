@@ -65,7 +65,7 @@ for i in range(len(ood_b)):
     if i > len(ood_b) - 10:
         print(ood_b[i][0])
 
-print('\n'.join('{}:{:5} {:6.1%}'.format(k, v, v / len(ood_b))
+print('\n'.join('{}:{:5} {:6.1%}'.format(k, v, v / (len(ood_b) + 1e-30))
                 for k, v in count.items()))
 
 
@@ -87,4 +87,7 @@ ood_b_y.return_estimated = True
 loader = torch.utils.data.DataLoader(FooDataset(), batch_size=16, collate_fn=collate)
 loader = torch.utils.data.DataLoader(ood_b_y, batch_size=16, collate_fn=collate)
 
-d = next(iter(loader))
+try:
+    d = next(iter(loader))
+except StopIteration:
+    print('Empty dataset')

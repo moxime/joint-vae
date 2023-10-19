@@ -494,13 +494,13 @@ class WIMVariationalNetwork(M):
 
         _s = 'Collecting loss for {} with {} of size {}'
         logging.debug(_s.format(testset.name, recorders[testset.name], len(recorders[testset.name])))
-        for k, t in recorders[testset.name]._tensors.items():
-            logging.debug('{}: {}'.format(k, t.shape))
         if self.is_cvae:
             y_est = recorders[testset.name]['kl'].argmin(0)
             testset.append_estimated(y_est)
             testset.return_estimated = True
             for s in oodsets:
+                if not s:
+                    continue
                 y_est = recorders[s.name]['kl'].argmin(0)
                 s.append_estimated(y_est)
                 s.return_estimated = True

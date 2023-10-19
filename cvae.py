@@ -1900,6 +1900,7 @@ class ClassificationVariationalNetwork(nn.Module):
             recorder = LossRecorder.load(os.path.join(
                 sample_dir, f), map_location=self.device)
         else:
+            logging.debug('Nothing to do')
             return
 
         methods = {'predict': predict_methods, 'miss': misclass_methods}

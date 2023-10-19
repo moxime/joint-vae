@@ -1493,6 +1493,7 @@ class ClassificationVariationalNetwork(nn.Module):
             logging.debug('Oodsets loaded: ' +
                           ' ; '.join(s.name for s in oodsets))
 
+        oodsets = [_ for _ in oodsets if _]
         _s = 'Will compute ood fprs and aucs with ind of length {} and oods {}'
         _l = ', '.join('{}:{}'.format(_.name, len(_)) for _ in oodsets)
         logging.info(_s.format(len(testset), _l))

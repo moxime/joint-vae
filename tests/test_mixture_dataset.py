@@ -11,7 +11,7 @@ sizes = (50000, 11100, 530)
 wanted_length = 512
 
 mix_ood = (1, 1)
-mix_ind = 0.8
+mix_ind = 1
 
 s = {_: [('{}_{:05}_{}'.format(_, i, i % 10), i % 10) for i in range(n)] for _, n in zip(names, sizes)}
 
@@ -19,7 +19,7 @@ s = {_: [('{}_{:05}_{}'.format(_, i, i % 10), i % 10) for i in range(n)] for _, 
 ood = MixtureDataset(ood_a=s['ood_a'], ood_b=s['ood_b'], mix=mix_ood, shift_key=94)
 
 mix = MixtureDataset(ind=s['ind__'], ood=ood, mix={'ind': mix_ind,
-                     'ood': 1 - mix_ind}, length=wanted_length, shift_key=67)
+                                                   'ood': 1 - mix_ind}, length=wanted_length, shift_key=67)
 
 
 print('=== mix')

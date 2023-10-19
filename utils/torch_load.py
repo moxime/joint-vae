@@ -364,13 +364,13 @@ class MixtureDataset(Dataset):
 
         self._mix = mix
 
-        self.maxlength = min(int(np.ceil(d.maxlength / m)) for d, m in zip(self._datasets, self._mix))
+        self.maxlength = int(min(np.ceil(d.maxlength / m) for d, m in zip(self._datasets, np.array(self._mix))))
 
         self.shrink(length)
 
     def shrink(self, length=None):
 
-        unit_length = min(int(np.floor(len(d) / m)) for d, m in zip(self._datasets, self._mix))
+        unit_length = int(min(np.floor(len(d) / m) for d, m in zip(self._datasets, np.array(self._mix))))
         max_length = self.maxlength
 
         if length is None:

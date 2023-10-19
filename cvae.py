@@ -1890,6 +1890,9 @@ class ClassificationVariationalNetwork(nn.Module):
         epoch = next(iter(froms))
         available = froms[epoch][testset]
 
+        _s = '\n'.join('{}: {}'.format(*_) for _ in available.items())
+        logging.debug('epoch: {}, Avail:\n{}'.format(epoch, _s))
+
         if available['where']['recorders']:
 
             sample_dir = os.path.join(

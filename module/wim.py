@@ -423,7 +423,7 @@ class WIMVariationalNetwork(M):
                         if self.is_cvae:
                             # y_u_est = torch.zeros(batch_size, device=device, dtype=int)
                             y_a_est = batch_losses['zdist'].min(0)[1]
-                            acc = (y_a == y_a_est).float().mean()
+                            acc = (y_a.to(device) == y_a_est).float().mean()
                             logging.debug('Batch train acc: {:.1%}'.format(acc))
                             batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
 

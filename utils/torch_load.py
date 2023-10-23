@@ -396,8 +396,8 @@ class MixtureDataset(Dataset):
         lengths = [int(np.floor(unit_length * m)) for m in self._mix]
         target_lengths = [length * m for m in self._mix]
 
-        print('*** target', target_lengths)
-        print('*** lengths', lengths)
+        # print('*** target', target_lengths)
+        # print('*** lengths', lengths)
         for d, l in zip(self._datasets, lengths):
             d.shrink(l)
 

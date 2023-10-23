@@ -209,7 +209,7 @@ class WIMVariationalNetwork(M):
 
         # logging.warning('DEBUG MODE MODEL IN MODE EVAL')
 
-        def zdbg(*a):
+        def zdbg(*a):           #
             debug_str = '### {:10} epoch {:2} batch {:2} set {:8} {:10} prior <zdist> = {:9.4g}'
             logging.debug(debug_str.format(*a))
 
@@ -391,9 +391,10 @@ class WIMVariationalNetwork(M):
 
                 if val_batch:  # or self.is_cvae:
                     self.eval()
-                    _s = 'Val   {:2} Batch {} -- set {} --- prior {}'
-                    logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
                     with torch.no_grad():
+
+                        # Eval on unknown batch
+
                         (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
                                                                 batch=batch,
                                                                 with_beta=True)
@@ -412,6 +413,27 @@ class WIMVariationalNetwork(M):
 
                         for _ in i_:
                             zdbg('eval', epoch + 1, batch + 1, _, 'original', batch_losses['zdist'][i_[_]].mean())
+
+                        # Eval on train batch
+
+                        (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
+                                                                batch=batch,
+                                                                with_beta=True)
+
+                        if self.is_cvae:
+                            # y_u_est = torch.zeros(batch_size, device=device, dtype=int)
+                            y_a_est = batch_losses['zdist'].min(0)[1]
+                            acc = (y_a == y_a_est).float().mean()
+                            logging.debug('Batch train acc: {:.1%}'.format(acc))
+                            batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
+
+                        else:
+                            y_a_est = torch.zeros(batch_size, device=device, dtype=int)
+
+                        # running_loss.update({_ + '_' + k: batch_losses[k][i_[_]].mean().item()
+                        #                      for _, k in product(i_, printed_losses)})
+
+                        zdbg('eval', epoch + 1, batch + 1, 'train', 'original', batch_losses['zdist'].mean())
 
                 """
 

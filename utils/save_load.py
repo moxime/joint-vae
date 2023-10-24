@@ -678,8 +678,10 @@ def needed_components(*methods):
            'closest': ('zdist',),
            'zdist': ('zdist',),
            'zdist~': ('zdist~',),
+           'softzdist~': ('softzdist~',),
            'already': ('y_est_already',),
-           'zdist~': ('kl~',),
+           'kl~': ('kl~',),
+           'softkl~': ('softkl~',),
            'kl': ('kl',),
            'soft': ('kl',),
            'mse': ('cross_x',)}

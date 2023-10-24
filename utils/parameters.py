@@ -480,6 +480,8 @@ def get_args_for_results(argv=None):
 
     parser.add_argument('--predict-methods', nargs='*', default=None)
 
+    parser.add_argument('--misclass-methods', nargs='*', default=None)
+
     parser.add_argument('--remove-index', nargs='*', default=['auto'])
 
     parser.add_argument('--from-files', default=[], nargs='+')

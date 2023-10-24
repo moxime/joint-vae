@@ -132,7 +132,7 @@ class WIMVariationalNetwork(M):
             if self.is_cvae:
                 o[2].update({k + '~': o[2][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
                 o[2].update({'soft{}~'.format(k):
-                             o[2][k].softmax(0).gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
+                             (-o[2][k]).softmax(0).gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
                 o[2].update({'y_est_already': y_})
             return o
 

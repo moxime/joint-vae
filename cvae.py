@@ -1078,7 +1078,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 # print('odin losses:', *[_ for _ in losses if _.startswith('odin')])
                 measures = losses[m]
 
-            elif m in ('zdist~', 'kl~'):
+            elif m.endswith('~'):
                 measures = -losses[m]
 
             else:

@@ -21,7 +21,7 @@ class WIMVariationalNetwork(M):
 
     ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~']}
     predict_methods_per_type = {'vae': [], 'cvae': ['already']}
-    misclass_methods_per_type = {'cvae': ['zdist~'],
+    misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
 
     def __init__(self, *a, alternate_prior=None, **kw):

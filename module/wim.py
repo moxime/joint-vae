@@ -353,6 +353,11 @@ class WIMVariationalNetwork(M):
                     moving_iter = iter(moving_loader)
                     x_u, y_u = next(moving_iter)
 
+                if not batch and not epoch:
+                    logging.debug('First epoch / first batch')
+                    logging.debug('First labels for train: {}'.format(' '.join(str(_.item()) for _ in y_a[:10])))
+                    logging.debug('First labels for unknown: {}'.format(' '.join(str(_.item()) for _ in y_u[:10])))
+
                 val_batch = not (batch % max(per_epoch * batch_size // 3000, 1))
                 if batch:
                     time_per_i = (time.time() - t0) / batch

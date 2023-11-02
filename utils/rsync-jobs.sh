@@ -24,6 +24,9 @@ while :; do
 	--fullest )
 	    opt=( -uvP )
 	    ;;
+	-x )
+	    donotdelete=true
+	    ;;
 	* )
 	    break
 	    ;;
@@ -61,7 +64,8 @@ grep architecture.json /tmp/downloaded-$remote
 duration=$SECONDS
 echo "Files retrieved in $(($duration / 60))m$(($duration % 60))s"
 
-if [ -z $push ]
+if [ -z $push ] && [ -z $donotdelete ];
 then
+    echo deteling models-\*.json files
     rm "$target"/models-*.json
 fi

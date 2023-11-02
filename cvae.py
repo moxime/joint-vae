@@ -1081,6 +1081,9 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m in ('zdist~', 'kl~'):
                 measures = -losses[m]
 
+            elif m in ('softzdist~', 'softkl~'):
+                measures = losses[m]
+
             else:
                 raise ValueError(f'{m} is an unknown ood method')
 

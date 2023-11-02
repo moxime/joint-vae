@@ -21,7 +21,7 @@ class WIMVariationalNetwork(M):
 
     ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~']}
     predict_methods_per_type = {'vae': [], 'cvae': ['already']}
-    misclass_methods_per_type = {'cvae': ['zdist~'],
+    misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
 
     def __init__(self, *a, alternate_prior=None, **kw):
@@ -131,6 +131,8 @@ class WIMVariationalNetwork(M):
             k_ = ('kl', 'zdist')
             if self.is_cvae:
                 o[2].update({k + '~': o[2][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
+                o[2].update({'soft{}~'.format(k):
+                             (-o[2][k]).softmax(0).gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
                 o[2].update({'y_est_already': y_})
             return o
 

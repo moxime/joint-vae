@@ -1,12 +1,13 @@
 def make_list(o, default_for_all):
 
+    if isinstance(o, str):
+        o = [o]
+
     if o is None:
         return []
-    if o in ('all', 'default'):
+    if o and o[0] in ('all', 'default'):
         return type(default_for_all)(default_for_all)
-    if o == 'first':
+    if o and o[0] == 'first':
         return [next(iter(default_for_all))]
-    if isinstance(o, str):
-        return [o]
 
     return o

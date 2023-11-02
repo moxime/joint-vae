@@ -705,7 +705,8 @@ if __name__ == '__main__':
         logging.info('New optimizer')
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
-    model.finetune(*args.wim_sets,
+    wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
+    model.finetune(*wim_sets,
                    train_size=args.train_size,
                    epochs=args.epochs,
                    moving_size=args.moving_size,

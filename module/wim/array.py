@@ -8,10 +8,23 @@ JOB_FILE_NAME = 'jobs'
 
 class WIMArray(WIMJob):
 
-    def __init__(*a, fetch_dir='wim-jobs', **kw):
+    def __init__(self, *a, wanted_components=[], fetch_dir='wim-jobs', **kw):
 
         super().__init__(*a, **kw)
         self._fecth_dir = fetch_dir
+        self._jobs = []
+        self._wanted_components = wanted_components
+
+    @property
+    def wanted_components(self):
+        return self._wanted_components
+
+    @wanted_components.setter
+    def wanted_components(self, *components):
+        if any(_ not in self.wanted_components for _ in components):
+            self._jobs = []
+
+        self._wanted_components = components
 
     def finetune(self, *a, **kw):
 
@@ -38,10 +51,22 @@ class WIMArray(WIMJob):
                                     load_net=True, filter=filter, load_state=False)
 
         logging.debug('Fetched {} models with hash'.format(len(fetched_jobs)))
-        fetched_jobs = sorted([_ for _ in fetched_jobs if self == _], key=lambda m: m.get('job_number'))
+        fetched_jobs = [_ for _ in fetched_jobs if self == _]
+
         logging.debug('Kept {} models with eq'.format(len(fetched_jobs)))
 
-    def update_records(self, flash=True, wanted_components=[]):
+        if any(_ not in fetched_jobs for _ in self._jobs):
+            logging.warning('Some jobs seemed to have been deleted since last time')
+            self._jobs = []
+
+        fetched_jobs = [_ for _ in fecthed_jobs if _ not in self._jobs]
+        logging.debug('{} new jobs fetched'.format(len(fetched_jobs)))
+
+        self._jobs = [_['dir'] for _ in fetched_jobs]
+
+        return fetched_jobs
+
+    def update_records(self, flash=True):
 
         updated_jobs = self.fetch_jobs(flash=flash)
 
@@ -54,10 +79,15 @@ class WIMArray(WIMJob):
             job_recorders = LossRecorder.loadall(a['rec_dir'])
 
             for _ in job_recorders:
-                if not all(_ in job_recorders[_] for _ in wanted_components):
+                if not all(_ in job_recorders[_] for _ in self.wanted_components):
                     continue
 
                 if _ in recorders:
                     recorders[_].merge(job_recorders[_])
                 else:
                     recorders[_] = job_recorders[_].copy()
+
+
+if __name__ == '__main__':
+
+    pass

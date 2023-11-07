@@ -443,11 +443,6 @@ class LossRecorder:
 
         torch.save(self.__dict__, file_path)
 
-    def copy(self, device=None):
-        new_record = type(self)(self.batch_size)
-        for i in range(self._recorded_batches):
-            new_record.append_batch(self.get_batch(i, device=device))
-
     @classmethod
     def load(cls, file_path, device=None, **kw):
 
@@ -512,6 +507,39 @@ class LossRecorder:
 
         return r
 
+    def copy(self, device=None):
+        new_record = type(self)(self.batch_size)
+        logging.debug('New recorder created')
+        for i in range(len(self)):
+            new_record.append_batch(**self.get_batch(i, device=device))
+        return new_record
+
+    def merge(self, other):
+
+        assert isinstance(other, type(self))
+
+        samples_to_be_added = other.recorded_samples
+        batches_to_add = samples_to_be_added // self.batch_size + 1
+        self.num_batch = len(self) + batches_to_add
+
+        start = self.recorded_samples
+        end = start + other.recorded_samples
+
+        common_k = set.intersection(set(self), set(other))
+
+        for k in common_k:
+            self._tensors[k][..., start:end] = other[k]
+
+        for k in [_ for _ in self if _ not in common_k]:
+            self._tensors.pop(k)
+
+        self.last_batch_size = (end - 1) % self.batch_size + 1
+        self._recorded_batches = (end - 1) // self.batch_size + 1
+
+    @property
+    def recorded_samples(self):
+        return (len(self) - 1) * self.batch_size + self.last_batch_size
+
     @property
     def num_batch(self):
         return self._num_batch
@@ -544,16 +572,18 @@ class LossRecorder:
     def has_batch(self, number, only_full=False):
         r""" number starts at 0
         """
-        if number == self._recorded_batches - 1:
+        if number == len(self) - 1:
             return not only_full or self.last_batch_size == self.batch_size
         return number < self._recorded_batches
 
-    def get_batch(self, i, *which, device=None):
+    def get_batch(self, i, *which, device=None, force_dict=False):
 
         if not which:
-            return self.get_batch(i, *self.keys())
+            if not self.keys():
+                raise KeyError('empty recorder')
+            return self.get_batch(i, *self.keys(), force_dict=True)
 
-        if len(which) > 1:
+        if len(which) > 1 or force_dict:
             return {w: self.get_batch(i, w) for w in which}
 
         if not self.has_batch(i):
@@ -590,9 +620,9 @@ class LossRecorder:
         batch_sizes = set(tensors[k].shape[-1] for k in tensors)
         assert len(batch_sizes) == 1, 'all batches have to be of same size'
         batch_size = batch_sizes.pop()
-        if batch_size < self.batch_size:
-            assert self.last_batch_size == self.batch_size
-            self.last_batch_size = batch_size
+        assert batch_size <= self.batch_size, 'appended batch to large'
+        assert self.last_batch_size == self.batch_size
+        self.last_batch_size = batch_size
         end = start + batch_size
 
         for k in tensors:

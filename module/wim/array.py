@@ -54,6 +54,9 @@ class WIMArray(WIMJob):
             job_recorders = LossRecorder.loadall(a['rec_dir'])
 
             for _ in job_recorders:
+                if not all(_ in job_recorders[_] for _ in wanted_components):
+                    continue
+
                 if _ in recorders:
                     recorders[_].merge(job_recorders[_])
                 else:

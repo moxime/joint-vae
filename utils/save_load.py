@@ -1308,7 +1308,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw):
 
     from cvae import ClassificationVariationalNetwork as M
-    from module.wim import WIMVariationalNetwork as W
+    from module.wim import WIMJob as W
 
     mlist = []
     for d in mdict:
@@ -1325,7 +1325,7 @@ def collect_models(directory,
                    load_state=True, tpr=0.95, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork as M
-    from module.wim import WIMVariationalNetwork as W
+    from module.wim import WIMJob as W
 
     if 'dump' in directory:
         return
@@ -1419,7 +1419,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
     assert not state or epoch == 'last'
 
     from cvae import ClassificationVariationalNetwork as M
-    from module.wim import WIMVariationalNetwork as W
+    from module.wim import WIMJob as W
 
     for d in mdirs:
 

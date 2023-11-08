@@ -11,7 +11,8 @@ import torch
 from cvae import ClassificationVariationalNetwork as M
 from module.priors import build_prior
 
-from utils.save_load import MissingKeys, save_json, load_json, LossRecorder
+from utils.save_load import MissingKeys, save_json, load_json, LossRecorder, fetch_models, make_dict_from_model
+from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
 import utils.torch_load as torchdl
 from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
 from utils.print_log import EpochOutput
@@ -575,6 +576,29 @@ class WIMJob(M):
             #                          update_self_ood=False,
             #                          print_result='*')
 
+    def fetch_jobs_alike(self, job_dir, flash=False):
+
+        wim_filter_keys = get_filter_keys()
+        wim_filter_keys = {_: wim_filter_keys[_] for _ in wim_filter_keys if _.startswith('wim')}
+        filter = DictOfListsOfParamFilters()
+
+        self_dict = make_dict_from_model(self, '')
+
+        # print('***', {_: self_dict[_] for _ in self_dict if _.startswith('wim')})
+        for k, f in wim_filter_keys.items():
+            filter.add(k, ParamFilter(type=f['type'], values=[self_dict[k]]))
+
+        fetched_jobs = fetch_models(job_dir, flash=flash,
+                                    build_module=True, filter=filter, load_state=False, show_debug=False)
+
+        logging.debug('Fetched {} models with filters'.format(len(fetched_jobs)))
+
+        fetched_jobs = [_ for _ in fetched_jobs if self == _['net']]
+
+        logging.info('Kept {} models with eq'.format(len(fetched_jobs)))
+
+        return fetched_jobs
+
     def __hash__(self):
 
         try:
@@ -607,5 +631,4 @@ class WIMJob(M):
             logging.debug(self._wim_hashable_params == other._wim_hashable_params)
             return self._wim_hashable_params == other._wim_hashable_params
         except AttributeError:
-            print('****')
             return False

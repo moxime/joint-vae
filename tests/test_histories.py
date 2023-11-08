@@ -1,8 +1,8 @@
-from utils.save_load import collect_models
+from utils.save_load import _collect_thoroughly_models
 
 nets = []
 
-collect_models('jobs/fashion', nets)
+_collect_thoroughly_models('jobs/fashion', nets)
 
 nets = sum(nets, [])
 

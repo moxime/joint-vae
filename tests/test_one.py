@@ -1,7 +1,7 @@
 from cvae import ClassificationVariationalNetwork
 import data.torch_load as dl
 import logging
-from utils.save_load import collect_models, find_by_job_number
+from utils.save_load import _collect_thoroughly_models, find_by_job_number
 import torch
 from scipy import stats
 import numpy as np

@@ -1,5 +1,6 @@
 # from inspect import getframeinfo, stack
 import os
+import sys
 import json
 import logging
 import pandas as pd
@@ -155,7 +156,7 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_paths) if os.path.isdir(d)]
     print(f'<enter>: choose {dir_path}', end='')
     if count_nets:
-        list_of_nets = collect_models(dir_path, build_module=False)
+        list_of_nets = _collect_thoroughly_models(dir_path, build_module=False)
         num_of_nets = len(list_of_nets)
         print(f' ({num_of_nets} networks)')
     else:
@@ -164,7 +165,7 @@ def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
     for i, d in enumerate(sub_dirs_rel_paths):
         print(f'{i+1:2d}: enter {d}', end='')
         if count_nets:
-            list_of_nets = collect_models(os.path.join(dir_path, d), build_module=False)
+            list_of_nets = _collect_thoroughly_models(os.path.join(dir_path, d), build_module=False)
             num_of_nets = len(list_of_nets)
             print(f' ({num_of_nets} networks)')
         else:
@@ -1299,6 +1300,52 @@ def _register_models(models, *keys):
     return d
 
 
+def collect_models(search_dir, registered_models_file=None):
+    from cvae import ClassificationVariationalNetwork as M
+    from module.wim import WIMJob as W
+
+    if not registered_models_file:
+        registered_models_file = 'models-{}.json'.format(gethostname())
+
+    try:
+        rmodels = load_json(search_dir, registered_models_file)
+    except FileNotFoundError:
+        logging.warning('{} not found, this will take time to register models'.format(registered_models_file))
+        rmodels = {}
+
+    models_to_be_deleted = list(rmodels)
+    models_to_be_registered = []
+
+    for directory, _, files in os.walk(search_dir, followlinks=True):
+
+        if 'params.json' in files and 'deleted' not in files:
+
+            if directory in models_to_be_deleted:
+                models_to_be_deleted.remove(directory)
+            else:
+                logging.debug(f'Loading net in: {directory}')
+                if W.is_wim(directory):
+                    model = W.load(directory, build_module=False, load_state=False)
+                else:
+                    model = M.load(directory, build_module=False, load_state=False)
+
+                models_to_be_registered.append(make_dict_from_model(model, directory))
+
+    logging.info('{} models seem to have been deleted sincde last time'.format(len(models_to_be_deleted)))
+    logging.info('{} models have to be registered'.format(len(models_to_be_registered)))
+
+    for m in models_to_be_deleted:
+        rmodels.pop(m)
+
+    rkeys = get_filter_keys()
+
+    rmodels.update(_register_models(models_to_be_registered, *rkeys))
+
+    save_json(rmodels, search_dir, registered_models_file)
+
+    return rmodels
+
+
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
                  tpr=0.95,
                  build_module=False,
@@ -1332,12 +1379,8 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
     if not flash:
         logging.debug('Collecting networks')
         with turnoff_debug(turnoff=not show_debug):
-            list_of_networks = collect_models(search_dir,
-                                              build_module=False,
-                                              **kw)
-        filter_keys = get_filter_keys()
-        rmodels = _register_models(list_of_networks, *filter_keys)
-        save_json(rmodels, search_dir, registered_models_file)
+            rmodels = collect_models(search_dir, registered_models_file)
+
         return fetch_models(search_dir, registered_models_file, filter=filter, flash=True,
                             tpr=tpr, build_module=build_module, **kw)
 
@@ -1348,18 +1391,22 @@ def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw
     from module.wim import WIMJob as W
 
     mlist = []
+    n = 0
     for d in mdict:
         if filter is None or filter.filter(mdict[d]):
+            n += 1
+            logging.debug('Keeping {}'.format(d[-100:]))
             m = W.load(d, **kw) if W.is_wim(d) else M.load(d, **kw)
             mlist.append(make_dict_from_model(m, d, tpr=tpr, wanted_epoch=wanted_epoch))
+            # print('Keeping ({:8}) {:4} {}'.format(sys.getsizeof(mlist), n, d[-100:]))
 
     return mlist
 
 
 @ iterable_over_subdirs(0, iterate_over_subdirs=list)
-def collect_models(directory,
-                   wanted_epoch='last',
-                   load_state=True, tpr=0.95, **default_load_paramaters):
+def _collect_thoroughly_models(directory,
+                               wanted_epoch='last',
+                               load_state=True, tpr=0.95, **default_load_paramaters):
 
     from cvae import ClassificationVariationalNetwork as M
     from module.wim import WIMJob as W

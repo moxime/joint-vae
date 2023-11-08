@@ -10,7 +10,7 @@ import sys
 import argparse
 
 from utils.parameters import alphanum, list_of_alphanums, get_args, set_log, gethostname, next_jobnumber
-from utils.save_load import collect_models, find_by_job_number, NoModelError, get_submodule
+from utils.save_load import find_by_job_number, NoModelError, get_submodule
 from utils.print_log import EpochOutput
 from utils.signaling import SIGHandler
 import setproctitle

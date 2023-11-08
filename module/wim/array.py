@@ -1,6 +1,7 @@
+import os
 import logging
-from .job import WIMJob
-from utils.save_load import fetch_models, LossRecorder, available_results
+from module.wim.job import WIMJob
+from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
 from utils.filters import ParamFilter, DictOfListsOfParamFilters
 
 JOB_FILE_NAME = 'jobs'
@@ -42,6 +43,8 @@ class WIMArray(WIMJob):
             logging.debug('Job file not found in {}'.format(os.path.join(dir_name, JOB_FILE_NAME)))
 
         logging.debug('{} jobs found'.format(len(model._jobs)))
+
+        return model
 
     def fetch_jobs(self, flash=False):
 
@@ -90,4 +93,7 @@ class WIMArray(WIMJob):
 
 if __name__ == '__main__':
 
-    pass
+    logging.getLogger().setLevel(logging.DEBUG)
+    wim_model = find_by_job_number(362767, job_dir='wim-jobs', build_module=True, load_state=False)
+    # model = WIMArray.load(wim_model['dir'], build_module=True, load_state=False)
+    # model.update_records()

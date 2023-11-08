@@ -40,7 +40,7 @@ class WIMJob(M):
 
         self._with_estimated_labels = False
 
-        self.ood_methods = tuple(_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~')
+        self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~']
 
     @classmethod
     def is_wim(cls, d):
@@ -98,22 +98,9 @@ class WIMJob(M):
         logging.debug('Setting alternate prior')
         assert self._alternate_prior is None
         self._alternate_prior = build_prior(**p)
-        self.wim_params = p.copy()
 
-        hash_keys = ('from', 'distribution',
-                     'init_mean', 'mean_shift',
-                     'train_size', 'moving_size',
-                     'sets', 'alpha', 'mix')
-
-        hashable_wim_params = {_: p[_] for _ in hash_keys}
-        hashable_wim_params['sets'] = tuple(sorted(hashable_wim_params['sets']))
-        wim_mix = hashable_wim_params['mix']
-        if isinstance(wim_mix, (list, tuple)):
-            wim_mix = wim_mix[1] / sum(wim_mix)
-        hashable_wim_params['mix'] = wim_mix
-
-        self._wim_hashable_params = tuple(p[_] for _ in hash_keys)
-        self._wim_params_hash = hash(tuple(p[_] for _ in hash_keys))
+        if not hasattr(self, 'wim_params'):
+            self.wim_params = p.copy()
 
         for p in self._alternate_prior.parameters():
             p.requires_grad_(False)
@@ -130,7 +117,7 @@ class WIMJob(M):
                 yield
             finally:
                 self._with_estimated_labels = False
-                self.ood_methods = tuple(_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~')
+                self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~']
                 logging.debug('Back to non estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
         else:
             try:
@@ -191,14 +178,15 @@ class WIMJob(M):
             model.ood_results = {}
 
         try:
+
             wim_params = load_json(dir_name, 'wim.json')
             logging.debug('Model was already a wim')
             alternate_prior_params = wim_params.copy()
+            model.wim_params = wim_params
             for k in ('sets', 'alpha', 'train_size', 'moving_size', 'from', 'mix'):
                 k, alternate_prior_params.pop(k, None)
             if build_module:
                 model.set_alternate_prior(**alternate_prior_params)
-            model.wim_params = wim_params
 
         except FileNotFoundError:
             logging.debug('Model loaded has been detected as not wim')
@@ -589,7 +577,31 @@ class WIMJob(M):
 
     def __hash__(self):
 
-        return self._wim_params_hash
+        try:
+            hash_keys = ('from', 'distribution',
+                         'init_mean', 'mean_shift',
+                         'train_size', 'moving_size',
+                         'sets', 'alpha', 'mix')
+            if self.wim_params.get('from') is None:
+                hash_keys.remove('from')
+                logging.debug('From not in hash')
+            else:
+                logging.debug('From in hash')
+
+                hashable_wim_params = {_: self.wim_params[_] for _ in hash_keys}
+                hashable_wim_params['sets'] = tuple(sorted(hashable_wim_params['sets']))
+                wim_mix = hashable_wim_params['mix']
+                if isinstance(wim_mix, (list, tuple)):
+                    wim_mix = wim_mix[1] / sum(wim_mix)
+                    hashable_wim_params['mix'] = wim_mix
+
+                self._wim_hashable_params = tuple(hashable_wim_params[_] for _ in hash_keys)
+                self._wim_params_hash = hash(self._wim_hashable_params)
+
+            return self._wim_params_hash
+        except AttributeError:
+            logging.debug('Hash of wim jobs derived from super')
+            return hash(super())
 
     def __eq__(self, other):
 

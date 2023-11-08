@@ -39,7 +39,7 @@ def turnoff_debug(turnoff=True, logger=None, type_of_stream=os.sys.stderr):
     if turnoff:
         for h in handlers:
             if h.stream == type_of_stream or not type_of_stream:
-                h.setLevel(logging.ERROR)
+                h.setLevel(max(logging.INFO, logging_levels[h]))
     try:
         yield
     finally:

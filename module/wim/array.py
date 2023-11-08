@@ -51,7 +51,7 @@ class WIMArray(WIMJob):
         filter = DictOfListsOfParamFilters()
         filter.add('wim_hash', ParamFilter(type=int, values=[hash(self)]))
         fetched_jobs = fetch_models(self._fetch_dir, flash=False,
-                                    load_net=True, filter=filter, load_state=False)
+                                    build_module=True, filter=filter, load_state=False)
 
         logging.debug('Fetched {} models with hash'.format(len(fetched_jobs)))
         fetched_jobs = [_ for _ in fetched_jobs if self == _]

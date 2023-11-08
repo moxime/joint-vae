@@ -588,23 +588,24 @@ class WIMJob(M):
             else:
                 logging.debug('From in hash')
 
-                hashable_wim_params = {_: self.wim_params[_] for _ in hash_keys}
-                hashable_wim_params['sets'] = tuple(sorted(hashable_wim_params['sets']))
-                wim_mix = hashable_wim_params['mix']
-                if isinstance(wim_mix, (list, tuple)):
-                    wim_mix = wim_mix[1] / sum(wim_mix)
-                    hashable_wim_params['mix'] = wim_mix
+            hashable_wim_params = {_: self.wim_params[_] for _ in hash_keys}
+            hashable_wim_params['sets'] = tuple(sorted(hashable_wim_params['sets']))
+            wim_mix = hashable_wim_params['mix']
+            if isinstance(wim_mix, (list, tuple)):
+                wim_mix = wim_mix[1] / sum(wim_mix)
+                hashable_wim_params['mix'] = wim_mix
 
-                self._wim_hashable_params = tuple(hashable_wim_params[_] for _ in hash_keys)
-                self._wim_params_hash = hash(self._wim_hashable_params)
-
+            self._wim_hashable_params = tuple(hashable_wim_params[_] for _ in hash_keys)
+            self._wim_params_hash = hash(self._wim_hashable_params)
             return self._wim_params_hash
         except AttributeError:
             logging.debug('Hash of wim jobs derived from super')
             return hash(super())
 
     def __eq__(self, other):
-
-        return (isinstance(other, type(self)) and
-                hash(self) == hash(other) and
-                self._wim_hashable_params == other._wim_hashable_params)
+        try:
+            logging.debug(self._wim_hashable_params == other._wim_hashable_params)
+            return self._wim_hashable_params == other._wim_hashable_params
+        except AttributeError:
+            print('****')
+            return False

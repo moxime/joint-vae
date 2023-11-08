@@ -1325,9 +1325,9 @@ def collect_models(search_dir, registered_models_file=None):
             else:
                 logging.debug(f'Loading net in: {directory}')
                 if W.is_wim(directory):
-                    model = W.load(directory, build_module=True, load_state=False)
+                    model = W.load(directory, build_module=False, load_state=False)
                 else:
-                    model = M.load(directory, build_module=True, load_state=False)
+                    model = M.load(directory, build_module=False, load_state=False)
 
                 models_to_be_registered.append(make_dict_from_model(model, directory))
 
@@ -1393,6 +1393,7 @@ def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw
     mlist = []
     n = 0
     for d in mdict:
+        #        print(mdict[d]['job'], mdict[d].get('wim_hash'))
         if filter is None or filter.filter(mdict[d]):
             n += 1
             logging.debug('Keeping {}'.format(d[-100:]))

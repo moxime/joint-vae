@@ -160,7 +160,7 @@ class Shell:
     option_vector = option_vector
 
 
-def model_directory(model, *subdirs):
+def model_subdir(model, *subdirs):
 
     if isinstance(model, str):
         directory = model
@@ -176,7 +176,7 @@ def model_directory(model, *subdirs):
 
 def last_samples(model):
 
-    directory = model_directory(model, 'samples')
+    directory = model_subdir(model, 'samples')
 
     samples = [int(d) for d in os.listdir(directory) if d.isnumeric()]
 

@@ -99,8 +99,10 @@ def collect_models(search_dir, registered_models_file=None):
 
                 models_to_be_registered.append(make_dict_from_model(model, directory))
 
-    logging.info('{} models seem to have been deleted sincde last time'.format(len(models_to_be_deleted)))
-    logging.info('{} models have to be registered'.format(len(models_to_be_registered)))
+    logging.log(logging.INFO if models_to_be_deleted else logging.DEBUG,
+                '{} models seem to have been deleted sincde last time'.format(len(models_to_be_deleted)))
+    logging.log(logging.INFO if models_to_be_registered else logging.DEBUG,
+                '{} models have to be registered'.format(len(models_to_be_registered)))
 
     for m in models_to_be_deleted:
         rmodels.pop(m)

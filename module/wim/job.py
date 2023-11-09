@@ -576,7 +576,9 @@ class WIMJob(M):
             #                          update_self_ood=False,
             #                          print_result='*')
 
-    def fetch_jobs_alike(self, job_dir, flash=False):
+    def fetch_jobs_alike(self, job_dir=None, models=None, flash=False):
+
+        assert (job_dir is None) ^ (models is None), 'Either job_dir or models is None'
 
         wim_filter_keys = get_filter_keys()
         wim_filter_keys = {_: wim_filter_keys[_] for _ in wim_filter_keys if _.startswith('wim')}
@@ -588,14 +590,17 @@ class WIMJob(M):
         for k, f in wim_filter_keys.items():
             filter.add(k, ParamFilter(type=f['type'], values=[self_dict[k]]))
 
-        fetched_jobs = fetch_models(job_dir, flash=flash,
-                                    build_module=False, filter=filter, load_state=False, show_debug=False)
+        if job_dir:
+            fetched_jobs = fetch_models(job_dir, flash=flash,
+                                        build_module=False, filter=filter, load_state=False, show_debug=False)
+        else:
+            fetched_jobs = [m for m in models if filter.filter(m)]
 
         logging.debug('Fetched {} models with filters'.format(len(fetched_jobs)))
 
         # fetched_jobs = [_ for _ in fetched_jobs if self == _['net']]
 
-        logging.info('Kept {} models with eq'.format(len(fetched_jobs)))
+        logging.debug('Kept {} models with eq'.format(len(fetched_jobs)))
 
         return fetched_jobs
 

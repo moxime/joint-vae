@@ -1,11 +1,15 @@
 import os
 import logging
 from module.wim.job import WIMJob
-from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number, make_dict_from_model
+from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
+from utils.save_load import make_dict_from_model, model_subdir
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
 import torch
 
 JOB_FILE_NAME = 'jobs'
+
+wim_job_filter = DictOfListsOfParamFilters()
+wim_job_filter.add('wim_from', ParamFilter(type=int, any_value=True))
 
 
 class WIMArray(WIMJob):
@@ -47,28 +51,11 @@ class WIMArray(WIMJob):
 
         return model
 
-    def fetch_jobs(self, flash=False):
-
-        fetched_jobs = self.fetch_jobs_alike(self._fetch_dir)
-
-        if any(_ not in fetched_jobs for _ in self._jobs):
-            logging.warning('Some jobs seemed to have been deleted since last time')
-            self._jobs = []
-
-        fetched_jobs = [_ for _ in fetched_jobs if _ not in self._jobs]
-        logging.debug('{} new jobs fetched'.format(len(fetched_jobs)))
-
-        self._jobs = [_['dir'] for _ in fetched_jobs]
-
-        return fetched_jobs
-
-    def update_records(self, flash=True):
-
-        updated_jobs = self.fetch_jobs(flash=flash)
+    def update_records(self, jobs_to_add):
 
         recorders = {}
 
-        for j in updated_jobs:
+        for j in jobs_to_add:
 
             a = available_results(j, where=('recorders',))
             a = a[max(a)]
@@ -98,10 +85,10 @@ class WIMArray(WIMJob):
     def collect_processed_jobs(cls, job_dir):
 
         jobs = []
-        models = collect_models(job_dir)
-        for d in models:
+        models = fetch_models(job_dir, flash=False)
+        for m in models:
             try:
-                with open(os.path.join(d, JOB_FILE_NAME, 'r')) as f:
+                with open(model_subdir(m, JOB_FILE_NAME)) as f:
                     for _ in f.readlines():
                         jobs.append(_.strip())
 
@@ -118,7 +105,7 @@ if __name__ == '__main__':
     import sys
     import argparse
     import configparser
-    from utils.save_load import find_by_job_number, collect_models
+    from utils.save_load import find_by_job_number
     from utils.parameters import next_jobnumber, set_log
     from module.optimizers import Optimizer
 
@@ -161,31 +148,58 @@ if __name__ == '__main__':
 
     log.debug('$ ' + ' '.join(sys.argv))
 
-    wim_jobs = collect_models(args.target_job_dir)
-    wim_arrays = collect_models(args.arrays_job_dir)
+    wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False)
+    wim_arrays = fetch_models(args.arrays_job_dir, filter=wim_job_filter, flash=False)
 
     wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.arrays_job_dir)
 
-    for j in wim_jobs_already_processed:
-        wim_jobs.pop(j, None)
+    logging.info('{} jobs already processed'.format(len(wim_jobs_already_processed)))
+
+    wim_jobs = [_ for _ in wim_jobs if model_subdir(_) not in wim_jobs_already_processed]
 
     wim_job_by_params = []
 
-    for mdir in wim_jobs:
+    for j in wim_jobs:
 
-        for list_of_mdirs in wim_job_by_params:
-            if mdir in list_of_mdirs:
+        mdir = model_subdir(j)
+        for dict_of_models in wim_job_by_params:
+            if mdir in dict_of_models:
+                logging.debug('{} already in list of len {}'.format(mdir[-100:], len(dict_of_models)))
                 break
         else:
+            logging.debug('{} not yet in lists'.format(mdir[-100:]))
+
             wim_job = WIMJob.load(mdir, load_state=False)
-            jobs_alike = wim_job.fetch_jobs_alike(args.target_job_dir, flash=True)
-            wim_job_by_params.append(list(jobs_alike))
+            jobs_alike = wim_job.fetch_jobs_alike(job_dir=args.target_job_dir, flash=True)
+
+            logging.debug('Found {} jobs alike'.format(len(jobs_alike)))
+            wim_job_by_params.append({model_subdir(_): _ for _ in jobs_alike})
 
     logging.info('Found {} list of jobs of total size {}'.format(len(wim_job_by_params),
                                                                  sum(len(_) for _ in wim_job_by_params)))
 
-    for list_of_mdirs in wim_job_by_params:
-        pass
+    for dict_of_models in wim_job_by_params:
+
+        first_mdir = list(dict_of_models)[0]
+        wim_job = WIMJob.load(first_mdir, load_state=False)
+        wim_array = wim_job.fetch_jobs_alike(models=wim_arrays)
+
+        if len(wim_array) > 1:
+            logging.eroor('{} > 1 arrays with same parameters, will not do anything, delete one of those')
+            for i, _ in enumerate(wim_array):
+                logging.error('{}: {}'.format(i, model_subdir(_)))
+
+            continue
+
+        if not wim_array:
+            logging.warning('wim array not created, to be implemented')
+
+            continue
+
+        else:
+            wim_array = wim_array[0]
+
+        wim_array.update_records()
 
     raise KeyboardInterrupt
     save_dir_root = os.path.join(args.arrays_job_dir, dataset,

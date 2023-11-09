@@ -181,8 +181,8 @@ if __name__ == '__main__':
             jobs_alike = wim_job.fetch_jobs_alike(args.target_job_dir, flash=True)
             wim_job_by_params.append(list(jobs_alike))
 
-    logging.info('Found {} list of jobs of total size'.format(len(wim_job_by_params),
-                                                              sum(len(_) for _ in wim_job_by_params)))
+    logging.info('Found {} list of jobs of total size {}'.format(len(wim_job_by_params),
+                                                                 sum(len(_) for _ in wim_job_by_params)))
 
     for list_of_mdirs in wim_job_by_params:
         pass

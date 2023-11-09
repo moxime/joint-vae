@@ -589,11 +589,11 @@ class WIMJob(M):
             filter.add(k, ParamFilter(type=f['type'], values=[self_dict[k]]))
 
         fetched_jobs = fetch_models(job_dir, flash=flash,
-                                    build_module=True, filter=filter, load_state=False, show_debug=False)
+                                    build_module=False, filter=filter, load_state=False, show_debug=False)
 
         logging.debug('Fetched {} models with filters'.format(len(fetched_jobs)))
 
-        fetched_jobs = [_ for _ in fetched_jobs if self == _['net']]
+        # fetched_jobs = [_ for _ in fetched_jobs if self == _['net']]
 
         logging.info('Kept {} models with eq'.format(len(fetched_jobs)))
 

@@ -154,6 +154,12 @@ def option_vector(o, empty=' ', space=' '):
     return space.join(v_)
 
 
+class Shell:
+
+    print_architecture = print_architecture
+    option_vector = option_vector
+
+
 def model_directory(model, *subdirs):
 
     if isinstance(model, str):

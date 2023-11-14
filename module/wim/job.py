@@ -587,13 +587,13 @@ class WIMJob(M):
 
         self_dict = make_dict_from_model(self, '')
 
-        # print('***', {_: self_dict[_] for _ in self_dict if _.startswith('wim')})
+        print('***', {_: self_dict[_] for _ in self_dict if _.startswith('wim')})
         for k, f in wim_filter_keys.items():
             filter.add(k, ParamFilter(type=f['type'], values=[self_dict[k]]))
 
         if job_dir:
             fetched_jobs = fetch_models(job_dir, flash=flash,
-                                        build_module=False, filter=filter, load_state=False, show_debug=False)
+                                        build_module=False, filter=filter, load_state=False, show_debug=True)
         else:
             logging.debug('Looking jobs alike in a list of models of size {}'.format(len(models)))
             fetched_jobs = [m for m in models if filter.filter(m)]

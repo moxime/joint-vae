@@ -147,6 +147,7 @@ if __name__ == '__main__':
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
 
     if args.shell_for_array:
+        logging.info('Saving model in {}'.format(model.saved_dir))
         model.wim_params['sets'] = wim_sets
         model.wim_params['alpha'] = args.alpha
         model.wim_params['train_size'] = args.train_size
@@ -164,3 +165,4 @@ if __name__ == '__main__':
                        outputs=outputs)
 
     model.save(model.saved_dir)
+    logging.info('model saved in {}'.format(model.saved_dir))

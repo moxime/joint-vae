@@ -170,7 +170,7 @@ def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw
             m = W.load(d, **kw) if W.is_wim(d) else M.load(d, **kw)
             mlist.append(make_dict_from_model(m, d, tpr=tpr, wanted_epoch=wanted_epoch))
             # print('Keeping ({:8}) {:4} {}'.format(sys.getsizeof(mlist), n, d[-100:]))
-
+    logging.debug('Gathered {} models'.format(len(mlist)))
     return mlist
 
 

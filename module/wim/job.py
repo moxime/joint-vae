@@ -197,7 +197,7 @@ class WIMJob(M):
         return model
 
     def save(self, *a, **kw):
-
+        logging.debug('Saving wim model')
         kw['except_optimizer'] = True
         with self.original_prior:
             dir_name = super().save(*a, **kw)

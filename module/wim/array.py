@@ -1,5 +1,6 @@
 import os
 import logging
+from utils.print_log import turnoff_debug
 from module.wim.job import WIMJob
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
 from utils.save_load import make_dict_from_model, model_subdir
@@ -182,6 +183,7 @@ if __name__ == '__main__':
     for dict_of_models in wim_job_by_params:
 
         first_mdir = list(dict_of_models)[0]
+        logging.info('Processing wim job {} for a list of {}'.format(first_mdir[-60:], len(dict_of_models)))
         wim_job = WIMJob.load(first_mdir, load_state=False)
         wim_arrays = wim_job.fetch_jobs_alike(models=wim_arrays)
 

@@ -188,12 +188,10 @@ if __name__ == '__main__':
             logging.eroor('{} > 1 arrays with same parameters, will not do anything, delete one of those')
             for i, _ in enumerate(wim_array):
                 logging.error('{}: {}'.format(i, model_subdir(_)))
-
             continue
 
         if not wim_array:
-            logging.warning('wim array not created, to be implemented')
-
+            logging.warning('wim array not created')
             continue
 
         else:

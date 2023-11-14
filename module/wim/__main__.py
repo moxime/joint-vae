@@ -59,6 +59,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float)
     parser.add_argument('--weight-decay', type=float)
 
+    parser.add_argument('--shell-for-array', action='store_true')
+
     parser.set_defaults(**defaults)
 
     args = parser.parse_args(remaining_args)
@@ -143,14 +145,22 @@ if __name__ == '__main__':
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
-    model.finetune(*wim_sets,
-                   train_size=args.train_size,
-                   epochs=args.epochs,
-                   moving_size=args.moving_size,
-                   test_batch_size=args.test_batch_size,
-                   alpha=args.alpha,
-                   ood_mix=args.mix,
-                   optimizer=optimizer,
-                   outputs=outputs)
+
+    if args.shell_for_array:
+        model.wim_params['sets'] = wim_sets
+        model.wim_params['alpha'] = args.alpha
+        model.wim_params['train_size'] = args.train_size
+        model.wim_params['moving_size'] = args.moving_size
+        model.wim_params['mix'] = args.mix
+    else:
+        model.finetune(*wim_sets,
+                       train_size=args.train_size,
+                       epochs=args.epochs,
+                       moving_size=args.moving_size,
+                       test_batch_size=args.test_batch_size,
+                       alpha=args.alpha,
+                       ood_mix=args.mix,
+                       optimizer=optimizer,
+                       outputs=outputs)
 
     model.save(model.saved_dir)

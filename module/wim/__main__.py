@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
     optimizer = None
 
-    if args.lr:
+    if args.lr and not args.shell_for_array:
         logging.info('New optimizer')
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 

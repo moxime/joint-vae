@@ -595,6 +595,7 @@ class WIMJob(M):
             fetched_jobs = fetch_models(job_dir, flash=flash,
                                         build_module=False, filter=filter, load_state=False, show_debug=False)
         else:
+            logging.debug('Looking jobs alike in a list of models of size {}'.format(len(models)))
             fetched_jobs = [m for m in models if filter.filter(m)]
 
         logging.debug('Fetched {} models with filters'.format(len(fetched_jobs)))

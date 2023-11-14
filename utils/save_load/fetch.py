@@ -132,7 +132,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
     if not registered_models_file:
         registered_models_file = 'models-{}.json'.format(gethostname())
     if flash:
-        logging.debug('Flash collecting networks')
+        logging.debug('Flash collecting networks in {}'.format(search_dir))
         try:
             rmodels = load_json(search_dir, registered_models_file)
             with turnoff_debug(turnoff=not show_debug):
@@ -147,7 +147,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
             flash = False
 
     if not flash:
-        logging.debug('Collecting networks')
+        logging.debug('Collecting networks in {}'.format(search_dir))
         with turnoff_debug(turnoff=not show_debug):
             rmodels = collect_models(search_dir, registered_models_file)
 

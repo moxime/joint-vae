@@ -136,7 +136,9 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
         try:
             rmodels = load_json(search_dir, registered_models_file)
             with turnoff_debug(turnoff=not show_debug):
-                return _gather_registered_models(rmodels, filter, tpr=tpr, build_module=build_module, **kw)
+                mlist = _gather_registered_models(rmodels, filter, tpr=tpr, build_module=build_module, **kw)
+            logging.debug('Gathered {} models'.format(len(mlist)))
+            return mlist
 
         except StateFileNotFoundError as e:
             raise e

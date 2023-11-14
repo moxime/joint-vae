@@ -202,6 +202,7 @@ class WIMJob(M):
         with self.original_prior:
             dir_name = super().save(*a, **kw)
         save_json(self.wim_params, dir_name, 'wim.json')
+        logging.debug('Model saved in {}'.format(dir_name))
         return dir_name
 
     def finetune(self, *sets,

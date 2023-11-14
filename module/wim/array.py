@@ -185,16 +185,16 @@ if __name__ == '__main__':
         first_mdir = list(dict_of_models)[0]
         logging.info('Processing wim job {} for a list of {}'.format(first_mdir[-60:], len(dict_of_models)))
         wim_job = WIMJob.load(first_mdir, load_state=False)
-        wim_arrays = wim_job.fetch_jobs_alike(models=wim_arrays)
+        kept_wim_arrays = wim_job.fetch_jobs_alike(models=wim_arrays)
 
-        if not wim_arrays:
+        if not kept_wim_arrays:
             logging.warning('wim array not created for {}'.format(wim_job.wim_params))
             continue
 
-        wim_array_dict = min(wim_arrays, key=lambda d: d.get('job'))
+        wim_array_dict = min(kept_wim_arrays, key=lambda d: d.get('job'))
 
-        if len(wim_arrays) > 1:
-            logging.warning('{} > 1 arrays with same parameters. Keeping {}'.format(len(wim_arrays),
+        if len(kept_wim_arrays) > 1:
+            logging.warning('{} > 1 arrays with same parameters. Keeping {}'.format(len(kept_wim_arrays),
                                                                                     wim_array_dict['job']))
         wim_array = WIMArray.load(wim_array_dict['dir'], load_state=False)
         wim_array.update_records()

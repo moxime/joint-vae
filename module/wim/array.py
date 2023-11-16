@@ -37,7 +37,7 @@ class WIMArray(WIMJob):
 
         logging.warning('WIM array is no meant to be finetuned')
 
-    def save(self, dir_name, *a, **kw):
+    def save(self, *a, **kw):
         logging.debug('Saving wim array')
         kw['except_state'] = True
         dir_name = super().save(*a, **kw)

@@ -181,24 +181,34 @@ if __name__ == '__main__':
 
     logging.info('{} jobs remaining'.format(len(wim_jobs)))
 
-    for j in wim_arrays:
-        wim_array = WIMArray.load(model_subdir(j), load_state=False)
-        wim_arrays_alike = wim_array.fetch_jobs_alike(models=wim_arrays)
-        for _ in wim_arrays_alike:
+    unprocessed_jobs = []
+    processed_jobs = []
+
+    for j in wim_jobs:
+        wim_job = WIMArray.load(model_subdir(j), load_state=False)
+        wim_jobs_alike = wim_job.fetch_jobs_alike(models=wim_jobs)
+        wim_arrays_alike = wim_job.fetch_jobs_alike(models=wim_arrays)
+        for _ in wim_jobs_alike:
             if _['job'] != j['job']:
-                wim_arrays.remove(_)
+                wim_jobs.remove(_)
+
+        if not wim_arrays_alike:
+            for _ in wim_jobs_alike:
+                unprocessed_jobs.append(_)
+            continue
+
+        for _ in wim_jobs_alike:
+            processed_jobs.append(_)
 
         kept_wim_array = min(wim_arrays_alike, key=lambda j: j['job'])
 
-        wim_jobs_alike = wim_array.fetch_jobs_alike(models=wim_jobs)
-
-        if not wim_jobs_alike:
-            continue
         wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
 
         logging.info('Processing {} jobs alike'.format(len(wim_jobs_alike)))
         wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
         wim_array.save(model_subdir(wim_array))
+
+    print('{} processed and {} unprocessed jobs'.format(len(processed_jobs), len(unprocessed_jobs)))
 
     """
 

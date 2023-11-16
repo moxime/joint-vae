@@ -166,7 +166,11 @@ def model_subdir(model, *subdirs):
         directory = model
 
     elif isinstance(model, dict):
-        directory = model['dir']
+        try:
+            directory = model['dir']
+        except KeyError as e:
+            logging.error('Keys: {}'.format(' ; '.join(sorted(model))))
+            raise e
 
     else:
         directory = model.saved_dir

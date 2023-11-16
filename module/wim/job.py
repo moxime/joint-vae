@@ -600,8 +600,7 @@ class WIMJob(M):
         logging.debug('Fetched {} models with filters'.format(len(fetched_jobs)))
 
         # fetched_jobs = [_ for _ in fetched_jobs if self == _['net']]
-
-        logging.debug('Kept {} models with eq'.format(len(fetched_jobs)))
+        # logging.debug('Kept {} models with eq'.format(len(fetched_jobs)))
 
         return fetched_jobs
 

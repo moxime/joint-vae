@@ -61,7 +61,7 @@ class WIMArray(WIMJob):
             a = available_results(j, where=('recorders',))
             a = a[max(a)]
             if not a['all_sets']['recorders']:
-                logging.warning('No recorders')
+                logging.warning('No recorders in {}'.format(model_subdir(j)))
                 continue
             else:
                 logging.debug('Recorders found')
@@ -89,7 +89,7 @@ class WIMArray(WIMJob):
     def collect_processed_jobs(cls, job_dir, flash=False):
 
         jobs = []
-        models = fetch_models(job_dir, flash=false)
+        models = fetch_models(job_dir, flash=False)
         for m in models:
             try:
                 with open(model_subdir(m, JOB_FILE_NAME)) as f:
@@ -152,13 +152,13 @@ if __name__ == '__main__':
 
     log.debug('$ ' + ' '.join(sys.argv))
 
-    wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False)
+    wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False, light=True)
 
-    logging.info('Fetched {} models from {}'.format(len(wim_jobs), args.target_job_dir))
+    logging.info('Fetched {} wim jobs from {}'.format(len(wim_jobs), args.target_job_dir))
 
-    wim_arrays = fetch_models(args.arrays_job_dir, filter=wim_job_filter, flash=False)
+    wim_arrays = fetch_models(args.arrays_job_dir, filter=wim_job_filter, flash=False, light=True)
 
-    logging.info('Fetched {} models from {}'.format(len(wim_arrays), args.arrays_job_dir))
+    logging.info('Fetched {} wim arrays from {}'.format(len(wim_arrays), args.arrays_job_dir))
 
     wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.arrays_job_dir)
 
@@ -168,6 +168,24 @@ if __name__ == '__main__':
 
     wim_job_by_params = []
 
+    list_of_wim_arrays = []
+
+    for j in wim_arrays:
+        wim_array = WIMArray.load(model_subdir(j), load_state=False)
+        wim_arrays_alike = wim_array.fetch_jobs_alike(models=wim_arrays)
+        for _ in wim_arrays_alike:
+            if _['job'] != j['job']:
+                wim_arrays.remove(_)
+
+        kept_wim_array = min(wim_arrays_alike, key=lambda j: j['job'])
+
+        wim_jobs_alike = wim_array.fetch_jobs_alike(models=wim_jobs)
+
+        wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
+
+        wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
+
+    raise KeyboardInterrupt
     for j in wim_jobs:
 
         mdir = model_subdir(j)

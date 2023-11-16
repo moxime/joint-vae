@@ -119,6 +119,7 @@ def collect_models(search_dir, registered_models_file=None):
 
 
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
+                 light=False,
                  tpr=0.95,
                  build_module=False,
                  show_debug=False,
@@ -128,10 +129,11 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
     Params:
 
     -- flash: if True, takes the models from registered_models_file.
+    -- light: does not remake dictionay for models (faster)
     -- kw: args pushed to load function (eg. load_state)
 
     """
-    logging.info('Fetching models from {} (flash={})'.format(search_dir, flash))
+    logging.debug('Fetching models from {} (flash={})'.format(search_dir, flash))
 
     if not registered_models_file:
         registered_models_file = 'models-{}.json'.format(gethostname())
@@ -141,8 +143,9 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
             rmodels = load_json(search_dir, registered_models_file)
             # logging.info('Json loaded from {}'.format(registered_models_file))
             with turnoff_debug(turnoff=not show_debug):
-                mlist = _gather_registered_models(rmodels, filter, tpr=tpr, build_module=build_module, **kw)
-            logging.info('Gathered {} models'.format(len(mlist)))
+                mlist = _gather_registered_models(rmodels, filter, tpr=tpr, build_module=build_module,
+                                                  light=light, **kw)
+            logging.debug('Gathered {} models'.format(len(mlist)))
             return mlist
 
         except StateFileNotFoundError as e:
@@ -159,12 +162,11 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
             rmodels = collect_models(search_dir, registered_models_file)
             # logging.info('Collected {} models'.format(len(rmodels)))
 
-        return fetch_models(search_dir, registered_models_file, filter=filter, flash=True,
+        return fetch_models(search_dir, registered_models_file, filter=filter, flash=True, light=light,
                             tpr=tpr, build_module=build_module, **kw)
 
 
-def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw):
-
+def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', light=False, **kw):
     from cvae import ClassificationVariationalNetwork as M
     from module.wim import WIMJob as W
 
@@ -175,10 +177,14 @@ def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', **kw
         if filter is None or filter.filter(mdict[d]):
             n += 1
             logging.debug('Keeping {}'.format(d[-100:]))
-            m = W.load(d, **kw) if W.is_wim(d) else M.load(d, **kw)
-            mlist.append(make_dict_from_model(m, d, tpr=tpr, wanted_epoch=wanted_epoch))
-            if not n % 200:
-                logging.info('Gathered {} models...'.format(n))
+            if not light:
+                m = W.load(d, **kw) if W.is_wim(d) else M.load(d, **kw)
+                mlist.append(make_dict_from_model(m, d, tpr=tpr, wanted_epoch=wanted_epoch))
+            else:
+                mdict[d]['dir'] = d
+                mlist.append(mdict[d])
+            # if not n % 200:
+            #     logging.info('Gathered {} models... (light={})'.format(n, light))
             # print('Keeping ({:8}) {:4} {}'.format(sys.getsizeof(mlist), n, d[-100:]))
         else:
             logging.debug('Not keeping {}'.format(d[-100:]))

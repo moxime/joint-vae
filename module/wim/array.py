@@ -68,7 +68,6 @@ class WIMArray(WIMJob):
 
             # FOR TEST, TBR
             self._jobs.append(model_subdir(j))
-            return
             a = available_results(j, where=('recorders',))
             a = a[max(a)]
             if not a['all_sets']['recorders']:
@@ -177,9 +176,7 @@ if __name__ == '__main__':
 
     wim_jobs = [_ for _ in wim_jobs if model_subdir(_) not in wim_jobs_already_processed]
 
-    wim_job_by_params = []
-
-    list_of_wim_arrays = []
+    logging.info('{} jobs remaining'.format(len(wim_jobs)))
 
     for j in wim_arrays:
         wim_array = WIMArray.load(model_subdir(j), load_state=False)
@@ -195,6 +192,7 @@ if __name__ == '__main__':
         wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
 
         wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
+        wim_array.save(model_subdir(wim_array))
 
     raise KeyboardInterrupt
     for j in wim_jobs:

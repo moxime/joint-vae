@@ -189,10 +189,22 @@ if __name__ == '__main__':
 
         wim_jobs_alike = wim_array.fetch_jobs_alike(models=wim_jobs)
 
+        if not wim_jobs_alike:
+            continue
         wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
 
+        logging.info('Processing {} jobs alike'.format(len(wim_jobs_alike)))
         wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
         wim_array.save(model_subdir(wim_array))
+
+    """
+
+
+    TBC
+
+
+
+    """
 
     raise KeyboardInterrupt
     for j in wim_jobs:

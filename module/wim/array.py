@@ -3,7 +3,7 @@ import logging
 from utils.print_log import turnoff_debug
 from module.wim.job import WIMJob
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
-from utils.save_load import make_dict_from_model, model_subdir
+from utils.save_load import make_dict_from_model, model_subdir, save_json
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
 import torch
 
@@ -37,6 +37,14 @@ class WIMArray(WIMJob):
 
         logging.warning('WIM array is no meant to be finetuned')
 
+    def save(self, dir_name, *a, **kw):
+        logging.debug('Saving wim array')
+        kw['except_state'] = True
+        dir_name = super().save(*a, **kw)
+        save_json(self._jobs, dir_name, JOB_FILE_NAME)
+        logging.debug('Model saved in {}'.format(dir_name))
+        return dir_name
+
     @classmethod
     def load(cls, dir_name, *a, **kw):
         model = super().load(dir_name, *a, **kw)
@@ -58,6 +66,9 @@ class WIMArray(WIMJob):
 
         for j in jobs_to_add:
 
+            # FOR TEST, TBR
+            self._jobs.append(model_subdir(j))
+            return
             a = available_results(j, where=('recorders',))
             a = a[max(a)]
             if not a['all_sets']['recorders']:
@@ -68,7 +79,7 @@ class WIMArray(WIMJob):
             try:
                 job_recorders = LossRecorder.loadall(a['rec_dir'])
             except KeyError:
-                logging.error('')
+                logging.error('Will CRASH!')
                 return a
 
             for _ in job_recorders:

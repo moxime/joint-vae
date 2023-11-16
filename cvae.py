@@ -2610,7 +2610,7 @@ class ClassificationVariationalNetwork(nn.Module):
     print_architecture = save_load.print_architecture
     option_vector = save_load.option_vector
 
-    def save(self, dir_name=None, except_optimizer=False):
+    def save(self, dir_name=None, except_optimizer=False, except_state=False):
         """Save the params in params.json file in the directroy dir_name and, if
         trained, the weights inweights.h5.
 
@@ -2627,7 +2627,7 @@ class ClassificationVariationalNetwork(nn.Module):
         save_load.save_json(self.ood_results, dir_name, 'ood.json')
         save_load.save_json(self.train_history, dir_name, 'history.json')
 
-        if self.trained:
+        if self.trained and not except_state:
             w_p = save_load.get_path(dir_name, 'state.pth')
             torch.save(self.state_dict(), w_p)
             # print('**** state saved')

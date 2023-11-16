@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--rec-files', default='ind')
     parser.add_argument('--register', dest='flash', action='store_false')
 
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
 
     args = parser.parse_args()
 

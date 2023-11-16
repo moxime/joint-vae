@@ -184,7 +184,7 @@ class WIMJob(M):
             logging.debug('Model was already a wim')
             alternate_prior_params = wim_params.copy()
             model.wim_params = wim_params
-            for k in ('sets', 'alpha', 'train_size', 'moving_size', 'from', 'mix'):
+            for k in ('sets', 'alpha', 'train_size', 'moving_size', 'from', 'mix', 'hash'):
                 k, alternate_prior_params.pop(k, None)
             if build_module:
                 model.set_alternate_prior(**alternate_prior_params)
@@ -587,13 +587,12 @@ class WIMJob(M):
 
         self_dict = make_dict_from_model(self, '')
 
-        print('***', {_: self_dict[_] for _ in self_dict if _.startswith('wim')})
         for k, f in wim_filter_keys.items():
             filter.add(k, ParamFilter(type=f['type'], values=[self_dict[k]]))
 
         if job_dir:
             fetched_jobs = fetch_models(job_dir, flash=flash,
-                                        build_module=False, filter=filter, load_state=False, show_debug=True)
+                                        build_module=False, filter=filter, load_state=False, show_debug=False)
         else:
             logging.debug('Looking jobs alike in a list of models of size {}'.format(len(models)))
             fetched_jobs = [m for m in models if filter.filter(m)]

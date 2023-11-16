@@ -35,7 +35,7 @@ class WIMArray(WIMJob):
 
     def finetune(self, *a, **kw):
 
-        logging.waringin('WIM array is no meant to be finetuned')
+        logging.warning('WIM array is no meant to be finetuned')
 
     @classmethod
     def load(cls, dir_name, *a, **kw):
@@ -80,14 +80,16 @@ class WIMArray(WIMJob):
                 else:
                     recorders[_] = job_recorders[_].copy()
 
-        logging.waring('Created {} recorders for {}'.format(len(recorders), self.saved_dir))
+        logging.info('Created {} recorders for {}...{}'.format(len(recorders),
+                                                               self.saved_dir[:20],
+                                                               self.saved_dir[-20:]))
         return recorders
 
     @classmethod
-    def collect_processed_jobs(cls, job_dir):
+    def collect_processed_jobs(cls, job_dir, flash=False):
 
         jobs = []
-        models = fetch_models(job_dir, flash=False)
+        models = fetch_models(job_dir, flash=false)
         for m in models:
             try:
                 with open(model_subdir(m, JOB_FILE_NAME)) as f:
@@ -151,7 +153,12 @@ if __name__ == '__main__':
     log.debug('$ ' + ' '.join(sys.argv))
 
     wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False)
+
+    logging.info('Fetched {} models from {}'.format(len(wim_jobs), args.target_job_dir))
+
     wim_arrays = fetch_models(args.arrays_job_dir, filter=wim_job_filter, flash=False)
+
+    logging.info('Fetched {} models from {}'.format(len(wim_arrays), args.arrays_job_dir))
 
     wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.arrays_job_dir)
 
@@ -197,7 +204,7 @@ if __name__ == '__main__':
             logging.warning('{} > 1 arrays with same parameters. Keeping {}'.format(len(kept_wim_arrays),
                                                                                     wim_array_dict['job']))
         wim_array = WIMArray.load(wim_array_dict['dir'], load_state=False)
-        wim_array.update_records()
+        wim_array.update_records(dict_of_models.values())
 
     raise KeyboardInterrupt
     save_dir_root = os.path.join(args.arrays_job_dir, dataset,

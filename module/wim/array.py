@@ -208,7 +208,7 @@ if __name__ == '__main__':
         wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
         wim_array.save(model_subdir(wim_array))
 
-    print('{} processed and {} unprocessed jobs'.format(len(processed_jobs), len(unprocessed_jobs)))
+    logging.warning('{} processed and {} unprocessed jobs'.format(len(processed_jobs), len(unprocessed_jobs)))
 
     """
 

@@ -41,7 +41,10 @@ class WIMArray(WIMJob):
         logging.debug('Saving wim array')
         kw['except_state'] = True
         dir_name = super().save(*a, **kw)
-        save_json(self._jobs, dir_name, JOB_FILE_NAME)
+        with open(os.path.join(dir_name, JOB_FILE_NAME), 'w') as f:
+            for j in self._jobs:
+                f.write(j)
+                f.write('\n')
         logging.debug('Model saved in {}'.format(dir_name))
         return dir_name
 

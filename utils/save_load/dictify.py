@@ -742,7 +742,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     wim_mix = wim.get('mix')
     if isinstance(wim_mix, (list, tuple)):
         wim_mix = wim_mix[1] / sum(wim_mix)
-    wim_hash = wim.get('hash')
 
     finished = model.train_history['epochs'] >= model.training_parameters['epochs']
     return {'net': model,
@@ -817,7 +816,6 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'wim_train_size': wim.get('train_size'),
             'wim_moving_size': wim.get('moving_size'),
             'wim_from': wim_from,
-            'wim_hash': wim_hash,
             'pretrained_features': str(pretrained_features),
             'pretrained_upsampler': str(pretrained_upsampler),
             'batch_norm': architecture.batch_norm or None,

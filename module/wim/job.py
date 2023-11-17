@@ -106,8 +106,6 @@ class WIMJob(M):
         for p in self._alternate_prior.parameters():
             p.requires_grad_(False)
 
-        self.wim_params['hash'] = self.__hash__()
-
     @ contextmanager
     def estimated_labels(self, v=True):
         if v:
@@ -603,37 +601,3 @@ class WIMJob(M):
         # logging.debug('Kept {} models with eq'.format(len(fetched_jobs)))
 
         return fetched_jobs
-
-    def __hash__(self):
-
-        try:
-            hash_keys = ('from', 'distribution',
-                         'init_mean', 'mean_shift',
-                         'train_size', 'moving_size',
-                         'sets', 'alpha', 'mix')
-            if self.wim_params.get('from') is None:
-                hash_keys.remove('from')
-                logging.debug('From not in hash')
-            else:
-                logging.debug('From in hash')
-
-            hashable_wim_params = {_: self.wim_params[_] for _ in hash_keys}
-            hashable_wim_params['sets'] = tuple(sorted(hashable_wim_params['sets']))
-            wim_mix = hashable_wim_params['mix']
-            if isinstance(wim_mix, (list, tuple)):
-                wim_mix = wim_mix[1] / sum(wim_mix)
-                hashable_wim_params['mix'] = wim_mix
-
-            self._wim_hashable_params = tuple(hashable_wim_params[_] for _ in hash_keys)
-            self._wim_params_hash = hash(self._wim_hashable_params)
-            return self._wim_params_hash
-        except AttributeError:
-            logging.debug('Hash of wim jobs derived from super')
-            return hash(super())
-
-    def __eq__(self, other):
-        try:
-            logging.debug(self._wim_hashable_params == other._wim_hashable_params)
-            return self._wim_hashable_params == other._wim_hashable_params
-        except AttributeError:
-            return False

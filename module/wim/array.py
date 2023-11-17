@@ -65,14 +65,35 @@ class WIMArray(WIMJob):
 
     def update_records(self, jobs_to_add):
 
-        recorders = {}
+        a = available_results(self, where=('recorders',))
+        epoch = max(a)
+        a = a[epoch]
+        if not a['all_sets']['recorders']:
+            epoch = None
+            array_recorders = {}
+        else:
+            rec_dir = a['rec_dir']
+            array_recorders = LossRecorder.loadall(rec_dir)
 
         for j in jobs_to_add:
+
+            assert model_subdir(j) not in self._jobs
 
             # FOR TEST, TBR
             self._jobs.append(model_subdir(j))
             a = available_results(j, where=('recorders',))
-            a = a[max(a)]
+            if epoch is None:
+                epoch = max(a)
+                rec_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))
+                try:
+                    os.makedirs(rec_dir)
+                except FileExistsError:
+                    pass
+
+            else:
+                assert epoch == max(a)
+
+            a = a[epoch]
             if not a['all_sets']['recorders']:
                 logging.warning('No recorders in {}'.format(model_subdir(j)))
                 continue
@@ -85,18 +106,24 @@ class WIMArray(WIMJob):
                 return a
 
             for _ in job_recorders:
-                if not all(_ in job_recorders[_] for _ in self.wanted_components):
+                if not all(c in job_recorders[_] for c in self.wanted_components):
                     continue
 
-                if _ in recorders:
-                    recorders[_].merge(job_recorders[_])
+                if _ in array_recorders:
+                    array_recorders[_].merge(job_recorders[_])
                 else:
-                    recorders[_] = job_recorders[_].copy()
+                    array_recorders[_] = job_recorders[_].copy()
 
-        logging.info('Created {} recorders for {}...{}'.format(len(recorders),
+        created_rec_str = ' -- '.join('{} of size {}'.format(_, array_recorders[_].recorded_samples)
+                                      for _ in array_recorders)
+
+        logging.info('Created recorders {} for {}...{}'.format(created_rec_str,
                                                                self.saved_dir[:20],
                                                                self.saved_dir[-20:]))
-        return recorders
+
+        for s, r in array_recorders.items():
+            r.save(os.path.join(rec_dir, 'record-{}.pth'.format(s)))
+        return array_recorders
 
     @classmethod
     def collect_processed_jobs(cls, job_dir, flash=False):
@@ -200,7 +227,7 @@ if __name__ == '__main__':
         """
         wim_arrays_alike = wim_array.fetch_jobs_alike(models=wim_arrays)
         kept_wim_array = min(wim_arrays_alike, key=lambda j: j['job'])
-        with turnoff_debug:
+        with turnoff_debug():
             wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
 
         logging.info('Processing {} jobs alike'.format(len(wim_jobs_alike)))

@@ -207,13 +207,14 @@ def results_dataframe(models,
                                                 names=col_names)
 
     # DEBUG
-    # print('ACC\n', *acc_df.index.names)
+    # print('ACC\n', *acc_df.columns)
     in_out_df = unfold_df_from_dict(df['in_out_rates'], depth=3,
                                     names=col_names,
                                     keep={'method': ['starred']})
 
     # DEBUG
     # print('INOUT\n', *in_out_df.index.names)
+    # print('INOUT\n', *in_out_df.columns)
 
     meas_df = df[meas_cols]
     meas_df.columns = pd.MultiIndex.from_product([['measures'], [''], meas_df.columns],
@@ -334,9 +335,9 @@ def results_dataframe(models,
     return df.apply(col_format)
 
 
-@printdebug(False)
+@ printdebug(False)
 def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
-    """ 
+    """
     df_dict : dict of dataframe
     kept_cols: either a list or a dict (with the same keys as df_dict
     kept_levels: a list of kept indiex levels
@@ -670,10 +671,8 @@ if __name__ == '__main__':
         else:
             unf_df = unfold_df_from_dict(df['in_out_rates'], depth=3,
                                          names=['set', 'method', 'metrics'],
-                                         keep={
-                                             'method': ['baseline?', 'starred']
-            }
-            )
+                                         keep={'method': ['baseline?', 'starred']})
+
         cols = unf_df.columns
         print(unf_df[cols[:8]].to_string(float_format='{:.1%}'.format))
         print(unf_df[cols[-8:]].to_string(float_format='{:.1%}'.format))

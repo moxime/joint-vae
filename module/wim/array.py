@@ -63,7 +63,7 @@ class WIMArray(WIMJob):
 
         return model
 
-    def update_records(self, jobs_to_add):
+    def update_records(self, jobs_to_add, compute_rates=True):
 
         a = available_results(self, where=('recorders',))
         epoch = max(a)
@@ -105,6 +105,11 @@ class WIMArray(WIMJob):
                 logging.error('Will CRASH!')
                 return a
 
+            try:
+                self.wim_params['array_size'] += 1
+            except KeyError:
+                self.wim_params['array_size'] = 1
+
             for _ in job_recorders:
                 if not all(c in job_recorders[_] for c in self.wanted_components):
                     continue
@@ -123,6 +128,17 @@ class WIMArray(WIMJob):
 
         for s, r in array_recorders.items():
             r.save(os.path.join(rec_dir, 'record-{}.pth'.format(s)))
+        self.ood_detection_rates(
+            #  batch_size=test_batch_size,
+            #  testset=testset,
+            # oodsets=oodsets,
+            # num_batch='all',
+            # outputs=outputs,
+            # sample_dirs=sample_dirs,
+            recorders=array_recorders,
+            from_where=('recorders',),
+            print_result='*')
+
         return array_recorders
 
     @classmethod

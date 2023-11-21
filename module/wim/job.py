@@ -182,7 +182,7 @@ class WIMJob(M):
             logging.debug('Model was already a wim')
             alternate_prior_params = wim_params.copy()
             model.wim_params = wim_params
-            for k in ('sets', 'alpha', 'train_size', 'moving_size', 'from', 'mix', 'hash'):
+            for k in ('sets', 'alpha', 'train_size', 'moving_size', 'from', 'mix', 'hash', 'array_size'):
                 k, alternate_prior_params.pop(k, None)
             if build_module:
                 model.set_alternate_prior(**alternate_prior_params)
@@ -581,6 +581,8 @@ class WIMJob(M):
 
         wim_filter_keys = get_filter_keys()
         wim_filter_keys = {_: wim_filter_keys[_] for _ in wim_filter_keys if _.startswith('wim')}
+        wim_filter_keys.pop('wim_array_size', None)
+
         filter = DictOfListsOfParamFilters()
 
         self_dict = make_dict_from_model(self, '')

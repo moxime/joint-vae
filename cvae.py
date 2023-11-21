@@ -1567,7 +1567,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     ood_methods_per_set[dset] = [
                         m for m in ood_methods if froms[dset]['recorders'].get(m)]
                 elif dset != testset.name:
-                    recorders.pop(dset)
+                    recorders.pop(dset, None)
                     logging.debug('{} will be discarded'.format(dset))
 
             for s in recorders:  #
@@ -1754,6 +1754,7 @@ class ClassificationVariationalNetwork(nn.Module):
             t_0 = time.time()
             test_iterator = iter(loader)
 
+            n_samples = 0
             for i in range(ood_n_batch):
 
                 if not recorded[s]:
@@ -1853,7 +1854,7 @@ class ClassificationVariationalNetwork(nn.Module):
             for m in ood_methods_per_set[s]:
 
                 ood_results[s][m] = {'epochs': epoch,
-                                     'n': ood_n_batch * batch_size[s],
+                                     'n': len(ood_measures[m]),
                                      'auc': auc_[m],
                                      'tpr': kept_tpr,
                                      'fpr': list(fpr_[m]),

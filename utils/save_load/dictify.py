@@ -743,6 +743,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     except AttributeError:
         wim = {}
 
+    wim_array_size = wim.get('array_size')
     wim_sets = '-'.join(sorted(set(wim['sets']))) if wim.get('sets') else None
     wim_nsets = len(set(wim['sets'])) if wim_sets else None
     wim_prior = wim.get('distribution')
@@ -817,6 +818,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'l': architecture.test_latent_sampling,
             'warmup': training.warmup[-1],
             'warmup_gamma': training.warmup_gamma[-1],
+            'wim_array_size': wim_array_size,
             'wim_sets': wim_sets,
             'wim_nsets': wim_nsets,
             'wim_prior': wim_prior,

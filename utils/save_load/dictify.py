@@ -323,8 +323,6 @@ def available_results(model,
                      for s in results[e]}
                  for e in results}
 
-    # print(available['json'])
-
     debug_step()
 
     for e in available:
@@ -379,6 +377,7 @@ def available_results(model,
 
     logging.debug('Availale results retrieved')
 
+    #    print('***', available[max(available)][testset]['json'])
     return available
 
 
@@ -490,7 +489,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     if wanted_epoch == 'last':
         wanted_epoch = max(model.testing) if model.predict_methods else max(model.ood_results or [0])
 
-    testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=0.)
+    testing_results = clean_results(model.testing.get(wanted_epoch, {}), model.predict_methods, accuracy=None)
     accuracies = {m: testing_results[m]['accuracy'] for m in testing_results}
     ood_results = model.ood_results.get(wanted_epoch, {}).copy()
     training_set = model.training_parameters['set']
@@ -506,7 +505,10 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         # print('*** model.testing', *model.testing.keys())
         # print('*** model.predict_methods', model.architecture['type'], *model.predict_methods)
         accuracies['first'] = accuracies[model.predict_methods[0]]
-        best_accuracy = max(testing_results[m]['accuracy'] for m in testing_results)
+        try:
+            best_accuracy = max(accuracies[_] for _ in accuracies if accuracies[_] != None)
+        except ValueError:
+            best_accuracy = None
         tested_epoch = min(testing_results[m]['epochs'] for m in testing_results)
         n_tested = min(testing_results[m]['n'] for m in testing_results)
     else:

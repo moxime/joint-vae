@@ -210,16 +210,16 @@ if __name__ == '__main__':
 
     processed_jobs = []
 
-    for j in wim_arrays:
+    for i, array in enumerate(wim_arrays):
 
         if not wim_jobs:
             logging.info('No more wim jobs left for processing')
             break
         with turnoff_debug():
-            wim_array = WIMArray.load(model_subdir(j), load_state=False)
+            wim_array = WIMArray.load(model_subdir(array), load_state=False)
         wim_jobs_alike = wim_array.fetch_jobs_alike(models=wim_jobs)
         if not wim_jobs_alike:
-            logging.info('Skipping wim array, no jobs alike')
+            logging.info('Skipping wim array {}, no jobs alike'.format(i))
             continue
 
         """
@@ -230,7 +230,7 @@ if __name__ == '__main__':
         with turnoff_debug():
             wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
 
-        logging.info('Processing {} jobs alike'.format(len(wim_jobs_alike)))
+        logging.info('Processing {} jobs alike (array {})'.format(len(wim_jobs_alike), i))
         wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
         wim_array.save(model_subdir(wim_array))
 
@@ -243,7 +243,7 @@ if __name__ == '__main__':
             wim_jobs.remove(_)
 
         for _ in wim_arrays_alike:
-            if _['job'] != j['job']:
+            if _['job'] != array['job']:
                 wim_arrays.remove(_)
 
     logging.warning('{} processed and {} unprocessed jobs'.format(len(processed_jobs), len(wim_jobs)))

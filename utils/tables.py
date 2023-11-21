@@ -115,6 +115,9 @@ def results_dataframe(models,
 
     metrics = make_list(metrics, ['acc', 'auc', 'fpr', 'P'])
 
+    if show_measures:
+        metrics.append('n')
+
     for m in ('fpr', 'P'):
         if m in metrics:
             metrics.remove(m)
@@ -220,6 +223,7 @@ def results_dataframe(models,
     meas_df.columns = pd.MultiIndex.from_product([['measures'], [''], meas_df.columns],
                                                  names=col_names)
 
+    n_cols = in_out_df.columns[in_out_df.columns.isin(['n'], level='metrics')]
     # DEBUG
     # print('MEAS\n', meas_df.index.names)
 
@@ -227,6 +231,7 @@ def results_dataframe(models,
 
     # DEBUG
     # print('CONCAT\n', df.index.names)
+    # print('CONCAT\n', df.columns)
 
     cols = df.columns
 
@@ -260,6 +265,7 @@ def results_dataframe(models,
     kept_cols = cols[(metrics_cols & (acc_cols | ood_cols | misclass_cols)) | measures_cols]
 
     # DEBUG
+    # print('BEFORE:\n', *cols)
     # print('KEPT:\n', *kept_cols)
     df = df[kept_cols]
 
@@ -282,6 +288,9 @@ def results_dataframe(models,
 
     col_format = {c: _f for c in df.columns}
     for c in df.columns[df.columns.isin(['measures'], level=0)]:
+        col_format[c] = lambda x: _f(x, 'measures')
+
+    for c in df.columns[df.columns.isin(['n'], level=-1)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
     sorting_index = []

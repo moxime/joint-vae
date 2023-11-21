@@ -339,7 +339,7 @@ def available_results(model,
                 # print('***', s)
                 if s not in sets:
                     continue
-                n = len(r) * r.batch_size
+                n = r.recorded_samples
                 for m in methods[s]:
                     all_components = all(c in r.keys() for c in needed_components(*m))
                     if all_components:
@@ -388,7 +388,8 @@ def average_ood_results(ood_results, *oodsets):
         ood = [s for s in ood if s in oodsets]
 
     mean_keys = {'auc': 'val', 'fpr': 'list'}
-    min_keys = {'epochs': 'val', 'n': 'val'}
+    min_keys = {'epochs': 'val'}
+    sum_keys = {'n'}
     same_keys = {'tpr', 'thresholds'}
 
     all_methods = [set(ood_results[s].keys()) for s in ood]
@@ -415,6 +416,9 @@ def average_ood_results(ood_results, *oodsets):
 
         for k in same_keys:
             avge_res[m][k] = ood_results[ood[0]][m][k]
+
+        for k in sum_keys:
+            avge_res[m][k] = sum(ood_results[s][m][k] for s in ood)
 
     return avge_res
 
@@ -595,6 +599,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             tpr_ = in_out_results_s[m]['tpr']
             P_ = in_out_results_s[m].get('precision', [None for _ in tpr_])
             auc = in_out_results_s[m]['auc']
+            n = in_out_results_s[m]['n']
 
             if auc and (not best_auc[s] or auc > best_auc[s]):
                 best_auc[s] = auc
@@ -611,6 +616,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
                     suffix = '@{:.0f}'.format(100 * target_tpr)
                     res_by_method['fpr' + suffix] = fpr
                     res_by_method['auc'] = auc
+                    res_by_method['n'] = n
                     if P is not None:
                         res_by_method['P' + suffix] = P
                         # print('***', in_out_results_s[m].keys())

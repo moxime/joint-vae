@@ -333,9 +333,7 @@ def available_results(model,
     for epoch in results:
         rec_dir = os.path.join(sample_dir, sample_sub_dirs.get(epoch, 'false_dir'))
         if os.path.isdir(rec_dir):
-            print('***', rec_dir)
             recorders = LossRecorder.loadall(rec_dir, map_location='cpu')
-            print('***', recorders)
             # epoch = last_samples(model)
             for s, r in recorders.items():
                 print('***', s)

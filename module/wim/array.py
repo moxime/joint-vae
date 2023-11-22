@@ -65,7 +65,7 @@ class WIMArray(WIMJob):
 
     def update_records(self, jobs_to_add, compute_rates=True):
 
-        a = available_results(self, where=('recorders',))
+        a = available_results(self, where=('recorders',), min_samples_by_class=0)
         epoch = max(a)
         a = a[epoch]
         if not a['all_sets']['recorders']:
@@ -81,7 +81,7 @@ class WIMArray(WIMJob):
 
             # FOR TEST, TBR
             self._jobs.append(model_subdir(j))
-            a = available_results(j, where=('recorders',))
+            a = available_results(j, where=('recorders',), min_samples_by_class=0)
             if epoch is None:
                 epoch = max(a)
                 rec_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))

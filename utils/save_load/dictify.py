@@ -336,7 +336,7 @@ def available_results(model,
             recorders = LossRecorder.loadall(rec_dir, map_location='cpu')
             # epoch = last_samples(model)
             for s, r in recorders.items():
-                print('***', s)
+                #                print('***', s)
                 if s not in sets:
                     continue
                 n = r.recorded_samples

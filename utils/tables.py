@@ -223,8 +223,6 @@ def results_dataframe(models,
     meas_df = df[meas_cols]
     meas_df.columns = pd.MultiIndex.from_product([['measures'], [''], meas_df.columns],
                                                  names=col_names)
-
-    n_cols = in_out_df.columns[in_out_df.columns.isin(['n'], level='metrics')]
     # DEBUG
     # print('MEAS\n', meas_df.index.names)
 

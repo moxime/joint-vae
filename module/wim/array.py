@@ -213,13 +213,13 @@ if __name__ == '__main__':
         logging.info('Will only look for jobs/arrays from {}'.format(' '.join(map(str, args.from_job))))
         wim_job_filter.add('wim_from', ParamFilter(type=int, values=args.from_job))
 
-    wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False, light=True)
-
-    logging.info('Fetched {} wim jobs from {}'.format(len(wim_jobs), args.target_job_dir))
-
     wim_arrays = fetch_models(args.arrays_job_dir, filter=wim_job_filter, flash=False, light=True)
 
     logging.info('Fetched {} wim arrays from {}'.format(len(wim_arrays), args.arrays_job_dir))
+
+    wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False, light=True)
+
+    logging.info('Fetched {} wim jobs from {}'.format(len(wim_jobs), args.target_job_dir))
 
     wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.arrays_job_dir)
 

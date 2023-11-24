@@ -192,6 +192,7 @@ if __name__ == '__main__':
     parser.add_argument('--arrays-job-dir')
     parser.add_argument('-J', '--target-job-dir')
     parser.add_argument('--job-number', '-j', type=int)
+    parser.add_argument('--from-job', type=int, nargs='+')
 
     parser.set_defaults(**defaults)
 
@@ -207,6 +208,9 @@ if __name__ == '__main__':
     log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
 
     log.debug('$ ' + ' '.join(sys.argv))
+
+    if args.from_job != None:
+        wim_job_filter.add('wim_from', ParamFilter(type=int, values=args.from_job))
 
     wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False, light=True)
 

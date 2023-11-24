@@ -210,6 +210,7 @@ if __name__ == '__main__':
     log.debug('$ ' + ' '.join(sys.argv))
 
     if args.from_job:
+        logging.info('Will only look for jobs/arrays from {}'.format(' '.join(map(str, args.from_job))))
         wim_job_filter.add('wim_from', ParamFilter(type=int, values=args.from_job))
 
     wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False, light=True)

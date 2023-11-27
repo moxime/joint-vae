@@ -362,10 +362,18 @@ if __name__ == '__main__':
     tab_code = hashlib.sha1(bytes(tex_filter_str + early_stopping_str, 'utf-8')).hexdigest()[:6]
 
     if len(df) == 1:
-        tab_file = os.path.join(args.results_directory, results_file_name + '.tab')
-        tex_file = os.path.join(args.results_directory, results_file_name + '.tex')
-        agg_tab_file = os.path.join(args.results_directory, results_file_name + '-agg.tab')
-        agg_tex_file = os.path.join(args.results_directory, results_file_name + '-agg.tex')
+        _df = next(iter(df))
+        tab_file = {_df: os.path.join(args.results_directory, results_file_name + '.tab')}
+        tex_file = {_df: os.path.join(args.results_directory, results_file_name + '.tex')}
+        agg_tab_file = {_df: os.path.join(args.results_directory, results_file_name + '-agg.tab')}
+        agg_tex_file = {_df: os.path.join(args.results_directory, results_file_name + '-agg.tex')}
+    elif len(df) > 1:
+        tab_file = {_: os.path.join(args.results_directory, '{}-{}.tab'.format(_, results_file_name)) for _ in df}
+        tex_file = {_: os.path.join(args.results_directory, '{}-{}.tex'.format(_, results_file_name)) for _ in df}
+        agg_tab_file = {_: os.path.join(args.results_directory, '{}-{}-agg.tab'.format(_, results_file_name))
+                        for _ in df}
+        agg_tex_file = {_: os.path.join(args.results_directory, '{}-{}-agg.tex'.format(_, results_file_name))
+                        for _ in df}
 
     log.info('')
     log.info('')
@@ -383,14 +391,14 @@ if __name__ == '__main__':
 
         auto_removed_index = {}
 
-        texify_test_results_df(d, s, tex_file, tab_file, tab_code=tab_code)
+        texify_test_results_df(d, s, tex_file[s], tab_file[s], tab_code=tab_code)
 
         d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('NaN'))
 
         remove_wim_from = all(d.index.to_frame()['job'] == d.index.to_frame()['wim_from'])
 
         if tex_file:
-            with open(tex_file, 'a') as f:
+            with open(tex_file[s], 'a') as f:
                 f.write('\def\joblist{')
                 f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
@@ -417,7 +425,7 @@ if __name__ == '__main__':
             d = d.droplevel(removed_index)
 
             if remove_wim_from and 'wim_from' in d.index.names:
-                d = d.droplevel('wim_from')
+                pass  # d = d.droplevel('wim_from')
 
         idx = list(d.index.names)
         if 'job' in d.index.names:
@@ -444,7 +452,7 @@ if __name__ == '__main__':
             # std_last_names = [_ + 'std' for _ in last_names]
             # d_mean.columns = d_mean.columns.set_level(mean_last_names, level=-1)
             d_agg = pd.concat(dict(mean=d_mean, std=d_std), axis=1)
-            texify_test_results_df(d_agg, s, agg_tex_file, agg_tab_file, tab_code=tab_code)
+            texify_test_results_df(d_agg, s, agg_tex_file[s], agg_tab_file[s], tab_code=tab_code)
 
         col_show_levels = {_: 0 for _ in d.columns}
         col_show_levels.update({_: 4 for _ in d.columns if _[0] == 'measures'})

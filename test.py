@@ -396,12 +396,14 @@ if __name__ == '__main__':
         d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('NaN'))
 
         remove_wim_from = all(d.index.to_frame()['job'] == d.index.to_frame()['wim_from'])
+        removed_index = []
 
         if tex_file:
             with open(tex_file[s], 'a') as f:
                 f.write('\def\joblist{')
                 f.write(','.join(['{:06d}'.format(n['job']) for n in models_to_be_kept]))
                 f.write('}\n')
+
         if args.remove_index is not None:
             non_removable_index = ['job', 'type']
 
@@ -420,12 +422,11 @@ if __name__ == '__main__':
                     unremoved_index.append(i)
             if unremoved_index:
                 print(*d.index.names)
-                logging.error('{} are not removed. Possible removable index: {}'.format(', '.join(unremoved_index),
-                                                                                        ', '.join(d.index.names)))
-            d = d.droplevel(removed_index)
-
+                tmp_str = '{} are not removed. Possible removable index: {}'
+                logging.error(tmp_str.format(', '.join(unremoved_index),
+                                             ', '.join(d.index.names)))
             if remove_wim_from and 'wim_from' in d.index.names:
-                pass  # d = d.droplevel('wim_from')
+                removed_index.append('wim_from')
 
         idx = list(d.index.names)
         if 'job' in d.index.names:
@@ -453,6 +454,9 @@ if __name__ == '__main__':
             # d_mean.columns = d_mean.columns.set_level(mean_last_names, level=-1)
             d_agg = pd.concat(dict(mean=d_mean, std=d_std), axis=1)
             texify_test_results_df(d_agg, s, agg_tex_file[s], agg_tab_file[s], tab_code=tab_code)
+
+        d = d.droplevel(removed_index)
+        d_agg = d_agg.droplevel(removed_index)
 
         col_show_levels = {_: 0 for _ in d.columns}
         col_show_levels.update({_: 4 for _ in d.columns if _[0] == 'measures'})

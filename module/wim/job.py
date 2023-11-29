@@ -182,7 +182,9 @@ class WIMJob(M):
             logging.debug('Model was already a wim')
             alternate_prior_params = wim_params.copy()
             model.wim_params = wim_params
-            for k in ('sets', 'alpha', 'train_size', 'moving_size', 'from', 'mix', 'hash', 'array_size'):
+            for k in ('sets', 'alpha', 'train_size', 'moving_size',
+                      'augmentation', 'augmentation_dataset',
+                      'from', 'mix', 'hash', 'array_size'):
                 k, alternate_prior_params.pop(k, None)
             if build_module:
                 model.set_alternate_prior(**alternate_prior_params)
@@ -207,6 +209,8 @@ class WIMJob(M):
                  train_size=100000,
                  epochs=None,
                  moving_size=10000,
+                 augmentation=0.,
+                 augmentation_dataset=None,
                  alpha=0.1,
                  ood_mix=0.5,
                  test_batch_size=8192,
@@ -230,6 +234,22 @@ class WIMJob(M):
         self.wim_params['train_size'] = train_size
         self.wim_params['moving_size'] = moving_size
         self.wim_params['mix'] = ood_mix
+        self.wim_params['augmentation'] = augmentation
+
+        set_name = self.training_parameters['set']
+
+        if not augmentation_dataset:
+            augmentation_dataset = [_ for _ in torchdl.get_same_size_by_name(set_name)
+                                    if _.startswith('uniform')][0]
+
+        if not augmentation:
+            self.wim_params['augmentation_dataset'] = None
+            logging.debug('Will not augment moving batch')
+
+        else:
+            self.wim_params['augmentation_dataset'] = augmentation_dataset
+            tmpstr = 'Will augment moving batch with {:.0%} more of {}'
+            logging.info(tmpstr.format(augmentation, augmentation_dataset))
 
         for p in self._alternate_prior.parameters():
             assert not p.requires_grad, 'prior parameter queires grad'
@@ -244,7 +264,6 @@ class WIMJob(M):
         _s = 'Test batch size wanted {} / max {}'
         logging.info(_s.format(test_batch_size, max_batch_sizes['test']))
 
-        set_name = self.training_parameters['set']
         transformer = self.training_parameters['transformer']
         data_augmentation = self.training_parameters['data_augmentation']
         batch_size = self.training_parameters['batch_size']
@@ -256,6 +275,9 @@ class WIMJob(M):
                                                 data_augmentation=data_augmentation)
 
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
+
+        augmentation_set = torchdl.get_dataset(augmentation_dataset,
+                                               transformer=transformer, splits=['test'])[1]
 
         try:
             subset_idx_shift_key = self.job_number % 100 + 7
@@ -269,10 +291,10 @@ class WIMJob(M):
 
         logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))
 
-        moving_set = MixtureDataset(ood=ood_set, ind=testset,
-                                    mix={'ood': ood_mix, 'ind': 1 - ood_mix},
+        moving_set = MixtureDataset(ood=ood_set, ind=testset, augment=augmentation_set,
+                                    mix={'ood': ood_mix, 'ind': 1 - ood_mix, 'augment': augmentation},
                                     shift_key=subset_idx_shift_key,
-                                    length=moving_size)
+                                    length=moving_size + int(augmentation * moving_size))
 
         _s = 'Moving set of length {}, with mixture {}'
         _s = _s.format(len(moving_set), ', '.join('{}:{:.1%}'.format(n, m)

@@ -51,6 +51,8 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--moving-size', type=int)
     parser.add_argument('--epochs', type=int)
 
+    parser.add_argument('--augmentation', type=float, nargs='?', const=1.0, default=0)
+
     parser.add_argument('--test-batch-size', type=int)
 
     parser.add_argument('--prior', choices=['gaussian', 'tilted', 'uniform'])
@@ -153,6 +155,7 @@ if __name__ == '__main__':
         model.wim_params['train_size'] = args.train_size
         model.wim_params['moving_size'] = args.moving_size
         model.wim_params['mix'] = args.mix
+        model.wim_params['augmentation'] = args.wim_augmentation
     else:
         model.finetune(*wim_sets,
                        train_size=args.train_size,
@@ -161,6 +164,7 @@ if __name__ == '__main__':
                        test_batch_size=args.test_batch_size,
                        alpha=args.alpha,
                        ood_mix=args.mix,
+                       augmentation=args.augmentation,
                        optimizer=optimizer,
                        outputs=outputs)
 

@@ -166,6 +166,9 @@ def results_dataframe(models,
         'wim_alpha',
         'wim_train_size',
         'wim_mix',
+        'wim_augmentation_dataset',
+        'wim_augmentation',
+        'wim_augmentation_str',
         'wim_moving_size',
         'L',
         'l',
@@ -517,6 +520,9 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
                                          'wim_moving_size': '\u2207-n',
                                          'wim_mix': '\u2207:',
                                          'wim_from': '\u2207#',
+                                         'wim_augmentation_dataset': 'drop_wda',
+                                         'wim_augmentation': 'drop_wa',
+                                         'wim_augmentation_str': '\u2207+',
                                          'beta': '\u03b2',
                                          'gamma': '\u03b3',
                                          'depth': 'D',
@@ -564,6 +570,8 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
     df_.index = pd.MultiIndex.from_frame(index_df)
 
     df_.index.names = [indices_replacement.get(_, _)for _ in df.index.names]
+
+    df_.reset_index(level=[_ for _ in df_.index.names if _.startswith('drop')], drop=True, inplace=True)
 
     if not inplace:
         return df_

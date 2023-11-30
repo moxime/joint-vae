@@ -510,6 +510,7 @@ if __name__ == '__main__':
         if auto_removed_index:
             print('\nCommon values')
         for k, v in format_df_index(auto_removed_index).items():
-            print('{:8}: {}'.format(k, v))
+            if not k.startswith('drop'):
+                print('{:8}: {}'.format(k, v))
         for _ in range(1):
             print('=' * width)

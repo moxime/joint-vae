@@ -750,6 +750,11 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     wim_from = wim.get('from', model.job_number)
     wim_mean = wim.get('mean_shift') or wim.get('init_mean')
     wim_mix = wim.get('mix')
+    wim_augmentation = wim.get('augmentation', 0.)
+    wim_augmentation_dataset = wim.get('augmentation_dataset')
+    wim_augmentation_str = wim_augmentation_dataset and '{}+{:.0%}'.format(wim_augmentation_dataset,
+                                                                           wim_augmentation)
+
     if isinstance(wim_mix, (list, tuple)):
         wim_mix = wim_mix[1] / sum(wim_mix)
 
@@ -824,6 +829,9 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'wim_prior': wim_prior,
             'wim_mean': wim_mean,
             'wim_mix': wim_mix,
+            'wim_augmentation': wim_augmentation,
+            'wim_augmentation_dataset': wim_augmentation_dataset,
+            'wim_augmentation_str': wim_augmentation_str,
             'wim_alpha': wim.get('alpha'),
             'wim_train_size': wim.get('train_size'),
             'wim_moving_size': wim.get('moving_size'),

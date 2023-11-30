@@ -4,9 +4,10 @@ from module.vae_layers import Sigma
 from utils.save_load import find_by_job_number, load_json
 from shutil import copyfile
 import functools
-from utils.save_load import iterable_over_subdirs
+from utils.save_load.fetch import iterable_over_subdirs
 import numpy as np
 from datetime import date
+from utils.parameters import gethostname
 
 
 def delete_job(directory, msg=''):
@@ -434,6 +435,32 @@ def history_from_list_to_dict(directory='jobs', write_json=False):
     return True
 
 
+def add_default_values_to_registered_models(job_dir, write_json=False, **kw):
+
+    rmodels_file = 'models-{}.json'.format(gethostname())
+    rpath = os.path.join(job_dir, rmodels_file)
+
+    if write_json:
+        copyfile(rpath, rpath + '.bak')
+
+    rmodels = load_json(job_dir, rmodels_file)
+
+    print('{} models registered'.format(len(rmodels)))
+
+    for i, d in enumerate(rmodels):
+        for k, v in kw.items():
+            if k not in rmodels[d]:
+                rmodels[d][k] = v
+                print('{} -- {}: {}'.format(d[-80:], k, v))
+        if i > 100:
+            pass
+
+    if write_json:
+        print('w', rpath, '\n')
+        with open(rpath, 'w') as f:
+            json.dump(rmodels, f)
+
+
 if __name__ == '__main__':
 
     import argparse
@@ -447,4 +474,7 @@ if __name__ == '__main__':
     # load_and_save_json(args.job_dir, 'train.json', 'warmup',
     #                    old_value=0, new_value=[0, 0], suffix='-warmup')
 
-    history_from_list_to_dict(directory=args.job_dir, write_json=args.write)
+    # history_from_list_to_dict(directory=args.job_dir, write_json=args.write)
+
+    add_default_values_to_registered_models(args.job_dir, write_json=args.write,
+                                            wim_augmentation=0., wim_augmentation_dataset=None)

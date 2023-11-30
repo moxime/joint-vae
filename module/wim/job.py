@@ -216,6 +216,7 @@ class WIMJob(M):
                  test_batch_size=8192,
                  optimizer=None,
                  outputs=EpochOutput(),
+                 do_it=True,
                  ):
 
         # logging.warning('DEBUG MODE MODEL IN MODE EVAL')
@@ -250,6 +251,9 @@ class WIMJob(M):
             self.wim_params['augmentation_dataset'] = augmentation_dataset
             tmpstr = 'Will augment moving batch with {:.0%} more of {}'
             logging.info(tmpstr.format(augmentation, augmentation_dataset))
+
+        if not do_it:
+            return
 
         for p in self._alternate_prior.parameters():
             assert not p.requires_grad, 'prior parameter queires grad'

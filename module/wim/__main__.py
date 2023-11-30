@@ -148,25 +148,18 @@ if __name__ == '__main__':
 
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
 
-    if args.shell_for_array:
-        logging.info('Saving model in {}'.format(model.saved_dir))
-        model.wim_params['sets'] = wim_sets
-        model.wim_params['alpha'] = args.alpha
-        model.wim_params['train_size'] = args.train_size
-        model.wim_params['moving_size'] = args.moving_size
-        model.wim_params['mix'] = args.mix
-        model.wim_params['augmentation'] = args.wim_augmentation
-    else:
-        model.finetune(*wim_sets,
-                       train_size=args.train_size,
-                       epochs=args.epochs,
-                       moving_size=args.moving_size,
-                       test_batch_size=args.test_batch_size,
-                       alpha=args.alpha,
-                       ood_mix=args.mix,
-                       augmentation=args.augmentation,
-                       optimizer=optimizer,
-                       outputs=outputs)
+    model.finetune(*wim_sets,
+                   train_size=args.train_size,
+                   epochs=args.epochs,
+                   moving_size=args.moving_size,
+                   test_batch_size=args.test_batch_size,
+                   alpha=args.alpha,
+                   ood_mix=args.mix,
+                   augmentation=args.augmentation,
+                   optimizer=optimizer,
+                   outputs=outputs,
+                   do_it=not args.shell_for_array
+                   )
 
     model.save(model.saved_dir)
     logging.info('model saved in {}'.format(model.saved_dir))

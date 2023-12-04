@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--moving-size', type=int)
     parser.add_argument('--epochs', type=int)
 
-    parser.add_argument('--augmentation', type=float, nargs='?', const=1.0, default=0)
+    parser.add_argument('--augmentation', type=float, nargs='?', const=1.0, default=0.)
 
     parser.add_argument('--test-batch-size', type=int)
 

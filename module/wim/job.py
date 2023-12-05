@@ -121,9 +121,9 @@ class WIMJob(M):
             self._with_estimated_labels = True
             logging.debug('Back to estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
 
-    def evaluate(self, x, *a, **kw, with_estimated_labels=True):
+    def evaluate(self, x, *a, **kw):
 
-        if self._with_estimated_labels and with_estimated_labels:
+        if self._with_estimated_labels:
             x, y_ = x
             o = super().evaluate(x, *a, **kw)
             # losses is o[2]

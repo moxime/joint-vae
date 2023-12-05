@@ -113,7 +113,7 @@ class WIMJob(M):
 
     @ contextmanager
     def evaluate_on_both_priors(self):
-        state = self._evaluate_on_both_prior
+        state = self._evaluate_on_both_priors
         self._evaluate_on_both_priors = True
         yield
         self._evaluate_on_both_priors = state

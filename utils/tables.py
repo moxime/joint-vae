@@ -241,14 +241,14 @@ def results_dataframe(models,
     in_out_cols_set_level = set([_[0] for _ in cols if _[-1] == 'auc'])
     ood_cols_set_level = set.difference(in_out_cols_set_level, misclass_cols_set_level)
 
-    # print('MIS', *misclass_cols_set_level)
-    # print('OOD', *ood_cols_set_level)
-
     method_cols = {_: True for _ in methods}
     for _ in method_cols:
         if methods[_] is not None:
             # print('***', _, *methods[_])
-            method_cols[_] = cols.isin(methods[_], level='method')
+            if 'all' in methods[_]:
+                method_cols[_] = [not _ for _ in cols.isin(['first'], level='method')]
+            else:
+                method_cols[_] = cols.isin(methods[_], level='method')
 
     acc_cols = cols.isin(['acc'], level='metrics') & method_cols['predict']
 

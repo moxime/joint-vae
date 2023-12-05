@@ -68,6 +68,20 @@ def _register_models(models, *keys):
     return d
 
 
+def load_model(d, **kw):
+    from cvae import ClassificationVariationalNetwork as M
+    from module.wim import WIMJob as WJ
+    from module.wim.array import WIMArray as WA
+
+    if WA.is_wim_array(d):
+        return WA.load(d, **kw)
+
+    if WJ.is_wim(d):
+        return WJ.load(d, **kw)
+
+    return M.load(d, **kw)
+
+
 def collect_models(search_dir, registered_models_file=None):
     from cvae import ClassificationVariationalNetwork as M
     from module.wim import WIMJob as W
@@ -178,7 +192,7 @@ def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', ligh
             n += 1
             logging.debug('Keeping {}'.format(d[-100:]))
             if not light:
-                m = W.load(d, **kw) if W.is_wim(d) else M.load(d, **kw)
+                m = load_model(d, **kw)
                 mlist.append(make_dict_from_model(m, d, tpr=tpr, wanted_epoch=wanted_epoch))
             else:
                 mdict[d]['dir'] = d

@@ -1325,8 +1325,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 current_measures = measures
             else:
-                components = [
-                    k for k in recorder.keys() if k in self.loss_components]
+                components = [k for k in recorder.keys() if k in self.loss_components]
                 batch_losses = recorder.get_batch(i, *components)
                 logits = recorder.get_batch(i, 'logits').T
                 y_test = recorder.get_batch(i, 'y_true')
@@ -1375,7 +1374,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 if k not in total_loss:
                     total_loss[k] = 0.0
 
-                total_loss[k] += batch_loss_y.mean().item()
+                total_loss[k] += batch_loss_y.float().mean().item()
                 mean_loss[k] = total_loss[k] / (i + 1)
 
             for m in predict_methods:
@@ -1564,8 +1563,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     num_batch[dset] = len(recorders[dset])
                     batch_size[dset] = recorders[dset].batch_size
                     logging.debug('{} recorder available'.format(dset))
-                    ood_methods_per_set[dset] = [
-                        m for m in ood_methods if froms[dset]['recorders'].get(m)]
+                    ood_methods_per_set[dset] = [m for m in ood_methods if froms[dset]['recorders'].get(m)]
                 elif dset != testset.name:
                     recorders.pop(dset, None)
                     logging.debug('{} will be discarded'.format(dset))

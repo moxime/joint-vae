@@ -25,9 +25,12 @@ class WIMJob(M):
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
 
+    added_loss_components_per_type = {'cvae': ('kl~', 'softkl~', 'zdist~', 'softzdist~', 'y_est_already')}
+
     def __init__(self, *a, alternate_prior=None, **kw):
 
         super().__init__(*a, **kw)
+        self.loss_components += self.added_loss_components_per_type.get(self.type, [])
         self._original_prior = self.encoder.prior
 
         for p in self._original_prior.parameters():
@@ -39,19 +42,19 @@ class WIMJob(M):
 
         self._is_alternate_prior = False
 
-        self._with_estimated_labels = False
+        self._with_estimated_labels = True
 
-        self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~']
+        self.ood_methods = self.ood_methods_per_type[self.type].copy()
 
-    @classmethod
+    @ classmethod
     def is_wim(cls, d):
         return os.path.exists(os.path.join(d, 'wim.json'))
 
-    @property
+    @ property
     def is_alternate_prior(self):
         return self._is_alternate_prior
 
-    @property
+    @ property
     def is_original_prior(self):
         return not self.is_alternate_prior
 
@@ -68,8 +71,8 @@ class WIMJob(M):
             self._is_alternate_prior = False
         return self.encoder.prior
 
-    @property
-    @contextmanager
+    @ property
+    @ contextmanager
     def original_prior(self):
         state = self.is_original_prior
         try:
@@ -77,8 +80,8 @@ class WIMJob(M):
         finally:
             self.original_prior = state
 
-    @property
-    @contextmanager
+    @ property
+    @ contextmanager
     def alternate_prior(self):
         state = self.is_alternate_prior
         try:
@@ -86,11 +89,11 @@ class WIMJob(M):
         finally:
             self.alternate_prior = state
 
-    @alternate_prior.setter
+    @ alternate_prior.setter
     def alternate_prior(self, b):
         self._switch_to_alternate_prior(b)
 
-    @original_prior.setter
+    @ original_prior.setter
     def original_prior(self, b):
         self.alternate_prior = not b
 
@@ -107,23 +110,16 @@ class WIMJob(M):
             p.requires_grad_(False)
 
     @ contextmanager
-    def estimated_labels(self, v=True):
-        if v:
-            try:
-                self._with_estimated_labels = True
-                self.ood_methods = self.ood_methods_per_type[self.type]
-                logging.debug('With estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
-                yield
-            finally:
-                self._with_estimated_labels = False
-                self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~']
-                logging.debug('Back to non estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
-        else:
-            try:
-                logging.debug('Will not switch to estimated labels')
-                yield
-            finally:
-                pass
+    def no_estimated_labels(self):
+        try:
+            self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~']
+            self._with_estimated_labels = False
+            logging.debug('Without estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
+            yield
+        finally:
+            self.ood_methods = self.ood_methods_per_type[self.type].copy()
+            self._with_estimated_labels = True
+            logging.debug('Back to estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
 
     def evaluate(self, x, *a, **kw):
 
@@ -338,18 +334,19 @@ class WIMJob(M):
         self.original_prior = True
         recorders = {_: LossRecorder(test_batch_size) for _ in list(sets) + [set_name]}
 
-        with torch.no_grad():
-            ood_ = moving_set.extract_subdataset('ood')
-            logging.debug('OOD set of size {}'.format(len(ood_)))
-            self.ood_detection_rates(batch_size=test_batch_size,
-                                     testset=moving_set.extract_subdataset('ind', new_name=testset.name),
-                                     oodsets=[ood_.extract_subdataset(_) for _ in ood_sets],
-                                     # num_batch=1024 // test_batch_size,  #
-                                     outputs=outputs,
-                                     sample_dirs=sample_dirs,
-                                     recorders=recorders,
-                                     print_result='*')
-            self.ood_results = {}
+        with self.no_estimated_labels():
+            with torch.no_grad():
+                ood_ = moving_set.extract_subdataset('ood')
+                logging.debug('OOD set of size {}'.format(len(ood_)))
+                self.ood_detection_rates(batch_size=test_batch_size,
+                                         testset=moving_set.extract_subdataset('ind', new_name=testset.name),
+                                         oodsets=[ood_.extract_subdataset(_) for _ in ood_sets],
+                                         # num_batch=1024 // test_batch_size,  #
+                                         outputs=outputs,
+                                         sample_dirs=sample_dirs,
+                                         recorders=recorders,
+                                         print_result='*')
+                self.ood_results = {}
 
         printed_losses = ['zdist']
         # for s in ('ind', 'ood' 'train'):
@@ -565,8 +562,6 @@ class WIMJob(M):
                 s.append_estimated(y_est)
                 s.return_estimated = True
 
-                #        if True:  # debug
-
             loader = torch.utils.data.DataLoader(testset, collate_fn=collate, batch_size=100)
             for i, batch in enumerate(loader):
                 (x, y_), y = batch
@@ -574,21 +569,20 @@ class WIMJob(M):
                 if not i:
                     logging.debug('First labels: {}'.format(' '.join(str(_.item()) for _ in y[:10])))
 
-        with self.estimated_labels(self.is_cvae):
-            with torch.no_grad():
-                self.original_prior = True
-                outputs.write('With original prior\n')
-                self.ood_detection_rates(batch_size=test_batch_size,
-                                         testset=testset,
-                                         oodsets=oodsets,
-                                         num_batch='all',
-                                         outputs=outputs,
-                                         sample_dirs=sample_dirs,
-                                         recorders={},
-                                         print_result='*')
-                logging.info('Computing misclass detection rates')
-                self.misclassification_detection_rates(print_result='~')
-                logging.info('Computing misclass detection rates: done')
+        with torch.no_grad():
+            self.original_prior = True
+            outputs.write('With original prior\n')
+            self.ood_detection_rates(batch_size=test_batch_size,
+                                     testset=testset,
+                                     oodsets=oodsets,
+                                     num_batch='all',
+                                     outputs=outputs,
+                                     sample_dirs=sample_dirs,
+                                     recorders={},
+                                     print_result='*')
+            logging.info('Computing misclass detection rates')
+            self.misclassification_detection_rates(print_result='~')
+            logging.info('Computing misclass detection rates: done')
 
             # self.alternate_prior = True
             # outputs.write('With alternate prior\n')

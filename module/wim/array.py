@@ -33,6 +33,10 @@ class WIMArray(WIMJob):
 
         self._wanted_components = components
 
+    @classmethod
+    def is_wim_array(cls, d):
+        return os.path.exists(os.path.join(d, JOB_FILE_NAME))
+
     def finetune(self, *a, **kw):
 
         logging.warning('WIM array is no meant to be finetuned')

@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import torch
-from cvae import ClassificationVariationalNetwork as CVNet
 import os
 import sys
 import hashlib
@@ -9,7 +8,7 @@ import logging
 import pandas as pd
 from utils.parameters import get_args, set_log, gethostname
 from utils.print_log import EpochOutput, turnoff_debug
-from utils.save_load import make_dict_from_model, available_results, save_json
+from utils.save_load import make_dict_from_model, available_results, save_json, load_model
 from utils.save_load import fetch_models
 from utils.tables import export_losses
 from utils.texify import tex_architecture, texify_test_results, texify_test_results_df
@@ -270,7 +269,7 @@ if __name__ == '__main__':
         if plan['recorders'] or plan['compute']:
             print('Computing rates of job {} of type {} at epoch {}'.format(m['job'], m['type'], epoch))
             logging.debug('Plan for {}; {}'.format(m['job'], plan))
-            model = CVNet.load(m['dir'], build_module=True, load_state=plan['compute'] and True)
+            model = load_model(m['dir'], build_module=True, load_state=plan['compute'] and True)
             if plan['compute']:
                 device = args.device or 'cuda'
             else:

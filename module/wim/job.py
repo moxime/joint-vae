@@ -121,9 +121,9 @@ class WIMJob(M):
             self._with_estimated_labels = True
             logging.debug('Back to estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
 
-    def evaluate(self, x, *a, **kw):
+    def evaluate(self, x, *a, **kw, with_estimated_labels=True):
 
-        if self._with_estimated_labels:
+        if self._with_estimated_labels and with_estimated_labels:
             x, y_ = x
             o = super().evaluate(x, *a, **kw)
             # losses is o[2]
@@ -412,9 +412,10 @@ class WIMJob(M):
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
-                (_, y_est, batch_losses, _) = self.evaluate(x_a.to(device), y_a.to(device),
-                                                            batch=batch,
-                                                            with_beta=True)
+                with self.no_estimated_labels():
+                    (_, y_est, batch_losses, _) = self.evaluate(x_a.to(device), y_a.to(device),
+                                                                batch=batch,
+                                                                with_beta=True)
 
                 zdbg('finetune', epoch + 1, batch + 1, 'train', 'original', batch_losses['zdist'].mean())
 
@@ -429,10 +430,11 @@ class WIMJob(M):
                     with torch.no_grad():
 
                         # Eval on unknown batch
+                        with self.no_estimated_labels():
 
-                        (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
-                                                                batch=batch,
-                                                                with_beta=True)
+                            (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
+                                                                    batch=batch,
+                                                                    with_beta=True)
 
                         if self.is_cvae:
                             y_u_est = torch.zeros(batch_size, device=device, dtype=int)
@@ -450,10 +452,10 @@ class WIMJob(M):
                             zdbg('eval', epoch + 1, batch + 1, _, 'original', batch_losses['zdist'][i_[_]].mean())
 
                         # Eval on train batch
-
-                        (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
-                                                                batch=batch,
-                                                                with_beta=True)
+                        with self.no_estimated_labels():
+                            (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
+                                                                    batch=batch,
+                                                                    with_beta=True)
 
                         if self.is_cvae:
                             # y_u_est = torch.zeros(batch_size, device=device, dtype=int)
@@ -484,9 +486,11 @@ class WIMJob(M):
                 logging.debug('x_u shape: {} y_u_est shape {}'.format(x_u.shape, y_u_est.shape))
 
                 self.train()
-                o = self.evaluate(x_u.to(device), y_u_est,
-                                  batch=batch,
-                                  with_beta=True)
+                with self.no_estimated_labels():
+
+                    o = self.evaluate(x_u.to(device), y_u_est,
+                                      batch=batch,
+                                      with_beta=True)
 
                 _, _, batch_losses, _ = o
                 L += alpha * batch_losses['total'].mean()

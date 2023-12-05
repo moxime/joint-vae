@@ -44,6 +44,8 @@ class WIMJob(M):
 
         self._with_estimated_labels = True
 
+        self._evaluate_on_both_prior = False
+
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
 
     @ classmethod
@@ -110,6 +112,13 @@ class WIMJob(M):
             p.requires_grad_(False)
 
     @ contextmanager
+    def evaluate_on_both_priors(self):
+        state = self._evaluate_on_both_prior
+        self._evaluate_on_both_priors = True
+        yield
+        self._evaluate_on_both_priors = state
+
+    @ contextmanager
     def no_estimated_labels(self):
         try:
             self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~']
@@ -123,19 +132,32 @@ class WIMJob(M):
 
     def evaluate(self, x, *a, **kw):
 
-        if self._with_estimated_labels:
-            x, y_ = x
-            o = super().evaluate(x, *a, **kw)
-            # losses is o[2]
-            k_ = ('kl', 'zdist')
-            if self.is_cvae:
-                o[2].update({k + '~': o[2][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
-                o[2].update({'soft{}~'.format(k):
-                             (-o[2][k]).softmax(0).gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
-                o[2].update({'y_est_already': y_})
-            return o
+        if not self._evaluate_on_both_priors:
+            if self._with_estimated_labels:
+                x, y_ = x
+                o = super().evaluate(x, *a, **kw)
+                # losses is o[2]
+                k_ = ('kl', 'zdist')
+                if self.is_cvae:
+                    o[2].update({k + '~': o[2][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
+                    o[2].update({'soft{}~'.format(k):
+                                 (-o[2][k]).softmax(0).gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
+                    o[2].update({'y_est_already': y_})
+                    return o
 
-        return super().evaluate(x, *a, **kw)
+            return super().evaluate(x, *a, **kw)
+
+        else:
+            logging.debug('Will evaluate on both prior')
+            self._evaluate_on_both_priors = False
+            with self.alternate_prior:
+                o = self.evaluate(x, *a, **kw)
+                alternate_loss = {k + '*': o[2][k] for k in o[2] if not k.endswith('~')}
+            with self.original_prior:
+                o = self.evaluate(x, *a, **kw)
+                o[2].update(alternate_loss)
+            self._evaluate_on_both_priors = True
+            return o
 
     @ classmethod
     def _recurse_train(cls, module):

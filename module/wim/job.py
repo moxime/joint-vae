@@ -44,7 +44,7 @@ class WIMJob(M):
 
         self._with_estimated_labels = True
 
-        self._evaluate_on_both_prior = False
+        self._evaluate_on_both_priors = False
 
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
 

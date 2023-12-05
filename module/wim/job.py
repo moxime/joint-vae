@@ -598,28 +598,18 @@ class WIMJob(M):
         with torch.no_grad():
             self.original_prior = True
             outputs.write('With original prior\n')
-            self.ood_detection_rates(batch_size=test_batch_size,
-                                     testset=testset,
-                                     oodsets=oodsets,
-                                     num_batch='all',
-                                     outputs=outputs,
-                                     sample_dirs=sample_dirs,
-                                     recorders={},
-                                     print_result='*')
+            with self.evaluate_on_both_priors():
+                self.ood_detection_rates(batch_size=test_batch_size,
+                                         testset=testset,
+                                         oodsets=oodsets,
+                                         num_batch='all',
+                                         outputs=outputs,
+                                         sample_dirs=sample_dirs,
+                                         recorders={},
+                                         print_result='*')
             logging.info('Computing misclass detection rates')
             self.misclassification_detection_rates(print_result='~')
             logging.info('Computing misclass detection rates: done')
-
-            # self.alternate_prior = True
-            # outputs.write('With alternate prior\n')
-            # self.ood_detection_rates(batch_size=test_batch_size,
-            #                          oodsets=[moving_sets[_] for _ in moving_sets if _ != 'test'],
-            #                          num_batch='all',
-            #                          outputs=outputs,
-            #                          sample_dirs=sample_dirs,
-            #                          recorders={},
-            #                          update_self_ood=False,
-            #                          print_result='*')
 
     def fetch_jobs_alike(self, job_dir=None, models=None, flash=False):
 

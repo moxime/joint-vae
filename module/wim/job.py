@@ -203,7 +203,8 @@ class WIMJob(M):
 
         dist_measures.update(wim_measures)
 
-        losses.pop('elbo')
+        losses.pop('elbo', None)
+        losses.pop('elbo*', None)
 
         return dist_measures
 

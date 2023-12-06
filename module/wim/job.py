@@ -185,12 +185,12 @@ class WIMJob(M):
         for m in wim_methods:
 
             if m[-1] == '~':
-                m_ = m[-1]
+                m_ = m[:-1]
                 prefix = 'soft_' if m.startswith('soft') else ''
                 measures = loss_[prefix + 'y'][m_] * k_[m_] / abs(k_[m_])
 
             elif m[-1] == '*':
-                m_ = m[-1]
+                m_ = m[:-1]
                 if m_[-1] == '~':
                     m_ = m_[:-1]
                     w = 'y'

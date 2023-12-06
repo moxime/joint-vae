@@ -20,7 +20,7 @@ from utils.print_log import EpochOutput
 
 class WIMJob(M):
 
-    ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~']}
+    ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~', 'zdist*', 'zdist*~']}
     predict_methods_per_type = {'vae': [], 'cvae': ['already']}
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
@@ -137,11 +137,7 @@ class WIMJob(M):
                 x, y_ = x
                 o = super().evaluate(x, *a, **kw)
                 # losses is o[2]
-                k_ = ('kl', 'zdist')
                 if self.is_cvae:
-                    o[2].update({k + '~': o[2][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
-                    o[2].update({'soft{}~'.format(k):
-                                 (-o[2][k]).softmax(0).gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_})
                     o[2].update({'y_est_already': y_})
                     return o
 
@@ -161,22 +157,49 @@ class WIMJob(M):
 
     def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
 
-        wim_methods = [_ for _ in methods if _.endswith('~')]
+        wim_methods = [_ for _ in methods if _[-1] in '~*']
         dist_methods = [_ for _ in methods if _ not in wim_methods]
 
         dist_measures = super().batch_dist_measures(logits, losses, dist_methods, to_cpu=to_cpu)
 
+        losses['elbo'] = -losses['total']
+        k_ = {'kl': -1, 'zdist': -0.5, 'iws': 1, 'elbo': 1}
+
+        k_.update({k + '*': k_[k] for k in k_})
+
+        loss_ = {}
+        if self.is_cvae:
+            y_ = losses['y_est_already']
+
+            loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_}
+            loss_['soft'] = {k: (losses[k] * k_[k]).softmax(0) for k in k_}
+            loss_['soft_y'] = {k: loss_['soft'][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_}
+            loss_['soft'] = {k: loss_['soft'][k].max(0)[0] for k in k_}
+            loss_['logsumexp'] = {k: (losses[k] * k_[k]).logsumexp(0) for k in k_}
+
         wim_measures = {}
         for m in wim_methods:
-            if m in ('zdist~', 'kl~'):
-                measures = -losses[m]
 
-            elif m in ('softzdist~', 'softkl~'):
-                measures = losses[m]
+            if m[-1] == '~':
+                m_ = m[-1]
+                prefix = 'soft_' if m.startswith('soft') else ''
+                measures = loss_[prefix + 'y'][m_] * k_[m_] / abs(k_[m_])
+
+            elif m[-1] == '*':
+                m_ = m[-1]
+                if m_[-1] == '~':
+                    m_ = m_[:-1]
+                    w = 'y'
+                else:
+                    w = 'logsumexp'
+
+                measures = loss_[w][m_] - loss_[w][m_ + '*']
 
             wim_measures[m] = measures.cpu() if to_cpu else measures
 
         dist_measures.update(wim_measures)
+
+        losses.pop('elbo')
 
         return dist_measures
 

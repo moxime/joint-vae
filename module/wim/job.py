@@ -159,6 +159,27 @@ class WIMJob(M):
             self._evaluate_on_both_priors = True
             return o
 
+    def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
+
+        wim_methods = [_ for _ in methods if _.endswith('~')]
+        dist_methods = [_ for _ in methods if _ not in wim_methods]
+
+        dist_measures = super().batch_dist_measures(logits, losses, dist_methods, to_cpu=to_cpu)
+
+        wim_measures = {}
+        for m in wim_methods:
+            if m in ('zdist~', 'kl~'):
+                measures = -losses[m]
+
+            elif m in ('softzdist~', 'softkl~'):
+                measures = losses[m]
+
+            wim_measures[m] = measures.cpu() if to_cpu else measures
+
+        dist_measures.update(wim_measures)
+
+        return dist_measures
+
     @ classmethod
     def _recurse_train(cls, module):
 

@@ -1078,12 +1078,6 @@ class ClassificationVariationalNetwork(nn.Module):
                 # print('odin losses:', *[_ for _ in losses if _.startswith('odin')])
                 measures = losses[m]
 
-            elif m in ('zdist~', 'kl~'):
-                measures = -losses[m]
-
-            elif m in ('softzdist~', 'softkl~'):
-                measures = losses[m]
-
             else:
                 raise ValueError(f'{m} is an unknown ood method')
 

@@ -188,7 +188,7 @@ class WIMJob(M):
             if m[-1] == '~':
                 m_ = m[:-1]
                 prefix = 'soft_' if m.startswith('soft') else ''
-                measures = loss_[prefix + 'y'][m_] * k_[m_] / abs(k_[m_])
+                measures = loss_[prefix + 'y'][m_]
 
             elif m[-1] == '@':
                 m_ = m[:-1]

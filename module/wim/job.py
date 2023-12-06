@@ -20,7 +20,7 @@ from utils.print_log import EpochOutput
 
 class WIMJob(M):
 
-    ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~', 'zdist*', 'zdist*~']}
+    ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~', 'zdist*', 'zdist~*']}
     predict_methods_per_type = {'vae': [], 'cvae': ['already']}
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }

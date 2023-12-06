@@ -445,6 +445,15 @@ def needed_components(*methods):
     for k in total:
         ncd[k] = ('total',)
 
+    k_ = ('kl', 'zdist', 'iws')
+
+    ncd.update({_ + '~': (_,) for _ in k_})
+    ncd.update({_ + '~*': (_, _ + '*') for _ in k_})
+    ncd.update({_ + '~': (_,) for _ in k_})
+    ncd.update({_ + '*': (_ + '*',) for _ in k_})
+
+    ncd.update({'elbo*': ('total', 'total*'), 'elbo~': ('total',), 'elbo~*': ('total', 'total*')})
+
     methods_ = [_.split('-')[0] for _ in methods]
     #    for m in methods:
     # if m.endswith('-2s'):

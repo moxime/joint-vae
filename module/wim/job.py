@@ -25,12 +25,14 @@ class WIMJob(M):
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
 
-    added_loss_components_per_type = {'cvae': ('y_est_already',)}
+    added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': (,)}
 
     def __init__(self, *a, alternate_prior=None, **kw):
 
         super().__init__(*a, **kw)
-        self.loss_components += self.added_loss_components_per_type.get(self.type, [])
+
+        self.loss_components += tuple(k + '@' for k in self.loss_components)
+        self.loss_components += self.added_loss_components_per_type.get(self.type, ())
         self._original_prior = self.encoder.prior
 
         for p in self._original_prior.parameters():

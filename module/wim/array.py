@@ -123,7 +123,9 @@ class WIMArray(WIMJob):
                 else:
                     array_recorders[_] = job_recorders[_].copy()
 
-        created_rec_str = ' -- '.join('{} of size {}'.format(_, array_recorders[_].recorded_samples)
+        created_rec_str = ' -- '.join('{} of size {} for {}'.format(_,
+                                                                    array_recorders[_].recorded_samples,
+                                                                    ','.join(array_recorders[_].keys()))
                                       for _ in array_recorders)
 
         logging.info('Created recorders {} for {}...{}'.format(created_rec_str,
@@ -145,7 +147,7 @@ class WIMArray(WIMJob):
 
         return array_recorders
 
-    @classmethod
+    @ classmethod
     def collect_processed_jobs(cls, job_dir, flash=False):
 
         jobs = []

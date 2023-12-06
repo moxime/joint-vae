@@ -448,11 +448,11 @@ def needed_components(*methods):
     k_ = ('kl', 'zdist', 'iws')
 
     ncd.update({_ + '~': (_,) for _ in k_})
-    ncd.update({_ + '~*': (_, _ + '*') for _ in k_})
+    ncd.update({_ + '~@': (_, _ + '@') for _ in k_})
     ncd.update({_ + '~': (_,) for _ in k_})
-    ncd.update({_ + '*': (_ + '*',) for _ in k_})
+    ncd.update({_ + '@': (_ + '@',) for _ in k_})
 
-    ncd.update({'elbo*': ('total', 'total*'), 'elbo~': ('total',), 'elbo~*': ('total', 'total*')})
+    ncd.update({'elbo@': ('total', 'total@'), 'elbo~': ('total',), 'elbo~@': ('total', 'total@')})
 
     methods_ = [_.split('-')[0] for _ in methods]
     #    for m in methods:

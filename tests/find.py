@@ -4,7 +4,7 @@ import torch
 j = 367028
 j = 369332
 j = 381599
-j = 381982
+j = 381986
 
 job_dir = '.test-wim-jobs'
 
@@ -37,8 +37,8 @@ for i, s in enumerate(r_):
 
         loss = {k: (loss[k] - norm[k][0]) / norm[k][1] for k in loss}
 
-    for m in (0, 2, 3, 5):
-        loss[m] = m + torch.randn(1000)
+    for _ in (0, 2, 3, 5):
+        loss[_] = _ + torch.randn(1000)
 
     if not normalize or i:
         if normalize:

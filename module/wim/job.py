@@ -20,12 +20,12 @@ from utils.print_log import EpochOutput
 
 class WIMJob(M):
 
-    ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~', 'zdist*', 'zdist~*']}
+    ood_methods_per_type = {'vae': ['zdist'], 'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@']}
     predict_methods_per_type = {'vae': [], 'cvae': ['already']}
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
 
-    added_loss_components_per_type = {'cvae': ('kl~', 'softkl~', 'zdist~', 'softzdist~', 'y_est_already')}
+    added_loss_components_per_type = {'cvae': ('y_est_already',)}
 
     def __init__(self, *a, alternate_prior=None, **kw):
 
@@ -121,7 +121,7 @@ class WIMJob(M):
     @ contextmanager
     def no_estimated_labels(self):
         try:
-            self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] not in '*~']
+            self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] not in '@~']
             self._with_estimated_labels = False
             logging.debug('Without estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
             yield
@@ -148,7 +148,7 @@ class WIMJob(M):
             self._evaluate_on_both_priors = False
             with self.alternate_prior:
                 o = self.evaluate(x, *a, **kw)
-                alternate_loss = {k + '*': o[2][k] for k in o[2] if not k.endswith('~')}
+                alternate_loss = {k + '@': o[2][k] for k in o[2] if not k.endswith('~')}
             with self.original_prior:
                 o = self.evaluate(x, *a, **kw)
                 o[2].update(alternate_loss)
@@ -157,7 +157,7 @@ class WIMJob(M):
 
     def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
 
-        wim_methods = [_ for _ in methods if _[-1] in '~*']
+        wim_methods = [_ for _ in methods if _[-1] in '~@']
         dist_methods = [_ for _ in methods if _ not in wim_methods]
 
         dist_measures = super().batch_dist_measures(logits, losses, dist_methods, to_cpu=to_cpu)
@@ -166,10 +166,10 @@ class WIMJob(M):
             return dist_measures
 
         losses['elbo'] = -losses['total']
-        losses['elbo*'] = -losses['total*']
+        losses['elbo@'] = -losses['total@']
         k_ = {'kl': -1, 'zdist': -0.5, 'iws': 1, 'elbo': 1}
 
-        k_.update({k + '*': k_[k] for k in k_})
+        k_.update({k + '@': k_[k] for k in k_})
 
         loss_ = {}
         if self.is_cvae:
@@ -190,7 +190,7 @@ class WIMJob(M):
                 prefix = 'soft_' if m.startswith('soft') else ''
                 measures = loss_[prefix + 'y'][m_] * k_[m_] / abs(k_[m_])
 
-            elif m[-1] == '*':
+            elif m[-1] == '@':
                 m_ = m[:-1]
                 if m_[-1] == '~':
                     m_ = m_[:-1]
@@ -198,14 +198,14 @@ class WIMJob(M):
                 else:
                     w = 'logsumexp'
 
-                measures = loss_[w][m_] - loss_[w][m_ + '*']
+                measures = loss_[w][m_] - loss_[w][m_ + '@']
 
             wim_measures[m] = measures.cpu() if to_cpu else measures
 
         dist_measures.update(wim_measures)
 
         losses.pop('elbo', None)
-        losses.pop('elbo*', None)
+        losses.pop('elbo@', None)
 
         return dist_measures
 

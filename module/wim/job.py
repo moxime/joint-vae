@@ -25,7 +25,7 @@ class WIMJob(M):
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
 
-    added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': (,)}
+    added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': ()}
 
     def __init__(self, *a, alternate_prior=None, **kw):
 

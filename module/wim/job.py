@@ -162,6 +162,9 @@ class WIMJob(M):
 
         dist_measures = super().batch_dist_measures(logits, losses, dist_methods, to_cpu=to_cpu)
 
+        if not wim_methods:
+            return dist_measures
+
         losses['elbo'] = -losses['total']
         k_ = {'kl': -1, 'zdist': -0.5, 'iws': 1, 'elbo': 1}
 

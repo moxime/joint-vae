@@ -4,10 +4,13 @@ import torch
 j = 367028
 j = 369332
 j = 381599
+j = 381982
+
+job_dir = '.test-wim-jobs'
 
 dset = 'cifar10'
 
-m = find_by_job_number(j, build_module=True, load_state=False, job_dir='.test-wim-arrays')
+m = find_by_job_number(j, build_module=True, load_state=False, job_dir='.test-wim-jobs')
 
 a = available_results(m)
 

@@ -181,6 +181,7 @@ class WIMJob(M):
             loss_['soft'] = {k: loss_['soft'][k].max(0)[0] for k in k_}
             loss_['logsumexp'] = {k: (losses[k] * k_[k]).logsumexp(0) for k in k_}
 
+        logging.debug('Compute measures for {}'.foramt(','.join(wim_methods)))
         wim_measures = {}
         for m in wim_methods:
 

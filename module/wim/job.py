@@ -121,7 +121,7 @@ class WIMJob(M):
     @ contextmanager
     def no_estimated_labels(self):
         try:
-            self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] != '~']
+            self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] not in '*~']
             self._with_estimated_labels = False
             logging.debug('Without estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
             yield

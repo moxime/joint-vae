@@ -1934,10 +1934,10 @@ class ClassificationVariationalNetwork(nn.Module):
             available_m = [_ for _, __ in zip(
                 methods['miss'], m_) if available['recorders'][__]]
 
-            # print('***', *available_m)
+            if not available_m:
+                continue
 
-            y_ = self.predict_after_evaluate(
-                logits, losses, method=predict_method).cpu()
+            y_ = self.predict_after_evaluate(logits, losses, method=predict_method).cpu()
             missed = np.asarray(y_ != y)
             correct = np.asarray(y_ == y)
 

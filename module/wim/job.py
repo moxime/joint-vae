@@ -169,6 +169,7 @@ class WIMJob(M):
         if not wim_methods:
             return dist_measures
 
+        logging.debug('Compute measures for {}'.format(','.join(wim_methods)))
         losses['elbo'] = -losses['total']
 
         k_ = {'kl': -1, 'zdist': -0.5, 'iws': 1, 'elbo': 1}
@@ -179,7 +180,6 @@ class WIMJob(M):
 
         loss_ = {}
         if self.is_cvae:
-            print('***', *losses)
             y_ = losses['y_est_already']
 
             loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_}
@@ -188,7 +188,6 @@ class WIMJob(M):
             loss_['soft'] = {k: loss_['soft'][k].max(0)[0] for k in k_}
             loss_['logsumexp'] = {k: (losses[k] * k_[k]).logsumexp(0) for k in k_}
 
-        logging.debug('Compute measures for {}'.format(','.join(wim_methods)))
         wim_measures = {}
         for m in wim_methods:
 

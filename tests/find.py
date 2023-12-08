@@ -5,7 +5,7 @@ j = 367028
 j = 369332
 j = 381599
 j = 381986
-
+j = 367028
 
 job_dir = '.test-wim-jobs'
 job_dir = '.test-wim-arrays'
@@ -14,7 +14,7 @@ job_dir = 'wim-arrays'
 
 dset = 'cifar10'
 
-m = find_by_job_number(j, build_module=True, load_state=False, job_dir='.test-wim-jobs')
+m = find_by_job_number(j, build_module=True, load_state=False, job_dir=job_dir)
 
 a = available_results(m)
 

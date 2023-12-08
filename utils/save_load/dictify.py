@@ -430,11 +430,7 @@ def needed_components(*methods):
            'softiws': ('iws',),
            'closest': ('zdist',),
            'zdist': ('zdist',),
-           'zdist~': ('zdist~',),
-           'softzdist~': ('softzdist~',),
            'already': ('y_est_already',),
-           'kl~': ('kl~',),
-           'softkl~': ('softkl~',),
            'kl': ('kl',),
            'soft': ('kl',),
            'mse': ('cross_x',)}
@@ -446,13 +442,15 @@ def needed_components(*methods):
         ncd[k] = ('total',)
 
     k_ = ('kl', 'zdist', 'iws')
+    for prefix in ('', 'soft'):
 
-    ncd.update({_ + '~': (_,) for _ in k_})
-    ncd.update({_ + '~@': (_, _ + '@') for _ in k_})
-    ncd.update({_ + '~': (_,) for _ in k_})
-    ncd.update({_ + '@': (_ + '@',) for _ in k_})
+        ncd.update({prefix + _ + '~': (_, 'y_est_already') for _ in k_})
+        ncd.update({prefix + _ + '~@': (_, _ + '@', 'y_est_already') for _ in k_})
+        ncd.update({prefix + _ + '@': (_ + '@',) for _ in k_})
 
-    ncd.update({'elbo@': ('total', 'total@'), 'elbo~': ('total',), 'elbo~@': ('total', 'total@')})
+        ncd.update({prefix + 'elbo@': ('total', 'total@'),
+                    prefix + 'elbo~': ('total', 'y_est_already'),
+                    prefix + 'elbo~@': ('total', 'total@', 'y_est_already')})
 
     methods_ = [_.split('-')[0] for _ in methods]
     #    for m in methods:

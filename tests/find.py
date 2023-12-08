@@ -6,7 +6,11 @@ j = 369332
 j = 381599
 j = 381986
 
+
 job_dir = '.test-wim-jobs'
+job_dir = '.test-wim-arrays'
+job_dir = 'wim-arrays'
+
 
 dset = 'cifar10'
 

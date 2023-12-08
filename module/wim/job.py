@@ -170,13 +170,16 @@ class WIMJob(M):
             return dist_measures
 
         losses['elbo'] = -losses['total']
-        losses['elbo@'] = -losses['total@']
+
         k_ = {'kl': -1, 'zdist': -0.5, 'iws': 1, 'elbo': 1}
 
-        k_.update({k + '@': k_[k] for k in k_})
+        if any('@' in m for m in methods):
+            losses['elbo@'] = -losses['total@']
+            k_.update({k + '@': k_[k] for k in k_})
 
         loss_ = {}
         if self.is_cvae:
+            print('***', *losses)
             y_ = losses['y_est_already']
 
             loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_}

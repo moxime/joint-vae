@@ -1545,8 +1545,7 @@ class ClassificationVariationalNetwork(nn.Module):
         if froms['all_sets']['recorders']:
             rec_dir = froms.pop('rec_dir')
 
-            loaded_recorders = LossRecorder.loadall(
-                rec_dir, *all_set_names, map_location=self.device)
+            loaded_recorders = LossRecorder.loadall(rec_dir, *all_set_names, map_location=self.device)
 
             for dset in all_set_names:
                 if froms[dset]['where']['compute']:

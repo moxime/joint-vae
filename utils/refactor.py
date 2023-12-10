@@ -1,7 +1,7 @@
 import json
 import os
 from module.vae_layers import Sigma
-from utils.save_load import find_by_job_number, load_json
+from utils.save_load import find_by_job_number, load_json, fetch_models
 from shutil import copyfile
 import functools
 from utils.save_load.fetch import iterable_over_subdirs
@@ -461,6 +461,32 @@ def add_default_values_to_registered_models(job_dir, write_json=False, **kw):
             json.dump(rmodels, f)
 
 
+def reset_wim_arrays(job_dir, do_it=False):
+
+    from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
+    from module.wim.array import WIMArray as A
+    wim_job_filter = DictOfListsOfParamFilters()
+    wim_job_filter.add('wim_array_size', ParamFilter(type=int, interval=[1, np.inf]))
+
+    models = fetch_models(job_dir, filter=wim_job_filter, flash=False)
+
+    n = 0
+    for m in models:
+
+        wim_params = load_json(m['dir'], 'wim.json')
+        s = wim_params.pop('array_size', None)
+
+        if do_it:
+            name = os.path.join(m['dir'], 'wim.json')
+            copyfile(name, name + '.bak')
+            with open(name, 'w') as f:
+                json.dump(wim_params, f)
+
+        n += 1
+
+    print('***', n)
+
+
 if __name__ == '__main__':
 
     import argparse
@@ -476,5 +502,7 @@ if __name__ == '__main__':
 
     # history_from_list_to_dict(directory=args.job_dir, write_json=args.write)
 
-    add_default_values_to_registered_models(args.job_dir, write_json=args.write,
-                                            wim_augmentation=0., wim_augmentation_dataset=None)
+    # add_default_values_to_registered_models(args.job_dir, write_json=args.write,
+    #                                         wim_augmentation=0., wim_augmentation_dataset=None)
+
+    reset_wim_arrays(args.job_dir, do_it=args.write)

@@ -186,7 +186,7 @@ class WIMJob(M):
             loss_['soft'] = {'soft' + k: (losses[k] * k_[k]).softmax(0) for k in k_}
             loss_['soft_y'] = {k: loss_['soft'][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze()
                                for k in loss_['soft']}
-            loss_['soft'] = {k: loss_['soft'][k].max(0)[0] for k in loss_['soft_']}
+            loss_['soft'] = {k: loss_['soft'][k].max(0)[0] for k in loss_['soft']}
             loss_['logsumexp'] = {k: (losses[k] * k_[k]).logsumexp(0) for k in k_}
 
         wim_measures = {}

@@ -1664,7 +1664,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                     ood_methods_per_set[s])
 
                 for m in ood_methods_per_set[s]:
-                    # print('*** ood', m, *measures[m].shape)
+                    print('*** ood', m, *measures[m].shape)
 
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])

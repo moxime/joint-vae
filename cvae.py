@@ -1067,7 +1067,11 @@ class ClassificationVariationalNetwork(nn.Module):
                 measures = ((d_logp * (d_logp.exp())).sum(axis=0) / (C * d_logp_x.exp())
                             - d_logp_x)
             elif m == 'kl':
-                measures = -losses['kl'].min(axis=0)[0]
+                if self.losses_might_be_computed_for_each_class:
+                    measures = -losses['kl'].min(axis=0)[0]
+                 else:
+                     measures = -losses['kl']
+
             elif m == 'mse' and self.is_cvae:
                 measures = -losses['cross_x']
 

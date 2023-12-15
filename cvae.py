@@ -1069,8 +1069,8 @@ class ClassificationVariationalNetwork(nn.Module):
             elif m == 'kl':
                 if self.losses_might_be_computed_for_each_class:
                     measures = -losses['kl'].min(axis=0)[0]
-                 else:
-                     measures = -losses['kl']
+                else:
+                    measures = -losses['kl']
 
             elif m == 'mse' and self.is_cvae:
                 measures = -losses['cross_x']

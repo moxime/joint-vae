@@ -407,11 +407,11 @@ if __name__ == '__main__':
             non_removable_index = ['job', 'type']
 
             if are_auto_removed_index:
-                removed_index = [i for i, l in enumerate(d.index.levels)
+                removed_index = [l.name for i, l in enumerate(d.index.levels)
                                  if len(l) < 2 and l.name not in non_removable_index]
             else:
                 removed_index = []
-            for i in removed_index:
+            for i, _ in enumerate(removed_index):
                 auto_removed_index[d.index.names[i]] = d.index[0][i]
             unremoved_index = []
             for i in args.remove_index:
@@ -424,7 +424,7 @@ if __name__ == '__main__':
                 tmp_str = '{} are not removed. Possible removable index: {}'
                 logging.error(tmp_str.format(', '.join(unremoved_index),
                                              ', '.join(d.index.names)))
-            if remove_wim_from and 'wim_from' in d.index.names:
+            if remove_wim_from and 'wim_from' in d.index.names and 'wim_from' not in removed_index:
                 removed_index.append('wim_from')
 
         idx = list(d.index.names)

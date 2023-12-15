@@ -20,7 +20,7 @@ from utils.print_log import EpochOutput
 
 class WIMJob(M):
 
-    ood_methods_per_type = {'vae': ['zdist'],
+    ood_methods_per_type = {'vae': ['zdist', 'elbo', 'kl'],
                             'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@',
                                      'elbo', 'elbo~', 'elbo@', 'elbo~@']}
     predict_methods_per_type = {'vae': [], 'cvae': ['already']}
@@ -46,7 +46,7 @@ class WIMJob(M):
 
         self._is_alternate_prior = False
 
-        self._with_estimated_labels = True
+        self._with_estimated_labels = self.is_cvae
 
         self._evaluate_on_both_priors = False
 
@@ -131,8 +131,9 @@ class WIMJob(M):
             yield
         finally:
             self.ood_methods = self.ood_methods_per_type[self.type].copy()
-            self._with_estimated_labels = True
-            logging.debug('Back to estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
+            self._with_estimated_labels = self.is_cvae
+            if self.is_cvae:
+                logging.debug('Back to estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
 
     def evaluate(self, x, *a, **kw):
 

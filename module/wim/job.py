@@ -184,6 +184,9 @@ class WIMJob(M):
             y_ = losses['y_est_already']
 
             loss_['y'] = {k: k_[k] * losses[k].index_select(0, y_.squeeze()) for k in k_}
+            for k in loss_['y']:
+                print('***', k, losses[k].shape)
+                print('***', k, 'y', loss_['y'][k].shape)
             loss_['soft'] = {'soft' + k: (losses[k] * k_[k]).softmax(0) for k in k_}
             loss_['soft_y'] = {k: loss_['soft'][k].index_select(0, y_.squeeze())
                                for k in loss_['soft']}

@@ -387,6 +387,9 @@ def average_ood_results(ood_results, *oodsets):
     if oodsets:
         ood = [s for s in ood if s in oodsets]
 
+    # for s in ood:
+    #     for m in ood_results[s]:
+    #         print('***', s, m, ood_results[s][m])
     mean_keys = {'auc': 'val', 'fpr': 'list', 'mean': 'val'}
     min_keys = {'epochs': 'val'}
     sum_keys = {'n'}
@@ -405,7 +408,7 @@ def average_ood_results(ood_results, *oodsets):
     for m in methods:
         for k in mean_keys:
             if mean_keys[k] == 'val':
-                vals = [ood_results[s][m][k] for s in ood]
+                vals = [ood_results[s][m].get(k, np.nan) for s in ood]
                 avge_res[m][k] = np.mean(vals)
             else:
                 lists = [ood_results[s][m][k] for s in ood]
@@ -422,7 +425,7 @@ def average_ood_results(ood_results, *oodsets):
             avge_res[m][k] = sum(ood_results[s][m][k] for s in ood)
 
         for k in std_keys:
-            avge_res[m][k] = np.sqrt(np.mean([ood_results[s][m][k]**2 for s in ood]))
+            avge_res[m][k] = np.sqrt(np.mean([ood_results[s][m].get(k, np.nan)**2 for s in ood]))
 
     return avge_res
 

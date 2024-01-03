@@ -1054,7 +1054,7 @@ def collate(batch):
         return torch.tensor(batch, dtype=torch.float64)
     elif isinstance(elem, int):
         return torch.tensor(batch)
-    elif isinstance(elem, torch._six.string_classes):
+    elif isinstance(elem, (str, bytes)):
         return batch
     elif isinstance(elem, collections.abc.Mapping):
         return elem_type({key: collate([d[key] for d in batch]) for key in elem})

@@ -1675,8 +1675,10 @@ class ClassificationVariationalNetwork(nn.Module):
                         if s not in self.ood_results[epoch]:
                             self.ood_results[epoch][s] = {}
 
-                        self.ood_results[epoch][s][m] = {
-                            'n': len(ind_measures[m]), 'epochs': epoch}
+                        self.ood_results[epoch][s][m] = {'n': len(ind_measures[m]),
+                                                         'epochs': epoch,
+                                                         'mean': ind_measures[m].mean(),
+                                                         'std:': ind_measures[m].std()}
 
                 t_i = time.time() - t_0
                 t_per_i = t_i / (i + 1)
@@ -1711,7 +1713,10 @@ class ClassificationVariationalNetwork(nn.Module):
                      'auc': 0,
                      'tpr': kept_tpr,
                      'fpr': [1 for _ in kept_tpr],
-                     'thresholds': [None for _ in kept_tpr]}
+                     'thresholds': [None for _ in kept_tpr],
+                     'mean': np.nan,
+                     'std': np.nan
+                     }
 
         for oodset in [_ for _ in oodsets if _]:
 
@@ -1845,6 +1850,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
                 ood_results[s][m] = {'epochs': epoch,
                                      'n': len(ood_measures[m]),
+                                     'mean': ood_measures[m].mean(),
+                                     'std': ood_measures[m].std(),
                                      'auc': auc_[m],
                                      'tpr': kept_tpr,
                                      'fpr': list(fpr_[m]),

@@ -116,7 +116,7 @@ def results_dataframe(models,
     metrics = make_list(metrics, ['acc', 'auc', 'fpr', 'P'])
 
     if show_measures:
-        metrics.append('n')
+        metrics.extend(['n', 'mean', 'std'])
 
     for m in ('fpr', 'P'):
         if m in metrics:
@@ -240,7 +240,6 @@ def results_dataframe(models,
     misclass_cols_set_level = set([_[0] for _ in cols if _[0].startswith('errors-')])
     in_out_cols_set_level = set([_[0] for _ in cols if _[-1] == 'auc'])
     ood_cols_set_level = set.difference(in_out_cols_set_level, misclass_cols_set_level)
-
     method_cols = {_: True for _ in methods}
     for _ in method_cols:
         if methods[_] is not None:
@@ -292,7 +291,7 @@ def results_dataframe(models,
     for c in df.columns[df.columns.isin(['measures'], level=0)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
-    for c in df.columns[df.columns.isin(['n'], level=-1)]:
+    for c in df.columns[df.columns.isin(['n', 'mean', 'std'], level=-1)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
     sorting_index = []

@@ -387,9 +387,10 @@ def average_ood_results(ood_results, *oodsets):
     if oodsets:
         ood = [s for s in ood if s in oodsets]
 
-    mean_keys = {'auc': 'val', 'fpr': 'list'}
+    mean_keys = {'auc': 'val', 'fpr': 'list', 'mean': 'val'}
     min_keys = {'epochs': 'val'}
     sum_keys = {'n'}
+    std_keys = {'std'}
     same_keys = {'tpr', 'thresholds'}
 
     all_methods = [set(ood_results[s].keys()) for s in ood]
@@ -419,6 +420,9 @@ def average_ood_results(ood_results, *oodsets):
 
         for k in sum_keys:
             avge_res[m][k] = sum(ood_results[s][m][k] for s in ood)
+
+        for k in std_keys:
+            avge_res[m][k] = np.sqrt(np.mean([ood_results[s][m][k]**2 for s in ood]))
 
     return avge_res
 
@@ -607,6 +611,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             P_ = in_out_results_s[m].get('precision', [None for _ in tpr_])
             auc = in_out_results_s[m]['auc']
             n = in_out_results_s[m]['n']
+            mean = in_out_results_s[m].get('mean', np.nan)
+            std = in_out_results_s[m].get('std', np.nan)
 
             if auc and (not best_auc[s] or auc > best_auc[s]):
                 best_auc[s] = auc
@@ -624,6 +630,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
                     res_by_method['fpr' + suffix] = fpr
                     res_by_method['auc'] = auc
                     res_by_method['n'] = n
+                    res_by_method['mean'] = mean
+                    res_by_method['std'] = std
                     if P is not None:
                         res_by_method['P' + suffix] = P
                         # print('***', in_out_results_s[m].keys())

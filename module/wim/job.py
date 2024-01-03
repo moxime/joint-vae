@@ -183,16 +183,23 @@ class WIMJob(M):
         if self.is_cvae:
             y_ = losses['y_est_already']
 
-            loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.squeeze().unsqueeze(0)).squeeze() for k in k_}
+            loss_['y'] = {k: k_[k] * losses[k].index_select(0, y_.squeeze()) for k in k_}
             loss_['soft'] = {'soft' + k: (losses[k] * k_[k]).softmax(0) for k in k_}
-            loss_['soft_y'] = {k: loss_['soft'][k].gather(0, y_.squeeze().unsqueeze(0)).squeeze()
+            loss_['soft_y'] = {k: loss_['soft'][k].index_select(0, y_.squeeze())
                                for k in loss_['soft']}
             loss_['soft'] = {k: loss_['soft'][k].max(0)[0] for k in loss_['soft']}
             loss_['logsumexp'] = {k: (losses[k] * k_[k]).logsumexp(0) for k in k_}
 
         wim_measures = {}
         for m in wim_methods:
+            """
+            -- (soft)k~: (soft)loss[k][y] on original prior with y predicted centroid
 
+            -- k@: logsumexp(loss[k]) - logsumexp(loss@[k])
+
+            -- k~@: loss[k][y] - loss@[k][y]
+
+            """
             if m[-1] == '~':
                 m_ = m[:-1]
                 prefix = 'soft_' if m.startswith('soft') else ''

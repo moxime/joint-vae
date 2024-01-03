@@ -82,18 +82,32 @@ def x_loss(y_target, logits, batch_mean=True):
         return F.cross_entropy(logits_, y_)
 
     shape = (L,) + y_target.shape
-    return F.cross_entropy(logits_,
-                           y_,
+    return F.cross_entropy(logits_, y_,
                            reduction='none').reshape(shape).mean(0)
 
 
-def loss_mean(component, loss, type=vae, y=None, current_mean=0.):
+def loss_mean(component, values, y=None, current_mean=0., n=0):
 
-    if type == 'vae':
-        pass
+    def update_mean(batch_mean, batch_size):
+        return (current_mean * n + batch_mean * batch_size) / (n + batch_size)
 
-    elif type == 'cvae':
-        pass
+    if values.ndim == 1:
+        values = values.unsqueeze(0)
+
+    batch_size = values.shape[-1]
+
+    if values.shape[0] == 1:
+        batch_mean = values.mean()
+        return update_mean(batch_mean, batch_size)
+
+    if y is None:
+        if component in ('elbo', 'iws'):
+            y = values.max(0)[1]
+        else:
+            y = values.min(0)[1]
+
+    batch_mean = values.index_select(0, y).mean()
+    return update_mean(batch_mean, batch_size)
 
 
 if __name__ == '__main__':

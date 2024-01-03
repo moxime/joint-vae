@@ -5,60 +5,6 @@ import logging
 import numpy as np
 
 
-def compare_dims(small_dim, large_dim):
-    """compare dims of tensor sizes
-
-    - small_dim is (N1, N2,..., Ng) or (1, 1,..., N1, ..., Ng)
-
-    - large_dim is (L1, L2,..,Lf, N1, ... , Ng, D1, ... , Dt)
-
-    - returns f, t, True or _, _, False
-
-    """
-    print('Is ', small_dim, ' in ', large_dim, '?')
-    if len(small_dim) == 0:
-        return 0, len(large_dim), True
-
-    if small_dim[0] == 1:
-        f, t, ok = compare_dims(small_dim[1:], large_dim[1:])
-        if ok:
-            return f + 1, l, ok
-
-    if large_dim[0] == small_dim[0]:
-        f, t, ok = compare_dims(small_dim[1:], large_dim[1:])
-        if ok:
-            return f + 1, t, ok
-
-    f, t, ok = compare_dims(small_dim, large_dim[1:])
-    return f + 1, t, ok
-
-
-def fisher_rao(mu1, var1, mu2, var2):
-    """Computes fisher_rao beteen normal distributions
-
-    -- mui, vari: (..., K) tensors with last dimension being the dim
-       of the distribution, the others being the batch dims.
-
-    """
-
-    def dist(m1, s1, m2, s2):
-
-        return ((m1 - m2) ** 2 + (s1 - s2) ** 2).sqrt()
-
-    sq2 = np.sqrt(2)
-
-    mu1_, mu2_ = mu1 / sq2, mu2 / sq2
-
-    s1, s2 = var1.sqrt(), var2.sqrt()
-
-    d = dist(mu1_, s1, mu2_, -s2)
-    d_ = dist(mu1_, s1, mu2_, s2)
-
-    comp_wise_fr = sq2 * ((d + d_) / (d - d_)).log()
-
-    return comp_wise_fr.norm(dim=-1)
-
-
 def mse_loss(x_output, x_target, ndim=3, batch_mean=True):
     """
     x_target of size (N1, .. ,Ng, D1, D2,..., Dt)
@@ -87,7 +33,7 @@ def categorical_loss(x_output, x_target, ndim=3, batch_mean=True):
     x_output of shape (N1,...,Ng, D1,...,Dt, 256)
 
     """
-    expanded_shape = (*x_output.shape[:-ndim-1], *x_target.shape[-ndim:])
+    expanded_shape = (*x_output.shape[:-ndim - 1], *x_target.shape[-ndim:])
     x_target = x_target.expand(*expanded_shape)
     batch_shape = x_target.shape[:-ndim]
     image_shape = x_target.shape[-ndim:]
@@ -101,63 +47,6 @@ def categorical_loss(x_output, x_target, ndim=3, batch_mean=True):
     ce = F.cross_entropy(x_output, x_target, reduction='none').view(*batch_shape, -1).sum(-1)
 
     return ce.mean() if batch_mean else ce
-
-
-def kl_loss(mu_z, log_var_z,
-            z=None,
-            y=None,
-            latent_dictionary=None,
-            prior_variance=1.,
-            var_weighting=1.,
-            batch_mean=True):
-
-    losses = {}
-
-    assert y is None or latent_dictionary is not None
-
-    var_loss = -(1 + log_var_z - np.log(prior_variance) - log_var_z.exp() / prior_variance).sum(-1)
-    loss = 0.5 * var_weighting * var_loss
-
-    losses['var'] = var_loss
-    losses['sdistances'] = torch.zeros(1, device=log_var_z.device)
-    losses['mahala'] = torch.zeros(1, device=log_var_z.device)
-    losses['kl_rec'] = torch.zeros(1, device=log_var_z.device)
-
-    if y is None:
-        distances = mu_z.pow(2).sum(-1) / prior_variance
-        loss += 0.5 * distances
-        losses['sdist'] = z.pow(2).sum(-1) / prior_variance
-        centroids = 0.
-
-    else:
-
-        K = mu_z.shape[-1]
-        centroids_shape = y.shape + (K,)
-
-        centroids = latent_dictionary.index_select(0, y.view(-1)).view(centroids_shape)
-        distances = (mu_z - centroids).pow(2).sum(-1) / prior_variance
-        if z is not None:
-            losses['sdist'] = (z.unsqueeze(1) - centroids.unsqueeze(0)).pow(2).sum(-1) / prior_variance
-
-        loss = loss + 0.5 * distances
-
-    losses['kl'] = loss
-    losses['dist'] = distances
-    losses['mahala'] = ((-log_var_z).exp() * (mu_z - centroids).pow(2)).sum(-1)
-
-    losses['kl_rec'] = 0.5 * (losses['mahala'] + (log_var_z - 1).sum(-1) + (-log_var_z).exp().sum(-1))
-    losses['fisher_rao'] = fisher_rao(mu_z, log_var_z.exp(), centroids, torch.ones_like(log_var_z))
-
-    if torch.isnan(loss).any():
-        logging.error('NAN found in KL')
-        for l in log_var_z:
-            logging.error('log_var %s', l.sum().item())
-        for l in mu_z:
-            logging.error('mu_z %s', l.sum().item())
-        for l in loss:
-            logging.error('loss %s', l.item())
-
-    return {_: losses[_].mean() if batch_mean else losses[_] for _ in losses}
 
 
 def x_loss(y_target, logits, batch_mean=True):
@@ -196,6 +85,15 @@ def x_loss(y_target, logits, batch_mean=True):
     return F.cross_entropy(logits_,
                            y_,
                            reduction='none').reshape(shape).mean(0)
+
+
+def loss_mean(component, loss, type=vae, y=None, current_mean=0.):
+
+    if type == 'vae':
+        pass
+
+    elif type == 'cvae':
+        pass
 
 
 if __name__ == '__main__':

@@ -1706,6 +1706,9 @@ class ClassificationVariationalNetwork(nn.Module):
 
                     recorders[s].save(f.format(s=s))
 
+                recorded[s] = True
+                recording[s] = False
+
         kept_tpr = [pc / 100 for pc in range(90, 100)]
         no_result = {'epochs': 0,
                      'n': 0,
@@ -1717,7 +1720,7 @@ class ClassificationVariationalNetwork(nn.Module):
                      'std': np.nan
                      }
 
-        for oodset in [_ for _ in oodsets if _]:
+        for oodset in [_ for _ in oodsets if _] + [testset] if oodsets else []:
 
             s = oodset.name
             ood_n_batch = num_batch[s]

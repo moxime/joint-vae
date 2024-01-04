@@ -462,6 +462,7 @@ if __name__ == '__main__':
         col_show_levels.update({_: 3 for _ in d.columns if _[-1] in ['done']})
         col_show_levels.update({_: 2 for _ in d.columns if _[-1] in ['epoch', 'validation']})
         col_show_levels.update({_: 2 for _ in d.columns if _[-1] in ['n']})
+        col_show_levels.update({_: 10 for _ in d.columns if _[0] == s and _[-1] != 'acc'})
         col_show_levels.update({_: 3 for _ in d.columns if _[-1] in ['mean', 'std']})
         col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['dB', 'nll', 'kl']})
 

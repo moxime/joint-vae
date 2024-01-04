@@ -517,7 +517,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         encoder_forced_variance = None
 
     if training_set in ood_results:
-        ood_results.pop(training_set)
+        pass  # ood_results.pop(training_set)
 
     if model.testing.get(wanted_epoch) and model.predict_methods:
         # print('*** model.testing', *model.testing.keys())
@@ -560,6 +560,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     all_ood_sets.append('average')
     all_ood_sets.append('average*')
+    all_ood_sets.append(training_set)
 
     tested_ood_sets = [s for s in ood_results if s in all_ood_sets]
 
@@ -609,11 +610,11 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
         for m in in_out_results_s:
             res_by_method = {}
-            fpr_ = in_out_results_s[m]['fpr']
-            tpr_ = in_out_results_s[m]['tpr']
+            fpr_ = in_out_results_s[m].get('fpr', [])
+            tpr_ = in_out_results_s[m].get('tpr', [])
             P_ = in_out_results_s[m].get('precision', [None for _ in tpr_])
-            auc = in_out_results_s[m]['auc']
-            n = in_out_results_s[m]['n']
+            auc = in_out_results_s[m].get('auc', np.nan)
+            n = in_out_results_s[m].get('n', np.nan)
             mean = in_out_results_s[m].get('mean', np.nan)
             std = in_out_results_s[m].get('std', np.nan)
 

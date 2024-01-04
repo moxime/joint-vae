@@ -562,7 +562,7 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
         if isinstance(x, float):
             return float_format.format(x)
 
-    index_df = df.index.to_frame().applymap(return_as_type)
+    index_df = df.index.to_frame().map(return_as_type)
 
     # df.reset_index(inplace=True)
     # df_.index = index_.set_levels([idx.format(formatter=return_as_type) for idx in index_.levels])
@@ -649,7 +649,7 @@ def unfold_df_from_dict(df, depth=1, names=None, keep=None):
         n = x.name
         return {n[-1]: x}
     if depth > 1:
-        df_ = df_[non_null_cols].applymap(lambda x: x if isinstance(x, dict) else {'val': x})
+        df_ = df_[non_null_cols].map(lambda x: x if isinstance(x, dict) else {'val': x})
         # df_ = df_[non_null_cols].apply(replace_floats, axis=1, result_type='broadcast')
         # print('*** in tables:561\n', df_.index.names)
     unfolded = {_: unfold_df_from_dict(df_[_], depth=depth - 1, names=names[1:], keep=keep)

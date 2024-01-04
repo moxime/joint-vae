@@ -221,7 +221,7 @@ def texify_test_results_df(df, dataset, tex_file, tab_file, tab_code=None):
     tab_df = tab_df.reset_index()
     # print('*** tab_df.cols', *tab_df.columns)
     tab_df.columns = [texify_str(c, underscore='-') for c in tab_df.columns]
-    tab_df = tab_df.applymap(lambda x: texify_str(x, space='-', num=True))
+    tab_df = tab_df.map(lambda x: texify_str(x, space='-', num=True))
 
     if 'job' in tab_df.columns:
         tab_df = tab_df.set_index('job').reset_index()

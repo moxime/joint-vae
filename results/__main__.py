@@ -29,7 +29,8 @@ args_from_file = ['-vv',
 tex_output = sys.stdout
 
 
-def process_config_file(models, config_file, filter_keys, which=['all'], keep_auc=True, root=root, show_dfs=True):
+def process_config_file(models, config_file, filter_keys, which=['all'], keep_auc=True,
+                        root=root, show_dfs=True):
 
     config = configparser.ConfigParser()
     config.read(config_file)
@@ -52,10 +53,12 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     ini_file_name = os.path.splitext(os.path.split(config_file)[-1])[0]
 
     _auc = '-auc' if keep_auc else ''
-    tab_file = default_config.get('file', ini_file_name + _auc + '-tab.tex')
+    tex_file = default_config.get('file', ini_file_name + _auc + '-tab.tex')
+    tex_file = os.path.join(root, tex_file)
+    tab_file = default_config.get('file', ini_file_name + _auc + '-tab.tab')
     tab_file = os.path.join(root, tab_file)
 
-    logging.info('Tab for {} will be saved in file {}'.format(dataset, tab_file))
+    logging.info('Tab for {} will be saved in file {}'.format(dataset, tex_file))
 
     filters = {}
 
@@ -188,10 +191,10 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
 
-    # print('***Before sort***')
-    # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+    print('***Before sort***')
+    print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 
-    results_df = results_df.groupby(results_df.columns, axis=1).agg(np.max)
+    results_df = results_df.T.groupby(results_df.columns).agg("max").T
 
     # print('***After agg***')
     # print(results_df.to_string(float_format='{:2.1f}'.format))
@@ -234,7 +237,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     # print('*** Before agg 2 ***')
     # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 
-    results_df = results_df.groupby(results_df.columns, axis=1).agg(np.max)[cols]
+    results_df = results_df.T.groupby(results_df.columns).agg("max").T[cols]
 
     # print('*** After agg ***')
     # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
@@ -244,6 +247,8 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     print(dataset)
     print(results_df.to_string(float_format='{:2.1f}'.format))
+
+    results_df.to_csv(tab_file)
 
     best_values['rate'] = results_df[rate_cols].min(axis=1)
 
@@ -260,7 +265,8 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     cols = results_df.columns
 
-    renames = dict(**texify['datasets'], **texify['methods'], **texify['metrics'])
+    texify_sets = {s: r'\dset{{{}}}'.format(s) for s in kept_oods}
+    renames = dict(**texify_sets, **texify['methods'], **texify['metrics'])
     results_df.rename(renames, inplace=True)
 
     for _ in best_values:
@@ -303,7 +309,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     average_row = None
     for idx, r in results_df.iterrows():
         idx_ = (idx,) if no_multi_index else idx
-        is_an_acc_row = idx_[0] == texify['datasets'][acc_row_name]
+        is_an_acc_row = idx_[0] == texify['metrics'][acc_row_name]
         if is_an_acc_row:
             last_acc_row = idx
 
@@ -347,7 +353,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         tab.comment('\n')
         tab.comment('\n')
 
-    with open(tab_file, 'w') as f:
+    with open(tex_file, 'w') as f:
         tab.render(f)
 
     logging.info('{} done'.format(dataset))

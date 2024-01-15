@@ -404,7 +404,8 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
     if average:
         large_df.loc[average] = large_df.mean()
         acc_columns = large_df.columns[large_df.columns.isin(['acc'], level='metrics')]
-        large_df.loc[average][acc_columns] = np.nan
+        large_df.loc[average, acc_columns] = np.nan
+        # large_df[acc_columns][average] = np.nan
 
     # print('***After average***')
     # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')

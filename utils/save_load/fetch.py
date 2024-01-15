@@ -5,6 +5,7 @@ import functools
 from utils.print_log import turnoff_debug
 from utils.filters import get_filter_keys, ParamFilter, DictOfListsOfParamFilters
 from utils.parameters import gethostname
+from utils.torch_load import get_same_size_by_name
 
 from .misc import load_json, save_json
 from .exceptions import NoModelError, StateFileNotFoundError

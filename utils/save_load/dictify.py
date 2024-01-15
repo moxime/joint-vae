@@ -601,7 +601,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         _r = in_out_results[s]
         for m in starred_methods:
             methods_to_be_maxed = {m_: fpr_at_tpr(_r[m_]['fpr'], _r[m_]['tpr'], tpr[0])
-                                   for m_ in _r if m_.startswith(m[:-1]) and _r[m_]['auc']}
+                                   for m_ in _r if m_.startswith(m[:-1]) and _r[m_].get('auc')}
             params_max_auc = min(methods_to_be_maxed, key=methods_to_be_maxed.get, default=None)
 
             if params_max_auc is not None:

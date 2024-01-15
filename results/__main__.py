@@ -181,6 +181,8 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
         for w in what:
             df = raw_df[k]
+            # print('***Before agg of {}***'.format(k))
+            # print(df.to_string(float_format='{:2.1f}'.format), '\n\n')
             cols = df.columns
             filtered_auc_metrics = True if keep_auc else ~cols.isin(['auc'], level='metrics')
             cols = cols[cols.isin(sets[w], level='set') & filtered_auc_metrics]
@@ -191,8 +193,8 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
 
-    print('***Before sort***')
-    print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+    # print('***Before sort***')
+    # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 
     results_df = results_df.T.groupby(results_df.columns).agg("max").T
 

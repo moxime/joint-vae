@@ -989,7 +989,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         if 'iws' in losses:
             iws = losses['iws']
-        else:
+        elif [_ for _ in methods if 'iws' in _]:
             logging.warning('Asking for iws not computed; will use elo')
             iws = -losses['total']
         if self.losses_might_be_computed_for_each_class:
@@ -1794,8 +1794,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     recorders[s].append_batch(
                         **losses, **odin_softmax, y_true=y, logits=logits.T)
 
-                logging.info('losses: ' + ' - '.join(losses))
-                logging.info('odin_softmax: ' + ' - '.join(odin_softmax))
+                logging.info('batch {}/{} losses for {} '.join(i, ood_n_batch, s) + ' - '.join(losses))
                 measures = self.batch_dist_measures(logits, dict(**losses, **odin_softmax),
                                                     ood_methods_per_set[s])
 

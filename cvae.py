@@ -1794,6 +1794,8 @@ class ClassificationVariationalNetwork(nn.Module):
                     recorders[s].append_batch(
                         **losses, **odin_softmax, y_true=y, logits=logits.T)
 
+                logging.info('losses:', '-'.join(losses))
+                logging.info('odin_softmax:', '-'.join(losses))
                 measures = self.batch_dist_measures(logits, dict(**losses, **odin_softmax),
                                                     ood_methods_per_set[s])
 

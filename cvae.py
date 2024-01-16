@@ -1617,7 +1617,6 @@ class ClassificationVariationalNetwork(nn.Module):
             num_samples = 0
             for i in range(num_batch[s]):
 
-                logging.info('recorded: {}, recording: {}'.format(recorded[s], recording[s]))
                 if not recorded[s]:
 
                     data = next(test_iterator)
@@ -1790,6 +1789,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                   if k in self.loss_components or k.startswith('odin')]
                     losses = recorders[s].get_batch(i, *components)
                     logits = recorders[s].get_batch(i, 'logits').T
+                    odin_soft_max = {}
 
                 if recording[s]:
                     recorders[s].append_batch(

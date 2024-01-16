@@ -1617,6 +1617,7 @@ class ClassificationVariationalNetwork(nn.Module):
             num_samples = 0
             for i in range(num_batch[s]):
 
+                logging.info('recorded: {}, recording: {}'.format(recorded[s], recording[s]))
                 if not recorded[s]:
 
                     data = next(test_iterator)
@@ -1794,7 +1795,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     recorders[s].append_batch(
                         **losses, **odin_softmax, y_true=y, logits=logits.T)
 
-                logging.info('batch {}/{} losses for {} '.format(i, ood_n_batch, s) + ' - '.join(losses))
+                # logging.info('batch {}/{} losses for {} '.format(i, ood_n_batch, s) + ' - '.join(losses))
                 measures = self.batch_dist_measures(logits, dict(**losses, **odin_softmax),
                                                     ood_methods_per_set[s])
 

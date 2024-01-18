@@ -248,7 +248,8 @@ def results_dataframe(models,
                 method_cols[_] = [not _ for _ in cols.isin(['first'], level='method')]
             else:
                 method_cols[_] = cols.isin(methods[_], level='method')
-
+        # print('***', _, *map(lambda s: '({})'.format(s), methods[_]), sum(method_cols[_]))
+        # print('***', _, *map(lambda s: '({})'.format(s), set([c[1] for c in cols])))
     acc_cols = cols.isin(['acc'], level='metrics') & method_cols['predict']
 
     ood_cols = cols.isin(ood_cols_set_level, level='set') & method_cols['ood']
@@ -363,7 +364,6 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         kept_levels = ['set'] + kept_levels
 
     for k, df in df_dict.items():
-
         harddebug('*** index:', df.index.names, '\ndf:\n', df[df.columns[0:6]], '\n***')
 
         if kept_cols[k] is not None:
@@ -407,8 +407,7 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         large_df.loc[average, acc_columns] = np.nan
         # large_df[acc_columns][average] = np.nan
 
-    # print('***After average***')
-    # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+    print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 
     return large_df.reorder_levels(['metrics', 'method'], axis=1)
 

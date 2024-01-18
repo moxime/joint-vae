@@ -32,6 +32,7 @@ tex_output = sys.stdout
 def process_config_file(models, config_file, filter_keys, which=['all'], keep_auc=True,
                         root=root, show_dfs=True):
 
+    config_dir = os.path.dirname(config_file)
     config = configparser.ConfigParser()
     config.read(config_file)
 
@@ -144,6 +145,9 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     for k in which_from_csv:
         csv_file = config[k]['from_csv']
+        if not os.path.exists(csv_file):
+            csv_file = os.path.join(config_dir, csv_file)
+            logging.info('Loaded {}'.format(csv_file))
         logging.info('results for {} from csv file {}'.format(k, csv_file))
         index_col = [int(_) for _ in config[k]['index_col'].split()]
         header = [int(_) for _ in config[k]['header'].split()]
@@ -168,7 +172,10 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     agg_df = {}
     kept_methods = {}
 
-    for k in raw_df:
+    # reorder
+
+    for k in which:
+        print('***', k)
         agg_df[k] = pd.DataFrame()
         kept_ood = config[k]['ood'].split()
         for o in kept_ood:
@@ -222,7 +229,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     meta_cols = ('rate', 'auc') if keep_auc else ('rate',)
     for w in meta_cols:
-        for k in raw_df:
+        for k in which:
             if (w, k) not in cols:
                 cols.append((w, k))
 

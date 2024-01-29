@@ -219,7 +219,7 @@ class WIMJob(M):
                 measures = loss_[w][m_] - loss_[w][m_ + '@']
 
             wim_measures[m] = measures.cpu() if to_cpu else measures
-
+            logging.debug('{}: {}'.format(m, ', '.join(map(str, measures.shape))))
         dist_measures.update(wim_measures)
 
         losses.pop('elbo', None)

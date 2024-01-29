@@ -1663,11 +1663,11 @@ class ClassificationVariationalNetwork(nn.Module):
                                                     ood_methods_per_set[s])
 
                 for m in ood_methods_per_set[s]:
-                    w_str = '*** ood {} {} - {}'.format(m,
-                                                        ' '.join(map(str, ind_measures[m].shape)),
-                                                        ' '.join(map(str, measures[m].shape)))
-                    # print('*** ood', m, *ind_measures[m].shape, ',', *measures[m].shape)
-                    logging.error(w_str)
+                    # w_str = '*** ood {} {} - {}'.format(m,
+                    #                                     ' '.join(map(str, ind_measures[m].shape)),
+                    #                                     ' '.join(map(str, measures[m].shape)))
+                    # # print('*** ood', m, *ind_measures[m].shape, ',', *measures[m].shape)
+                    # logging.error(w_str)
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])
 

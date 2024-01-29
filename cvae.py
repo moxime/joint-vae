@@ -1667,7 +1667,7 @@ class ClassificationVariationalNetwork(nn.Module):
                                                         ' '.join(map(str, ind_measures[m].shape)),
                                                         ' '.join(map(str, measures[m].shape)))
                     # print('*** ood', m, *ind_measures[m].shape, ',', *measures[m].shape)
-                    logging.errer(w_str)
+                    logging.error(w_str)
                     ind_measures[m] = np.concatenate([ind_measures[m],
                                                       measures[m].cpu()])
 

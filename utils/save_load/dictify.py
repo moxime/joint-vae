@@ -770,7 +770,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     wim_mean = wim.get('mean_shift') or wim.get('init_mean')
     wim_mix = wim.get('mix')
     wim_augmentation = wim.get('augmentation', 0.)
-    wim_augmentation_dataset = wim.get('augmentation_dataset')
+    wim_augmentation_dataset = '-'.join(sorted(wim.get('augmentation_sets', []))) or None
     wim_augmentation_str = wim_augmentation_dataset and '{}+{:.0%}'.format(wim_augmentation_dataset,
                                                                            wim_augmentation)
 

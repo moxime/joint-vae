@@ -53,6 +53,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--augmentation', type=float, nargs='?', const=1.0, default=0.)
 
+    parser.add_argument('--augmentation-sets', nargs='*')
+
     parser.add_argument('--test-batch-size', type=int)
 
     parser.add_argument('--prior', choices=['gaussian', 'tilted', 'uniform'])
@@ -156,6 +158,7 @@ if __name__ == '__main__':
                    alpha=args.alpha,
                    ood_mix=args.mix,
                    augmentation=args.augmentation,
+                   augmentation_sets=args.augmentation_sets,
                    optimizer=optimizer,
                    outputs=outputs,
                    do_it=not args.shell_for_array

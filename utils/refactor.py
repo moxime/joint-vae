@@ -158,6 +158,7 @@ def load_and_save_json(directory,
                        json_file,
                        key,
                        new_key=None,
+                       to_list=False,
                        old_value=None,
                        new_value=None,
                        recursive=True,
@@ -190,7 +191,11 @@ def load_and_save_json(directory,
                 # print('r', write_json, name, '\n', t)
             if new_key:
                 v = t.pop(key)
-                t[new_key] = v
+                if to_list:
+                    t[new_key] = [v] if v else []
+                    pass
+                else:
+                    t[new_key] = v
                 print(' ->', new_key, ':',
                       t[new_key], '*' if write_json else '')
             if write_json:
@@ -207,6 +212,7 @@ def load_and_save_json(directory,
         for d in dirs:
             load_and_save_json(d, json_file, key,
                                new_key=new_key,
+                               to_list=to_list,
                                old_value=old_value,
                                new_value=new_value,
                                recursive=recursive,
@@ -505,4 +511,6 @@ if __name__ == '__main__':
     # add_default_values_to_registered_models(args.job_dir, write_json=args.write,
     #                                         wim_augmentation=0., wim_augmentation_dataset=None)
 
-    reset_wim_arrays(args.job_dir, do_it=args.write)
+    # reset_wim_arrays(args.job_dir, do_it=args.write)
+    load_and_save_json(args.job_dir, 'wim.json', 'augmentation_dataset',
+                       new_key='augmentation_sets', to_list=True, write_json=args.write)

@@ -277,5 +277,5 @@ if __name__ == '__main__':
 
     with open(os.path.join(args.target_job_dir, 'unprocessed'), 'w') as f:
         for j in wim_jobs:
-            f.write(j)
+            f.write(j['job'])
             f.write('\n')

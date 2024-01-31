@@ -170,7 +170,8 @@ if __name__ == '__main__':
             logging.warning('Already {} similar arrays')
             for _ in jobs_alike:
                 logging.info('{}'.format(_['job']))
-        return
+
+        sys.exit(0)
 
     model.save(model.saved_dir)
     logging.info('model saved in {}'.format(model.saved_dir))

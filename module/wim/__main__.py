@@ -164,5 +164,13 @@ if __name__ == '__main__':
                    do_it=not args.shell_for_array
                    )
 
+    if args.shell_for_array:
+        jobs_alike = model.fetch_jobs_alike(job_dir=args.target_job_dir)
+        if jobs_alike:
+            logging.warning('Already {} similar arrays')
+            for _ in jobs_alike:
+                logging.info('{}'.format(_['job']))
+        return
+
     model.save(model.saved_dir)
     logging.info('model saved in {}'.format(model.saved_dir))

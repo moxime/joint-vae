@@ -282,11 +282,11 @@ class WIMJob(M):
 
         return model
 
-    def save(self, *a, **kw):
+    def save(self, *a, except_state=True, **kw):
         logging.debug('Saving wim model')
         kw['except_optimizer'] = True
         with self.original_prior:
-            dir_name = super().save(*a, **kw)
+            dir_name = super().save(*a, except_state=except_state, **kw)
         save_json(self.wim_params, dir_name, 'wim.json')
         logging.debug('Model saved in {}'.format(dir_name))
         return dir_name

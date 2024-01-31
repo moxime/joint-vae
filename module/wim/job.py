@@ -332,7 +332,7 @@ class WIMJob(M):
         if not augmentation_sets:
             augmentation_sets = ['uniform']
 
-        augmentation_sets = [default_augmentation_sets.get(_, _) for _ in default_augmentation_sets]
+        augmentation_sets = [default_augmentation_sets.get(_, _) for _ in augmentation_sets]
 
         if not augmentation:
             self.wim_params['augmentation_sets'] = []

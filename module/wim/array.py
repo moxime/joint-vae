@@ -275,7 +275,7 @@ if __name__ == '__main__':
 
     logging.warning('{} processed and {} unprocessed jobs'.format(len(processed_jobs), len(wim_jobs)))
 
-    with open(os.path.join(args.target_job_dir, 'unprocessed'), 'w') as f:
+    with open(os.path.join(args.target_job_dir, 'unprocessed-{}'.format(args.from_job)), 'w') as f:
         for j in wim_jobs:
             f.write(str(j['job']))
             f.write('\n')

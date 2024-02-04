@@ -1077,24 +1077,18 @@ if __name__ == '__main__':
     # plt.set_loglevel(level='warning')
     # import time
 
-    # _, s1 = get_dataset('cifar10', splits=['test'])
+    data = 'cifar10'
+    data = 'svhn'
 
-    # _, s2 = get_dataset('lsunr', splits=['test'])
+    for data in ('cifar10', 'svhn'):
 
-    # s = MixtureDataset(ind=s1, ood=s2)
+        dset, _ = get_dataset(data, splits=['train'])
 
-    # s.rename('t', 'u')
+        batch = get_batch(dset, batch_size=int(1e6))[0]
 
-    # for _ in range(10):
+        print('{}: {} samples'.format(data, batch.shape[0]))
 
-    #     i = np.random.randint(len(s))
-    #     x, y = s[i]
+        mean, std = batch.mean((0, 2, 3)), batch.std((0, 2, 3))
 
-    #     print('{:7}: {}'.format(i, s.classes[y]))
-    t0 = time.time()
-    for i in range(1000):
-        set_props = dataset_properties('data/sets.ini')
-        # _ = get_shape_by_name('cifar10')
-    t = time.time() - t0
-
-    print('*** {:.3f}'.format(t * 1000 / 1000))
+        for k, v in zip(('mean', 'std'), (mean, std)):
+            print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))

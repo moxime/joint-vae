@@ -246,7 +246,7 @@ if __name__ == '__main__':
             wim_array = WIMArray.load(model_subdir(array), load_state=False)
         wim_jobs_alike = wim_array.fetch_jobs_alike(models=wim_jobs)
         if not wim_jobs_alike:
-            logging.info('Skipping wim array {}, no jobs alike'.format(i))
+            logging.info('Skipping wim array {}, no jobs alike (among {})'.format(i, len(wim_jobs)))
             continue
 
         """

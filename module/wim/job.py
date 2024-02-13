@@ -23,7 +23,7 @@ class WIMJob(M):
     ood_methods_per_type = {'vae': ['zdist', 'elbo', 'kl'],
                             'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@',
                                      'elbo', 'elbo~', 'elbo@', 'elbo~@']}
-    predict_methods_per_type = {'vae': [], 'cvae': ['already']}
+    predict_methods_per_type = {'vae': [], 'cvae': ['esty', 'already']}
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
 

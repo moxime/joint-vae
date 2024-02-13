@@ -531,6 +531,8 @@ def create_filter_parser(default_ini_file='utils/filters.ini', **kw):
 
     parser = argparse.ArgumentParser(**kw)
 
+    filter_group = parser.add_argument_group('filters')
+
     config = configparser.ConfigParser()
 
     config.read(default_ini_file)
@@ -567,10 +569,10 @@ def create_filter_parser(default_ini_file='utils/filters.ini', **kw):
         if k in metavars:
             metavar = metavars[k]
 
-        parser.add_argument(*argnames[k], dest=dests.get(k),
-                            default=defaults.get(k),
-                            type=argtype, nargs=nargs,
-                            metavar=metavar, action=FilterAction)
+        filter_group.add_argument(*argnames[k], dest=dests.get(k),
+                                  default=defaults.get(k),
+                                  type=argtype, nargs=nargs,
+                                  metavar=metavar, action=FilterAction)
 
     return parser
 

@@ -269,7 +269,7 @@ class GaussianPrior(nn.Module):
         if prior_trans.isnan().any():
 
             print('*** STOPPIN')
-            torch.save(self.state_dict(), '/tmp/prior.pth')
+            torch.save(self.state_dict(), '~/prior.pth')
             return
 
         loss_components = {}

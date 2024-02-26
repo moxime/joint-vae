@@ -267,7 +267,10 @@ class GaussianPrior(nn.Module):
         prior_trans = self.inv_trans
 
         if prior_trans.isnan().any():
+
             print('*** STOPPIN')
+            np.set_printoptions(precision=1, threshold=10000)
+            print(prior_trans.diag().to('cpu').numpy())
             return
 
         loss_components = {}

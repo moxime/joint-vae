@@ -269,8 +269,7 @@ class GaussianPrior(nn.Module):
         if prior_trans.isnan().any():
 
             print('*** STOPPIN')
-            np.set_printoptions(precision=1, threshold=10000)
-            print(prior_trans.diag().to('cpu').numpy())
+            torch.save(self.state_dict(), '/tmp/prior.pth')
             return
 
         loss_components = {}

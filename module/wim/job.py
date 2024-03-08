@@ -375,7 +375,7 @@ class WIMJob(M):
                               for _ in augmentation_sets}
 
         try:
-            subset_idx_shift_key = self.job_number % 100 + 7
+            subset_idx_shift_key = self.job_number % 100000 + 7
         except AttributeError:
             logging.warning('Will not attribute a pseudo randomization on subsets indices')
             subset_idx_shift_key = 0

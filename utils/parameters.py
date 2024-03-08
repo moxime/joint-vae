@@ -404,7 +404,7 @@ def get_args_for_results(argv=None):
 
     logging.debug('Defaults:')
     for k in defaults:
-        logging.debug(k, defaults[k])
+        logging.debug('{}: {}'.format(k, defaults[k]))
 
     parser.add_argument('--load-dir',
                         default=None)

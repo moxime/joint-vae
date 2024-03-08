@@ -299,6 +299,9 @@ class SubSampledDataset(Dataset):
         self.maxlength = len(dataset)
         self.shrink(length)
 
+        rng = np.random.default_rng(self._shift_key)
+        self._shifts = rng.integers(0, self._sample_every, self._length)
+
         try:
             self.classes = dataset.classes
         except AttributeError:
@@ -328,7 +331,7 @@ class SubSampledDataset(Dataset):
         if idx >= self._length:
             raise IndexError
         if self._shift_key:
-            shift = (self._shift_key ** (idx + 7)) % self._sample_every
+            shift = self._shifts[idx]
         else:
             shift = 0
         return self._dataset[idx * self._sample_every_coarse // self.COARSE + shift]

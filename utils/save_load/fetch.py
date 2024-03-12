@@ -13,6 +13,15 @@ from .exceptions import NoModelError, StateFileNotFoundError
 from .dictify import make_dict_from_model
 
 
+class NoLock(object):
+
+    def __enter__(self):
+        logging.info('Already lock, doing nothing')
+
+    def __exit__(self, *args):
+        pass
+
+
 def lock_models_file_in(arg):
 
     def lock_models_file(func):
@@ -24,7 +33,6 @@ def lock_models_file_in(arg):
             with lock:
                 logging.info('Acquired lock in {}'.format(dir_path))
                 return func(*a, **kw)
-            logging.info('Releasing lock in {}'.format(dir_path))
 
         return modified_func
 
@@ -106,55 +114,61 @@ def load_model(d, **kw):
     return M.load(d, **kw)
 
 
-def _collect_models(search_dir, registered_models_file=None):
+def _collect_models(search_dir, registered_models_file=None, lock_file=True):
     from cvae import ClassificationVariationalNetwork as M
     from module.wim import WIMJob as W
 
-    if not registered_models_file:
-        registered_models_file = 'models-{}.json'.format(gethostname())
+    if lock_file:
+        lock = FileLock(os.path.join(search_dir, 'lock'))
+    else:
+        lock = NoLock()
 
-    try:
-        rmodels = load_json(search_dir, registered_models_file)
-    except FileNotFoundError:
-        _ws = '{} not found, this will take time to register models'
-        logging.warning(_ws.format(registered_models_file))
-        rmodels = {}
+    with lock:
+        if not registered_models_file:
+            registered_models_file = 'models-{}.json'.format(gethostname())
 
-    models_to_be_deleted = list(rmodels)
-    models_to_be_registered = []
+        try:
+            rmodels = load_json(search_dir, registered_models_file)
+        except FileNotFoundError:
+            _ws = '{} not found, this will take time to register models'
+            logging.warning(_ws.format(registered_models_file))
+            rmodels = {}
 
-    n_models = 0
+        models_to_be_deleted = list(rmodels)
+        models_to_be_registered = []
 
-    for directory, _, files in os.walk(search_dir, followlinks=True):
+        n_models = 0
 
-        if 'params.json' in files and 'deleted' not in files:
-            n_models += 1
-            if directory in models_to_be_deleted:
-                models_to_be_deleted.remove(directory)
-            else:
-                logging.debug(f'Loading net in: {directory}')
-                if W.is_wim(directory):
-                    model = W.load(directory, build_module=False, load_state=False)
+        for directory, _, files in os.walk(search_dir, followlinks=True):
+
+            if 'params.json' in files and 'deleted' not in files:
+                n_models += 1
+                if directory in models_to_be_deleted:
+                    models_to_be_deleted.remove(directory)
                 else:
-                    model = M.load(directory, build_module=False, load_state=False)
+                    logging.debug(f'Loading net in: {directory}')
+                    if W.is_wim(directory):
+                        model = W.load(directory, build_module=False, load_state=False)
+                    else:
+                        model = M.load(directory, build_module=False, load_state=False)
 
-                models_to_be_registered.append(make_dict_from_model(model, directory))
+                    models_to_be_registered.append(make_dict_from_model(model, directory))
 
-    logging.log(logging.INFO if models_to_be_deleted else logging.DEBUG,
-                '{} models seem to have been deleted sincde last time'.format(len(models_to_be_deleted)))
-    logging.log(logging.INFO if models_to_be_registered else logging.DEBUG,
-                '{} models have to be registered'.format(len(models_to_be_registered)))
+        logging.log(logging.INFO if models_to_be_deleted else logging.DEBUG,
+                    '{} models seem to have been deleted sincde last time'.format(len(models_to_be_deleted)))
+        logging.log(logging.INFO if models_to_be_registered else logging.DEBUG,
+                    '{} models have to be registered'.format(len(models_to_be_registered)))
 
-    for m in models_to_be_deleted:
-        rmodels.pop(m)
+        for m in models_to_be_deleted:
+            rmodels.pop(m)
 
-    rkeys = get_filter_keys()
+        rkeys = get_filter_keys()
 
-    rmodels.update(_register_models(models_to_be_registered, *rkeys))
+        rmodels.update(_register_models(models_to_be_registered, *rkeys))
 
-    save_json(rmodels, search_dir, registered_models_file)
+        save_json(rmodels, search_dir, registered_models_file)
 
-    return rmodels
+        return rmodels
 
 
 @lock_models_file_in(0)
@@ -203,7 +217,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
     if not flash:
         # logging.debug('Collecting networks in {}'.format(search_dir))
         with turnoff_debug(turnoff=not show_debug):
-            rmodels = _collect_models(search_dir, registered_models_file)
+            rmodels = _collect_models(search_dir, registered_models_file, lock_file=False)
             # logging.info('Collected {} models'.format(len(rmodels)))
 
         return fetch_models(search_dir, registered_models_file,

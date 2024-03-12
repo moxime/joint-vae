@@ -1,4 +1,5 @@
 import os
+from filelock import FileLock
 import logging
 import torch
 import functools
@@ -10,6 +11,24 @@ from utils.torch_load import get_same_size_by_name
 from .misc import load_json, save_json
 from .exceptions import NoModelError, StateFileNotFoundError
 from .dictify import make_dict_from_model
+
+
+def lock_models_file_in(arg):
+
+    def lock_models_file(func):
+
+        def modified_func(*a, **kw):
+            dir_path = a[arg]
+            lock = FileLock(os.path.join(dir_path, 'lock'))
+            logging.info('Acquiring lock in {}'.format(dir_path))
+            with lock:
+                logging.info('Acquired lock in {}'.format(dir_path))
+                return func(*a, **kw)
+            logging.info('Releasing lock in {}'.format(dir_path))
+
+        return modified_func
+
+    return lock_models_file
 
 
 def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False,
@@ -58,8 +77,8 @@ def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False,
 
 
 def _register_models(models, *keys):
-    """
-    Register the models in a dictionary that will be later recorded in a json file
+    """Register the models in a dictionary that will be later
+    recorded in a json file
 
     """
     d = {}
@@ -70,6 +89,10 @@ def _register_models(models, *keys):
 
 
 def load_model(d, **kw):
+    """Load a model that can be either a CVAE, a WIM_Job or a wim_array
+
+    """
+
     from cvae import ClassificationVariationalNetwork as M
     from module.wim import WIMJob as WJ
     from module.wim.array import WIMArray as WA
@@ -83,7 +106,7 @@ def load_model(d, **kw):
     return M.load(d, **kw)
 
 
-def collect_models(search_dir, registered_models_file=None):
+def _collect_models(search_dir, registered_models_file=None):
     from cvae import ClassificationVariationalNetwork as M
     from module.wim import WIMJob as W
 
@@ -93,7 +116,8 @@ def collect_models(search_dir, registered_models_file=None):
     try:
         rmodels = load_json(search_dir, registered_models_file)
     except FileNotFoundError:
-        logging.warning('{} not found, this will take time to register models'.format(registered_models_file))
+        _ws = '{} not found, this will take time to register models'
+        logging.warning(_ws.format(registered_models_file))
         rmodels = {}
 
     models_to_be_deleted = list(rmodels)
@@ -133,6 +157,7 @@ def collect_models(search_dir, registered_models_file=None):
     return rmodels
 
 
+@lock_models_file_in(0)
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
                  light=False,
                  tpr=0.95,
@@ -144,10 +169,13 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
     Params:
 
     -- flash: if True, takes the models from registered_models_file.
+
     -- light: does not remake dictionay for models (faster)
-    -- kw: args pushed to load function (eg. load_state)
+
+    -- kw: args pushed to load function(eg. load_state)
 
     """
+
     logging.debug('Fetching models from {} (flash={})'.format(search_dir, flash))
 
     if not registered_models_file:
@@ -158,7 +186,8 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
             rmodels = load_json(search_dir, registered_models_file)
             # logging.info('Json loaded from {}'.format(registered_models_file))
             with turnoff_debug(turnoff=not show_debug):
-                mlist = _gather_registered_models(rmodels, filter, tpr=tpr, build_module=build_module,
+                mlist = _gather_registered_models(rmodels, filter,
+                                                  tpr=tpr, build_module=build_module,
                                                   light=light, **kw)
             logging.debug('Gathered {} models'.format(len(mlist)))
             return mlist
@@ -174,10 +203,11 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
     if not flash:
         # logging.debug('Collecting networks in {}'.format(search_dir))
         with turnoff_debug(turnoff=not show_debug):
-            rmodels = collect_models(search_dir, registered_models_file)
+            rmodels = _collect_models(search_dir, registered_models_file)
             # logging.info('Collected {} models'.format(len(rmodels)))
 
-        return fetch_models(search_dir, registered_models_file, filter=filter, flash=True, light=light,
+        return fetch_models(search_dir, registered_models_file,
+                            filter=filter, flash=True, light=light,
                             tpr=tpr, build_module=build_module, **kw)
 
 
@@ -205,42 +235,6 @@ def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', ligh
             logging.debug('Not keeping {}'.format(d[-100:]))
     logging.debug('Gathered {} models'.format(len(mlist)))
     return mlist
-
-
-@ iterable_over_subdirs(0, iterate_over_subdirs=list)
-def _collect_thoroughly_models(directory,
-                               wanted_epoch='last',
-                               load_state=True, tpr=0.95, **default_load_paramaters):
-
-    from cvae import ClassificationVariationalNetwork as M
-    from module.wim import WIMJob as W
-
-    if 'dump' in directory:
-        return
-
-    assert wanted_epoch == 'last' or not load_state
-
-    try:
-        logging.debug(f'Loading net in: {directory}')
-        if W.is_wim(directory):
-            model = W.load(directory, load_state=load_state, **default_load_paramaters)
-        else:
-            model = M.load(directory, load_state=load_state, **default_load_paramaters)
-
-        return make_dict_from_model(model, directory, tpr=tpr, wanted_epoch=wanted_epoch)
-
-    except FileNotFoundError:
-        return
-    except PermissionError:
-        return
-    except NoModelError:
-        return
-    except StateFileNotFoundError:
-        raise
-
-    except RuntimeError as e:
-        logging.warning(f'Load error in {directory} see log file')
-        logging.debug(f'Load error: {e}')
 
 
 def is_derailed(model, load_model_for_check=False):
@@ -286,53 +280,6 @@ def find_by_job_number(*job_numbers, job_dir='jobs',
     return d if len(job_numbers) > 1 or force_dict else d.get(job_numbers[0])
 
 
-def get_path_from_input(dir_path=os.getcwd(), count_nets=True):
-
-    rel_paths = os.listdir(dir_path)
-    abs_paths = [os.path.join(dir_path, d) for d in rel_paths]
-    sub_dirs_rel_paths = [rel_paths[i] for i, d in enumerate(abs_paths) if os.path.isdir(d)]
-    print(f'<enter>: choose {dir_path}', end='')
-    if count_nets:
-        list_of_nets = _collect_thoroughly_models(dir_path, build_module=False)
-        num_of_nets = len(list_of_nets)
-        print(f' ({num_of_nets} networks)')
-    else:
-        print()
-
-    for i, d in enumerate(sub_dirs_rel_paths):
-        print(f'{i+1:2d}: enter {d}', end='')
-        if count_nets:
-            list_of_nets = _collect_thoroughly_models(os.path.join(dir_path, d), build_module=False)
-            num_of_nets = len(list_of_nets)
-            print(f' ({num_of_nets} networks)')
-        else:
-            print()
-
-    print(' p: return to ..')
-    input_string = input('Your choice: ')
-    try:
-        i = int(input_string)
-        is_int = True
-    except ValueError:
-        i = input_string
-        is_int = False
-
-    if is_int:
-        if 0 < i < len(sub_dirs_rel_paths) + 1:
-            return get_path_from_input(dir_path=os.path.join(dir_path,
-                                                             sub_dirs_rel_paths[i - 1]))
-        else:
-            return get_path_from_input(dir_path)
-    elif i == '':
-        return dir_path
-    elif i == 'p':
-        path = os.path.join(dir_path, os.pardir)
-        path = os.path.abspath(path)
-        return get_path_from_input(path)
-    else:
-        return get_path_from_input(dir_path)
-
-
 def needed_remote_files(*mdirs, epoch='last', which_rec='all',
                         state=False,
                         optimizer=False,
@@ -341,7 +288,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
 
     -- mdirs: list of directories
 
-    -- epoch: last or min-loss or int
+    -- epoch: last or min - loss or int
 
     -- which_rec: either 'none' 'ind' or 'all'
 

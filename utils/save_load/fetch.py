@@ -120,60 +120,59 @@ def _collect_models(search_dir, registered_models_file=None):
 
     lock = FileLock(os.path.join(search_dir, 'lock'))
 
-    with lock:
-        if not registered_models_file:
-            registered_models_file = 'models-{}.json'.format(gethostname())
+    if not registered_models_file:
+        registered_models_file = 'models-{}.json'.format(gethostname())
 
-        try:
-            rmodels = load_json(search_dir, registered_models_file)
-        except FileNotFoundError:
-            _ws = '{} not found, this will take time to register models'
-            logging.warning(_ws.format(registered_models_file))
-            rmodels = {}
+    try:
+        rmodels = load_json(search_dir, registered_models_file)
+    except FileNotFoundError:
+        _ws = '{} not found, this will take time to register models'
+        logging.warning(_ws.format(registered_models_file))
+        rmodels = {}
 
-        models_to_be_deleted = list(rmodels)
-        models_to_be_registered = []
+    models_to_be_deleted = list(rmodels)
+    models_to_be_registered = []
 
-        n_models = 0
+    n_models = 0
 
-        for directory, _, files in os.walk(search_dir, followlinks=True):
+    for directory, _, files in os.walk(search_dir, followlinks=True):
 
-            if 'params.json' in files and 'deleted' not in files:
-                n_models += 1
-                if directory in models_to_be_deleted:
-                    models_to_be_deleted.remove(directory)
+        if 'params.json' in files and 'deleted' not in files:
+            n_models += 1
+            if directory in models_to_be_deleted:
+                models_to_be_deleted.remove(directory)
+            else:
+                logging.debug(f'Loading net in: {directory}')
+                if W.is_wim(directory):
+                    model = W.load(directory, build_module=False, load_state=False)
                 else:
-                    logging.debug(f'Loading net in: {directory}')
-                    if W.is_wim(directory):
-                        model = W.load(directory, build_module=False, load_state=False)
-                    else:
-                        model = M.load(directory, build_module=False, load_state=False)
+                    model = M.load(directory, build_module=False, load_state=False)
 
-                    models_to_be_registered.append(make_dict_from_model(model, directory))
+                models_to_be_registered.append(make_dict_from_model(model, directory))
 
-        logging.log(logging.INFO if models_to_be_deleted else logging.DEBUG,
-                    '{} models seem to have been deleted sincde last time'.format(len(models_to_be_deleted)))
-        logging.log(logging.INFO if models_to_be_registered else logging.DEBUG,
-                    '{} models have to be registered'.format(len(models_to_be_registered)))
+    logging.log(logging.INFO if models_to_be_deleted else logging.DEBUG,
+                '{} models seem to have been deleted sincde last time'.format(len(models_to_be_deleted)))
+    logging.log(logging.INFO if models_to_be_registered else logging.DEBUG,
+                '{} models have to be registered'.format(len(models_to_be_registered)))
 
-        for m in models_to_be_deleted:
-            rmodels.pop(m)
+    for m in models_to_be_deleted:
+        rmodels.pop(m)
 
-        rkeys = get_filter_keys()
+    rkeys = get_filter_keys()
 
-        rmodels.update(_register_models(models_to_be_registered, *rkeys))
+    rmodels.update(_register_models(models_to_be_registered, *rkeys))
 
-        save_json(rmodels, search_dir, registered_models_file)
+    save_json(rmodels, search_dir, registered_models_file)
 
-        return rmodels
+    return rmodels
 
 
-@lock_models_file_in(0)
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
                  light=False,
                  tpr=0.95,
                  build_module=False,
                  show_debug=False,
+                 lock_file=True,
                  **kw):
     """Fetches models matching filter.
 
@@ -189,37 +188,43 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
 
     logging.debug('Fetching models from {} (flash={})'.format(search_dir, flash))
 
-    if not registered_models_file:
-        registered_models_file = 'models-{}.json'.format(gethostname())
-    if flash:
-        logging.debug('Flash collecting networks in {}'.format(search_dir))
-        try:
-            rmodels = load_json(search_dir, registered_models_file)
-            # logging.info('Json loaded from {}'.format(registered_models_file))
+    if lock_file:
+        lock = FileLock(os.path.join(search_dir, 'lock'))
+    else:
+        lock = NoLock()
+    with lock:
+
+        if not registered_models_file:
+            registered_models_file = 'models-{}.json'.format(gethostname())
+        if flash:
+            logging.debug('Flash collecting networks in {}'.format(search_dir))
+            try:
+                rmodels = load_json(search_dir, registered_models_file)
+                # logging.info('Json loaded from {}'.format(registered_models_file))
+                with turnoff_debug(turnoff=not show_debug):
+                    mlist = _gather_registered_models(rmodels, filter,
+                                                      tpr=tpr, build_module=build_module,
+                                                      light=light, **kw)
+                logging.debug('Gathered {} models'.format(len(mlist)))
+                return mlist
+
+            except StateFileNotFoundError as e:
+                raise e
+
+            except FileNotFoundError as e:
+                # except (FileNotFoundError, NoModelError) as e:
+                logging.warning('{} not found, will recollect networks'.format(e.filename))
+                flash = False
+
+        if not flash:
+            # logging.debug('Collecting networks in {}'.format(search_dir))
             with turnoff_debug(turnoff=not show_debug):
-                mlist = _gather_registered_models(rmodels, filter,
-                                                  tpr=tpr, build_module=build_module,
-                                                  light=light, **kw)
-            logging.debug('Gathered {} models'.format(len(mlist)))
-            return mlist
+                rmodels = _collect_models(search_dir, registered_models_file)
+                # logging.info('Collected {} models'.format(len(rmodels)))
 
-        except StateFileNotFoundError as e:
-            raise e
-
-        except FileNotFoundError as e:
-            # except (FileNotFoundError, NoModelError) as e:
-            logging.warning('{} not found, will recollect networks'.format(e.filename))
-            flash = False
-
-    if not flash:
-        # logging.debug('Collecting networks in {}'.format(search_dir))
-        with turnoff_debug(turnoff=not show_debug):
-            rmodels = _collect_models(search_dir, registered_models_file)
-            # logging.info('Collected {} models'.format(len(rmodels)))
-
-        return fetch_models(search_dir, registered_models_file,
-                            filter=filter, flash=True, light=light,
-                            tpr=tpr, build_module=build_module, **kw)
+            return fetch_models(search_dir, registered_models_file,
+                                filter=filter, flash=True, light=light,
+                                tpr=tpr, build_module=build_module, lock_file=False, **kw)
 
 
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', light=False, **kw):

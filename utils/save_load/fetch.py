@@ -22,21 +22,21 @@ class NoLock(object):
         pass
 
 
-def lock_models_file_in(arg):
+# def lock_models_file_in(arg):
 
-    def lock_models_file(func):
+#     def lock_models_file(func):
 
-        def modified_func(*a, **kw):
-            dir_path = a[arg]
-            lock = FileLock(os.path.join(dir_path, 'lock'))
-            logging.info('Acquiring lock in {}'.format(dir_path))
-            with lock:
-                logging.info('Acquired lock in {}'.format(dir_path))
-                return func(*a, **kw)
+#         def modified_func(*a, **kw):
+#             dir_path = a[arg]
+#             lock = FileLock(os.path.join(dir_path, 'lock'))
+#             logging.info('Acquiring lock in {}'.format(dir_path))
+#             with lock:
+#                 logging.info('Acquired lock in {}'.format(dir_path))
+#                 return func(*a, **kw)
 
-        return modified_func
+#         return modified_func
 
-    return lock_models_file
+#     return lock_models_file
 
 
 def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False,
@@ -114,14 +114,11 @@ def load_model(d, **kw):
     return M.load(d, **kw)
 
 
-def _collect_models(search_dir, registered_models_file=None, lock_file=True):
+def _collect_models(search_dir, registered_models_file=None):
     from cvae import ClassificationVariationalNetwork as M
     from module.wim import WIMJob as W
 
-    if lock_file:
-        lock = FileLock(os.path.join(search_dir, 'lock'))
-    else:
-        lock = NoLock()
+    lock = FileLock(os.path.join(search_dir, 'lock'))
 
     with lock:
         if not registered_models_file:
@@ -217,7 +214,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
     if not flash:
         # logging.debug('Collecting networks in {}'.format(search_dir))
         with turnoff_debug(turnoff=not show_debug):
-            rmodels = _collect_models(search_dir, registered_models_file, lock_file=False)
+            rmodels = _collect_models(search_dir, registered_models_file)
             # logging.info('Collected {} models'.format(len(rmodels)))
 
         return fetch_models(search_dir, registered_models_file,

@@ -150,6 +150,7 @@ class WIMArray(WIMJob):
     @ classmethod
     def collect_processed_jobs(cls, job_dir, flash=False):
 
+        logging.info('Collect processed jobs in {}'.format(job_dir))
         jobs = []
         models = fetch_models(job_dir, flash=flash)
         for m in models:

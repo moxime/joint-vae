@@ -151,7 +151,7 @@ class WIMArray(WIMJob):
     def collect_processed_jobs(cls, job_dir, flash=False):
 
         jobs = []
-        models = fetch_models(job_dir, flash=False)
+        models = fetch_models(job_dir, flash=flash)
         for m in models:
             try:
                 with open(model_subdir(m, JOB_FILE_NAME)) as f:

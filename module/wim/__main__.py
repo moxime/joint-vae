@@ -188,7 +188,7 @@ if __name__ == '__main__':
         with turnoff_debug():
             wim_array = WIMArray.load(array_dir, load_state=False)
 
-        wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.array_job_dir)
+        wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.wim_job_dir)
         wim_jobs = wim_array.fetch_jobs_alike(args.wim_job_dir)
 
         wim_jobs = [_ for _ in wim_jobs if model_subdir(_) not in wim_jobs_already_processed]

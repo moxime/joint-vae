@@ -178,11 +178,11 @@ if __name__ == '__main__':
         arrays_alike = model.fetch_jobs_alike(job_dir=args.array_job_dir, flash=False)
         if arrays_alike:
             logging.warning('Already {} similar arrays'.format(len(arrays_alike)))
-            for _ in arrays_alike:
-                logging.info('{}'.format(_['job']))
+            logging.info('Similar arrays: {}'.format(','.join(map(str, _['job'] for _ in arrays_alike))))
             kept_wim_array = min(arrays_alike, key=lambda j: j['job'])
-
             array_dir = kept_wim_array['dir']
+            logging.warning('Processing array {}'.format(kept_wim_array['job']))
+
         else:
             array_dir = model.saved_dir
 

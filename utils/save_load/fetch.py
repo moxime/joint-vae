@@ -126,8 +126,6 @@ def _collect_models(search_dir, registered_models_file=None):
     from cvae import ClassificationVariationalNetwork as M
     from module.wim import WIMJob as W
 
-    lock = FileLock(os.path.join(search_dir, 'lock'))
-
     if not registered_models_file:
         registered_models_file = 'models-{}.json'.format(gethostname())
 
@@ -181,7 +179,6 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
                  tpr=0.95,
                  build_module=False,
                  show_debug=False,
-                 lock_file=True,
                  **kw):
     """Fetches models matching filter.
 
@@ -197,46 +194,37 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
 
     logging.debug('Fetching models from {} (flash={})'.format(search_dir, flash))
 
-    # if lock_file:
-    #     lock = FileLock(os.path.join(search_dir, 'lock-rmodels'))
-    # else:
-    lock = NoLock()
-    with lock:
-
-        logging.info('Acquired lock on {}'.format(lock.lock_file))
-        if not registered_models_file:
-            registered_models_file = 'models-{}.json'.format(gethostname())
-        if flash:
-            logging.debug('Flash collecting networks in {}'.format(search_dir))
-            try:
-                rmodels = load_json(search_dir, registered_models_file)
-                # logging.info('Json loaded from {}'.format(registered_models_file))
-                with turnoff_debug(turnoff=not show_debug):
-                    mlist = _gather_registered_models(rmodels, filter,
-                                                      tpr=tpr, build_module=build_module,
-                                                      light=light, **kw)
-                logging.debug('Gathered {} models'.format(len(mlist)))
-                logging.info('Releasing lock on {}'.format(lock.lock_file))
-                return mlist
-
-            except StateFileNotFoundError as e:
-                raise e
-
-            except FileNotFoundError as e:
-                # except (FileNotFoundError, NoModelError) as e:
-                logging.warning('{} not found, will recollect networks'.format(e.filename))
-                flash = False
-
-        if not flash:
-            # logging.debug('Collecting networks in {}'.format(search_dir))
+    if not registered_models_file:
+        registered_models_file = 'models-{}.json'.format(gethostname())
+    if flash:
+        logging.debug('Flash collecting networks in {}'.format(search_dir))
+        try:
+            rmodels = load_json(search_dir, registered_models_file)
+            # logging.info('Json loaded from {}'.format(registered_models_file))
             with turnoff_debug(turnoff=not show_debug):
-                rmodels = _collect_models(search_dir, registered_models_file)
-                # logging.info('Collected {} models'.format(len(rmodels)))
+                mlist = _gather_registered_models(rmodels, filter,
+                                                  tpr=tpr, build_module=build_module,
+                                                  light=light, **kw)
+            logging.debug('Gathered {} models'.format(len(mlist)))
+            return mlist
 
-            logging.info('Releasing lock on {}'.format(lock.lock_file))
-            return fetch_models(search_dir, registered_models_file,
-                                filter=filter, flash=True, light=light,
-                                tpr=tpr, build_module=build_module, lock_file=False, **kw)
+        except StateFileNotFoundError as e:
+            raise e
+
+        except FileNotFoundError as e:
+            # except (FileNotFoundError, NoModelError) as e:
+            logging.warning('{} not found, will recollect networks'.format(e.filename))
+            flash = False
+
+    if not flash:
+        # logging.debug('Collecting networks in {}'.format(search_dir))
+        with turnoff_debug(turnoff=not show_debug):
+            rmodels = _collect_models(search_dir, registered_models_file)
+            # logging.info('Collected {} models'.format(len(rmodels)))
+
+        return fetch_models(search_dir, registered_models_file,
+                            filter=filter, flash=True, light=light,
+                            tpr=tpr, build_module=build_module, **kw)
 
 
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', light=False, **kw):

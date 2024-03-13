@@ -9,6 +9,7 @@ from utils.print_log import EpochOutput, turnoff_debug
 from utils.save_load import model_subdir
 
 from .job import WIMJob
+from .scheduler import Scheduler
 
 from .array import WIMArray
 
@@ -25,6 +26,9 @@ if __name__ == '__main__':
     conf_parser.add_argument('--debug', action='store_true')
     conf_parser.add_argument('--verbose', '-v', action='count', default=0)
     conf_parser.add_argument('--config-file', default='config.ini')
+    conf_parser.add_argument('--job-number', '-j', type=int)
+
+    conf_parser.add_argument('--args-from-file', nargs=2)
 
     conf_args, remaining_args = conf_parser.parse_known_args()
 
@@ -45,7 +49,6 @@ if __name__ == '__main__':
     parser.add_argument('-J', '--source-job-dir')
     parser.add_argument('-W', '--wim-job-dir')
     parser.add_argument('-A', '--array-job-dir')
-    parser.add_argument('--job-number', '-j', type=int)
 
     parser.add_argument('--wim-sets', nargs='*', default=[])
     parser.add_argument('--alpha', type=float)
@@ -74,7 +77,18 @@ if __name__ == '__main__':
 
     parser.set_defaults(**defaults)
 
-    args = parser.parse_args(remaining_args)
+    if conf_args.args_from_file:
+        arg_str = conf_args.args_from_file
+        sch = Scheduler(arg_str[0])
+        args = parser.parse_args(sch[int(arg_str[1]) - 1].split(), namespace=conf_args)
+
+    else:
+        args = parser.parse_args(remaining_args, namespace=conf_args)
+
+    if args.debug:
+        for k, v in sorted(args.__dict__.items()):
+            print(k, v)
+        sys.exit()
 
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
 

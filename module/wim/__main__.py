@@ -2,11 +2,15 @@
 
 import os
 import logging
-
-from utils.print_log import EpochOutput
 import torch
 
+from utils.print_log import EpochOutput, turnoff_debug
+
+from utils.save_load import model_subdir
+
 from .job import WIMJob
+
+from .array import WIMArray
 
 if __name__ == '__main__':
 
@@ -39,7 +43,8 @@ if __name__ == '__main__':
     parser.add_argument('--device')
     parser.add_argument('job', type=int)
     parser.add_argument('-J', '--source-job-dir')
-    parser.add_argument('--target-job-dir')
+    parser.add_argument('-W', '--wim-job-dir')
+    parser.add_argument('-A', '--array-job-dir')
     parser.add_argument('--job-number', '-j', type=int)
 
     parser.add_argument('--wim-sets', nargs='*', default=[])
@@ -63,7 +68,9 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float)
     parser.add_argument('--weight-decay', type=float)
 
-    parser.add_argument('--shell-for-array', action='store_true')
+    parser.add_argument('-a', '--array', action='store_true')
+
+    parser.add_argument('--do-not-collect-jobs', action='stroe_false', dest='collect_jobs')
 
     parser.set_defaults(**defaults)
 
@@ -79,8 +86,6 @@ if __name__ == '__main__':
     log = set_log(conf_args.verbose, conf_args.debug, log_dir, job_number=job_number)
 
     log.debug('$ ' + ' '.join(sys.argv))
-
-    args.target_job_dir = args.target_job_dir or args.source_job_dir
 
     model_dict = find_by_job_number(args.job, job_dir=args.source_job_dir)
 
@@ -102,9 +107,14 @@ if __name__ == '__main__':
 
     log.debug('$ ' + ' '.join(sys.argv))
 
-    save_dir_root = os.path.join(args.target_job_dir, dataset,
-                                 model.print_architecture(sampling=False),
-                                 'wim')
+    if args.array:
+        save_dir_root = os.path.join(args.array_job_dir, dataset,
+                                     model.print_architecture(sampling=False),
+                                     'wim')
+    else:
+        save_dir_root = os.path.join(args.wim_job_dir, dataset,
+                                     model.print_architecture(sampling=False),
+                                     'wim')
 
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
 
@@ -161,17 +171,35 @@ if __name__ == '__main__':
                    augmentation_sets=args.augmentation_sets,
                    optimizer=optimizer,
                    outputs=outputs,
-                   do_it=not args.shell_for_array
+                   do_it=not args.array
                    )
 
-    if args.shell_for_array:
-        jobs_alike = model.fetch_jobs_alike(job_dir=args.target_job_dir, flash=True)
-        if jobs_alike:
-            logging.warning('Already {} similar arrays'.format(len(jobs_alike)))
-            for _ in jobs_alike:
+    if args.array:
+        arrays_alike = model.fetch_jobs_alike(job_dir=args.array_job_dir, flash=False)
+        if arrays_alike:
+            logging.warning('Already {} similar arrays'.format(len(arrays_alike)))
+            for _ in arrays_alike:
                 logging.info('{}'.format(_['job']))
+            kept_wim_array = min(arrays_alike, key=lambda j: j['job'])
 
-            sys.exit(0)
+            array_dir = kept_wim_array['dir']
+        else:
+            array_dir = model.saved_dir
+
+        with turnoff_debug():
+            wim_array = WIMArray.load(array_dir, load_state=False)
+
+        wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.array_job_dir)
+        wim_jobs = wim_array.fetch_jobs_alike(args.wim_job_dir)
+
+        wim_jobs = [_ for _ in wim_jobs if model_subdir(_) not in wim_jobs_already_processed]
+
+        logging.info('Processing {} jobs alike'.format(len(wim_jobs)))
+        wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs])
+        wim_array.save(array_dir)
+        logging.info('model saved in {}'.format(wim_array.saved_dir))
+
+        sys.exit(0)
 
     model.save(model.saved_dir)
     logging.info('model saved in {}'.format(model.saved_dir))

@@ -182,18 +182,19 @@ if __name__ == '__main__':
             array_dir = kept_wim_array['dir']
             logging.warning('Processing array {}'.format(kept_wim_array['job']))
 
+            with turnoff_debug():
+                wim_array = WIMArray.load(array_dir, load_state=False)
         else:
             array_dir = model.saved_dir
-
-        with turnoff_debug():
-            wim_array = WIMArray.load(array_dir, load_state=False)
+            wim_array = model
 
         wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.wim_job_dir)
+        logging.info('{} wim jobs already processed'.format(len(wim_jobs_already_processed)))
         wim_jobs = wim_array.fetch_jobs_alike(args.wim_job_dir)
 
         wim_jobs = [_ for _ in wim_jobs if model_subdir(_) not in wim_jobs_already_processed]
 
-        logging.info('Processing {} jobs alike'.format(len(wim_jobs)))
+        logging.info('Processing {} wim jobs alike'.format(len(wim_jobs)))
         wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs])
         wim_array.save(array_dir)
         logging.info('model saved in {}'.format(wim_array.saved_dir))

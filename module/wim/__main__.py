@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-a', '--array', action='store_true')
 
-    parser.add_argument('--do-not-collect-jobs', action='stroe_false', dest='collect_jobs')
+    parser.add_argument('--do-not-collect-jobs', action='store_false', dest='collect_jobs')
 
     parser.set_defaults(**defaults)
 

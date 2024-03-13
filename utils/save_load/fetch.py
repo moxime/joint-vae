@@ -24,21 +24,27 @@ class NoLock(object):
         pass
 
 
-# def lock_models_file_in(arg):
+locks = {}
 
-#     def lock_models_file(func):
 
-#         def modified_func(*a, **kw):
-#             dir_path = a[arg]
-#             lock = FileLock(os.path.join(dir_path, 'lock'))
-#             logging.info('Acquiring lock in {}'.format(dir_path))
-#             with lock:
-#                 logging.info('Acquired lock in {}'.format(dir_path))
-#                 return func(*a, **kw)
+def lock_models_file_in(arg):
 
-#         return modified_func
+    def lock_models_file(func):
 
-#     return lock_models_file
+        def modified_func(*a, **kw):
+            dir_path = a[arg]
+            if dir_path in locks:
+                locks[dir_path] = FileLock(os.path.join(dir_path, 'rmodels-lock'))
+            lock = locks[dir_path]
+
+            logging.info('Acquiring lock in {}'.format(dir_path))
+            with lock:
+                logging.info('Acquired lock in {}'.format(dir_path))
+                return func(*a, **kw)
+
+        return modified_func
+
+    return lock_models_file
 
 
 def iterable_over_subdirs(arg, iterate_over_subdirs=False, keep_none=False,
@@ -169,6 +175,7 @@ def _collect_models(search_dir, registered_models_file=None):
     return rmodels
 
 
+@lock_models_file_in(0)
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
                  light=False,
                  tpr=0.95,
@@ -190,10 +197,10 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
 
     logging.debug('Fetching models from {} (flash={})'.format(search_dir, flash))
 
-    if lock_file:
-        lock = FileLock(os.path.join(search_dir, 'lock-rmodels'))
-    else:
-        lock = NoLock()
+    # if lock_file:
+    #     lock = FileLock(os.path.join(search_dir, 'lock-rmodels'))
+    # else:
+    lock = NoLock()
     with lock:
 
         logging.info('Acquired lock on {}'.format(lock.lock_file))

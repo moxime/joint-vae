@@ -44,6 +44,6 @@ class Scheduler(object):
         if not self.file_path:
             return
         try:
-            os.remove('{}.{}'.format(self.file_path, self.item), 'w')
+            os.remove('{}.{}'.format(self.file_path, self.item))
         except FileNotFoundError:
             pass

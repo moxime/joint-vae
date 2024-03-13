@@ -330,7 +330,7 @@ class WIMJob(M):
                                          if _.startswith(d)][0] for d in ('const', 'uniform')}
 
         if not augmentation_sets:
-            augmentation_sets = ['uniform']
+            augmentation_sets = ['uniform', 'const']
 
         augmentation_sets = [default_augmentation_sets.get(_, _) for _ in augmentation_sets]
 

@@ -15,6 +15,8 @@ from .dictify import make_dict_from_model
 
 class NoLock(object):
 
+    lock_file = 'nolock'
+
     def __enter__(self):
         logging.info('Already lock, doing nothing')
 
@@ -189,11 +191,12 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
     logging.debug('Fetching models from {} (flash={})'.format(search_dir, flash))
 
     if lock_file:
-        lock = FileLock(os.path.join(search_dir, 'lock'))
+        lock = FileLock(os.path.join(search_dir, 'lock-rmodels'))
     else:
         lock = NoLock()
     with lock:
 
+        logging.info('Acquired lock on {}'.format(lock.lock_file))
         if not registered_models_file:
             registered_models_file = 'models-{}.json'.format(gethostname())
         if flash:
@@ -225,6 +228,8 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
             return fetch_models(search_dir, registered_models_file,
                                 filter=filter, flash=True, light=light,
                                 tpr=tpr, build_module=build_module, lock_file=False, **kw)
+
+        logging.info('Releasing lock on {}'.format(lock.lock_file))
 
 
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', light=False, **kw):

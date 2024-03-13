@@ -195,8 +195,8 @@ if __name__ == '__main__':
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('--device')
-    parser.add_argument('--arrays-job-dir')
-    parser.add_argument('-J', '--target-job-dir')
+    parser.add_argument('--array-job-dir')
+    parser.add_argument('-J', '--wim-job-dir')
     parser.add_argument('--job-number', '-j', type=int)
     parser.add_argument('--from-job', type=int, nargs='*')
 
@@ -219,15 +219,15 @@ if __name__ == '__main__':
         logging.info('Will only look for jobs/arrays from {}'.format(' '.join(map(str, args.from_job))))
         wim_job_filter.add('wim_from', ParamFilter(type=int, values=args.from_job))
 
-    wim_arrays = fetch_models(args.arrays_job_dir, filter=wim_job_filter, flash=False, light=True)
+    wim_arrays = fetch_models(args.array_job_dir, filter=wim_job_filter, flash=False, light=True)
 
-    logging.info('Fetched {} wim arrays from {}'.format(len(wim_arrays), args.arrays_job_dir))
+    logging.info('Fetched {} wim arrays from {}'.format(len(wim_arrays), args.array_job_dir))
 
-    wim_jobs = fetch_models(args.target_job_dir, filter=wim_job_filter, flash=False, light=True)
+    wim_jobs = fetch_models(args.wim_job_dir, filter=wim_job_filter, flash=False, light=True)
 
-    logging.info('Fetched {} wim jobs from {}'.format(len(wim_jobs), args.target_job_dir))
+    logging.info('Fetched {} wim jobs from {}'.format(len(wim_jobs), args.wim_job_dir))
 
-    wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.arrays_job_dir)
+    wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.array_job_dir)
 
     logging.info('{} jobs already processed'.format(len(wim_jobs_already_processed)))
 
@@ -275,7 +275,7 @@ if __name__ == '__main__':
 
     logging.warning('{} processed and {} unprocessed jobs'.format(len(processed_jobs), len(wim_jobs)))
 
-    with open(os.path.join(args.target_job_dir, 'unprocessed-{}'.format(args.from_job)), 'w') as f:
+    with open(os.path.join(args.wim_job_dir, 'unprocessed-{}'.format(args.from_job)), 'w') as f:
         for j in wim_jobs:
             f.write(str(j['job']))
             f.write('\n')

@@ -79,10 +79,11 @@ if __name__ == '__main__':
 
     if conf_args.args_from_file:
         arg_str = conf_args.args_from_file
-        sch = Scheduler(arg_str[0])
-        args = parser.parse_args(sch[int(arg_str[1]) - 1].split(), namespace=conf_args)
+        sch = Scheduler(arg_str[0], item=int(arg_str[1]), period=int(arg_str[2]))
+        args = parser.parse_args(sch.line.split(), namespace=conf_args)
 
     else:
+        sch = Scheduler()
         args = parser.parse_args(remaining_args, namespace=conf_args)
 
     if args.debug:
@@ -173,6 +174,8 @@ if __name__ == '__main__':
 
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
 
+    sch.start(block=args.array)
+
     model.finetune(*wim_sets,
                    train_size=args.train_size,
                    epochs=args.epochs,
@@ -214,7 +217,9 @@ if __name__ == '__main__':
         wim_array.save(array_dir)
         logging.info('model saved in {}'.format(wim_array.saved_dir))
 
+        sch.stop()
         sys.exit(0)
 
     model.save(model.saved_dir)
     logging.info('model saved in {}'.format(model.saved_dir))
+    sch.stop()

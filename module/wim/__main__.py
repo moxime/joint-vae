@@ -182,11 +182,12 @@ if __name__ == '__main__':
             array_dir = kept_wim_array['dir']
             logging.warning('Processing array {}'.format(kept_wim_array['job']))
 
-            with turnoff_debug():
-                wim_array = WIMArray.load(array_dir, load_state=False)
         else:
             array_dir = model.saved_dir
-            wim_array = model
+            model.save(model.saved_dir)
+
+        with turnoff_debug():
+            wim_array = WIMArray.load(array_dir, load_state=False)
 
         wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.wim_job_dir)
         logging.info('{} wim jobs already processed'.format(len(wim_jobs_already_processed)))

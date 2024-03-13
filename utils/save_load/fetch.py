@@ -209,6 +209,7 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
                                                       tpr=tpr, build_module=build_module,
                                                       light=light, **kw)
                 logging.debug('Gathered {} models'.format(len(mlist)))
+                logging.info('Releasing lock on {}'.format(lock.lock_file))
                 return mlist
 
             except StateFileNotFoundError as e:
@@ -225,11 +226,10 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
                 rmodels = _collect_models(search_dir, registered_models_file)
                 # logging.info('Collected {} models'.format(len(rmodels)))
 
+            logging.info('Releasing lock on {}'.format(lock.lock_file))
             return fetch_models(search_dir, registered_models_file,
                                 filter=filter, flash=True, light=light,
                                 tpr=tpr, build_module=build_module, lock_file=False, **kw)
-
-        logging.info('Releasing lock on {}'.format(lock.lock_file))
 
 
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', light=False, **kw):

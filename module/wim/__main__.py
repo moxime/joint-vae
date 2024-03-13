@@ -28,7 +28,7 @@ if __name__ == '__main__':
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--job-number', '-j', type=int)
 
-    conf_parser.add_argument('--args-from-file', nargs=2)
+    conf_parser.add_argument('--args-from-file', nargs=3)
 
     conf_args, remaining_args = conf_parser.parse_known_args()
 

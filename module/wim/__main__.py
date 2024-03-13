@@ -146,7 +146,6 @@ if __name__ == '__main__':
             if p1.num_priors > 1:
                 log.info('Means from {:.3} to {:.3}'.format(p1.mean.std(0).mean(),
                                                             p2.mean.std(0).mean()))
-
     try:
         model.to(device)
     except Exception:

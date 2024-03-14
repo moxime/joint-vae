@@ -80,6 +80,7 @@ if __name__ == '__main__':
     if conf_args.args_from_file:
         arg_str = conf_args.args_from_file
         sch = Scheduler(arg_str[0], index=int(arg_str[1]))
+        logging.info('Args from file: {}'.format(sch.line))
         args = parser.parse_args(sch.line.split(), namespace=conf_args)
 
     else:

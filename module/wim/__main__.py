@@ -194,7 +194,7 @@ if __name__ == '__main__':
                    augmentation_sets=args.augmentation_sets,
                    optimizer=optimizer,
                    outputs=outputs,
-                   do_it=not args.array
+                   do_it=not is_array
                    )
 
     if is_array:

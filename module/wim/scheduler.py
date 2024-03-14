@@ -32,10 +32,12 @@ class Scheduler(object):
             blocking_files = ['{}.{}'.format(self.file_path, _) for _ in range(i - 1, i - self.period - 1, -1)]
             logging.info('Waiting for {} to be deleted'.format(','.join(blocking_files)))
 
+            t0 = time.time()
             while any(os.path.exists(f) for f in blocking_files):
                 time.sleep(0.5)
 
-            logging.info('{} deleted, going through'.format(','.join(blocking_files)))
+            t1 = time.time()
+            logging.info('{} deleted, going through (waited {:.1f}s)'.format(','.join(blocking_files), t1 - t0))
 
         with open('{}.{}'.format(self.file_path, i), 'w') as fp:
             pass

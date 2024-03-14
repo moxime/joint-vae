@@ -44,11 +44,11 @@ def load_json(dir_name, file_name, presumed_type=str):
     with open(p, 'rb') as f:
         try:
             d = json.load(f)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             logging.error('Corrupted file\n%s', p)
             with open('/tmp/corrupted', 'a') as f:
                 f.write(p + '\n')
-            return {}
+            raise e
     d_ = {}
     for k in d:
         try:

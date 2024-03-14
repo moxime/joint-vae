@@ -28,7 +28,7 @@ if __name__ == '__main__':
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--job-number', '-j', type=int)
 
-    conf_parser.add_argument('--args-from-file', nargs=3)
+    conf_parser.add_argument('--args-from-file', nargs=2)
 
     conf_args, remaining_args = conf_parser.parse_known_args()
 
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float)
     parser.add_argument('--weight-decay', type=float)
 
-    parser.add_argument('-a', '--array', action='store_true')
+    parser.add_argument('-a', '--array', type=int, nargs='*')
 
     parser.add_argument('--do-not-collect-jobs', action='store_false', dest='collect_jobs')
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     if conf_args.args_from_file:
         arg_str = conf_args.args_from_file
-        sch = Scheduler(arg_str[0], item=int(arg_str[1]) - 1, period=int(arg_str[2]))
+        sch = Scheduler(arg_str[0], item=int(arg_str[1]))
         args = parser.parse_args(sch.line.split(), namespace=conf_args)
 
     else:

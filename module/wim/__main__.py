@@ -105,6 +105,9 @@ if __name__ == '__main__':
 
     log.debug('$ ' + ' '.join(sys.argv))
 
+    if conf_args.args_from_file:
+        logging.info('Args from file: {}'.format(sch.line))
+
     model_dict = find_by_job_number(args.job, job_dir=args.source_job_dir)
 
     if model_dict is None:

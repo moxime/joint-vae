@@ -128,7 +128,8 @@ if __name__ == '__main__':
 
     log.debug('$ ' + ' '.join(sys.argv))
 
-    if args.array:
+    is_array = args.array is not None
+    if is_array:
         save_dir_root = os.path.join(args.array_job_dir, dataset,
                                      model.print_architecture(sampling=False),
                                      'wim')
@@ -174,7 +175,7 @@ if __name__ == '__main__':
 
     optimizer = None
 
-    if args.lr and not args.array:
+    if args.lr and not is_array:
         logging.info('New optimizer')
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
@@ -196,7 +197,7 @@ if __name__ == '__main__':
                    do_it=not args.array
                    )
 
-    if args.array:
+    if is_array:
         arrays_alike = model.fetch_jobs_alike(job_dir=args.array_job_dir, flash=False)
         if arrays_alike:
             logging.warning('Already {} similar arrays'.format(len(arrays_alike)))

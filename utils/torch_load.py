@@ -299,6 +299,14 @@ class SubSampledDataset(Dataset):
         self.maxlength = len(dataset)
         self.shrink(length)
 
+        try:
+            dataset_name = dataset.name
+        except AttributeError:
+            dataset_name = 'unknown'
+
+        logging.info('Creating dataset from {} of length {} with shift key {}'.format(dataset_name,
+                                                                                      len(self),
+                                                                                      shift_key))
         rng = np.random.default_rng(self._shift_key)
         self._shifts = rng.integers(0, self._sample_every, self._length)
 

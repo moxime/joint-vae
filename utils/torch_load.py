@@ -330,6 +330,7 @@ class SubSampledDataset(Dataset):
         self._sample_every = len(self._dataset) // length
 
         self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
+        logging.info('Shrunk dataset to {}'.format(len(self)))
 
     def __len__(self):
         return self._length

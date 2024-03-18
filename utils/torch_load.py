@@ -290,13 +290,15 @@ class SubSampledDataset(Dataset):
 
     COARSE = 120
 
-    def __init__(self, dataset, length=None, shift_key=0):
+    def __init__(self, dataset, length=None, shift_key=0, sequential=False):
 
         super().__init__()
 
         self._dataset = dataset
         self._shift_key = shift_key
         self.maxlength = len(dataset)
+        self.sampling_mode = 'sequential' if sequential else 'random'
+
         self.shrink(length)
 
         try:
@@ -307,13 +309,21 @@ class SubSampledDataset(Dataset):
         logging.info('Creating dataset from {} of length {} with shift key {}'.format(dataset_name,
                                                                                       len(self),
                                                                                       shift_key))
-        rng = np.random.default_rng(self._shift_key)
-        self._shifts = rng.integers(0, self._sample_every, self._length)
-
         try:
             self.classes = dataset.classes
         except AttributeError:
             pass
+
+    def _create_shifts(self):
+
+        rng = np.random.default_rng(self._shift_key)
+
+        if self.sampling_mode == 'random':
+            self._shifts = rng.integers(0, self._sample_every, self._length)
+        else:
+            if self._shift_key >= self._sample_every:
+                logging.warning('Shift key {} >= {} sample_every'.format(self._shift_key, self._sample_every))
+            self._shifts = [self._shift_key] * len(self)
 
     def shrink(self, length=None):
 
@@ -331,6 +341,8 @@ class SubSampledDataset(Dataset):
 
         self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
         logging.info('Shrunk dataset to {}'.format(len(self)))
+
+        self._create_shifts()
 
     def __len__(self):
         return self._length

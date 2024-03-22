@@ -27,6 +27,8 @@ if __name__ == '__main__':
     conf_parser.add_argument('--verbose', '-v', action='count', default=0)
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--job-number', '-j', type=int)
+    conf_parser.add_argument('--sampling-seed', '-S', type=int)
+    conf_parser.add_argument('--sampling-task', '-T', type=int)
 
     conf_parser.add_argument('--args-from-file', nargs=2)
 

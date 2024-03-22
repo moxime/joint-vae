@@ -375,21 +375,21 @@ class WIMJob(M):
                               for _ in augmentation_sets}
 
         try:
-            subset_idx_shift_key = self.job_number % 100000 + 7
+            subset_idx_seed = self.job_number % 100000 + 7
         except AttributeError:
             logging.warning('Will not attribute a pseudo randomization on subsets indices')
-            subset_idx_shift_key = 0
+            subset_idx_seed = 0
 
-        logging.debug('Pseudo randomization of subdatasets idx with key {}'.format(subset_idx_shift_key))
+        logging.debug('Pseudo randomization of subdatasets idx with key {}'.format(subset_idx_seed))
 
-        ood_set = MixtureDataset(**ood_sets, mix=1, shift_key=subset_idx_shift_key,)
-        augmentation_set = MixtureDataset(**augmentation_sets_, mix=1, shift_key=subset_idx_shift_key,)
+        ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed,)
+        augmentation_set = MixtureDataset(**augmentation_sets_, mix=1, seed=subset_idx_seed,)
 
         logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))
 
         moving_set = MixtureDataset(ood=ood_set, ind=testset, augment=augmentation_set,
                                     mix={'ood': ood_mix, 'ind': 1 - ood_mix, 'augment': augmentation},
-                                    shift_key=subset_idx_shift_key,
+                                    seed=subset_idx_seed,
                                     length=moving_size + int(augmentation * moving_size))
 
         _s = 'Moving set of length {}, with mixture {}'

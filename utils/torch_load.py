@@ -24,6 +24,8 @@ CONF_FILE = 'data/sets.ini'
 
 set_props = None
 
+logger = logging.getLogger('sets')
+
 
 def dataset_properties(conf_file='data/sets.ini', all_keys=True):
 
@@ -290,14 +292,33 @@ class SubSampledDataset(Dataset):
 
     COARSE = 120
 
-    def __init__(self, dataset, length=None, shift_key=0, sequential=False):
+    def __init__(self, dataset, length=None, seed=0, task=None):
+        """Args:
 
+        -- dataset
+
+        -- length: wanted length
+
+        -- seed: seed for randomization
+
+        -- task:
+
+            -- if None (default): will statrify dataset in *length*
+               bundle and will take one sample per bundle (randomly
+               with seed seed).
+
+            -- if int takes task-th batch of dataset that has been
+               sliced in batches of size length after random
+               reordering
+
+        """
         super().__init__()
 
         self._dataset = dataset
-        self._shift_key = shift_key
+        self._seed = seed
         self.maxlength = len(dataset)
-        self.sampling_mode = 'sequential' if sequential else 'random'
+        self.sampling_mode = 'slice' if task is None else 'batch'
+        self._task = task
 
         self.shrink(length)
 
@@ -306,24 +327,36 @@ class SubSampledDataset(Dataset):
         except AttributeError:
             dataset_name = 'unknown'
 
-        logging.info('Creating dataset from {} of length {} with shift key {}'.format(dataset_name,
-                                                                                      len(self),
-                                                                                      shift_key))
+        i_str = 'Creating dataset from {} of length {} with seed {} ({} mode {})'
+        logging.info(i_str.format(dataset_name, len(self), seed, self.sampling_mode, self._task))
         try:
             self.classes = dataset.classes
         except AttributeError:
             pass
 
-    def _create_shifts(self):
+    def _create_idx(self):
 
-        rng = np.random.default_rng(self._shift_key)
+        rng = np.random.default_rng(self._seed)
 
-        if self.sampling_mode == 'random':
-            self._shifts = rng.integers(0, self._sample_every, self._length)
+        if self.sampling_mode == 'slice':
+            _shifts = rng.integers(0, self._sample_every, self._length) * (self._seed != 0)
+            self._idx = [i * self._sample_every_coarse // self.COARSE + _shifts[i]
+                         for i in range(len(self))]
+
+        elif self.sampling_mode == 'batch':
+            if self._task >= self._sample_every:
+                w_str = 'Batch # {} >= {} sample_every'
+                logging.warning(w_str.format(self._task, self._sample_every))
+
+            batch = self._task + self._sample_every
+            while batch >= self._sample_every:
+                batch -= self._sample_every
+                self._idx = rng.permutation(self.maxlength)
+
+            self._idx = self._idx[batch * len(self): (batch + 1) * len(self)]
+
         else:
-            if self._shift_key >= self._sample_every:
-                logging.warning('Shift key {} >= {} sample_every'.format(self._shift_key, self._sample_every))
-            self._shifts = [self._shift_key] * len(self)
+            raise ValueError('sampling mode {} unknown'.format(self.sampling_mode))
 
     def shrink(self, length=None):
 
@@ -342,32 +375,29 @@ class SubSampledDataset(Dataset):
         self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
         logging.info('Shrunk dataset to {}'.format(len(self)))
 
-        self._create_shifts()
+        self._create_idx()
 
     def __len__(self):
         return self._length
 
     def __getitem__(self, idx):
-
-        if idx >= self._length:
-            raise IndexError
-        if self._shift_key:
-            shift = self._shifts[idx]
-        else:
-            shift = 0
-        return self._dataset[idx * self._sample_every_coarse // self.COARSE + shift]
+        if not isinstance(idx, slice):
+            if idx >= self._length:
+                raise IndexError
+        return self._dataset[self._idx[idx]]
 
 
 class MixtureDataset(Dataset):
 
     COARSE = 120
 
-    def __init__(self, *datasets, mix=None, length=None, shift_key=0, **dict_of_datasets):
+    def __init__(self, *datasets, mix=None, length=None, seed=0, task=None, **dict_of_datasets):
 
         super().__init__()
         assert not datasets or not dict_of_datasets
 
-        self._shift_key = shift_key
+        self._seed = seed
+        self._task = task
 
         if not dict_of_datasets:
             dict_of_datasets = {getattr(d, 'name', str(i)): d for i, d in enumerate(datasets)}
@@ -451,7 +481,7 @@ class MixtureDataset(Dataset):
             if isinstance(d, MixtureDataset):
                 self._datasets.append(d)
             else:
-                self._datasets.append(SubSampledDataset(d, shift_key=self._shift_key))
+                self._datasets.append(SubSampledDataset(d, seed=self._seed, task=self._task))
 
         self._classes = tuple(self._classes)
 
@@ -499,8 +529,9 @@ class MixtureDataset(Dataset):
 
     def __getitem__(self, idx):
 
-        if idx >= len(self):
-            raise IndexError('Idx {} for length {}'.format(idx, len(self)))
+        if not isinstance(idx, slice):
+            if idx >= len(self):
+                raise IndexError('Idx {} for length {}'.format(idx, len(self)))
 
         which, sub_idx = self.__geti__(idx)
 

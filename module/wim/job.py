@@ -332,6 +332,19 @@ class WIMJob(M):
         self.wim_params['augmentation'] = augmentation
         self.wim_params['augmentation_sets'] = augmentation_sets
 
+        ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
+        ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed, task=subset_idx_task)
+
+        number_of_tasks = len(ood_set) // moving_size
+
+        if task is not None:
+            if task == 'array' or task == number_of_tasks:
+                logging.info('Is an array, will not do finetuning')
+                raise DontDoFineTuning(True)
+            if task > number_of_tasks:
+                logging.info('All is done, will stop here')
+                raise DontDoFineTuning(False)
+
         set_name = self.training_parameters['set']
 
         default_augmentation_sets = {d: [_ for _ in torchdl.get_same_size_by_name(set_name)
@@ -374,8 +387,6 @@ class WIMJob(M):
                                                 transformer=transformer,
                                                 data_augmentation=data_augmentation)
 
-        ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
-
         augmentation_sets_ = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
                               for _ in augmentation_sets}
 
@@ -386,18 +397,6 @@ class WIMJob(M):
 
         logging.debug('Pseudo randomization of subdatasets idx with seed/task {} {}'.format(subset_idx_seed,
                                                                                             subset_idx_task))
-
-        ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed,)
-
-        number_of_tasks = len(ood_set) // moving_size
-
-        if task is not None:
-            if task == 'array' or task == number_of_tasks:
-                logging.info('Is an array, will not do finetuning')
-                raise DontDoFineTuning(True)
-            if task > number_of_tasks:
-                logging.info('All is done, will stop here')
-                raise DontDoFineTuning(False)
 
         logging.info('Will do finetune (task {}/{})'.format(task, number_of_tasks))
 

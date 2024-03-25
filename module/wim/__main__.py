@@ -86,7 +86,8 @@ if __name__ == '__main__':
         args = parser.parse_args(sch.line.split(), namespace=conf_args)
 
     else:
-        sch = Scheduler()
+        sch = Scheduler(file_path=os.path.join('grid', str(args.sampling_seed))
+                        if args.sampling_seed is not None else None)
         args = parser.parse_args(remaining_args, namespace=conf_args)
 
     if args.debug and False:
@@ -145,7 +146,6 @@ if __name__ == '__main__':
     outputs.add_file(output_file)
 
     model.job_number = job_number
-    model.sampling_seed = job_number
     if args.sampling_seed is None:
         args.sampling_seed = job_number + 7
 

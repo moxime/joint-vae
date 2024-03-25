@@ -12,15 +12,18 @@ class Scheduler(object):
         self.index = index
 
         if self.file_path:
-            with open(self.file_path, 'r') as fp:
-                for count, line in enumerate(fp):
-                    if count == index:
-                        break
+            try:
+                with open(self.file_path, 'r') as fp:
+                    for count, line in enumerate(fp):
+                        if count == index:
+                            break
 
-                else:
-                    raise IndexError
+                    else:
+                        raise IndexError
 
-            self.line = line.strip()
+                self.line = line.strip()
+            except FileNotFoundError:
+                logging.info('{} does not exist for scheduler'.format(self.file_path))
 
     def start(self, block=False):
         if not self.file_path:

@@ -51,3 +51,5 @@ class Scheduler(object):
             os.remove('{}.{}'.format(self.file_path, self.index))
         except FileNotFoundError:
             pass
+
+        time.sleep(1)

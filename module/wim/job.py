@@ -399,6 +399,8 @@ class WIMJob(M):
                 logging.info('All is done, will stop here')
                 raise DontDoFineTuning(False)
 
+        logging.info('Will do finetune (task {}/{})'.format(task, number_of_tasks))
+
         augmentation_set = MixtureDataset(**augmentation_sets_, mix=1, seed=subset_idx_seed,)
 
         logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))

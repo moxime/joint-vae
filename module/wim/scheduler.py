@@ -38,6 +38,7 @@ class Scheduler(object):
             while any(os.path.exists(f) for f in blocking_files):
                 time.sleep(0.5)
 
+            time.sleep(1)
             t1 = time.time()
             logging.info('{} deleted, going through (waited {:.1f}s)'.format(','.join(blocking_files), t1 - t0))
 
@@ -51,5 +52,3 @@ class Scheduler(object):
             os.remove('{}.{}'.format(self.file_path, self.index))
         except FileNotFoundError:
             pass
-
-        time.sleep(1)

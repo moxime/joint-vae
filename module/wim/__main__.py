@@ -86,8 +86,8 @@ if __name__ == '__main__':
         args = parser.parse_args(sch.line.split(), namespace=conf_args)
 
     else:
-        sch = Scheduler(file_path=os.path.join('grid', str(args.sampling_seed))
-                        if args.sampling_seed is not None else None)
+        sch = Scheduler(file_path=os.path.join('grid', str(conf_args.sampling_seed))
+                        if conf_args.sampling_seed is not None else None)
         args = parser.parse_args(remaining_args, namespace=conf_args)
 
     if args.debug and False:

@@ -351,14 +351,6 @@ class WIMJob(M):
 
         number_of_tasks = len(ood_set) // moving_size
 
-        if task is not None:
-            if task == 'array' or task == number_of_tasks:
-                logging.info('Is an array, will not do finetuning')
-                raise DontDoFineTuning(True)
-            if task > number_of_tasks:
-                logging.info('All is done, will stop here')
-                raise DontDoFineTuning(False)
-
         set_name = self.training_parameters['set']
 
         default_augmentation_sets = {d: [_ for _ in torchdl.get_same_size_by_name(set_name)
@@ -377,6 +369,14 @@ class WIMJob(M):
             self.wim_params['augmentation_sets'] = augmentation_sets
             tmpstr = 'Will augment moving batch with {:.0%} more of {}'
             logging.info(tmpstr.format(augmentation, '-'.join(augmentation_sets)))
+
+        if task is not None:
+            if task == 'array' or task == number_of_tasks:
+                logging.info('Is an array, will not do finetuning')
+                raise DontDoFineTuning(True)
+            if task > number_of_tasks:
+                logging.info('All is done, will stop here')
+                raise DontDoFineTuning(False)
 
         for p in self._alternate_prior.parameters():
             assert not p.requires_grad, 'prior parameter queires grad'

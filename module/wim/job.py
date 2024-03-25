@@ -332,6 +332,20 @@ class WIMJob(M):
         self.wim_params['augmentation'] = augmentation
         self.wim_params['augmentation_sets'] = augmentation_sets
 
+        transformer = self.training_parameters['transformer']
+        data_augmentation = self.training_parameters['data_augmentation']
+        batch_size = self.training_parameters['batch_size']
+
+        logging.info('Finetune batch size = {}'.format(batch_size))
+
+        subset_idx_seed = seed
+        subset_idx_task = task
+        if not subset_idx_seed:
+            logging.warning('Will not attribute a pseudo randomization on subsets indices')
+
+        logging.debug('Pseudo randomization of subdatasets idx with seed/task {} {}'.format(subset_idx_seed,
+                                                                                            subset_idx_task))
+
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
         ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed, task=subset_idx_task)
 
@@ -377,26 +391,12 @@ class WIMJob(M):
         _s = 'Test batch size wanted {} / max {}'
         logging.info(_s.format(test_batch_size, max_batch_sizes['test']))
 
-        transformer = self.training_parameters['transformer']
-        data_augmentation = self.training_parameters['data_augmentation']
-        batch_size = self.training_parameters['batch_size']
-
-        logging.info('Finetune batch size = {}'.format(batch_size))
-
         trainset, testset = torchdl.get_dataset(set_name,
                                                 transformer=transformer,
                                                 data_augmentation=data_augmentation)
 
         augmentation_sets_ = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
                               for _ in augmentation_sets}
-
-        subset_idx_seed = seed
-        subset_idx_task = task
-        if not subset_idx_seed:
-            logging.warning('Will not attribute a pseudo randomization on subsets indices')
-
-        logging.debug('Pseudo randomization of subdatasets idx with seed/task {} {}'.format(subset_idx_seed,
-                                                                                            subset_idx_task))
 
         logging.info('Will do finetune (task {}/{})'.format(task, number_of_tasks))
 
@@ -407,6 +407,7 @@ class WIMJob(M):
         moving_set = MixtureDataset(ood=ood_set, ind=testset, augment=augmentation_set,
                                     mix={'ood': ood_mix, 'ind': 1 - ood_mix, 'augment': augmentation},
                                     seed=subset_idx_seed,
+                                    task=subset_idx_task,
                                     length=moving_size + int(augmentation * moving_size))
 
         _s = 'Moving set of length {}, with mixture {}'

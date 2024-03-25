@@ -179,6 +179,13 @@ if __name__ == '__main__':
 
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
 
+    save_dir_root = os.path.join(args.wim_job_dir, dataset,
+                                 model.print_architecture(sampling=False),
+                                 'wim')
+
+    save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
+    model.saved_dir = save_dir
+
     try:
         model.finetune(*wim_sets,
                        train_size=args.train_size,
@@ -207,15 +214,10 @@ if __name__ == '__main__':
         save_dir_root = os.path.join(args.array_job_dir, dataset,
                                      model.print_architecture(sampling=False),
                                      'wim')
-    else:
-        save_dir_root = os.path.join(args.wim_job_dir, dataset,
-                                     model.print_architecture(sampling=False),
-                                     'wim')
 
-    save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
-    model.saved_dir = save_dir
+        save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
+        model.saved_dir = save_dir
 
-    if is_array:
         sch.start(block=args.array)
 
         arrays_alike = model.fetch_jobs_alike(job_dir=args.array_job_dir, flash=False)

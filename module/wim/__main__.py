@@ -132,9 +132,11 @@ if __name__ == '__main__':
 
     if args.array is not None:
         sampling_task = 'array'
+        is_array = True
     else:
         sampling_task = args.sampling_task
         args.array = []
+        is_array = False
 
     output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
 

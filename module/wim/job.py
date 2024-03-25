@@ -18,6 +18,13 @@ from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
 from utils.print_log import EpochOutput
 
 
+class DontDoFineTuning(Exception):
+
+    def __init__(self, continue_as_array):
+
+        self.continue_as_array = continue_as_array
+
+
 class WIMJob(M):
 
     ood_methods_per_type = {'vae': ['zdist', 'elbo', 'kl'],
@@ -302,7 +309,8 @@ class WIMJob(M):
                  test_batch_size=8192,
                  optimizer=None,
                  outputs=EpochOutput(),
-                 do_it=True,
+                 seed=0,
+                 task=None,
                  ):
 
         # logging.warning('DEBUG MODE MODEL IN MODE EVAL')
@@ -343,9 +351,6 @@ class WIMJob(M):
             tmpstr = 'Will augment moving batch with {:.0%} more of {}'
             logging.info(tmpstr.format(augmentation, '-'.join(augmentation_sets)))
 
-        if not do_it:
-            return
-
         for p in self._alternate_prior.parameters():
             assert not p.requires_grad, 'prior parameter queires grad'
 
@@ -374,15 +379,26 @@ class WIMJob(M):
         augmentation_sets_ = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
                               for _ in augmentation_sets}
 
-        try:
-            subset_idx_seed = self.job_number % 100000 + 7
-        except AttributeError:
+        subset_idx_seed = seed
+        subset_idx_task = task
+        if not subset_idx_seed:
             logging.warning('Will not attribute a pseudo randomization on subsets indices')
-            subset_idx_seed = 0
 
-        logging.debug('Pseudo randomization of subdatasets idx with key {}'.format(subset_idx_seed))
+        logging.debug('Pseudo randomization of subdatasets idx with seed/task {} {}'.format(subset_idx_seed,
+                                                                                            subset_idx_task))
 
         ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed,)
+
+        number_of_tasks = len(ood_set) // moving_size
+
+        if task is not None:
+            if task == 'array' or task == number_of_tasks:
+                logging.info('Is an array, will not do finetuning')
+                raise DontDoFineTuning(True)
+            if task > number_of_tasks:
+                logging.info('All is done, will stop here')
+                raise DontDoFineTuning(False)
+
         augmentation_set = MixtureDataset(**augmentation_sets_, mix=1, seed=subset_idx_seed,)
 
         logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))

@@ -314,11 +314,17 @@ class SubSampledDataset(Dataset):
         """
         super().__init__()
 
+        d_str = 'Create subdataset with {} ({}) of len {} with seed {} and task {}'
+        logger.debug(d_str.format(getattr(dataset, 'name', None), len(dataset), length, seed, task))
         self._dataset = dataset
         self._seed = seed
         self.maxlength = len(dataset)
         self.sampling_mode = 'slice' if task is None else 'batch'
         self._task = task
+
+        self._length = self.maxlength
+
+        self.name = 'sub-{}'.format(getattr(self._dataset, 'name', 'dataset'))
 
         self.shrink(length)
 
@@ -346,7 +352,7 @@ class SubSampledDataset(Dataset):
         elif self.sampling_mode == 'batch':
             if self._task >= self._sample_every:
                 w_str = 'Batch # {} >= {} sample_every'
-                logging.warning(w_str.format(self._task, self._sample_every))
+                logger.debug(w_str.format(self._task, self._sample_every))
 
             batch = self._task + self._sample_every
             while batch >= self._sample_every:
@@ -357,6 +363,9 @@ class SubSampledDataset(Dataset):
 
         else:
             raise ValueError('sampling mode {} unknown'.format(self.sampling_mode))
+
+        logger.debug('Created idx for {} of size {}. Firsts: {}'.format(self.name, len(self._idx),
+                                                                        '-'.join(map(str, self._idx[:10]))))
 
     def shrink(self, length=None):
 
@@ -372,8 +381,11 @@ class SubSampledDataset(Dataset):
         self._sample_every_coarse = self.COARSE * len(self._dataset) // length
         self._sample_every = len(self._dataset) // length
 
+        old_length = self._length
         self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
-        logging.info('Shrunk dataset to {}'.format(len(self)))
+        logging.info('Shrunk dataset {} {} to {}'.format(getattr(self, 'name', 'unknowmn'),
+                                                         old_length,
+                                                         len(self)))
 
         self._create_idx()
 
@@ -401,6 +413,8 @@ class MixtureDataset(Dataset):
 
         if not dict_of_datasets:
             dict_of_datasets = {getattr(d, 'name', str(i)): d for i, d in enumerate(datasets)}
+
+        logger.debug('Create Mixture with {}'.format(','.join(dict_of_datasets)))
         self._build_classes_from_dict(**dict_of_datasets)
 
         self.num_datasets = len(self._datasets)
@@ -452,6 +466,8 @@ class MixtureDataset(Dataset):
 
         # print('*** target', target_lengths)
         # print('*** lengths', lengths)
+        logger.debug('Adjusting length of {}'.format(self.name))
+
         for d, l in zip(self._datasets, lengths):
             d.shrink(l)
 
@@ -460,6 +476,8 @@ class MixtureDataset(Dataset):
             # print('***', *lengths, i_d)
             lengths[i_d] += 1
             self._datasets[i_d].shrink(lengths[i_d])
+
+        logger.debug('Adjusted length of {}'.format(self.name))
 
         self._lengths = [len(d) for d in self._datasets]
         self._length = sum(self._lengths)
@@ -482,6 +500,7 @@ class MixtureDataset(Dataset):
                 self._datasets.append(d)
             else:
                 self._datasets.append(SubSampledDataset(d, seed=self._seed, task=self._task))
+        self.name = '-'.join(['{}:{}'.format(i, getattr(d, 'name', 'set')) for i, d in enumerate(self._datasets)])
 
         self._classes = tuple(self._classes)
 

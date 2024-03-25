@@ -8,7 +8,7 @@ from utils.print_log import EpochOutput, turnoff_debug
 
 from utils.save_load import model_subdir
 
-from .job import WIMJob
+from .job import WIMJob, DontDoFineTuning
 from .scheduler import Scheduler
 
 from .array import WIMArray
@@ -130,17 +130,11 @@ if __name__ == '__main__':
 
     log.debug('$ ' + ' '.join(sys.argv))
 
-    is_array = args.array is not None
-    if is_array:
-        save_dir_root = os.path.join(args.array_job_dir, dataset,
-                                     model.print_architecture(sampling=False),
-                                     'wim')
+    if args.array is not None:
+        sampling_task = 'array'
     else:
-        save_dir_root = os.path.join(args.wim_job_dir, dataset,
-                                     model.print_architecture(sampling=False),
-                                     'wim')
-
-    save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
+        sampling_task = args.sampling_task
+        args.array = []
 
     output_file = os.path.join(args.output_dir, f'train-{job_number:06d}.out')
 
@@ -149,7 +143,9 @@ if __name__ == '__main__':
     outputs.add_file(output_file)
 
     model.job_number = job_number
-    model.saved_dir = save_dir
+    model.sampling_seed = job_number
+    if args.sampling_seed is None:
+        args.sampling_seed = job_number + 7
 
     model.encoder.prior.mean.requires_grad_(False)
     alternate_prior_params = model.encoder.prior.params.copy()
@@ -177,29 +173,50 @@ if __name__ == '__main__':
 
     optimizer = None
 
-    if args.lr and not is_array:
+    if args.lr:
         logging.info('New optimizer')
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
 
-    sch.start(block=args.array)
+    try:
+        model.finetune(*wim_sets,
+                       train_size=args.train_size,
+                       epochs=args.epochs,
+                       moving_size=args.moving_size,
+                       test_batch_size=args.test_batch_size,
+                       alpha=args.alpha,
+                       ood_mix=args.mix,
+                       augmentation=args.augmentation,
+                       augmentation_sets=args.augmentation_sets,
+                       optimizer=optimizer,
+                       outputs=outputs,
+                       task=sampling_task
+                       )
 
-    model.finetune(*wim_sets,
-                   train_size=args.train_size,
-                   epochs=args.epochs,
-                   moving_size=args.moving_size,
-                   test_batch_size=args.test_batch_size,
-                   alpha=args.alpha,
-                   ood_mix=args.mix,
-                   augmentation=args.augmentation,
-                   augmentation_sets=args.augmentation_sets,
-                   optimizer=optimizer,
-                   outputs=outputs,
-                   do_it=not is_array
-                   )
+    except DontDoFineTuning as e:
+        is_array = e.continue_as_array
+        if not is_array:
+            logging.warning('Will stop now')
+            sys.exit(0)
+        if isinstance(sampling_task, int):
+            args.array.extend(range(sampling_task - 7, sampling_task))
 
     if is_array:
+        save_dir_root = os.path.join(args.array_job_dir, dataset,
+                                     model.print_architecture(sampling=False),
+                                     'wim')
+    else:
+        save_dir_root = os.path.join(args.wim_job_dir, dataset,
+                                     model.print_architecture(sampling=False),
+                                     'wim')
+
+    save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
+    model.saved_dir = save_dir
+
+    if is_array:
+        sch.start(block=args.array)
+
         arrays_alike = model.fetch_jobs_alike(job_dir=args.array_job_dir, flash=False)
         if arrays_alike:
             logging.warning('Already {} similar arrays'.format(len(arrays_alike)))

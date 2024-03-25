@@ -272,7 +272,7 @@ class EstimatedLabelsDataset(Dataset):
     def append_estimated(self, y_):
         if isinstance(y_, torch.Tensor):
             y_ = y_.cpu()
-        logging.info('Populating estimated laels with {} labels (daatset of length {}'.format(len(y_), len(self)))
+        logging.info('Populating estimated laels with {} labels (dataset of length {})'.format(len(y_), len(self)))
         self._estimated_labels += list(np.asarray(y_))
 
     def __len__(self):

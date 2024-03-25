@@ -89,7 +89,7 @@ if __name__ == '__main__':
         sch = Scheduler()
         args = parser.parse_args(remaining_args, namespace=conf_args)
 
-    if args.debug:
+    if args.debug and False:
         for k, v in sorted(args.__dict__.items()):
             print(k, v)
         sys.exit()

@@ -191,6 +191,7 @@ if __name__ == '__main__':
                        augmentation_sets=args.augmentation_sets,
                        optimizer=optimizer,
                        outputs=outputs,
+                       seed=args.sampling_seed,
                        task=sampling_task
                        )
 

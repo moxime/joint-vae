@@ -88,7 +88,7 @@ if __name__ == '__main__':
     else:
         sch = Scheduler(file_path=os.path.join('grid', str(conf_args.sampling_seed))
                         if conf_args.sampling_seed is not None else None,
-                        index=conf_args.sampling_task if args.sampling_task else 0)
+                        index=conf_args.sampling_task if conf_args.sampling_task else 0)
 
         args = parser.parse_args(remaining_args, namespace=conf_args)
 

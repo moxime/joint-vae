@@ -349,7 +349,7 @@ class WIMJob(M):
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
         ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed, task=subset_idx_task)
 
-        number_of_tasks = len(ood_set) // moving_size
+        number_of_tasks = len(ood_set) // (ood_mix * moving_size)
 
         set_name = self.training_parameters['set']
 

@@ -209,8 +209,8 @@ if __name__ == '__main__':
         if not is_array:
             logging.warning('Will stop now')
             sys.exit(0)
-        if isinstance(sampling_task, int):
-            args.array.extend(range(sampling_task - 7, sampling_task))
+        if isinstance(sampling_task, int) and not args.array:
+            args.array = True
 
     if is_array:
         save_dir_root = os.path.join(args.array_job_dir, dataset,

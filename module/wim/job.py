@@ -339,7 +339,7 @@ class WIMJob(M):
         logging.info('Finetune batch size = {}'.format(batch_size))
 
         subset_idx_seed = seed
-        subset_idx_task = task
+        subset_idx_task = None if task == 'array' else task
         if not subset_idx_seed:
             logging.warning('Will not attribute a pseudo randomization on subsets indices')
 

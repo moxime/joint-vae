@@ -31,6 +31,8 @@ class Scheduler(object):
 
         current_idx = self.index
         if block:
+            if block is True:
+                block = [*range(self.index - 6, self.index)]
             blocking_files = ['{}.{}'.format(self.file_path, _) for _ in block]
             logging.info('Waiting for {} to be deleted'.format(','.join(blocking_files)))
 

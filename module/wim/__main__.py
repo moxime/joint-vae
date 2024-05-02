@@ -29,6 +29,7 @@ if __name__ == '__main__':
     conf_parser.add_argument('--job-number', '-j', type=int)
     conf_parser.add_argument('--sampling-seed', '-S', type=int)
     conf_parser.add_argument('--sampling-task', '-T', type=int)
+    conf_parser.add_argument('--sampling-task-shift', type=int, default=0)
 
     conf_parser.add_argument('--args-from-file', nargs=2)
 
@@ -78,6 +79,11 @@ if __name__ == '__main__':
     parser.add_argument('--do-not-collect-jobs', action='store_false', dest='collect_jobs')
 
     parser.set_defaults(**defaults)
+
+    try:
+        conf_args.sampling_task += conf_args.sampling_task_shift
+    except TypeError:
+        pass
 
     if conf_args.args_from_file:
         arg_str = conf_args.args_from_file

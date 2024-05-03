@@ -639,6 +639,7 @@ getters = {'const': ConstantDataset,
            'svhn': datasets.SVHN,
            'lsunc': datasets.LSUN,
            'lsunr': datasets.LSUN,
+           'dtd': datasets.DTD,
            }
 
 
@@ -1031,7 +1032,7 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
     return sets
 
 
-def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
+def show_images(imageset, shuffle=True, num=32, ncols=8, **kw):
 
     if isinstance(imageset, str):
         imageset = get_dataset(imageset)[1]

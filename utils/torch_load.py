@@ -639,7 +639,6 @@ getters = {'const': ConstantDataset,
            'svhn': datasets.SVHN,
            'lsunc': datasets.LSUN,
            'lsunr': datasets.LSUN,
-           'dtd': datasets.DTD,
            }
 
 
@@ -698,7 +697,7 @@ def get_dataset(dataset='mnist',
             else:
                 shape = tuple(int(_) for _ in shape)
 
-            pre_transforms.append(transforms.Resize(shape))
+            pre_transforms.append(transforms.Resize(shape, antialias=None))
 
         elif t.startswith('crop'):
             pre_transforms.append(transforms.RandomCrop(set_props['shape'][1:]))
@@ -1032,7 +1031,7 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
     return sets
 
 
-def show_images(imageset, shuffle=True, num=32, ncols=8, **kw):
+def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
 
     if isinstance(imageset, str):
         imageset = get_dataset(imageset)[1]
@@ -1153,18 +1152,25 @@ if __name__ == '__main__':
     # plt.set_loglevel(level='warning')
     # import time
 
-    data = 'cifar10'
-    data = 'svhn'
+    # data = 'cifar10'
+    # data = 'svhn'
 
-    for data in ('cifar10', 'svhn'):
+    # for data in ('cifar10', 'svhn'):
 
-        dset, _ = get_dataset(data, splits=['train'])
+    #     dset, _ = get_dataset(data, splits=['train'])
 
-        batch = get_batch(dset, batch_size=int(1e6))[0]
+    #     batch = get_batch(dset, batch_size=int(1e6))[0]
 
-        print('{}: {} samples'.format(data, batch.shape[0]))
+    #     print('{}: {} samples'.format(data, batch.shape[0]))
 
-        mean, std = batch.mean((0, 2, 3)), batch.std((0, 2, 3))
+    #     mean, std = batch.mean((0, 2, 3)), batch.std((0, 2, 3))
 
-        for k, v in zip(('mean', 'std'), (mean, std)):
-            print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))
+    #     for k, v in zip(('mean', 'std'), (mean, std)):
+    #         print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))
+    _, d = get_dataset('lsunr', splits=['test'])
+
+    print(len(d))
+
+    x, y = get_batch(d)
+
+    show_images(d, num=16, shuffle=False)

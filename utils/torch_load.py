@@ -1149,6 +1149,7 @@ def collate(batch):
 
 if __name__ == '__main__':
 
+    logging.getLogger().setLevel(logging.DEBUG)
     # plt.set_loglevel(level='warning')
     # import time
 
@@ -1167,7 +1168,7 @@ if __name__ == '__main__':
 
     #     for k, v in zip(('mean', 'std'), (mean, std)):
     #         print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))
-    _, d = get_dataset('lsunr', splits=['test'])
+    _, d = get_dataset('dtd', splits=['test'])
 
     print(len(d))
 

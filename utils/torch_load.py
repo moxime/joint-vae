@@ -639,6 +639,7 @@ getters = {'const': ConstantDataset,
            'svhn': datasets.SVHN,
            'lsunc': datasets.LSUN,
            'lsunr': datasets.LSUN,
+           'dtd': datasets.DTD,
            }
 
 
@@ -1149,7 +1150,8 @@ def collate(batch):
 
 if __name__ == '__main__':
 
-    logging.getLogger().setLevel(logging.DEBUG)
+    import sys
+
     # plt.set_loglevel(level='warning')
     # import time
 
@@ -1175,3 +1177,6 @@ if __name__ == '__main__':
     x, y = get_batch(d)
 
     show_images(d, num=16, shuffle=False)
+
+    if sys.argv:
+        input()

@@ -188,6 +188,7 @@ if __name__ == '__main__':
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
+    augmentation_sets = sum((_.split('-') for _ in args.augmentation_sets), [])
 
     save_dir_root = os.path.join(args.wim_job_dir, dataset,
                                  model.print_architecture(sampling=False),
@@ -205,7 +206,7 @@ if __name__ == '__main__':
                        alpha=args.alpha,
                        ood_mix=args.mix,
                        augmentation=args.augmentation,
-                       augmentation_sets=args.augmentation_sets,
+                       augmentation_sets=augmentation_sets,
                        optimizer=optimizer,
                        outputs=outputs,
                        seed=args.sampling_seed,

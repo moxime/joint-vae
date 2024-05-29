@@ -187,6 +187,32 @@ class UniformDataset(ConstantDataset):
         return image, label
 
 
+class DTDConcatTestVal(torch.utils.data.ConcatDataset):
+
+    def __init__(self, *a, split='test', **kw):
+
+        if split == 'train':
+            splits = ['train', 'val']
+        elif split == 'test':
+            splits = ['test']
+        else:
+            raise ValueError('{} unknown split for DTDConcatTestVal'.format(split))
+
+        super().__init__([datasets.DTD(*a, split=_, **kw) for _ in splits])
+
+    @property
+    def transforms(self):
+        return self.datasets[0].transforms
+
+    @property
+    def transform(self):
+        return self.datasets[0].transform
+
+    @property
+    def target_transform(self):
+        return self.datasets[0].target_transform
+
+
 class ImageFolderWithClassesInFile(datasets.ImageFolder):
 
     def __init__(self, root, classes_file, *a, **kw):
@@ -256,15 +282,15 @@ class EstimatedLabelsDataset(Dataset):
 
         self._estimated_labels = []
 
-    @property
+    @ property
     def name(self):
         return self._dataset.name
 
-    @property
+    @ property
     def return_estimated(self):
         return self._return_estimated
 
-    @return_estimated.setter
+    @ return_estimated.setter
     def return_estimated(self, b):
         assert not b or len(self) == len(self._estimated_labels), 'You did not collect etimated labels'
         self._return_estimated = b
@@ -639,7 +665,7 @@ getters = {'const': ConstantDataset,
            'svhn': datasets.SVHN,
            'lsunc': datasets.LSUN,
            'lsunr': datasets.LSUN,
-           'dtd': datasets.DTD,
+           'dtd': DTDConcatTestVal,
            }
 
 
@@ -1170,13 +1196,13 @@ if __name__ == '__main__':
 
     #     for k, v in zip(('mean', 'std'), (mean, std)):
     #         print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))
-    _, d = get_dataset('dtd', splits=['test'])
+    d, _ = get_dataset('dtd', splits=['train'])
 
     print(len(d))
 
     x, y = get_batch(d)
 
-    show_images(d, num=16, shuffle=False)
+    show_images(d, num=32, shuffle=32)
 
     if sys.argv:
         input()

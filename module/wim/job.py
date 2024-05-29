@@ -343,8 +343,8 @@ class WIMJob(M):
         if not subset_idx_seed:
             logging.warning('Will not attribute a pseudo randomization on subsets indices')
 
-        logging.debug('Pseudo randomization of subdatasets idx with seed/task {} {}'.format(subset_idx_seed,
-                                                                                            subset_idx_task))
+        logging.info('Pseudo randomization of subdatasets idx with seed/task {} {}'.format(subset_idx_seed,
+                                                                                           subset_idx_task))
 
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
         ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed, task=subset_idx_task)
@@ -395,7 +395,7 @@ class WIMJob(M):
                                                 transformer=transformer,
                                                 data_augmentation=data_augmentation)
 
-        augmentation_sets_ = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
+        augmentation_sets_ = {_: torchdl.get_dataset(_, transformer=transformer, splits=['train'])[1]
                               for _ in augmentation_sets}
 
         logging.info('Will do finetune (task {}/{})'.format(task, number_of_tasks))
@@ -425,6 +425,7 @@ class WIMJob(M):
                                                   num_workers=0)
 
         moving_loader = torch.utils.data.DataLoader(moving_set,
+                                                    drop_last=True,
                                                     batch_size=batch_size,
                                                     shuffle=True,
                                                     num_workers=0)

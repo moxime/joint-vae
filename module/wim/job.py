@@ -415,9 +415,10 @@ class WIMJob(M):
                                                   for n, m in zip(moving_set.classes, moving_set.mix)))
         logging.info(_s)
 
-        if len(moving_set) < moving_size:
-            self.wim_params['moving_size'] = len(moving_set)
-            logging.warning('Moving size reduced to {} (instead of {})'.format(len(moving_set), moving_size))
+        actual_moving_size = len(moving_set) // (1 + augmentation)
+        if actual_moving_size < moving_size:
+            self.wim_params['moving_size'] = actual_moving_size
+            logging.warning('Moving size reduced to {} (instead of {})'.format(actual_moving_size, moving_size))
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,

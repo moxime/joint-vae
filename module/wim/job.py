@@ -415,7 +415,7 @@ class WIMJob(M):
                                                   for n, m in zip(moving_set.classes, moving_set.mix)))
         logging.info(_s)
 
-        actual_moving_size = len(moving_set) // (1 + augmentation)
+        actual_moving_size = int(len(moving_set) // (1 + augmentation))
         if actual_moving_size < moving_size:
             self.wim_params['moving_size'] = actual_moving_size
             logging.warning('Moving size reduced to {} (instead of {})'.format(actual_moving_size, moving_size))

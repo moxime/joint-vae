@@ -395,7 +395,7 @@ class WIMJob(M):
                                                 transformer=transformer,
                                                 data_augmentation=data_augmentation)
 
-        augmentation_sets_ = {_: torchdl.get_dataset(_, transformer=transformer, splits=['train'])[1]
+        augmentation_sets_ = {_: torchdl.get_dataset(_, transformer=transformer, splits=['train'])[0]
                               for _ in augmentation_sets}
 
         logging.info('Will do finetune (task {}/{})'.format(task, number_of_tasks))

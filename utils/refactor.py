@@ -179,7 +179,7 @@ def load_and_save_json(directory,
                 print('error with', name)
                 t = dict()
 
-        if key in t.keys() or old_value is None:
+        if key in t.keys() or (old_value is None and new_key is None):
             print(name[-80:], '\n---', key, ':', t.get(key, None), end='')
 
             if new_value is not None:
@@ -493,24 +493,96 @@ def reset_wim_arrays(job_dir, do_it=False):
     print('***', n)
 
 
+def print_prior_params(json_file, params_dict={}):
+
+    if not params_dict:
+        params_dict.update({'train_params': {}, 'params': {}})
+    directory = os.path.dirname(json_file)
+    for file in 'params.json', 'train_params.json':
+        prior_params = params_dict[os.path.splitext(file)[0]]
+        json_file = os.path.join(directory, file)
+        if not os.path.exists(json_file):
+            raise FileNotFoundError
+
+        #        print(name)
+        with open(json_file, 'rb') as f:
+            try:
+                t = json.load(f)
+            except json.JSONDecodeError:
+                print('error with', name)
+                t = dict()
+                return
+
+            for k in t:
+                if k == 'prior':
+                    for k_ in t['prior']:
+                        if k_ not in prior_params:
+                            prior_params[k_] = set()
+                        prior_params[k_].add(t['prior'][k_])
+
+                elif 'prior' in k:
+                    if k not in prior_params:
+                        prior_params[k] = set()
+
+                    prior_params[k].add(t[k])
+
+
+def learned_variance(json_file):
+
+    directory = os.path.dirname(json_file)
+    t = {}
+    for name in ('params.json', 'train_params.json'):
+        json_file = os.path.join(directory, name)
+        with open(json_file, 'rb') as f:
+            t.update(json.load(f))
+
+    if t.get('learned_latent_prior_variance'):
+        print(' -- '.join('{}:{}'.format(k, t[k]) for k in t if 'prior' in k))
+
+
+def prior_in_params(json_file, write_json=False):
+
+    directory = os.path.dirname(json_file)
+
+    params_file = os.path.join(directory, 'params.json')
+    train_file = os.path.join(directory, 'train_params.json')
+
+    train = json.load(train_file)
+
+    original_prior_params = {k: train.pop(k) for k in train if 'prior' in k}
+
+    params = json.load(params_file)
+
+    prior = {}
+
+    keys = {'learned_latent_prior_means': 'learned_means', }
+
+
+def walk_json_files(directory, filename, func, *a, **kw):
+
+    for directory, _, files in os.walk(directory):
+        if filename in files:
+
+            func(os.path.join(directory, filename), *a, **kw)
+
+
+def refactor_v1(job_dir='jobs-v1-refactored', write_json=False):
+
+    prior_params = {}
+    walk_json_files(job_dir, 'params.json', print_prior_params, params_dict=prior_params)
+    for k in prior_params:
+        print(k, prior_params[k])
+
+    #    walk_json_files(job_dir, 'params.json', learned_variance)
+
+
 if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--job-dir', default='jobs')
-    parser.add_argument('--write', action='store_true')
+    parser.add_argument('--job-dir', default='jobs-v1-refactored')
+    parser.add_argument('--write', '-x', action='store_true')
 
     args = parser.parse_args()
 
-    # print('Working on', args.job_dir)
-    # load_and_save_json(args.job_dir, 'train.json', 'warmup',
-    #                    old_value=0, new_value=[0, 0], suffix='-warmup')
-
-    # history_from_list_to_dict(directory=args.job_dir, write_json=args.write)
-
-    # add_default_values_to_registered_models(args.job_dir, write_json=args.write,
-    #                                         wim_augmentation=0., wim_augmentation_dataset=None)
-
-    # reset_wim_arrays(args.job_dir, do_it=args.write)
-    load_and_save_json(args.job_dir, 'wim.json', 'augmentation_dataset',
-                       new_key='augmentation_sets', to_list=True, write_json=args.write)
+    refactor_v1(job_dir=args.job_dir, write_json=args.write)

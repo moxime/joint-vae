@@ -1,13 +1,14 @@
 import json
 import os
 from module.vae_layers import Sigma
-from utils.save_load import find_by_job_number, load_json, fetch_models
+from utils.save_load import find_by_job_number, load_json, fetch_models, save_json
 from shutil import copyfile
 import functools
 from utils.save_load.fetch import iterable_over_subdirs
 import numpy as np
 from datetime import date
 from utils.parameters import gethostname
+from itertools import count
 
 
 def delete_job(directory, msg=''):
@@ -16,7 +17,32 @@ def delete_job(directory, msg=''):
         f.write(str(msg) + '\n')
 
 
-@iterable_over_subdirs(0, iterate_over_subdirs=list)
+def print_dict(d, sep=' -- ', format='{}:{}'):
+
+    print(sep.join(format.format(k, v) for k, v in d.items()))
+
+
+def backup_json(d, n, fingerprint=None):
+    ext = '.bak'
+    if fingerprint is not None:
+        ext = ext + '.{}'.format(fingerprint)
+    name = os.path.join(d, n)
+    copyfile(name, name + ext)
+    return name + ext
+
+
+def restore_json(d, n, fingerprint=None):
+    ext = '.bak'
+    if fingerprint is not None:
+        ext = ext + '.{}'.format(fingerprint)
+    name = os.path.join(d, n)
+    if os.path.exists(name):
+        copyfile(name + ext, name)
+
+    return name + ext
+
+
+@ iterable_over_subdirs(0, iterate_over_subdirs=list)
 def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
 
     name = os.path.join(directory, 'train.json')
@@ -82,7 +108,7 @@ def modify_train_file_coder(directory, write_json=False, old_suffix='bak'):
             json.dump(t, f)
 
 
-@iterable_over_subdirs('directory')
+@ iterable_over_subdirs('directory')
 def verify_has_valid(directory='jobs/'):
     try:
         train = load_json(directory, 'train.json')
@@ -378,7 +404,7 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
         json_pretrained_from_params_to_train(d, write_json=write_json)
 
 
-@iterable_over_subdirs('directory', keep_none=False, iterate_over_subdirs=list)
+@ iterable_over_subdirs('directory', keep_none=False, iterate_over_subdirs=list)
 def history_from_list_to_dict(directory='jobs', write_json=False):
 
     json_file = os.path.join(directory, 'history.json')
@@ -540,40 +566,71 @@ def learned_variance(json_file):
         print(' -- '.join('{}:{}'.format(k, t[k]) for k in t if 'prior' in k))
 
 
-def prior_in_params(json_file, write_json=False):
+def prior_in_params(directory, write_json=False):
 
-    directory = os.path.dirname(json_file)
+    json_files = ('params.json', 'train_params.json')
 
-    params_file = os.path.join(directory, 'params.json')
-    train_file = os.path.join(directory, 'train_params.json')
+    original_params = {_: load_json(directory, _) for _ in json_files}
 
-    train = json.load(train_file)
+    original_prior_params = {}
 
-    original_prior_params = {k: train.pop(k) for k in train if 'prior' in k}
+    for k, v in original_params.items():
 
-    params = json.load(params_file)
+        original_prior_params.update({k: v.pop(k) for k in list(v.keys()) if 'prior' in k})
 
     prior = {}
 
-    keys = {'learned_latent_prior_means': 'learned_means', }
+    keys = {'learned_latent_prior_means': 'learned_means',
+            'latent_prior_variance': 'var_dim',
+            'latent_prior_means': 'init_means'}
+
+    for k, k_ in keys.items():
+        prior[k_] = original_prior_params[k]
+
+    prior['distribution'] = 'gaussian'
+    params = original_params['params.json']
+    mtype = params['type']
+    prior['num_priors'] = 1 if mtype in ('vae', 'vib', 'jvae') else params['num_labels']
+
+    if not write_json:
+        print('=' * 80)
+        for _ in original_params:
+            print('-' * 20, _, '-' * 10)
+            print_dict(original_params[_])
+        print('---------- prior --------')
+        print_dict(prior)
+
+    else:
+        fingerprint = None if write_json is True else write_json
+        for _ in json_files:
+            bak = backup_json(directory, _, fingerprint=fingerprint)
+            print(directory)
+            print('-- {} -> {}'.format(_, os.path.basename(bak)))
+
+        original_params['params.json']['prior'] = prior
+        for _ in original_params:
+            save_json(original_params[_], directory, _)
+            print('-- {} updated'.format(_))
 
 
-def walk_json_files(directory, filename, func, *a, **kw):
+def walk_json_files(directory, name):
 
-    for directory, _, files in os.walk(directory):
-        if filename in files:
-
-            func(os.path.join(directory, filename), *a, **kw)
+    for d, _, files in os.walk(directory):
+        if name + '.json' in files:
+            yield d, name + '.json'
 
 
 def refactor_v1(job_dir='jobs-v1-refactored', write_json=False):
 
     prior_params = {}
-    walk_json_files(job_dir, 'params.json', print_prior_params, params_dict=prior_params)
-    for k in prior_params:
-        print(k, prior_params[k])
 
-    #    walk_json_files(job_dir, 'params.json', learned_variance)
+    # for fp in walk_json_files(job_dir, 'params'):
+    #     print_prior_params(fp, params_dict=prior_params)
+    # for k in prior_params:
+    #     print(k, prior_params[k])
+
+    for d, f in walk_json_files(job_dir, 'params'):
+        prior_in_params(d, write_json=write_json)
 
 
 if __name__ == '__main__':
@@ -581,8 +638,16 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--job-dir', default='jobs-v1-refactored')
-    parser.add_argument('--write', '-x', action='store_true')
+    parser.add_argument('--write', '-x', nargs='?', const=True)
+    parser.add_argument('--restore', nargs='?', const=True)
 
     args = parser.parse_args()
 
-    refactor_v1(job_dir=args.job_dir, write_json=args.write)
+    if args.restore:
+        for d, _ in walk_json_files(args.job_dir, 'params'):
+            print(d)
+            print(restore_json(d, 'params.json', fingerprint=args.restore))
+            print(restore_json(d, 'train_params.json', fingerprint=args.restore))
+
+    else:
+        refactor_v1(job_dir=args.job_dir, write_json=args.write)

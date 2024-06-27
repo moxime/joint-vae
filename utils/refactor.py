@@ -24,7 +24,7 @@ def print_dict(d, sep=' -- ', format='{}:{}'):
 
 def backup_json(d, n, fingerprint=None):
     ext = '.bak'
-    if fingerprint is not None:
+    if fingerprint not in (None, True):
         ext = ext + '.{}'.format(fingerprint)
     name = os.path.join(d, n)
     copyfile(name, name + ext)
@@ -33,7 +33,7 @@ def backup_json(d, n, fingerprint=None):
 
 def restore_json(d, n, fingerprint=None):
     ext = '.bak'
-    if fingerprint is not None:
+    if fingerprint not in (None, True):
         ext = ext + '.{}'.format(fingerprint)
     name = os.path.join(d, n)
     if os.path.exists(name):
@@ -601,9 +601,8 @@ def prior_in_params(directory, write_json=False):
         print_dict(prior)
 
     else:
-        fingerprint = None if write_json is True else write_json
         for _ in json_files:
-            bak = backup_json(directory, _, fingerprint=fingerprint)
+            bak = backup_json(directory, _, fingerprint=write_json)
             print(directory)
             print('-- {} -> {}'.format(_, os.path.basename(bak)))
 
@@ -613,6 +612,62 @@ def prior_in_params(directory, write_json=False):
             print('-- {} updated'.format(_))
 
 
+def key_in_json(directory, json_file, k):
+
+    json_file = os.path.splitext(json_file)[0] + '.json'
+    d = load_json(directory, json_file)
+
+    d = {_: __ for _, __ in d.items() if k in _}
+
+    if d:
+        print_dict(d)
+    else:
+        print('--')
+
+
+def change_json_key(directory, json_file, old_key, new_key, write_json=False):
+
+    d = load_json(directory, json_file)
+
+    v = d.pop(old_key)
+    d[new_key] = v
+
+    if not write_json:
+        print('{}->{}:{}'.format(old_key, new_key, v))
+
+    else:
+        bak = backup_json(directory, json_file, fingerprint=write_json)
+        print(directory)
+        print('-- {} -> {}'.format(_, os.path.basename(bak)))
+        save_json(d, directory, json_file)
+        print('-- {} updated'.format(json_file))
+
+
+def change_params_value(directory, json_file, key, func, write_json=False, on_miss='raise'):
+
+    json_file = os.path.splitext(json_file)[0] + '.json'
+    d = load_json(directory, json_file)
+    try:
+        v = d.pop(key)
+    except KeyError:
+        if on_miss == 'raise':
+            raise
+        return
+
+    v_ = func(v)
+    d[key] = v_
+
+    if not write_json:
+        print('{}:{}->{}'.format(key, v, v_))
+
+    else:
+        bak = backup_json(directory, json_file, fingerprint=write_json)
+        print(directory)
+        print('-- {} -> {}'.format(_, os.path.basename(bak)))
+        save_json(d, directory, json_file)
+        print('-- {} updated'.format(json_file))
+
+
 def walk_json_files(directory, name):
 
     for d, _, files in os.walk(directory):
@@ -620,7 +675,7 @@ def walk_json_files(directory, name):
             yield d, name + '.json'
 
 
-def refactor_v1(job_dir='jobs-v1-refactored', write_json=False):
+def refactor_prior_from_v1(job_dir='jobs-v1-refactored', write_json=False):
 
     prior_params = {}
 
@@ -640,6 +695,9 @@ if __name__ == '__main__':
     parser.add_argument('--job-dir', default='jobs-v1-refactored')
     parser.add_argument('--write', '-x', nargs='?', const=True)
     parser.add_argument('--restore', nargs='?', const=True)
+    parser.add_argument('--show', nargs=2)
+    parser.add_argument('--feat', action='store_true')
+    parser.add_argument('--upsampler', action='store_true')
 
     args = parser.parse_args()
 
@@ -649,5 +707,27 @@ if __name__ == '__main__':
             print(restore_json(d, 'params.json', fingerprint=args.restore))
             print(restore_json(d, 'train_params.json', fingerprint=args.restore))
 
-    else:
-        refactor_v1(job_dir=args.job_dir, write_json=args.write)
+    elif args.show:
+        param_file = os.path.splitext(args.show[1])[0]
+        key = args.show[0]
+
+        for d, _ in walk_json_files(args.job_dir, param_file):
+
+            key_in_json(d, param_file, key)
+
+    elif args.feat:
+        for d, _ in walk_json_files(args.job_dir, 'params'):
+            change_params_value(d, _, 'features', lambda x: x['features'],
+                                on_miss='return',
+                                write_json=args.write and 'feat')
+
+    elif args.upsampler:
+        def update_upsampler(u):
+            if u == 'None':
+                return u
+            if isinstance(u, list):
+                return '[x4:2+1]{}'.format('-'.join(map(str, u)))
+        for d, _ in walk_json_files(args.job_dir, 'params'):
+            change_params_value(d, _, 'upsampler', update_upsampler,
+                                on_miss='return',
+                                write_json=args.write and 'upsampler')

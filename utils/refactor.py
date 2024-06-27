@@ -582,7 +582,7 @@ def prior_in_params(directory, write_json=False):
 
     keys = {'learned_latent_prior_means': 'learned_means',
             'latent_prior_variance': 'var_dim',
-            'latent_prior_means': 'init_means'}
+            'latent_prior_means': 'init_mean'}
 
     for k, k_ in keys.items():
         prior[k_] = original_prior_params[k]

@@ -404,69 +404,6 @@ def json_pretrained_from_params_to_train(directory, write_json=False):
         json_pretrained_from_params_to_train(d, write_json=write_json)
 
 
-@ iterable_over_subdirs('directory', keep_none=False, iterate_over_subdirs=list)
-def history_from_list_to_dict(directory='jobs', write_json=False):
-
-    json_file = os.path.join(directory, 'history.json')
-    json_file_bak = os.path.join(directory, 'history_.json')
-    # print(json_file)
-    if not os.path.exists(json_file) or os.path.exists(json_file_bak):
-        return None
-    print(directory.split('/')[-1])
-    if write_json:
-        copyfile(json_file, json_file_bak)
-        print('backuped file')
-    history = load_json(directory, 'history.json')
-
-    params = load_json(directory, 'train_params.json')
-    epochs_ = history['epochs']
-    validation = params['validation']
-    epochs = {}
-    epochs['train'] = range(0, epochs_)
-    full_test = params['full_test_every']
-    epochs['test'] = range(full_test, epochs_, full_test)
-    epochs['validation'] = range(0, epochs_) if validation else []
-    kept_k = []
-    new_history = {e: {} for e in epochs['train']}
-    for k in [*history.keys()]:
-        for prefix in ('test', 'train', 'validation'):
-            if k.startswith(prefix):
-                h_k = history.pop(k)
-                _k = len(h_k)
-                __ = len(epochs[prefix])
-                assert __ == _k or not _k
-                print(' ' if _k == __ else '*', k, _k, __)
-                if _k:
-                    for i, e in enumerate(epochs[prefix]):
-                        new_history[e].update({k: h_k[i]})
-                break
-        else:
-            kept_k.append(k)
-    lr = history['lr']
-    for i, e in enumerate(epochs['train']):
-        new_history[e]['lr'] = lr[i]
-    kept_k.remove('lr')
-    print('kept', *kept_k)
-    for k in kept_k:
-        new_history[k] = history[k]
-    if write_json:
-        with open(json_file, 'w') as f:
-            json.dump(new_history, f)
-            print('w', json_file)
-
-    if 10 in new_history:
-        print(*new_history[10].keys())
-    else:
-        print('10 not in history')
-    if 50 in new_history:
-        print(*new_history[50].keys())
-    else:
-        print('50 not in history')
-    print('train:', min(epochs['train']), max(epochs['train']))
-    print('test:', *epochs['test'])
-    return True
-
-
 def add_default_values_to_registered_models(job_dir, write_json=False, **kw):
 
     rmodels_file = 'models-{}.json'.format(gethostname())
@@ -612,15 +549,80 @@ def prior_in_params(directory, write_json=False):
             print('-- {} updated'.format(_))
 
 
-def key_in_json(directory, json_file, k):
+def history_from_list_to_dict(directory, write_json=False):
+
+    json_file = 'history.json'
+
+    history = load_json(directory, 'history.json')
+
+    params = load_json(directory, 'train_params.json')
+    epochs_ = history['epochs']
+    validation = params['validation']
+    epochs = {}
+    epochs['train'] = range(0, epochs_)
+    full_test = params['full_test_every']
+    epochs['test'] = range(full_test, epochs_, full_test)
+    epochs['validation'] = range(0, epochs_) if validation else []
+    kept_k = []
+    new_history = {e: {} for e in epochs['train']}
+    for k in [*history.keys()]:
+        for prefix in ('test', 'train', 'validation'):
+            if k.startswith(prefix):
+                h_k = history.pop(k)
+                _k = len(h_k)
+                __ = len(epochs[prefix])
+                assert __ == _k or not _k
+                print(' ' if _k == __ else '*', k, _k, __)
+                if _k:
+                    for i, e in enumerate(epochs[prefix]):
+                        new_history[e].update({k: h_k[i]})
+                break
+        else:
+            kept_k.append(k)
+    lr = history['lr']
+    for i, e in enumerate(epochs['train']):
+        new_history[e]['lr'] = lr[i]
+    kept_k.remove('lr')
+    print('kept', *kept_k)
+    for k in kept_k:
+        new_history[k] = history[k]
+
+    if 10 in new_history:
+        print(*new_history[10].keys())
+    else:
+        print('10 not in history')
+    if 50 in new_history:
+        print(*new_history[50].keys())
+    else:
+        print('50 not in history')
+    print('train:', min(epochs['train']), max(epochs['train']))
+    print('test:', *epochs['test'])
+
+    if epochs['validation']:
+        new_history[epochs_] = {_: new_history[epochs_ - 1][_]
+                                for _ in new_history[epochs_ - 1] if _.startswith('validation')}
+
+    for _ in (epochs_ - 1, epochs_):
+        print('{}: {}'.format(_, ' -- '.join(new_history.get(_, []))))
+
+    if write_json:
+        bak = backup_json(directory, json_file, fingerprint=write_json)
+        print(directory)
+        print('-- {} -> {}'.format(_, os.path.basename(bak)))
+        save_json(new_history, directory, json_file)
+        print('-- {} updated'.format(json_file))
+
+
+def key_in_json(directory, json_file, k, only_keys=False):
 
     json_file = os.path.splitext(json_file)[0] + '.json'
     d = load_json(directory, json_file)
 
-    d = {_: __ for _, __ in d.items() if k in _}
+    if k:
+        d = {_: __ for _, __ in d.items() if k in _}
 
     if d:
-        print_dict(d)
+        print(*d) if only_keys else print_dict(d)
     else:
         print('--')
 
@@ -692,20 +694,22 @@ if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--job-dir', default='jobs-v1-refactored')
+    parser.add_argument('--job-dir', default='jobs-v1')
     parser.add_argument('--write', '-x', nargs='?', const=True)
-    parser.add_argument('--restore', nargs='?', const=True)
+    parser.add_argument('--fingerprint', default=True)
+    parser.add_argument('--restore', nargs='*')
     parser.add_argument('--show', nargs=2)
     parser.add_argument('--feat', action='store_true')
     parser.add_argument('--upsampler', action='store_true')
+    parser.add_argument('--history', action='store_true')
 
     args = parser.parse_args()
 
     if args.restore:
         for d, _ in walk_json_files(args.job_dir, 'params'):
             print(d)
-            print(restore_json(d, 'params.json', fingerprint=args.restore))
-            print(restore_json(d, 'train_params.json', fingerprint=args.restore))
+            for f in args.restore:
+                print(restore_json(d, f + '.json', fingerprint=args.fingerprint))
 
     elif args.show:
         param_file = os.path.splitext(args.show[1])[0]
@@ -713,7 +717,7 @@ if __name__ == '__main__':
 
         for d, _ in walk_json_files(args.job_dir, param_file):
 
-            key_in_json(d, param_file, key)
+            key_in_json(d, param_file, key, only_keys=True)
 
     elif args.feat:
         for d, _ in walk_json_files(args.job_dir, 'params'):
@@ -731,3 +735,7 @@ if __name__ == '__main__':
             change_params_value(d, _, 'upsampler', update_upsampler,
                                 on_miss='return',
                                 write_json=args.write and 'upsampler')
+    elif args.history:
+        for d, _ in walk_json_files(args.job_dir, 'history'):
+            print('====')
+            history_from_list_to_dict(d, write_json=args.write and 'history')

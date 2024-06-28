@@ -44,12 +44,15 @@ def load_json(dir_name, file_name, presumed_type=str):
     with open(p, 'rb') as f:
         try:
             d = json.load(f)
+            #            print(*d)
         except json.JSONDecodeError as e:
             logging.error('Corrupted file\n%s', p)
             with open('/tmp/corrupted', 'a') as f:
                 f.write(p + '\n')
             raise e
     d_ = {}
+    if isinstance(d, str):
+        print(dir_name, file_name)
     for k in d:
         try:
             k_ = presumed_type(k)

@@ -155,6 +155,7 @@ def results_dataframe(models,
         'options',
         'batch_norm',
         'optim_str',
+        'encoder_forced_variance',
         'prior',
         #        'forced_var',
         'tilted_tau',
@@ -346,6 +347,19 @@ def results_dataframe(models,
     return df.apply(col_format)
 
 
+def auto_remove_index(df, keep=['job', 'type']):
+    removed_index = [l.name for i, l in enumerate(df.index.levels)
+                     if len(l) < 2 and l.name not in keep]
+
+    auto_removed_index = {}
+
+    for n in removed_index:
+        i = df.index.names.index(n)
+        auto_removed_index[n] = df.index[0][i]
+
+    return auto_removed_index
+
+
 @ printdebug(False)
 def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
     """
@@ -407,7 +421,7 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         large_df.loc[average, acc_columns] = np.nan
         # large_df[acc_columns][average] = np.nan
 
-    print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+    # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 
     return large_df.reorder_levels(['metrics', 'method'], axis=1)
 
@@ -524,6 +538,7 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
                                          'wim_augmentation_str': '\u2207+',
                                          'beta': '\u03b2',
                                          'gamma': '\u03b3',
+                                         'encoder_forced_variance': 'fv',
                                          'depth': 'D',
                                          'features': 'feat',
                                          'upsampler': 'ups',

@@ -12,7 +12,7 @@ from utils.save_load import make_dict_from_model, available_results, save_json, 
 from utils.save_load import fetch_models
 from utils.tables import export_losses
 from utils.texify import tex_architecture, texify_test_results, texify_test_results_df
-from utils.tables import results_dataframe, format_df_index
+from utils.tables import results_dataframe, format_df_index, auto_remove_index
 from utils.testing import early_stopping
 
 
@@ -388,8 +388,6 @@ if __name__ == '__main__':
     first_set = True
     for s, d in df.items():
 
-        auto_removed_index = {}
-
         texify_test_results_df(d, s, tex_file[s], tab_file[s], tab_code=tab_code)
 
         d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('NaN'))
@@ -405,14 +403,16 @@ if __name__ == '__main__':
 
         if args.remove_index is not None:
             non_removable_index = ['job', 'type']
-
             if are_auto_removed_index:
-                removed_index = [l.name for i, l in enumerate(d.index.levels)
-                                 if len(l) < 2 and l.name not in non_removable_index]
+                auto_removed_index = auto_remove_index(d, keep=['job', 'type'])
+                removed_index = list(auto_removed_index)
             else:
                 removed_index = []
-            for i, _ in enumerate(removed_index):
-                auto_removed_index[d.index.names[i]] = d.index[0][i]
+            for n in removed_index:
+                i = d.index.names.index(n)
+                auto_removed_index[n] = d.index[0][i]
+                # auto_removed_index[d.index.names[i]] = d.index[0][i]
+                # print('*** ***', d.index.names[i], d.index[0][i])
             unremoved_index = []
             for i in args.remove_index:
                 if i.replace('-', '_') in d.index.names:
@@ -426,6 +426,9 @@ if __name__ == '__main__':
                                              ', '.join(d.index.names)))
             if remove_wim_from and 'wim_from' in d.index.names and 'wim_from' not in removed_index:
                 removed_index.append('wim_from')
+
+            if remove_wim_from:
+                auto_removed_index = {_: __ for _, __ in auto_removed_index.items() if not _.startswith('wim')}
 
         idx = list(d.index.names)
         if 'job' in d.index.names:
@@ -455,16 +458,17 @@ if __name__ == '__main__':
             texify_test_results_df(d_agg, s, agg_tex_file[s], agg_tab_file[s], tab_code=tab_code)
 
         d = d.droplevel(removed_index)
+        d_mean = d_mean.droplevel(removed_index)
         d_agg = d_agg.droplevel(removed_index)
 
         col_show_levels = {_: 0 for _ in d.columns}
         col_show_levels.update({_: 4 for _ in d.columns if _[0] == 'measures'})
         col_show_levels.update({_: 3 for _ in d.columns if _[-1] in ['done']})
-        col_show_levels.update({_: 2 for _ in d.columns if _[-1] in ['epoch', 'validation']})
+        col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['epoch', 'validation']})
         col_show_levels.update({_: 2 for _ in d.columns if _[-1] in ['n']})
         col_show_levels.update({_: 10 for _ in d.columns if _[0] == s and _[-1] != 'acc'})
         col_show_levels.update({_: 3 for _ in d.columns if _[-1] in ['mean', 'std']})
-        col_show_levels.update({_: 1 for _ in d.columns if _[-1] in ['dB', 'nll', 'kl']})
+        col_show_levels.update({_: 2 for _ in d.columns if _[-1] in ['dB', 'nll', 'kl']})
 
         drop_cols = [_ for _ in d.columns if col_show_levels[_] > args.show_measures]
 
@@ -510,8 +514,14 @@ if __name__ == '__main__':
             print('Possible sorting keys :', *d.index.names)
         if auto_removed_index:
             print('\nCommon values')
+        nans = []
         for k, v in format_df_index(auto_removed_index).items():
             if not k.startswith('drop'):
-                print('{:8}: {}'.format(k, v))
+                if v != 'NaN':
+                    print('{:8}: {}'.format(k, v))
+                else:
+                    nans.append(k)
+        if nans:
+            print('{:8}:'.format('NaNs'), *nans)
         for _ in range(1):
             print('=' * width)

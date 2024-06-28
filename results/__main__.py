@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from utils.save_load import fetch_models, make_dict_from_model
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
-from utils.tables import agg_results, results_dataframe, format_df_index
+from utils.tables import agg_results, results_dataframe, format_df_index, auto_remove_index
 from pydoc import locate
 import re
 from utils.print_log import turnoff_debug
@@ -29,8 +29,8 @@ args_from_file = ['-vv',
 tex_output = sys.stdout
 
 
-def process_config_file(models, config_file, filter_keys, which=['all'], keep_auc=True,
-                        root=root, show_dfs=True):
+def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
+                        root=root, show_dfs=True, flash=True):
 
     config_dir = os.path.dirname(config_file)
     config = configparser.ConfigParser()
@@ -44,6 +44,24 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         which = [w for w in which if w in config]
 
     default_config = config['DEFAULT']
+
+    job_dir = default_config.get('jobs', DEFAULT_JOBS_DIR)
+
+    registered_models_file = 'models-' + gethostname() + '.json'
+
+    global_filters = DictOfListsOfParamFilters()
+
+    for _ in config['DEFAULT']:
+        if _ in filter_keys:
+            dest = filter_keys[_]['dest']
+            ftype = filter_keys[_]['type']
+            global_filters.add(dest, ParamFilter.from_string(arg_str=config['DEFAULT'][_],
+                                                             type=locate(ftype or 'str')))
+
+    models = fetch_models(job_dir, registered_models_file, filter=global_filters, build_module=False, flash=flash)
+
+    logging.info('Fetched {} models'.format(len(models)))
+
     dataset = default_config.get('dataset')
     kept_index = default_config.get('kept_index', '').split()
 
@@ -96,6 +114,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
             d = n['dir']
             derailed = os.path.join(d, 'derailed')
             to_be_kept = to_be_kept and not os.path.exists(derailed)
+
             if to_be_kept:
                 epoch_to_fetch = config[k].get('epoch', 'last')
                 if epoch_to_fetch == 'min-loss':
@@ -112,6 +131,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     raw_df = {}
     job_list = {}
     df_string = {}
+    removed_index = {}
     for k in which_from_filters:
         job_list[k] = [_['job'] for _ in models_by_type[k]]
         job_list_str = ' '.join(str(_) for _ in job_list[k])
@@ -130,16 +150,28 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         if 'job' in idx:
             idx.remove('job')
 
-        df_short = format_df_index(df)
-        df_string[k] = df_short[df_short.columns[:3]].to_string(float_format='{:.1f}'.format)
+        removed_index[k] = auto_remove_index(df)
+        #  removed_index = {}      #
+        df_short = format_df_index(df.droplevel(list(removed_index[k])))
+        df_string[k] = df_short[df_short.columns[:5]].to_string(float_format='{:.1f}'.format)
         df_width = len(df_string[k].split('\n')[0])
         if show_dfs:
             print('\n{k:=^{w}s}'.format(k=k, w=df_width))
             print(df_string[k])
             print('{k:=^{w}s}\n'.format(k='', w=df_width))
+            print('Common values')
+            nans = []
+            for _, v in format_df_index(removed_index[k]).items():
+                if not _.startswith('drop'):
+                    if v != 'NaN':
+                        print('{:8}: {}'.format(_, v))
+                    else:
+                        nans.append(_)
+            if nans:
+                print('{:8}:'.format('NaNs'), ', '.join(nans))
 
-        # print('****', df.columns.names)
         raw_df[k] = df.groupby(level=idx).agg('mean')
+        # print('****', k, raw_df[k].index.names)
         raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
         raw_df[k].rename(columns={tpr: 'rate'}, level='metrics', inplace=True)
 
@@ -175,7 +207,6 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     # reorder
 
     for k in which:
-        print('***', k)
         agg_df[k] = pd.DataFrame()
         kept_ood = config[k]['ood'].split()
         for o in kept_ood:
@@ -200,7 +231,6 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
 
     results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
 
-    # print('***Before sort***')
     # print(results_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 
     results_df = results_df.T.groupby(results_df.columns).agg("max").T
@@ -254,6 +284,7 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
     results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'methods'])
     cols = results_df.columns
 
+    print('\n\n\n\n')
     print(dataset)
     print(results_df.to_string(float_format='{:2.1f}'.format))
 
@@ -358,6 +389,15 @@ def process_config_file(models, config_file, filter_keys, which=['all'], keep_au
         tab.comment('Archs:')
         for a in archs_by_type[k]:
             tab.comment('{}: {}'.format(hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6], a))
+        for _, v in format_df_index(removed_index[k]).items():
+            if not _.startswith('drop'):
+                if v != 'NaN':
+                    tab.comment('{:8}: {}'.format(_, v))
+                else:
+                    nans.append(_)
+            if nans:
+                tab.comment('{:8}:'.format('NaNs'), ', '.join(nans))
+
         tab.comment('\n')
         tab.comment('\n')
         tab.comment('\n')
@@ -401,12 +441,6 @@ if __name__ == '__main__':
     else:
         texify = {}
 
-    flash = args.flash
-
-    registered_models_file = 'models-' + gethostname() + '.json'
-
-    all_models = fetch_models(args.job_dir, registered_models_file, build_module=False, flash=flash)
-
     filter_keys = get_filter_keys(args.filters_file, by='key')
 
     for config_file in args.config_files:
@@ -414,5 +448,6 @@ if __name__ == '__main__':
         keep_auc = [False, True] if args.auc else [False]
         show_dfs = True
         for auc in keep_auc:
-            process_config_file(all_models, config_file, filter_keys, keep_auc=auc, root=root, show_dfs=show_dfs)
+            process_config_file(config_file, filter_keys, keep_auc=auc, root=root,
+                                show_dfs=show_dfs, flash=args.flash)
             show_dfs = False

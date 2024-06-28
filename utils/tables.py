@@ -296,53 +296,41 @@ def results_dataframe(models,
     for c in df.columns[df.columns.isin(['n', 'mean', 'std'], level=-1)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
-    sorting_index = []
+    sorting_index = list(df.index.names)
+    sorting_index_pre = []
+    sorting_index_post = []
 
     if sorting_keys:
         try:
             i_sep = sorting_keys.index('!')
-            last_sorting = True
+
             if 'job' not in format_df_index(sorting_keys):
                 sorting_keys.append('job')
+
         except ValueError:
-            last_sorting = False
+            i_sep = len(sorting_index)
 
         sorting_keys_ = format_df_index([k.replace('-', '_') for k in sorting_keys], inverse_replace=True)
-        for k in sorting_keys_:
+        for i, k in enumerate(sorting_keys_):
+            if i == i_sep:
+                continue
             if k in df.index.names:
-                sorting_index.append(k)
-                continue
-            str_k_ = k.split('_')
-            k_ = []
-            for s_ in str_k_:
-                try:
-                    k_.append(float(s_))
-                except ValueError:
-                    k_.append(s_)
-            tuple_k = (k_[0], '_'.join([str(_) for _ in k_[1:]]))
-            if tuple_k in df.columns:
-                sorting_index.append(tuple_k)
-                continue
-            tuple_k = ('_'.join([str(_) for _ in k_[:-1]]), k_[-1])
-            if tuple_k in df.columns:
-                sorting_index.append(tuple_k)
+                if i < i_sep:
+                    sorting_index.remove(k)
+                    sorting_index_pre.append(k)
+                    continue
+
+                sorting_index.remove(k)
+                sorting_index_post.append(k)
                 continue
 
             logging.error(f'Key {k} not used for sorting')
-            logging.error('Possible index keys: %s', '--'.join([_.replace('_', '-') for _ in df.index.names]))
-            logging.error('Possible columns %s', '--'.join(['-'.join(str(k) for k in c) for c in df.columns]))
+            logging.error('Possible index keys: %s', ' ; '.join([_.replace('_', '-') for _ in df.index.names]))
 
-        if last_sorting:
-            last_sorting_index = sorting_index
-            sorting_index = list(df.index.names)
-            for _ in last_sorting_index:
-                sorting_index.remove(_)
-                sorting_index.append(_)
-
+    sorting_index = [*sorting_index_pre, *sorting_index, *sorting_index_post]
     if sorting_index:
         df = df.sort_values(sorting_index)
-        if last_sorting:
-            df = df.reset_index().set_index(sorting_index)
+        df = df.reset_index().set_index(sorting_index)
 
     return df.apply(col_format)
 

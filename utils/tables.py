@@ -300,7 +300,7 @@ def results_dataframe(models,
 
     if sorting_keys:
         try:
-            sorting_keys.remove('!')
+            i_sep = sorting_keys.index('!')
             last_sorting = True
             if 'job' not in format_df_index(sorting_keys):
                 sorting_keys.append('job')

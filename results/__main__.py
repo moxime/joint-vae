@@ -389,14 +389,15 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
         tab.comment('Archs:')
         for a in archs_by_type[k]:
             tab.comment('{}: {}'.format(hashlib.sha1(bytes(a, 'utf-8')).hexdigest()[:6], a))
+        nans = []
         for _, v in format_df_index(removed_index[k]).items():
             if not _.startswith('drop'):
                 if v != 'NaN':
                     tab.comment('{:8}: {}'.format(_, v))
                 else:
                     nans.append(_)
-            if nans:
-                tab.comment('{:8}:'.format('NaNs'), ', '.join(nans))
+        if nans:
+            tab.comment('{:8}:'.format('NaNs'), ', '.join(nans))
 
         tab.comment('\n')
         tab.comment('\n')

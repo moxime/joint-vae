@@ -81,7 +81,7 @@ class GaussianPrior(nn.Module):
             self.conditional = True
             if init_mean == 'onehot':
                 assert dim >= num_priors, 'K={}<C={}'.format(dim, num_priors)
-                mean_tensor = torch.zeros(dim, num_priors)
+                mean_tensor = torch.zeros(num_priors, dim)
                 for i in range(num_priors):
                     mean_tensor[i, i] = 1
 

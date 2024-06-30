@@ -499,31 +499,30 @@ def get_args_for_results(argv=None):
     for _ in filter_keys:
         args.filters['args'].add(_, filter_args.__dict__[_])
 
-    args.filters['files'] = MetaFilter(operator='or')
-
     for config_file in args.from_files:
         config = configparser.ConfigParser()
         config.read(config_file)
 
-        if 'filters' in config:
+        args.filters['files'] = MetaFilter.from_config(config)
 
-            args.filters['files'][config_file] = DictOfListsOfParamFilters()
+        sets_set_by_arg = [_[0] for _ in args.sets]
 
-            filter_keys = get_filter_keys(by='key')
+        try:
+            options = config['options']
+        except KeyError:
+            oprions = {}
 
-            for _ in config['filters']:
+        for k in options:
+            if k.split()[-1] == 'ood':
+                indist = k.split()[0]
+                oods = config['options'][k].split()
+                if indist not in sets_set_by_arg:
+                    args.sets.append([indist, *oods])
 
-                dest = filter_keys[_]['dest']
-                ftype = filter_keys[_]['type']
-                args.filters['files'][config_file].add(dest, ParamFilter.from_string(arg_str=config['filters'][_],
-                                                                                     type=locate(ftype or 'str')))
+        if 'ood_methods' in options:
+            if not args.ood_methods:
+                args.ood_methods = options['ood_methods'].split()
 
-        if 'sets' in config:
-            sets_set_by_arg = [_[0] for _ in args.sets]
-            for _ in config['sets']:
-                sets = config['sets'][_].split()
-                if _ not in sets_set_by_arg:
-                    args.sets.append([_, *sets])
     return args
 
 

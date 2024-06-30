@@ -138,7 +138,7 @@ class ParamFilter():
                               b, type(b),
                               value, type(value),
                               self)
-                raise(e)
+                raise (e)
 
         in_ = value in self.values
         return in_ ^ self.neg
@@ -202,6 +202,21 @@ class DictOfListsOfParamFilters(dict):
 
         return True
 
+    @classmethod
+    def from_ini_section(cls, config_section):
+
+        filters = cls()
+        filter_keys = get_filter_keys(by='key')
+
+        for _ in config_section:
+
+            dest = filter_keys[_]['dest']
+            ftype = filter_keys[_]['type']
+            filters.add(dest, ParamFilter.from_string(arg_str=config_section[_],
+                                                      type=locate(ftype or 'str')))
+
+        return filters
+
     def __str__(self):
 
         return self.__short_str__()
@@ -229,6 +244,13 @@ class MetaFilter(dict):
 
         return any(_.filter(d) for _ in self.values())
 
+    @classmethod
+    def from_config(cls, config):
+
+        k_ = [_ for _ in config if not _.startswith('option') and _ != 'DEFAULT']
+        filters = {_: DictOfListsOfParamFilters.from_ini_section(config[_]) for _ in k_}
+        return (cls(**filters, operator='or'))
+
     def __str__(self):
 
         return self.__short_str__()
@@ -238,7 +260,7 @@ class MetaFilter(dict):
         if not self:
             return 'True'
 
-        return '[{}]'.format(self.operator.join(f.__short_str__() for f in self.values()))
+        return '[[{}]]'.format(' {} '.format(self.operator).join(f.__short_str__() for f in self.values()))
 
 
 class FilterAction(argparse.Action):

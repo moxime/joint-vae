@@ -284,7 +284,7 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
     results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'methods'])
     cols = results_df.columns
 
-    print('\n\n\n\n')
+    print('\n\n\n\n' if show_dfs else '\n')
     print(dataset)
     print(results_df.to_string(float_format='{:2.1f}'.format))
 
@@ -423,6 +423,7 @@ if __name__ == '__main__':
     parser.add_argument('--register', dest='flash', action='store_false')
     parser.add_argument('--auc', action='store_true')
     parser.add_argument('config_files', nargs='+', default=[file_ini])
+    parser.add_argument('-q', action='store_false', dest='show_dfs')
 
     args = parser.parse_args(None if sys.argv[0] else args_from_file)
 
@@ -447,7 +448,7 @@ if __name__ == '__main__':
     for config_file in args.config_files:
 
         keep_auc = [False, True] if args.auc else [False]
-        show_dfs = True
+        show_dfs = args.show_dfs
         for auc in keep_auc:
             process_config_file(config_file, filter_keys, keep_auc=auc, root=root,
                                 show_dfs=show_dfs, flash=args.flash)

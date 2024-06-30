@@ -778,6 +778,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
         wim_mix = wim_mix[1] / sum(wim_mix)
 
     finished = model.train_history['epochs'] >= model.training_parameters['epochs']
+    # print('***', model.job_number, finished)
     return {'net': model,
             'job': model.job_number,
             'is_resumed': model.is_resumed,

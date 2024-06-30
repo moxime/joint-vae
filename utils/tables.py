@@ -296,7 +296,7 @@ def results_dataframe(models,
     for c in df.columns[df.columns.isin(['n', 'mean', 'std'], level=-1)]:
         col_format[c] = lambda x: _f(x, 'measures')
 
-    sorting_index = list(df.index.names)
+    index_order = list(df.index.names)
     sorting_index_pre = []
     sorting_index_post = []
 
@@ -308,7 +308,7 @@ def results_dataframe(models,
                 sorting_keys.append('job')
 
         except ValueError:
-            i_sep = len(sorting_index)
+            i_sep = len(index_order)
 
         sorting_keys_ = format_df_index([k.replace('-', '_') for k in sorting_keys], inverse_replace=True)
         for i, k in enumerate(sorting_keys_):
@@ -316,21 +316,25 @@ def results_dataframe(models,
                 continue
             if k in df.index.names:
                 if i < i_sep:
-                    sorting_index.remove(k)
+                    index_order.remove(k)
                     sorting_index_pre.append(k)
                     continue
 
-                sorting_index.remove(k)
+                index_order.remove(k)
                 sorting_index_post.append(k)
                 continue
 
             logging.error(f'Key {k} not used for sorting')
             logging.error('Possible index keys: %s', ' ; '.join([_.replace('_', '-') for _ in df.index.names]))
 
-    sorting_index = [*sorting_index_pre, *sorting_index, *sorting_index_post]
-    if sorting_index:
-        df = df.sort_values(sorting_index)
-        df = df.reset_index().set_index(sorting_index)
+    index_order = [*sorting_index_pre, *index_order, *sorting_index_post]
+    #    if index_order:
+    #  df = df.sort_index(level=index_order)
+    df = df.reset_index().set_index(index_order)
+    # print('***', *index_order)
+    # df = df.sort_index(level=['prior', 'sigma_train'])
+    df = df.sort_index(level=index_order)
+    #    print(df[df.columns[0]].to_string())
 
     return df.apply(col_format)
 

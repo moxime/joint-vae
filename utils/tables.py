@@ -206,6 +206,11 @@ def results_dataframe(models,
 
     df.set_index(indices, inplace=True)
 
+    remove_wim_from = all(df.index.to_frame()['job'] == df.index.to_frame()['wim_from'])
+
+    if remove_wim_from:
+        df = df.droplevel([_ for _ in df.index.names if _.startswith('wim')])
+
     col_names = ['set', 'method', 'metrics']
 
     acc_df = unfold_df_from_dict(df['accuracies'], depth=1, names=['method'])

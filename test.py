@@ -392,7 +392,6 @@ if __name__ == '__main__':
 
         d.index = pd.MultiIndex.from_frame(d.index.to_frame().fillna('NaN'))
 
-        remove_wim_from = all(d.index.to_frame()['job'] == d.index.to_frame()['wim_from'])
         removed_index = []
 
         if tex_file:
@@ -424,11 +423,6 @@ if __name__ == '__main__':
                 tmp_str = '{} are not removed. Possible removable index: {}'
                 logging.error(tmp_str.format(', '.join(unremoved_index),
                                              ', '.join(d.index.names)))
-            if remove_wim_from and 'wim_from' in d.index.names and 'wim_from' not in removed_index:
-                removed_index.append('wim_from')
-
-            if remove_wim_from:
-                auto_removed_index = {_: __ for _, __ in auto_removed_index.items() if not _.startswith('wim')}
 
         idx = list(d.index.names)
         if 'job' in d.index.names:

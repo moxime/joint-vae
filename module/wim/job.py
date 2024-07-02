@@ -698,6 +698,8 @@ class WIMJob(M):
             self.original_prior = True
             outputs.write('With original prior\n')
             with self.evaluate_on_both_priors():
+                record_batches_post_ft = {_: os.path.join(p, 'post-ft')
+                                          for _, p in record_batches.items() if _ in ('mu',)}
                 self.ood_detection_rates(batch_size=test_batch_size,
                                          testset=testset,
                                          oodsets=oodsets,
@@ -705,6 +707,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders={},
+                                         record_batches=record_batches_post_ft,
                                          print_result='*')
             logging.info('Computing misclass detection rates')
             self.misclassification_detection_rates(print_result='~')

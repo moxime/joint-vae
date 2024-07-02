@@ -78,6 +78,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--do-not-collect-jobs', action='store_false', dest='collect_jobs')
 
+    parser.add_argument('--inspection', action='store_true')
+
     parser.set_defaults(**defaults)
 
     try:
@@ -210,7 +212,8 @@ if __name__ == '__main__':
                        optimizer=optimizer,
                        outputs=outputs,
                        seed=args.sampling_seed,
-                       task=sampling_task
+                       task=sampling_task,
+                       record_batches={}
                        )
 
     except DontDoFineTuning as e:

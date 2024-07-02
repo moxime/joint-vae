@@ -1465,7 +1465,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             recorders=None,
                             from_where='all',
                             sample_dirs=[],
-                            record_batches={},
+                            record_batches=[],
                             log=True):
 
         if epoch == 'last':
@@ -1897,16 +1897,14 @@ class ClassificationVariationalNetwork(nn.Module):
 
             for _ in recorded_batches:
                 for s in recorded_batches[_]:
-                    os.path.makedirs(record_batches[_], exist_ok=True)
-                    fp = os.path.join(record_batches[_], 'samples-{}.mat'.format(s))
-                    try:
-                        mdict = scipy.io.loadmat(fp)
-                    except FileNotFoundError:
-                        mdict = {}
-
-                    mdict[_] = recorded_batches[_][s]
-
-                    scipy.io.savemat(fp, mdict)
+                    for sdir in sample_dirs:
+                        fp = os.path.join(sdir, 'samples-{}.mat'.format(s))
+                        try:
+                            mdict = scipy.io.loadmat(fp)
+                        except FileNotFoundError:
+                            mdict = {}
+                            mdict[_] = recorded_batches[_][s]
+                            scipy.io.savemat(fp, mdict)
 
         return ood_results
 

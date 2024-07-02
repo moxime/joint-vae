@@ -456,8 +456,6 @@ class WIMJob(M):
             with torch.no_grad():
                 ood_ = moving_set.extract_subdataset('ood')
                 logging.debug('OOD set of size {}'.format(len(ood_)))
-                record_batches_pre_ft = {_: os.path.join(p, 'pre-ft')
-                                         for _, p in record_batches.items() if _ in ('mu',)}
                 self.ood_detection_rates(batch_size=test_batch_size,
                                          testset=moving_set.extract_subdataset('ind', new_name=testset.name),
                                          oodsets=[ood_.extract_subdataset(_) for _ in ood_sets],
@@ -465,7 +463,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders=recorders,
-                                         record_batches=record_batches_pre_ft,
+                                         record_batches=record_batches,
                                          print_result='*')
                 self.ood_results = {}
 
@@ -698,8 +696,6 @@ class WIMJob(M):
             self.original_prior = True
             outputs.write('With original prior\n')
             with self.evaluate_on_both_priors():
-                record_batches_post_ft = {_: os.path.join(p, 'post-ft')
-                                          for _, p in record_batches.items() if _ in ('mu',)}
                 self.ood_detection_rates(batch_size=test_batch_size,
                                          testset=testset,
                                          oodsets=oodsets,
@@ -707,7 +703,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders={},
-                                         record_batches=record_batches_post_ft,
+                                         record_batches=record_batches,
                                          print_result='*')
             logging.info('Computing misclass detection rates')
             self.misclassification_detection_rates(print_result='~')

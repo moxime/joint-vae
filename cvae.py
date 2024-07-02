@@ -1903,8 +1903,8 @@ class ClassificationVariationalNetwork(nn.Module):
                             mdict = torch.load(fp)
                         except FileNotFoundError:
                             mdict = {}
-                            mdict[_] = recorded_batches[_][s]
-                            torch.save(fp, mdict)
+                        mdict[_] = recorded_batches[_][s]
+                        torch.save(mdict, fp)
 
         return ood_results
 

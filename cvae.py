@@ -2,7 +2,6 @@ import sys
 import logging
 import errno
 import copy
-import scipy
 import torch
 import torch.utils.data
 from torch import nn
@@ -1899,13 +1898,13 @@ class ClassificationVariationalNetwork(nn.Module):
             for _ in recorded_batches:
                 for s in recorded_batches[_]:
                     for sdir in sample_dirs:
-                        fp = os.path.join(sdir, 'samples-{}.mat'.format(s))
+                        fp = os.path.join(sdir, 'samples-{}.pth'.format(s))
                         try:
-                            mdict = scipy.io.loadmat(fp)
+                            mdict = torch.load(fp)
                         except FileNotFoundError:
                             mdict = {}
                             mdict[_] = recorded_batches[_][s]
-                            scipy.io.savemat(fp, mdict)
+                            torch.save(fp, mdict)
 
         return ood_results
 

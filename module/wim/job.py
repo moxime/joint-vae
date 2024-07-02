@@ -311,6 +311,7 @@ class WIMJob(M):
                  outputs=EpochOutput(),
                  seed=0,
                  task=None,
+                 record_batches={},
                  ):
 
         # logging.warning('DEBUG MODE MODEL IN MODE EVAL')
@@ -455,6 +456,8 @@ class WIMJob(M):
             with torch.no_grad():
                 ood_ = moving_set.extract_subdataset('ood')
                 logging.debug('OOD set of size {}'.format(len(ood_)))
+                record_batches_pre_ft = {_: os.path.join(p, 'pre-ft')
+                                         for _, p in record_batches.items() if _ in ('mu',)}
                 self.ood_detection_rates(batch_size=test_batch_size,
                                          testset=moving_set.extract_subdataset('ind', new_name=testset.name),
                                          oodsets=[ood_.extract_subdataset(_) for _ in ood_sets],
@@ -462,6 +465,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders=recorders,
+                                         record_batches=record_batches_pre_ft,
                                          print_result='*')
                 self.ood_results = {}
 

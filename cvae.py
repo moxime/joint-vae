@@ -2,6 +2,7 @@ import sys
 import logging
 import errno
 import copy
+import scipy
 import torch
 import torch.utils.data
 from torch import nn
@@ -1464,6 +1465,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             recorders=None,
                             from_where='all',
                             sample_dirs=[],
+                            record_batches={},
                             log=True):
 
         if epoch == 'last':
@@ -1615,6 +1617,11 @@ class ClassificationVariationalNetwork(nn.Module):
             _test_losses = []
             _test_measures = []
             num_samples = 0
+
+            recorded_batches = {}
+            if 'mu' in record_batches:
+                recorded_batches['mu'] = {_: np.ndarray((0, self.latent_dim)) for _ in [*oodsets, s]}
+
             for i in range(num_batch[s]):
 
                 if not recorded[s]:
@@ -1625,7 +1632,13 @@ class ClassificationVariationalNetwork(nn.Module):
                     if odin_parameters:
                         x.requires_grad_(True)
                     with torch.no_grad():
-                        _, logits, losses, testset_measures = self.evaluate(x, batch=i)
+                        _, logits, losses, testset_measures, mu, log_var, z = self.evaluate(x,
+                                                                                            batch=i,
+                                                                                            z_output=True)
+
+                        if 'mu' in record_batches:
+                            recorded_batches['mu'][s] = np.vstack([recorded_batches['mu'][s], mu.cpu()])
+
                     _test_measures.append({k: testset_measures[k] for k in testset_measures})
                     odin_softmax = {}
                     if odin_parameters:
@@ -1766,7 +1779,12 @@ class ClassificationVariationalNetwork(nn.Module):
                         x.requires_grad_(True)
 
                     with torch.no_grad():
-                        _, logits, losses, _ = self.evaluate(x, batch=i)
+                        _, logits, losses, testset_measures, mu, log_var, z = self.evaluate(x,
+                                                                                            batch=i,
+                                                                                            z_output=True)
+
+                        if 'mu' in record_batches:
+                            recorded_batches['mu'][s] = np.vstack([recorded_batches['mu'][s], mu.cpu()])
 
                     odin_softmax = {}
                     if odin_parameters:
@@ -1876,6 +1894,19 @@ class ClassificationVariationalNetwork(nn.Module):
                     f = os.path.join(d, f'record-{s}.pth')
 
                     recorders[s].save(f.format(s=s))
+
+            for _ in recorded_batches:
+                for s in recorded_batches[_]:
+                    os.path.makedirs(record_batches[_], exist_ok=True)
+                    fp = os.path.join(record_batches[_], 'samples-{}.mat'.format(s))
+                    try:
+                        mdict = scipy.io.loadmat(fp)
+                    except FileNotFoundError:
+                        mdict = {}
+
+                    mdict[_] = recorded_batches[_][s]
+
+                    scipy.io.savemat(fp, mdict)
 
         return ood_results
 

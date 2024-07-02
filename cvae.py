@@ -1620,7 +1620,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
             recorded_batches = {}
             if 'mu' in record_batches:
-                recorded_batches['mu'] = {_.name: np.ndarray((0, self.latent_dim)) for _ in [*oodsets, s]}
+                recorded_batches['mu'] = {_.name: np.ndarray((0, self.latent_dim)) for _ in [*oodsets, testset]}
                 logging.debug('recorded_batched[mu] for {}'.format('-'.join(recorded_batches['mu'])))
 
             for i in range(num_batch[s]):

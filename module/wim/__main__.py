@@ -213,7 +213,7 @@ if __name__ == '__main__':
                        outputs=outputs,
                        seed=args.sampling_seed,
                        task=sampling_task,
-                       record_batches={}
+                       record_batches={} if not args.inspection else ('mu',)
                        )
 
     except DontDoFineTuning as e:

@@ -464,7 +464,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders=recorders,
-                                         record_batches=sample_recordersrecord_batches,
+                                         record_batches=sample_recorders,
                                          print_result='*')
                 self.ood_results = {}
 

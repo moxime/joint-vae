@@ -91,7 +91,7 @@ class LossRecorder:
     def __getitem__(self, k):
 
         end = (len(self) - 1) * self.batch_size + self.last_batch_size
-        i_ = torch.tensor(range(end))
+        i_ = torch.tensor(range(end), device=self.device)
         return self._tensors[k].index_select(self._sample_dim, i_)
 
     def __iter__(self):
@@ -103,7 +103,7 @@ class LossRecorder:
         tensors = dict.pop('_tensors')
         """
         end = (len(self) - 1) * self.batch_size + self.last_batch_size
-        i_ = torch.tensor(range(end))
+        i_ = torch.tensor(range(end), device=self.device)
         if cut:
             self.num_batch = len(self)
             t = self._tensors
@@ -289,7 +289,7 @@ class LossRecorder:
         if device:
             t = t.to(device)
 
-        return t.index_select(self._sample_dim, torch.tensor(range(start, end)))
+        return t.index_select(self._sample_dim, torch.tensor(range(start, end), device=t.device))
 
     def append_batch(self, extend=True, **tensors):
 
@@ -321,7 +321,7 @@ class LossRecorder:
             i_shape_ = [1 for _ in range(len(i_shape))]
             i_shape_[self._sample_dim] = batch_size
             # print('***', i_shape, i_shape_, start, end)
-            i_ = torch.tensor(range(start, end), device=tensors[k].device).view(*i_shape_).expand(*i_shape)
+            i_ = torch.tensor(range(start, end), device=self.device).view(*i_shape_).expand(*i_shape)
             # print(i_, tensors[k].shape, self._tensors[k].shape)
             self._tensors[k] = self._tensors[k].scatter_(self._sample_dim, i_, tensors[k])
 

@@ -12,7 +12,7 @@ class LossRecorder:
 
     def __init__(self,
                  batch_size,
-                 num_batch=0,
+                 num_batch=1,
                  device=None,
                  **tensors):
 

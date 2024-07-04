@@ -155,7 +155,7 @@ class WIMArray(WIMJob):
             for sdir in sample_dirs:
                 array_sdir = os.path.join(self.saved_dir, sdir)
                 job_sdir = os.path.join(j, sdir)
-                sample_files = [_ for os.path.listdir(job_sdir) if _.startswith('samples')]
+                sample_files = [_ for _ in os.path.listdir(job_sdir) if _.startswith('samples')]
 
     @ classmethod
     def collect_processed_jobs(cls, job_dir, flash=False):

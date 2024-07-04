@@ -200,8 +200,9 @@ if __name__ == '__main__':
     model.saved_dir = save_dir
 
     if args.inspection:
-        sample_recorders = {s: SampleRecorder(args.test_batch_size) for s in wim_sets}
-        sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size)
+        fake_mu = torch.zeros(args.test_batch_size, model.latent_dim, device=model.device)
+        sample_recorders = {s: SampleRecorder(args.test_batch_size, mu=fake_mu) for s in wim_sets}
+        sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size, mu=fake_mu)
 
     try:
         model.finetune(*wim_sets,

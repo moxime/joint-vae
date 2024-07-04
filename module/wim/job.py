@@ -464,7 +464,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders=recorders,
-                                         record_batches=sample_recorders,
+                                         sample_recorders=sample_recorders,
                                          print_result='*')
                 self.ood_results = {}
 
@@ -696,6 +696,8 @@ class WIMJob(M):
         with torch.no_grad():
             self.original_prior = True
             outputs.write('With original prior\n')
+            for s in sample_recorders:
+                sample_recorders[s].reset()
             with self.evaluate_on_both_priors():
                 self.ood_detection_rates(batch_size=test_batch_size,
                                          testset=testset,
@@ -704,7 +706,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders={},
-                                         record_batches=sample_recordersrecord_batches,
+                                         sample_recorders=sample_recorders,
                                          print_result='*')
             logging.info('Computing misclass detection rates')
             self.misclassification_detection_rates(print_result='~')

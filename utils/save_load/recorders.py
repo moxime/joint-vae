@@ -321,7 +321,7 @@ class LossRecorder:
             i_shape_ = [1 for _ in range(len(i_shape))]
             i_shape_[self._sample_dim] = batch_size
             # print('***', i_shape, i_shape_, start, end)
-            i_ = torch.tensor(range(start, end)).view(*i_shape_).expand(*i_shape)
+            i_ = torch.tensor(range(start, end), device=tensors[k].device).view(*i_shape_).expand(*i_shape)
             # print(i_, tensors[k].shape, self._tensors[k].shape)
             self._tensors[k] = self._tensors[k].scatter_(self._sample_dim, i_, tensors[k])
 

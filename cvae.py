@@ -1464,7 +1464,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             recorders=None,
                             from_where='all',
                             sample_dirs=[],
-                            record_batches=[],
+                            sample_recorders=None,
                             log=True):
 
         if epoch == 'last':
@@ -1617,11 +1617,6 @@ class ClassificationVariationalNetwork(nn.Module):
             _test_measures = []
             num_samples = 0
 
-            recorded_batches = {}
-            if 'mu' in record_batches:
-                recorded_batches['mu'] = {_.name: np.ndarray((0, self.latent_dim)) for _ in [*oodsets, testset]}
-                logging.debug('recorded_batched[mu] for {}'.format('-'.join(recorded_batches['mu'])))
-
             for i in range(num_batch[s]):
 
                 if not recorded[s]:
@@ -1636,9 +1631,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                                                             batch=i,
                                                                                             z_output=True)
 
-                        if 'mu' in record_batches:
-                            recorded_batches['mu'][s] = np.vstack([recorded_batches['mu'][s], mu.cpu()])
-
+                        if sample_recorders and s in sample_recorders:
+                            if 'mu' in sample_recorders[s]:
+                                sample_recorders[s].append_batch(mu=mu)
                     _test_measures.append({k: testset_measures[k] for k in testset_measures})
                     odin_softmax = {}
                     if odin_parameters:
@@ -1783,8 +1778,9 @@ class ClassificationVariationalNetwork(nn.Module):
                                                                                             batch=i,
                                                                                             z_output=True)
 
-                        if 'mu' in record_batches:
-                            recorded_batches['mu'][s] = np.vstack([recorded_batches['mu'][s], mu.cpu()])
+                        if sample_recorders and s in sample_recorders:
+                            if 'mu' in sample_recorders[s]:
+                                sample_recorders[s].append_batch(mu=mu)
 
                     odin_softmax = {}
                     if odin_parameters:
@@ -1895,16 +1891,10 @@ class ClassificationVariationalNetwork(nn.Module):
 
                     recorders[s].save(f.format(s=s))
 
-            for _ in recorded_batches:
-                for s in recorded_batches[_]:
-                    for sdir in sample_dirs:
-                        fp = os.path.join(sdir, 'samples-{}.pth'.format(s))
-                        try:
-                            mdict = torch.load(fp)
-                        except FileNotFoundError:
-                            mdict = {}
-                        mdict[_] = recorded_batches[_][s]
-                        torch.save(mdict, fp)
+        for s in sample_recorders:
+            for sdir in sample_dirs:
+                fp = os.path.join(sdir, 'samples-{}.pth'.format(s))
+                sample_recorders[s].save(fp)
 
         return ood_results
 

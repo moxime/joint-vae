@@ -7,8 +7,13 @@ import numpy as np
 import torch
 import re
 
+import scipy
+
 
 class LossRecorder:
+
+    _file_pattern = 'record-{w}.pth'
+    _sample_dim = -1
 
     def __init__(self,
                  batch_size,
@@ -44,7 +49,8 @@ class LossRecorder:
         self.device = device
 
         for k, t in tensors.items():
-            shape = t.shape[:-1] + (self._samples,)
+            shape = list(t.shape)
+            shape[self._sample_dim] = self._samples
             self._tensors[k] = torch.zeros(shape,
                                            dtype=t.dtype,
                                            device=self.device)
@@ -85,7 +91,8 @@ class LossRecorder:
     def __getitem__(self, k):
 
         end = (len(self) - 1) * self.batch_size + self.last_batch_size
-        return self._tensors[k][..., 0:end]
+        i_ = torch.tensor(range(end))
+        return self._tensors[k].index_select(self._sample_dim, i_)
 
     def __iter__(self):
 
@@ -95,13 +102,14 @@ class LossRecorder:
         """dict_ = self.__dict__.copy()
         tensors = dict.pop('_tensors')
         """
-
+        end = (len(self) - 1) * self.batch_size + self.last_batch_size
+        i_ = torch.tensor(range(end))
         if cut:
             self.num_batch = len(self)
             t = self._tensors
             for k in t:
-                end = (self.num_batch - 1) * self.batch_size + self.last_batch_size
-                t[k] = t[k][..., 0:end]
+                # print('***', *t[k].shape, self._sample_dim, max(i_))
+                t[k] = t[k].index_select(self._sample_dim, i_)
 
         torch.save(self.__dict__, file_path)
 
@@ -116,7 +124,7 @@ class LossRecorder:
         batch_size = dict_of_params['batch_size']
         tensors = dict_of_params['_tensors']
 
-        r = LossRecorder(batch_size, num_batch, **tensors)
+        r = cls(batch_size, num_batch, **tensors)
 
         for k in ('_seed', '_tensors', '_recorded_batches'):
             setattr(r, k, dict_of_params[k])
@@ -133,18 +141,21 @@ class LossRecorder:
         if device:
             for k in r._tensors:
                 if r._tensors[k].device != device:
-                    r._tensors[k] = r._tensors[k].to('cpu')
+                    r._tensors[k] = r._tensors[k].to(device)
         return r
 
     @classmethod
-    def loadall(cls, dir_path, *w, file_name='record-{w}.pth', output='recorders', **kw):
+    def loadall(cls, dir_path, *w, file_name=None, output='recorders', **kw):
         r"""
         If w is empty will find all recorders in directory
         if output is 'recorders' return recorders, if 'paths' return full paths
 
         """
 
-        def outputs(p): return LossRecorder.load(path, **kw) if output.startswith('record') else p
+        if file_name is None:
+            file_name = cls._file_pattern
+
+        def outputs(p): return cls.load(path, **kw) if output.startswith('record') else p
 
         r = {}
 
@@ -176,27 +187,40 @@ class LossRecorder:
             new_record.append_batch(**self.get_batch(i, device=device))
         return new_record
 
-    def merge(self, other):
+    def merge(self, other, axis='samples'):
+        r"""mege two recorders
 
+        -- other: other recorder to merge
+
+        -- axis: sample or keys
+
+        """
         assert isinstance(other, type(self))
+        assert axis in ('samples', 'keys'), "axis has to be either sampels or keys "
 
-        samples_to_be_added = other.recorded_samples
-        batches_to_add = samples_to_be_added // self.batch_size + 1
-        self.num_batch = len(self) + batches_to_add
+        if axis == 'samples':
+            samples_to_be_added = other.recorded_samples
+            batches_to_add = samples_to_be_added // self.batch_size + 1
+            self.num_batch = len(self) + batches_to_add
 
-        start = self.recorded_samples
-        end = start + other.recorded_samples
+            recorded_samples = self.recorded_samples + other.recorded_samples
 
-        common_k = set.intersection(set(self), set(other))
+            common_k = set.intersection(set(self), set(other))
 
-        for k in common_k:
-            self._tensors[k][..., start:end] = other[k]
+            for k in common_k:
+                self._tensors[k] = torch.cat((self[k], other[k]), axis=self._sample_dim)
 
-        for k in [_ for _ in self if _ not in common_k]:
-            self._tensors.pop(k)
+            for k in [_ for _ in self if _ not in common_k]:
+                self._tensors.pop(k)
 
-        self.last_batch_size = (end - 1) % self.batch_size + 1
-        self._recorded_batches = (end - 1) // self.batch_size + 1
+            self.last_batch_size = (recorded_samples - 1) % self.batch_size + 1
+            self._recorded_batches = (recorded_samples - 1) // self.batch_size + 1
+        else:
+            assert self.recorded_samples == other.recorded_samples
+            common_k = set.intersection(set(self), set(other))
+            assert not common_k, "can not merge recorder with common keys ({})".format(', '.join(common_k))
+
+            self._tensors.update(other._tensors)
 
     @property
     def recorded_samples(self):
@@ -213,7 +237,7 @@ class LossRecorder:
             return
 
         first_tensor = next(iter(self._tensors.values()))
-        height = first_tensor.shape[-1]
+        height = first_tensor.shape[self._sample_dim]
         n_sample = n * self.batch_size
 
         if n_sample > height:
@@ -222,10 +246,12 @@ class LossRecorder:
 
                 t = self._tensors[k]
                 # print('sl353:', 'rec', self.device, k, t.device)
-                z = torch.zeros(t.shape[:-1] + (d_h,),
+                z_shape = list(t.shape)
+                z_shape[self._sample_dim] = d_h
+                z = torch.zeros(z_shape,
                                 dtype=t.dtype,
                                 device=self.device)
-                self._tensors[k] = torch.cat([t, z], axis=-1)
+                self._tensors[k] = torch.cat([t, z], axis=self._sample_dim)
 
         self._num_batch = n
         self._samples = n * self.batch_size
@@ -263,7 +289,7 @@ class LossRecorder:
         if device:
             t = t.to(device)
 
-        return t[..., start:end]
+        return t.index_select(self._sample_dim, torch.tensor(range(start, end)))
 
     def append_batch(self, extend=True, **tensors):
 
@@ -279,7 +305,7 @@ class LossRecorder:
             else:
                 raise IndexError
 
-        batch_sizes = set(tensors[k].shape[-1] for k in tensors)
+        batch_sizes = set(tensors[k].shape[self._sample_dim] for k in tensors)
         assert len(batch_sizes) == 1, 'all batches have to be of same size'
         batch_size = batch_sizes.pop()
         assert batch_size <= self.batch_size, 'appended batch to large'
@@ -290,6 +316,44 @@ class LossRecorder:
         for k in tensors:
             if k not in self.keys():
                 raise KeyError(k)
-            self._tensors[k][..., start:end] = tensors[k]
+            i_shape = list(self._tensors[k].shape)
+            i_shape[self._sample_dim] = batch_size
+            i_shape_ = [1 for _ in range(len(i_shape))]
+            i_shape_[self._sample_dim] = batch_size
+            # print('***', i_shape, i_shape_, start, end)
+            i_ = torch.tensor(range(start, end)).view(*i_shape_).expand(*i_shape)
+            # print(i_, tensors[k].shape, self._tensors[k].shape)
+            self._tensors[k] = self._tensors[k].scatter_(self._sample_dim, i_, tensors[k])
 
         self._recorded_batches += 1
+
+
+class SampleRecorder(LossRecorder):
+
+    _file_pattern = 'samples-{w}.pth'
+    _sample_dim = 0
+
+    def __init__(self, *a, **kw):
+
+        super().__init__(*a, **kw)
+        self._aux = {}
+
+    def to_mat(self, matfile, sample_dim=0, **kw):
+
+        t = self._tensors
+
+        for k in t:
+            dims = [*range(t[k].ndim - 1)]
+            if sample_dim == -1:
+                dims.append(-1)
+            else:
+                dims.insert(sample_dim, -1)
+            t[k] = t[k].permute(dims)
+            print(k, t[k].shape)
+
+        t.update(self._aux)
+        scipy.io.savemat(matfile, t)
+
+    def add_auxiliary(self, **t):
+
+        self._aux.update(t)

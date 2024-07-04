@@ -6,7 +6,7 @@ import torch
 
 from utils.print_log import EpochOutput, turnoff_debug
 
-from utils.save_load import model_subdir
+from utils.save_load import model_subdir, SampleRecorder
 
 from .job import WIMJob, DontDoFineTuning
 from .scheduler import Scheduler
@@ -199,6 +199,10 @@ if __name__ == '__main__':
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
     model.saved_dir = save_dir
 
+    if args.inspection:
+        sample_recorders = {s: SampleRecorder(args.test_batch_size) for s in wim_sets}
+        sample_recorders[model.train_parameters['set']] = SampleRecorder(args.test_batch_size)
+
     try:
         model.finetune(*wim_sets,
                        train_size=args.train_size,
@@ -213,7 +217,7 @@ if __name__ == '__main__':
                        outputs=outputs,
                        seed=args.sampling_seed,
                        task=sampling_task,
-                       record_batches={} if not args.inspection else ('mu',)
+                       sample_recorders=sample_recorders
                        )
 
     except DontDoFineTuning as e:

@@ -11,7 +11,8 @@ import torch
 from cvae import ClassificationVariationalNetwork as M
 from module.priors import build_prior
 
-from utils.save_load import MissingKeys, save_json, load_json, LossRecorder, fetch_models, make_dict_from_model
+from utils.save_load import MissingKeys, save_json, load_json, fetch_models, make_dict_from_model
+from utils.save_load import LossRecorder, SampleRecorder
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
 import utils.torch_load as torchdl
 from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
@@ -311,7 +312,7 @@ class WIMJob(M):
                  outputs=EpochOutput(),
                  seed=0,
                  task=None,
-                 record_batches={},
+                 sample_recorders={},
                  ):
 
         # logging.warning('DEBUG MODE MODEL IN MODE EVAL')
@@ -463,7 +464,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders=recorders,
-                                         record_batches=record_batches,
+                                         record_batches=sample_recordersrecord_batches,
                                          print_result='*')
                 self.ood_results = {}
 
@@ -703,7 +704,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders={},
-                                         record_batches=record_batches,
+                                         record_batches=sample_recordersrecord_batches,
                                          print_result='*')
             logging.info('Computing misclass detection rates')
             self.misclassification_detection_rates(print_result='~')

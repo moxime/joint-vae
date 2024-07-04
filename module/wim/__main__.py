@@ -201,7 +201,7 @@ if __name__ == '__main__':
 
     if args.inspection:
         sample_recorders = {s: SampleRecorder(args.test_batch_size) for s in wim_sets}
-        sample_recorders[model.train_parameters['set']] = SampleRecorder(args.test_batch_size)
+        sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size)
 
     try:
         model.finetune(*wim_sets,

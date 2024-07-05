@@ -201,7 +201,7 @@ if __name__ == '__main__':
 
     if args.inspection:
         fake_mu = torch.zeros(args.test_batch_size, model.latent_dim, device=model.device)
-        fake_y = torch.zeros(args.test_batch_size, device=model.device)
+        fake_y = torch.zeros(args.test_batch_size, device=model.device, dtype=int)
         fakes = dict(mu=fake_mu, y=fake_y)
         if model.is_cvae:
             fakes['y_nearest'] = fakes['y']

@@ -1502,8 +1502,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if recorders == {}:
             recorders = {n: LossRecorder(batch_size) for n in all_set_names}
 
-        if not recorders:
-            recorders = {n: None for n in all_set_names}
+        recorders = recorders or {n: None for n in all_set_names}
+        sample_recorders = sample_recorders or {}
 
         max_num_batch = num_batch
         num_batch = {testset.name: int(np.ceil(len(testset) / batch_size))}

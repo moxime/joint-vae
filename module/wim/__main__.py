@@ -211,7 +211,7 @@ if __name__ == '__main__':
         for _ in sample_recorders:
             with model.original_prior as p1:
                 with model.alternate_prior as p2:
-                    sample_recorders[_].add_auxiliary(centroids=p1, alternate=p2)
+                    sample_recorders[_].add_auxiliary(centroids=p1.mean, alternate=p2.mean[0])
 
     try:
         model.finetune(*wim_sets,

@@ -262,8 +262,8 @@ if __name__ == '__main__':
 
         logging.info('Processing {} wim jobs alike'.format(len(wim_jobs)))
         wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs])
-        sdirs = [os.path.join('samples', '{:04d}'.format(self.trained), _) for _ in ('', 'init')]
 
+        sdirs = [os.path.join('samples', '{:04d}'.format(wim_array.trained), _) for _ in ('', 'init')]
         wim_array.concatenate_samples(sample_subdirs=sdirs)
         wim_array.save(array_dir)
         logging.info('model saved in {}'.format(wim_array.saved_dir))

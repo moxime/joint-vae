@@ -3,7 +3,7 @@ import logging
 from utils.print_log import turnoff_debug
 from module.wim.job import WIMJob
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
-from utils.save_load import make_dict_from_model, model_subdir, save_json
+from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
 import torch
 
@@ -147,15 +147,24 @@ class WIMArray(WIMJob):
 
         return array_recorders
 
-    def concatenate_samples(sample_dirs=[]):
+    def concatenate_samples(self, sample_subdirs=[]):
 
-        for sdir in samples_dir:
-            os.makedirs(self.saved_dir, sdir, exist_ok=True)
-        for j in self._jobs:
-            for sdir in sample_dirs:
-                array_sdir = os.path.join(self.saved_dir, sdir)
+        for sdir in sample_subdirs:
+            array_sdir = os.path.join(self.saved_dir, sdir)
+            os.makedirs(array_sdir, exist_ok=True)
+            array_sample_rec = {}
+            for j in self._jobs:
                 job_sdir = os.path.join(j, sdir)
-                sample_files = [_ for _ in os.path.listdir(job_sdir) if _.startswith('samples')]
+                job_sample_rec = SampleRecorder.loadall(job_sdir)
+                if not array_sample_rec:
+                    array_sample_rec = job_sample_rec
+                else:
+                    for _ in array_sample_rec:
+                        array_sample_rec[_].merge(job_sample_rec[_])
+
+            for _ in array_sample_rec:
+                spth = os.path.join(array_sdir, 'samples-{}.pth'.format(_))
+                array_sample_rec[_].save(spth)
 
     @ classmethod
     def collect_processed_jobs(cls, job_dir, flash=False):

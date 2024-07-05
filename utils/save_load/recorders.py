@@ -118,6 +118,7 @@ class LossRecorder:
 
         if 'map_location' not in kw and not torch.cuda.is_available():
             kw['map_location'] = torch.device('cpu')
+            device = 'cpu'
 
         dict_of_params = torch.load(file_path, **kw)
         num_batch = dict_of_params['_num_batch']
@@ -139,6 +140,7 @@ class LossRecorder:
             r.last_batch_size = last_batch_size
 
         if device:
+            r.device = device
             for k in r._tensors:
                 if r._tensors[k].device != device:
                     r._tensors[k] = r._tensors[k].to(device)

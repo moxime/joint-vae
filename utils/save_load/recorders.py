@@ -133,8 +133,11 @@ class LossRecorder:
 
         r = cls(batch_size, num_batch, **tensors)
 
-        for k in ('_seed', '_tensors', '_recorded_batches'):
-            setattr(r, k, dict_of_params[k])
+        for k in ('_seed', '_tensors', '_recorded_batches', '_aux'):
+            try:
+                setattr(r, k, dict_of_params[k])
+            except KeyError:
+                pass
 
         for k in dict_of_params:
             if not k.startswith('_'):
@@ -357,18 +360,17 @@ class SampleRecorder(LossRecorder):
         super().__init__(*a, **kw)
         self._aux = {}
 
+    def __repr__(self):
+        s_ = ('Sample Recorder for '
+              + ' '.join([str(k) for k in self.keys()]))
+        if self._aux:
+            s_ += ' with aux data {}'.format(', '.join(self._aux))
+
+        return s_
+
     def to_mat(self, matfile, sample_dim=0, **kw):
 
         t = self._tensors
-
-        for k in t:
-            dims = [*range(t[k].ndim - 1)]
-            if sample_dim == -1:
-                dims.append(-1)
-            else:
-                dims.insert(sample_dim, -1)
-            t[k] = t[k].permute(dims)
-            print(k, t[k].shape)
 
         t.update(self._aux)
         scipy.io.savemat(matfile, t)

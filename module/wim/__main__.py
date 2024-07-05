@@ -208,6 +208,9 @@ if __name__ == '__main__':
         sample_recorders = {s: SampleRecorder(args.test_batch_size, **fakes) for s in wim_sets}
         sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size, **fakes)
 
+        for _ in sample_recorders:
+            sample_recorders[_].add_auxiliary(model.encoder.prior.mean)
+
     try:
         model.finetune(*wim_sets,
                        train_size=args.train_size,

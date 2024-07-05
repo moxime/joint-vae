@@ -1632,8 +1632,15 @@ class ClassificationVariationalNetwork(nn.Module):
                                                                                             z_output=True)
 
                         if sample_recorders and s in sample_recorders:
+                            batch_samples = dict()
                             if 'mu' in sample_recorders[s]:
-                                sample_recorders[s].append_batch(mu=mu)
+                                batch_samples['mu'] = mu
+                            if 'y' in sample_recorders[s]:
+                                batch_samples['y'] = y
+                            if 'y_nearest' in sample_recorders[s]:
+                                batch_samples['y_nearest'] = losses['zdist'].argmin(0)
+                            sample_recorders[s].append_batch(**batch_samples)
+
                     _test_measures.append({k: testset_measures[k] for k in testset_measures})
                     odin_softmax = {}
                     if odin_parameters:

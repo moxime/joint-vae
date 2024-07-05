@@ -94,6 +94,12 @@ class LossRecorder:
         i_ = torch.tensor(range(end), device=self.device)
         return self._tensors[k].index_select(self._sample_dim, i_)
 
+    def pop(self, k):
+
+        t = self[k]
+        self._tensors.pop(k)
+        return t
+
     def __iter__(self):
 
         return iter(self._tensors)
@@ -223,6 +229,17 @@ class LossRecorder:
             assert not common_k, "can not merge recorder with common keys ({})".format(', '.join(common_k))
 
             self._tensors.update(other._tensors)
+
+    def split(self, *keys):
+
+        copy = self.copy()
+        for k in list(self):
+            if k in keys:
+                self.pop(k)
+            else:
+                copy.pop(k)
+
+        return copy
 
     @property
     def recorded_samples(self):

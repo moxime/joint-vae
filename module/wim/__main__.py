@@ -201,8 +201,12 @@ if __name__ == '__main__':
 
     if args.inspection:
         fake_mu = torch.zeros(args.test_batch_size, model.latent_dim, device=model.device)
-        sample_recorders = {s: SampleRecorder(args.test_batch_size, mu=fake_mu) for s in wim_sets}
-        sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size, mu=fake_mu)
+        fake_y = torch.zeros(args.test_batch_size, device=model.device)
+        fakes = dict(mu=fake_mu, y=fake_y)
+        if model.is_cvae:
+            fakes['y_nearest'] = fakes['y']
+        sample_recorders = {s: SampleRecorder(args.test_batch_size, **fakes) for s in wim_sets}
+        sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size, **fakes)
 
     try:
         model.finetune(*wim_sets,

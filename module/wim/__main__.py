@@ -209,7 +209,9 @@ if __name__ == '__main__':
         sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size, **fakes)
 
         for _ in sample_recorders:
-            sample_recorders[_].add_auxiliary(centroids=model.encoder.prior.mean)
+            with model.original_prior as p1:
+                with model.alternate_prior as p2:
+                    sample_recorders[_].add_auxiliary(centroids=p1, alternate=p2)
 
     try:
         model.finetune(*wim_sets,

@@ -199,6 +199,7 @@ if __name__ == '__main__':
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
     model.saved_dir = save_dir
 
+    sample_recorders = {}
     if args.inspection:
         fake_mu = torch.zeros(args.test_batch_size, model.latent_dim, device=model.device)
         fake_y = torch.zeros(args.test_batch_size, device=model.device, dtype=int)

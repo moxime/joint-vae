@@ -373,7 +373,7 @@ class SampleRecorder(LossRecorder):
         t = self._tensors
 
         t.update(self._aux)
-        scipy.io.savemat(matfile, t)
+        scipy.io.savemat(matfile, t, **kw)
 
     def add_auxiliary(self, **t):
 

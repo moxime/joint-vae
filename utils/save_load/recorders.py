@@ -104,10 +104,28 @@ class LossRecorder:
 
         return iter(self._tensors)
 
-    def save(self, file_path, cut=True):
+    def save(self, file_path, cut=True, append=False):
         """dict_ = self.__dict__.copy()
         tensors = dict.pop('_tensors')
         """
+
+        if append:
+            try:
+                already = self.load(file_path)
+                _n = len(already)
+                already.merge(self)
+                __n = len(already)
+                logging.debug('{} does exist will append {}->{}'.format(file_path, _n, __n))
+
+            except FileNotFoundError:
+                already = self
+                logging.debug('{} does not exist will not append'.format(file_path))
+
+            finally:
+                logging.debug('Save rec of len {} in {}'.format(len(already), file_path))
+                already.save(file_path, cut=cut, append=False)
+                return
+
         end = (len(self) - 1) * self.batch_size + self.last_batch_size
         i_ = torch.tensor(range(end), device=self.device)
         if cut:
@@ -233,12 +251,13 @@ class LossRecorder:
 
             self._tensors.update(other._tensors)
 
-    def split(self, *keys):
+    def split(self, *keys, keep=False):
 
         copy = self.copy()
         for k in list(self):
             if k in keys:
-                self.pop(k)
+                if not keep:
+                    self.pop(k)
             else:
                 copy.pop(k)
 

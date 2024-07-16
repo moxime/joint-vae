@@ -94,10 +94,10 @@ def to_mat(sample_recorders_pre, sample_recorders_ft, tset, matfile):
     pass
 
 
-def proj2d(sample_recorders, tset, include_alternate=False, N=60, N_=10, Model=TSNE):
+def proj2d(sample_recorders_pre, sample_recorders_ft, tset, include_alternate=False, N=60, N_=10, Model=TSNE):
 
-    centroids = sample_recorders[tset]._aux['centroids'].numpy()
-    alternate = sample_recorders[tset]._aux['alternate'].numpy()
+    centroids = sample_recorders_pre[tset]._aux['centroids'].numpy()
+    alternate = sample_recorders_pre[tset]._aux['alternate'].numpy()
 
     #    print('***', *centroids.shape, '***', *alternate.shape)
 
@@ -107,9 +107,11 @@ def proj2d(sample_recorders, tset, include_alternate=False, N=60, N_=10, Model=T
     y = np.ndarray(0, dtype=int)
 
     mu = np.ndarray((0, centroids.shape[-1]))
-    for _ in sample_recorders:
-        mu = np.vstack([mu, *([centroids] * N_), sample_recorders[_]['mu'][:N]])
-        # print(_, mu.shape)
+    for sample_recorders in (sample_recorders_pre, sample_recorders_ft):
+        for _ in sample_recorders:
+            _N = N if _.startswith(tset) else N // 10
+            mu = np.vstack([mu, *([centroids] * N_), sample_recorders[_]['mu'][:_N]])
+            # print(_, mu.shape)
 
     print('Mu of shape', *mu.shape)
 
@@ -119,14 +121,17 @@ def proj2d(sample_recorders, tset, include_alternate=False, N=60, N_=10, Model=T
     mu_ = {}
     start = 0
 
-    for _ in sample_recorders:
-        mu_['centroids'] = mu[start:start + 10]
-        if include_alternate:
-            mu_['alternate'] = mu[start + 10:start + 11]
-        start += N_ * len(centroids)
-        # print(_, start, start + N)
-        mu_[_] = mu[start:start + N]
-        start += N
+    for sample_recorders, suffix in zip((sample_recorders_pre, sample_recorders_ft), ('pre', 'ft')):
+        for _ in sample_recorders:
+            _N = N if _.startswith(tset) else N // 10
+
+            mu_['centroids'] = mu[start:start + 10]
+            if include_alternate:
+                mu_['alternate'] = mu[start + 10:start + 11]
+            start += N_ * len(centroids)
+            # print(_, start, start + N)
+            mu_['{}-{}'.format(_, suffix)] = mu[start:start + _N]
+            start += _N
 
     return mu_
 
@@ -137,13 +142,15 @@ def plot2d(mu2d, dset, ax=None):
     marker['centroids'] = 'x'
     color = {}
     color['centroids'] = 'b'
-    color[dset] = 'b'
+    for _ in mu2d:
+        if _.startswith(dset):
+            color[_] = 'b'
     if 'alternate' in marker:
         marker['alternate'] = 'x'
         color['alternate'] = 'r'
 
     oodsets = {_ for _ in mu2d if _ not in color}
-    color.update({_: __ for _, __ in zip(oodsets, 'rgcy')})
+    color.update({_: __ for _, __ in zip(oodsets, 'rrrrr')})
 
     ax = ax or plt.gca()
 
@@ -170,13 +177,17 @@ if __name__ == '__main__':
     parser.add_argument('--tsne', action='store_const', dest='model', const=TSNE)
     parser.add_argument('-N', type=int, default=10)
 
-    j = 660655
     j = 655755
+    j = 660655
 
-    argv = '{}'.format(j).split()
+    argv = '{} --plot --pca -N 50'.format(j).split()
+    argv = '{} --plot --tsne -N 10'.format(j).split()
 
     argv = None if sys.argv[0] else argv
     args = parser.parse_args(argv)
+
+    if argv:
+        print(args)
 
     models = find_by_job_number(*args.jobs, job_dir=args.array_dir, force_dict=True)
 
@@ -219,12 +230,18 @@ if __name__ == '__main__':
         dset = dset.name
 
         if args.plot:
-            mu2d_pre = proj2d(sample_recorders_pre, dset, N=args.N, include_alternate=False, Model=args.model)
-            mu2d_ft = proj2d(sample_recorders_ft, dset, N=args.N, include_alternate=True, Model=args.model)
+            mu2d = proj2d(sample_recorders_pre, sample_recorders_ft,
+                          dset, N=args.N, N_=args.N // 10, include_alternate=True, Model=args.model)
 
+            mu2d_pre = {_: mu2d[_] for _ in mu2d if not _.endswith('-ft')}
+            mu2d_ft = {_: mu2d[_] for _ in mu2d if not _.endswith('-pre')}
+            mu2d_pre.pop('alternate')
+
+            print('=== PRE ===')
             for _ in mu2d_pre:
                 print(_, *mu2d_pre[_].shape)
 
+            print('=== FT ===')
             for _ in mu2d_ft:
                 print(_, *mu2d_ft[_].shape)
 

@@ -79,6 +79,8 @@ def to_mat(sample_recorders_pre, sample_recorders_ft, tset, matfile):
     samples_ft._tensors['y_est'] = y_est
     y = samples_ft['y']
 
+    samples_ft._tensors['mu_pre'] = mu_pre
+
     print('Acc: {:.1%}'.format((y[y >= 0] == y_est[y >= 0]).float().mean()))
 
     samples_ft.to_mat(matfile, oned_as='column')
@@ -156,14 +158,26 @@ def plot2d(mu2d, dset, ax=None):
 
 if __name__ == '__main__':
 
+    import sys
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--array-dir', default='wim-arrays-inspection')
-    parser.add_argument('jobs', nargs='*', type=int, default=[660655])
+    parser.add_argument('jobs', nargs='*', type=int)
     parser.add_argument('--mat', action='store_true')
     parser.add_argument('--plot', action='store_true')
+    parser.add_argument('--pca', action='store_const', dest='model', const=PCA, default=PCA)
+    parser.add_argument('--tsne', action='store_const', dest='model', const=TSNE)
+    parser.add_argument('-N', type=int, default=10)
 
-    args = parser.parse_args()
+    j = 660655
+    j = 655755
+
+    argv = '{}'.format(j).split()
+
+    argv = None if sys.argv[0] else argv
+    args = parser.parse_args(argv)
+
     models = find_by_job_number(*args.jobs, job_dir=args.array_dir, force_dict=True)
 
     for j in models:
@@ -205,8 +219,8 @@ if __name__ == '__main__':
         dset = dset.name
 
         if args.plot:
-            mu2d_pre = proj2d(sample_recorders_pre, dset, include_alternate=False)
-            mu2d_ft = proj2d(sample_recorders_ft, dset, include_alternate=True)
+            mu2d_pre = proj2d(sample_recorders_pre, dset, N=args.N, include_alternate=False, Model=args.model)
+            mu2d_ft = proj2d(sample_recorders_ft, dset, N=args.N, include_alternate=True, Model=args.model)
 
             for _ in mu2d_pre:
                 print(_, *mu2d_pre[_].shape)
@@ -227,12 +241,11 @@ if __name__ == '__main__':
         centroids = sample_recorders_pre[dset]._aux['centroids']
         centroids_ = sample_recorders_pre[dset]._aux['alternate']
 
-        d_ = {}
-        for _ in oodsets:
+        d_ = {'pre': {}, 'ft': {}}
+        for _ in [dset, *oodsets]:
             mu_ = sample_recorders_ft[_]['mu']
-
-            d_[_] = dmu(mu_, centroids_)
+            d_['ft'][_] = dmu(mu_, centroids_)
 
         mu = sample_recorders_pre[dset]['mu']
         y = sample_recorders_pre[dset]['y']
-        d_[dset] = dmu(mu, centroids, y=y)
+        d_['pre'][dset] = dmu(mu, centroids, y=y)

@@ -1,3 +1,4 @@
+import sys
 import os
 from os import path
 import logging
@@ -94,23 +95,33 @@ def to_mat(sample_recorders_pre, sample_recorders_ft, tset, matfile):
     pass
 
 
-def proj2d(sample_recorders_pre, sample_recorders_ft, tset, include_alternate=False, N=60, N_=10, Model=TSNE):
+def proj2d(sample_recorders_pre, sample_recorders_ft, tset,
+           include_alternate=False, N=60, N_=10, Model=TSNE, csv_file=None):
 
     centroids = sample_recorders_pre[tset]._aux['centroids'].numpy()
     alternate = sample_recorders_pre[tset]._aux['alternate'].numpy()
 
     #    print('***', *centroids.shape, '***', *alternate.shape)
 
+    mu = np.ndarray((0, centroids.shape[-1]))
+    y = np.ndarray((0, 1), dtype=str)
+    classes = get_dataset(tset)[1].classes
+    y_centroids = np.expand_dims(np.array(classes), 1)
     if include_alternate:
         centroids = np.vstack([centroids, alternate])
+        y_centroids = np.vstack([y_centroids, np.array([['ood']])])
 
-    y = np.ndarray(0, dtype=int)
-
-    mu = np.ndarray((0, centroids.shape[-1]))
     for sample_recorders in (sample_recorders_pre, sample_recorders_ft):
         for _ in sample_recorders:
             _N = N if _.startswith(tset) else N // 10
             mu = np.vstack([mu, *([centroids] * N_), sample_recorders[_]['mu'][:_N]])
+            if _ == tset:
+                y_batch = sample_recorders[_]['y'][:_N]
+                c_batch = np.expand_dims(y_centroids.take(y_batch), 1)
+            else:
+                c_batch = np.zeros((_N, 1), object)
+                c_batch[:] = _
+            y = np.vstack([y, *([y_centroids] * N_), c_batch])
             # print(_, mu.shape)
 
     print('Mu of shape', *mu.shape)
@@ -119,6 +130,7 @@ def proj2d(sample_recorders_pre, sample_recorders_ft, tset, include_alternate=Fa
     mu = model.fit_transform(mu)
 
     mu_ = {}
+    y_ = {}
     start = 0
 
     for sample_recorders, suffix in zip((sample_recorders_pre, sample_recorders_ft), ('pre', 'ft')):
@@ -126,14 +138,40 @@ def proj2d(sample_recorders_pre, sample_recorders_ft, tset, include_alternate=Fa
             _N = N if _.startswith(tset) else N // 10
 
             mu_['centroids'] = mu[start:start + 10]
+            y_['centroids'] = classes
             if include_alternate:
                 mu_['alternate'] = mu[start + 10:start + 11]
+                y_['alternate'] = ['ood']
             start += N_ * len(centroids)
             # print(_, start, start + N)
-            mu_['{}-{}'.format(_, suffix)] = mu[start:start + _N]
+            k = '{}-{}'.format(_, suffix)
+            mu_[k] = mu[start:start + _N]
+            y_[k] = y[start:start + _N].squeeze(1)
+            # print('***', k, mu_[k].shape, y_[k].shape, y_[k])
             start += _N
 
-    return mu_
+    if csv_file:
+
+        with open(csv_file, 'w') as f:
+
+            print(','.join(['x1', 'x2', 'y', 'set', 'dist', 'ft']), file=f)
+            for k in mu_:
+                dset = k.split('-')[0]
+                try:
+                    ft = k.split('-')[1]
+                    dist = 'ind' if dset == tset else 'ood'
+                except IndexError:
+                    if dset == 'centroids':
+                        dist = 'ind'
+                        ft = 'both'
+                    else:
+                        dset = 'alt'
+                        dist = 'ood'
+                        ft = 'both'
+                for (x1, x2), y in zip(mu_[k], y_[k]):
+                    print('{x1},{x2},{y},{s},{d},{ft}'.format(x1=x1, x2=x2, y=y, s=dset, d=dist, ft=ft), file=f)
+
+    return mu_, y_
 
 
 def plot2d(mu2d, dset, ax=None):
@@ -165,8 +203,6 @@ def plot2d(mu2d, dset, ax=None):
 
 if __name__ == '__main__':
 
-    import sys
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--array-dir', default='wim-arrays-inspection')
@@ -176,12 +212,13 @@ if __name__ == '__main__':
     parser.add_argument('--pca', action='store_const', dest='model', const=PCA, default=PCA)
     parser.add_argument('--tsne', action='store_const', dest='model', const=TSNE)
     parser.add_argument('-N', type=int, default=10)
+    parser.add_argument('--csv')
 
     j = 655755
     j = 660655
 
     argv = '{} --plot --pca -N 50'.format(j).split()
-    argv = '{} --plot --tsne -N 10'.format(j).split()
+    argv = '{} --plot --tsne -N 10 --csv /dev/stdout'.format(j).split()
 
     argv = None if sys.argv[0] else argv
     args = parser.parse_args(argv)
@@ -229,9 +266,11 @@ if __name__ == '__main__':
 
         dset = dset.name
 
-        if args.plot:
-            mu2d = proj2d(sample_recorders_pre, sample_recorders_ft,
-                          dset, N=args.N, N_=args.N // 10, include_alternate=True, Model=args.model)
+        if args.plot or args.csv:
+            mu2d, y2d = proj2d(sample_recorders_pre, sample_recorders_ft,
+                               dset, N=args.N, N_=args.N // 10,
+                               include_alternate=True, Model=args.model,
+                               csv_file=args.csv)
 
             mu2d_pre = {_: mu2d[_] for _ in mu2d if not _.endswith('-ft')}
             mu2d_ft = {_: mu2d[_] for _ in mu2d if not _.endswith('-pre')}

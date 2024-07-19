@@ -150,11 +150,11 @@ class WIMArray(WIMJob):
     def concatenate_samples(self, *jobs, sample_subdirs=[]):
 
         for sdir in sample_subdirs:
-            array_sdir = os.path.join(self.saved_dir, sdir)
+            array_sdir = model_subdir(self, sdir)
             os.makedirs(array_sdir, exist_ok=True)
             array_sample_rec = {}
             for j in jobs:
-                job_sdir = os.path.join(j, sdir)
+                job_sdir = model_subdir(j, sdir)
                 job_sample_rec = SampleRecorder.loadall(job_sdir)
                 if not array_sample_rec:
                     array_sample_rec = job_sample_rec

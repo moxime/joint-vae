@@ -206,6 +206,8 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
                                                   tpr=tpr, build_module=build_module,
                                                   light=light, **kw)
             logging.debug('Gathered {} models'.format(len(mlist)))
+            rmodels.update(_register_models(mlist, *get_filter_keys()))
+            save_json(rmodels, search_dir, registered_models_file)
             return mlist
 
         except StateFileNotFoundError as e:

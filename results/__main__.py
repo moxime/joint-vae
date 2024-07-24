@@ -8,7 +8,7 @@ import logging
 import pandas as pd
 import numpy as np
 from utils.save_load import fetch_models, make_dict_from_model
-from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
+from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys, MetaFilter
 from utils.tables import agg_results, results_dataframe, format_df_index, auto_remove_index
 from pydoc import locate
 import re
@@ -49,19 +49,6 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
 
     registered_models_file = 'models-' + gethostname() + '.json'
 
-    global_filters = DictOfListsOfParamFilters()
-
-    for _ in config['DEFAULT']:
-        if _ in filter_keys:
-            dest = filter_keys[_]['dest']
-            ftype = filter_keys[_]['type']
-            global_filters.add(dest, ParamFilter.from_string(arg_str=config['DEFAULT'][_],
-                                                             type=locate(ftype or 'str')))
-
-    models = fetch_models(job_dir, registered_models_file, filter=global_filters, build_module=False, flash=flash)
-
-    logging.info('Fetched {} models'.format(len(models)))
-
     dataset = default_config.get('dataset')
     kept_index = default_config.get('kept_index', '').split()
 
@@ -89,7 +76,7 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
     for k in which_from_filters:
 
         logging.info('| key %s:', k)
-        # logging.info(' '.join(['{}: {}'.format(_, config[k][_]) for _ in config[k]]))
+        logging.info(' -- '.join(['{}: {}'.format(_, config[k][_]) for _ in config[k]]))
         filters[k] = DictOfListsOfParamFilters()
 
         for _ in config[k]:
@@ -98,6 +85,20 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
                 ftype = filter_keys[_]['type']
                 filters[k].add(dest, ParamFilter.from_string(arg_str=config[k][_],
                                                              type=locate(ftype or 'str')))
+
+    global_filters = DictOfListsOfParamFilters()
+
+    for _ in config['DEFAULT']:
+        if _ in filter_keys:
+            dest = filter_keys[_]['dest']
+            ftype = filter_keys[_]['type']
+            global_filters.add(dest, ParamFilter.from_string(arg_str=config['DEFAULT'][_],
+                                                             type=locate(ftype or 'str')))
+
+    models = fetch_models(job_dir, registered_models_file, filter=global_filters, build_module=False,
+                          flash=flash)
+
+    logging.info('Fetched {} models'.format(len(models)))
 
     for k in filters:
         logging.debug('| filters for %s', k)

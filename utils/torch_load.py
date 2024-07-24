@@ -1200,6 +1200,8 @@ if __name__ == '__main__':
 
     dset = SubSampledDataset(trainset, length=200, seed=10, task=1)
 
+    mset = MixtureDataset(dset, dset)
+
     x, y = get_batch(dset, shuffle=False, batch_size=32)
 
     print(' '.join(map('{}'.format, y[:10])))

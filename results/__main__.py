@@ -87,14 +87,6 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
                                                              type=locate(ftype or 'str')))
 
     global_filters = MetaFilter(operator='or', **filters)
-    # global_filters = DictOfListsOfParamFilters()
-
-    # for _ in config['DEFAULT']:
-    #     if _ in filter_keys:
-    #         dest = filter_keys[_]['dest']
-    #         ftype = filter_keys[_]['type']
-    #         global_filters.add(dest, ParamFilter.from_string(arg_str=config['DEFAULT'][_],
-    #                                                          type=locate(ftype or 'str')))
 
     models = fetch_models(job_dir, registered_models_file, filter=global_filters, build_module=False,
                           flash=flash)

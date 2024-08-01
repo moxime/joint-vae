@@ -163,8 +163,8 @@ if __name__ == '__main__':
     alternate_prior_params = model.encoder.prior.params.copy()
     alternate_prior_params['learned_means'] = False
 
-    alternate_prior_params['mean_shift'] = args.prior_means
-    alternate_prior_params['init_mean'] = 0.
+    alternate_prior_params['mean_shift'] = 0.
+    alternate_prior_params['init_mean'] = args.prior_means
 
     if args.prior:
         alternate_prior_params['distribution'] = args.prior

@@ -360,7 +360,8 @@ def auto_remove_index(df, keep=['job', 'type']):
 
 
 @ printdebug(False)
-def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
+def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={},
+                average=False):
     """
     df_dict : dict of dataframe
     kept_cols: either a list or a dict (with the same keys as df_dict
@@ -411,14 +412,32 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         large_df = large_df.droplevel(removed_index)
         harddebug('removed index', *large_df.index.names)
 
+    unstack_stack = [_ for _ in kept_levels if _ != 'set']
+
+    for _ in unstack_stack:
+        large_df = large_df.unstack(_)
+
     # print('***Before average***')
     # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+    # print(large_df.index)
 
-    if average:
-        large_df.loc[average] = large_df.mean()
-        acc_columns = large_df.columns[large_df.columns.isin(['acc'], level='metrics')]
-        large_df.loc[average, acc_columns] = np.nan
-        # large_df[acc_columns][average] = np.nan
+    average = average or {}
+
+    average = {_: large_df.index.isin(average[_], level='set') for _ in average}
+
+    # print(average)
+
+    for a in average:
+        large_df.loc[a] = large_df.loc[average[a]].mean()
+
+    for _ in unstack_stack:
+        large_df = large_df.stack(_)
+
+    # if average:
+    #     large_df.loc[average] = large_df.mean()
+    #     acc_columns = large_df.columns[large_df.columns.isin(['acc'], level='metrics')]
+    #     large_df.loc[average, acc_columns] = np.nan
+    #     # large_df[acc_columns][average] = np.nan
 
     # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 

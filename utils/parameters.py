@@ -524,6 +524,10 @@ def get_args_for_results(argv=None):
             if not args.ood_methods:
                 args.ood_methods = options['ood_methods'].split()
 
+        if 'predict_methods' in options:
+            if not args.predict_methods:
+                args.predict_methods = options['predict_methods'].split()
+
     return args
 
 

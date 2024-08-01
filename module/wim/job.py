@@ -607,7 +607,7 @@ class WIMJob(M):
 
                 self.train()
                 with self.no_estimated_labels():
-
+                    assert not y_u_est.any()
                     o = self.evaluate(x_u.to(device), y_u_est,
                                       batch=batch,
                                       with_beta=True)

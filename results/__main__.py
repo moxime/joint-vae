@@ -383,7 +383,7 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
     for r in average_row:
         tab.add_midrule(row=r, start=len(idx_), after=False)
         try:
-            tab.add_midrule(row=r, start=len(idx_), after=True)
+            tab.add_midrule(row=r, after=True)
         except IndexError:
             pass
 

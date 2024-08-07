@@ -302,7 +302,7 @@ class WIMJob(M):
     def finetune(self, *sets,
                  train_size=100000,
                  epochs=None,
-                 moving_size=10000,
+                 moving_size=512,
                  augmentation=0.,
                  augmentation_sets=[],
                  alpha=0.1,
@@ -474,14 +474,17 @@ class WIMJob(M):
         #     printed_losses.append('{}_zdist*'.format(s))
 
         if epochs:
-            train_size = epochs * len(trainset)
+            train_size = epochs * len(moving_set)
             logging.debug('Train size override by epochs: {}'.format(train_size))
             self.wim_params['train_size'] = train_size
-        epochs = int(np.ceil(train_size / len(trainset)))
+        epochs = int(np.ceil(train_size / len(moving_set)))
         logging.debug('Epochs: {} / {} = {}'.format(train_size, len(trainset), epochs))
+
+        train_iter = iter(trainloader)
+
         for epoch in range(epochs):
 
-            per_epoch = min(train_size, len(trainset)) // batch_size
+            per_epoch = min(train_size, len(moving_set)) // batch_size
             train_size -= per_epoch * batch_size
             running_loss = {}
             self.eval()
@@ -491,24 +494,23 @@ class WIMJob(M):
 
             n_ = {'ind': 0, 'ood': 0, 'train': 0}
 
-            train_iter = iter(trainloader)
             moving_iter = iter(moving_loader)
 
             for batch in range(per_epoch):
 
-                x_a, y_a = next(train_iter)
+                x_u, y_u = next(moving_iter)
                 try:
-                    x_u, y_u = next(moving_iter)
+                    x_a, y_a = next(train_iter)
                 except StopIteration:
-                    moving_iter = iter(moving_loader)
-                    x_u, y_u = next(moving_iter)
+                    train_iter = iter(trainloader)
+                    x_a, y_a = next(train_iter)
 
                 if not batch and not epoch:
                     logging.debug('First epoch / first batch')
                     logging.debug('First labels for train: {}'.format(' '.join(str(_.item()) for _ in y_a[:10])))
                     logging.debug('First labels for unknown: {}'.format(' '.join(str(_.item()) for _ in y_u[:10])))
 
-                val_batch = not (batch % max(per_epoch * batch_size // 3000, 1))
+                val_batch = not batch
                 if batch:
                     time_per_i = (time.time() - t0) / batch
 

@@ -75,7 +75,7 @@ class GaussianPrior(nn.Module):
 
         if num_priors == 1:
             self.conditional = False
-            mean_tensor = init_mean * torch.randn(dim) + mean_shift
+            mean_tensor = init_mean * torch.randn(1, dim) + mean_shift
 
         else:
             self.conditional = True

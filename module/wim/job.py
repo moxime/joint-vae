@@ -195,9 +195,9 @@ class WIMJob(M):
             y_ = losses['y_est_already']
             logging.debug('y, [{}]'.format(', '.join(map(str, y_.shape))))
             loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.unsqueeze(0)).squeeze(0) for k in k_}
-            # for k in loss_['y']:
-            #     logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
-            #     logging.debug('*** {} y [{}]'.format(k, ', '.join(map(str, loss_['y'][k].shape))))
+            for k in loss_['y']:
+                logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
+                logging.debug('*** {} y [{}]'.format(k, ', '.join(map(str, loss_['y'][k].shape))))
             loss_['soft'] = {'soft' + k: (losses[k] * k_[k]).softmax(0) for k in k_}
             loss_['soft_y'] = {k: loss_['soft'][k].gather(0, y_.unsqueeze(0)).squeeze(0)
                                for k in loss_['soft']}

@@ -44,6 +44,7 @@ class WIMJob(M):
         self.loss_components += tuple(k + '@' for k in self.loss_components)
         self.loss_components += self.added_loss_components_per_type.get(self.type, ())
         self._original_prior = self.encoder.prior
+        self._original_num_labels = self.num_labels
 
         for p in self._original_prior.parameters():
             p.requires_grad_(False)
@@ -79,10 +80,12 @@ class WIMJob(M):
             self.encoder.prior = self._alternate_prior
             logging.debug('Switching to alternate prior: {}'.format(self.encoder.prior))
             self._is_alternate_prior = True
+            self.num_labels = 1
         else:
             self.encoder.prior = self._original_prior
             logging.debug('Switching to original prior: {}'.format(self.encoder.prior))
             self._is_alternate_prior = False
+            self.num_labels = self._original_num_labels
         return self.encoder.prior
 
     @ property
@@ -279,7 +282,7 @@ class WIMJob(M):
             for k in ('sets', 'alpha', 'train_size', 'moving_size',
                       'augmentation', 'augmentation_sets',
                       'from', 'mix', 'hash', 'array_size'):
-                k, alternate_prior_params.pop(k, None)
+                alternate_prior_params.pop(k, None)
             if build_module:
                 model.set_alternate_prior(**alternate_prior_params)
 

@@ -166,6 +166,8 @@ if __name__ == '__main__':
     alternate_prior_params['mean_shift'] = 0.
     alternate_prior_params['init_mean'] = args.prior_means
 
+    alternate_prior_params['num_priors'] = 1
+
     if args.prior:
         alternate_prior_params['distribution'] = args.prior
     alternate_prior_params['tau'] = args.tau

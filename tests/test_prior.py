@@ -5,14 +5,16 @@ K = 16
 N = 13
 L = 11
 
-C = 10
+C = 1
 
 y = None
 
-if C > 1:
+force_conditional = False
+
+if C > 1 or force_conditional:
     y = torch.randint(C, (N, L,))
 
-p = build_prior(K, num_priors=C, init_mean=3)
+p = build_prior(K, num_priors=C, init_mean=3, force_conditional=force_conditional)
 
 
 z = torch.randn(N, L, K)

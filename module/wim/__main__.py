@@ -6,7 +6,7 @@ import torch
 
 from utils.print_log import EpochOutput, turnoff_debug
 
-from utils.save_load import model_subdir
+from utils.save_load import model_subdir, SampleRecorder
 
 from .job import WIMJob, DontDoFineTuning
 from .scheduler import Scheduler
@@ -77,6 +77,8 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--array', type=int, nargs='*')
 
     parser.add_argument('--do-not-collect-jobs', action='store_false', dest='collect_jobs')
+
+    parser.add_argument('--inspection', action='store_true')
 
     parser.set_defaults(**defaults)
 
@@ -161,7 +163,9 @@ if __name__ == '__main__':
     alternate_prior_params = model.encoder.prior.params.copy()
     alternate_prior_params['learned_means'] = False
 
-    alternate_prior_params['mean_shift'] = args.prior_means
+    alternate_prior_params['mean_shift'] = 0.
+    alternate_prior_params['init_mean'] = args.prior_means
+
     if args.prior:
         alternate_prior_params['distribution'] = args.prior
     alternate_prior_params['tau'] = args.tau
@@ -197,6 +201,21 @@ if __name__ == '__main__':
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
     model.saved_dir = save_dir
 
+    sample_recorders = {}
+    if args.inspection:
+        fake_mu = torch.zeros(args.test_batch_size, model.latent_dim, device=model.device)
+        fake_y = torch.zeros(args.test_batch_size, device=model.device, dtype=int)
+        fakes = dict(mu=fake_mu, y=fake_y)
+        if model.is_cvae:
+            fakes['y_nearest'] = fakes['y']
+        sample_recorders = {s: SampleRecorder(args.test_batch_size, **fakes) for s in wim_sets}
+        sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size, **fakes)
+
+        for _ in sample_recorders:
+            with model.original_prior as p1:
+                with model.alternate_prior as p2:
+                    sample_recorders[_].add_auxiliary(centroids=p1.mean, alternate=p2.mean[0])
+
     try:
         model.finetune(*wim_sets,
                        train_size=args.train_size,
@@ -210,7 +229,8 @@ if __name__ == '__main__':
                        optimizer=optimizer,
                        outputs=outputs,
                        seed=args.sampling_seed,
-                       task=sampling_task
+                       task=sampling_task,
+                       sample_recorders=sample_recorders
                        )
 
     except DontDoFineTuning as e:
@@ -253,7 +273,10 @@ if __name__ == '__main__':
         wim_jobs = [_ for _ in wim_jobs if model_subdir(_) not in wim_jobs_already_processed]
 
         logging.info('Processing {} wim jobs alike'.format(len(wim_jobs)))
-        wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs])
+        wim_array.update_records(*[WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs])
+
+        sdirs = [os.path.join('samples', '{:04d}'.format(wim_array.trained), _) for _ in ('', 'init')]
+        wim_array.concatenate_samples(*wim_jobs, sample_subdirs=sdirs)
         wim_array.save(array_dir)
         logging.info('model saved in {}'.format(wim_array.saved_dir))
 

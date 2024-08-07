@@ -499,11 +499,12 @@ def get_args_for_results(argv=None):
     for _ in filter_keys:
         args.filters['args'].add(_, filter_args.__dict__[_])
 
+    args.filters['files'] = MetaFilter(operator='or')
     for config_file in args.from_files:
         config = configparser.ConfigParser()
         config.read(config_file)
 
-        args.filters['files'] = MetaFilter.from_config(config)
+        args.filters['files'][config_file] = MetaFilter.from_config(config)
 
         sets_set_by_arg = [_[0] for _ in args.sets]
 
@@ -522,6 +523,10 @@ def get_args_for_results(argv=None):
         if 'ood_methods' in options:
             if not args.ood_methods:
                 args.ood_methods = options['ood_methods'].split()
+
+        if 'predict_methods' in options:
+            if not args.predict_methods:
+                args.predict_methods = options['predict_methods'].split()
 
     return args
 

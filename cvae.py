@@ -1464,6 +1464,7 @@ class ClassificationVariationalNetwork(nn.Module):
                             recorders=None,
                             from_where='all',
                             sample_dirs=[],
+                            sample_recorders=None,
                             log=True):
 
         if epoch == 'last':
@@ -1501,8 +1502,8 @@ class ClassificationVariationalNetwork(nn.Module):
         if recorders == {}:
             recorders = {n: LossRecorder(batch_size) for n in all_set_names}
 
-        if not recorders:
-            recorders = {n: None for n in all_set_names}
+        recorders = recorders or {n: None for n in all_set_names}
+        sample_recorders = sample_recorders or {}
 
         max_num_batch = num_batch
         num_batch = {testset.name: int(np.ceil(len(testset) / batch_size))}
@@ -1615,6 +1616,7 @@ class ClassificationVariationalNetwork(nn.Module):
             _test_losses = []
             _test_measures = []
             num_samples = 0
+
             for i in range(num_batch[s]):
 
                 if not recorded[s]:
@@ -1625,7 +1627,20 @@ class ClassificationVariationalNetwork(nn.Module):
                     if odin_parameters:
                         x.requires_grad_(True)
                     with torch.no_grad():
-                        _, logits, losses, testset_measures = self.evaluate(x, batch=i)
+                        _, logits, losses, testset_measures, mu, log_var, z = self.evaluate(x,
+                                                                                            batch=i,
+                                                                                            z_output=True)
+
+                        if sample_recorders and s in sample_recorders:
+                            batch_samples = dict()
+                            if 'mu' in sample_recorders[s]:
+                                batch_samples['mu'] = mu
+                            if 'y' in sample_recorders[s]:
+                                batch_samples['y'] = y
+                            if 'y_nearest' in sample_recorders[s]:
+                                batch_samples['y_nearest'] = losses['zdist'].argmin(0)
+                            sample_recorders[s].append_batch(**batch_samples)
+
                     _test_measures.append({k: testset_measures[k] for k in testset_measures})
                     odin_softmax = {}
                     if odin_parameters:
@@ -1766,7 +1781,13 @@ class ClassificationVariationalNetwork(nn.Module):
                         x.requires_grad_(True)
 
                     with torch.no_grad():
-                        _, logits, losses, _ = self.evaluate(x, batch=i)
+                        _, logits, losses, testset_measures, mu, log_var, z = self.evaluate(x,
+                                                                                            batch=i,
+                                                                                            z_output=True)
+
+                        if sample_recorders and s in sample_recorders:
+                            if 'mu' in sample_recorders[s]:
+                                sample_recorders[s].append_batch(mu=mu)
 
                     odin_softmax = {}
                     if odin_parameters:
@@ -1876,6 +1897,11 @@ class ClassificationVariationalNetwork(nn.Module):
                     f = os.path.join(d, f'record-{s}.pth')
 
                     recorders[s].save(f.format(s=s))
+
+        for s in sample_recorders:
+            for sdir in sample_dirs:
+                fp = os.path.join(sdir, 'samples-{}.pth'.format(s))
+                sample_recorders[s].save(fp)
 
         return ood_results
 

@@ -810,7 +810,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
             'data_augmentation': training.data_augmentation,
             'transformer': training.transformer,
             'train_batch_size': train_batch_size,
-            'sigma': sigma.value if sigma_train == 'constant' else np.nan,
+            'sigma': sigma.value if sigma_train == 'constant' else None,
             'beta_sigma': beta_sigma,
             'sigma_train': sigma_train,  # [:5],
             'beta': beta,

@@ -157,9 +157,10 @@ def results_dataframe(models,
         'optim_str',
         'encoder_forced_variance',
         'prior',
+        'latent_prior_init_means',
+        #
         #        'forced_var',
         'tilted_tau',
-        'wim_array_size',
         'wim_prior',
         'wim_mean',
         'wim_from',
@@ -171,6 +172,7 @@ def results_dataframe(models,
         'wim_augmentation',
         'wim_augmentation_str',
         'wim_moving_size',
+        'wim_array_size',
         'L',
         'l',
         'sigma_train',
@@ -358,7 +360,8 @@ def auto_remove_index(df, keep=['job', 'type']):
 
 
 @ printdebug(False)
-def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={}, average=False):
+def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacement_dict={},
+                average=False):
     """
     df_dict : dict of dataframe
     kept_cols: either a list or a dict (with the same keys as df_dict
@@ -409,14 +412,32 @@ def agg_results(df_dict, kept_cols=None, kept_levels=[], tex_file=None, replacem
         large_df = large_df.droplevel(removed_index)
         harddebug('removed index', *large_df.index.names)
 
+    unstack_stack = [_ for _ in kept_levels if _ != 'set']
+
+    for _ in unstack_stack:
+        large_df = large_df.unstack(_)
+
     # print('***Before average***')
     # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
+    # print(large_df.index)
 
-    if average:
-        large_df.loc[average] = large_df.mean()
-        acc_columns = large_df.columns[large_df.columns.isin(['acc'], level='metrics')]
-        large_df.loc[average, acc_columns] = np.nan
-        # large_df[acc_columns][average] = np.nan
+    average = average or {}
+
+    average = {_: large_df.index.isin(average[_], level='set') for _ in average}
+
+    # print(average)
+
+    for a in average:
+        large_df.loc[a] = large_df.loc[average[a]].mean()
+
+    for _ in unstack_stack:
+        large_df = large_df.stack(_)
+
+    # if average:
+    #     large_df.loc[average] = large_df.mean()
+    #     acc_columns = large_df.columns[large_df.columns.isin(['acc'], level='metrics')]
+    #     large_df.loc[average, acc_columns] = np.nan
+    #     # large_df[acc_columns][average] = np.nan
 
     # print(large_df.to_string(float_format='{:2.1f}'.format), '\n\n')
 
@@ -535,6 +556,7 @@ def format_df_index(df, float_format='{:.3g}', int_format='{}',
                                          'wim_augmentation_str': '\u2207+',
                                          'beta': '\u03b2',
                                          'gamma': '\u03b3',
+                                         'latent_prior_init_means': '<m>',
                                          'encoder_forced_variance': 'fv',
                                          'depth': 'D',
                                          'features': 'feat',

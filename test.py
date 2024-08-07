@@ -406,6 +406,7 @@ if __name__ == '__main__':
                 auto_removed_index = auto_remove_index(d, keep=['job', 'type'])
                 removed_index = list(auto_removed_index)
             else:
+                auto_removed_index = {}
                 removed_index = []
             for n in removed_index:
                 i = d.index.names.index(n)

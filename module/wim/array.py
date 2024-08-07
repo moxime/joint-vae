@@ -3,7 +3,7 @@ import logging
 from utils.print_log import turnoff_debug
 from module.wim.job import WIMJob
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
-from utils.save_load import make_dict_from_model, model_subdir, save_json
+from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
 import torch
 
@@ -67,7 +67,7 @@ class WIMArray(WIMJob):
 
         return model
 
-    def update_records(self, jobs_to_add, compute_rates=True):
+    def update_records(self, *jobs_to_add, compute_rates=True):
 
         a = available_results(self, where=('recorders',), min_samples_by_class=0)
         epoch = max(a)
@@ -146,6 +146,25 @@ class WIMArray(WIMJob):
             print_result='*')
 
         return array_recorders
+
+    def concatenate_samples(self, *jobs, sample_subdirs=[]):
+
+        for sdir in sample_subdirs:
+            array_sdir = model_subdir(self, sdir)
+            os.makedirs(array_sdir, exist_ok=True)
+            array_sample_rec = {}
+            for j in jobs:
+                job_sdir = model_subdir(j, sdir)
+                job_sample_rec = SampleRecorder.loadall(job_sdir)
+                if not array_sample_rec:
+                    array_sample_rec = job_sample_rec
+                else:
+                    for _ in array_sample_rec:
+                        array_sample_rec[_].merge(job_sample_rec[_])
+
+            for _ in array_sample_rec:
+                spth = os.path.join(array_sdir, 'samples-{}.pth'.format(_))
+                array_sample_rec[_].save(spth, append=True)
 
     @ classmethod
     def collect_processed_jobs(cls, job_dir, flash=False):
@@ -259,7 +278,7 @@ if __name__ == '__main__':
             wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
 
         logging.info('Processing {} jobs alike (array {})'.format(len(wim_jobs_alike), i))
-        wim_array.update_records([WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
+        wim_array.update_records(*[WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
         wim_array.save(model_subdir(wim_array))
 
         """

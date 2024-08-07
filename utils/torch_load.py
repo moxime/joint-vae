@@ -1196,13 +1196,17 @@ if __name__ == '__main__':
 
     #     for k, v in zip(('mean', 'std'), (mean, std)):
     #         print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))
-    d, _ = get_dataset('dtd', splits=['train'])
+    trainset, testset = get_dataset('cifar10')
 
-    print(len(d))
+    dset = SubSampledDataset(trainset, length=200, seed=10, task=1)
 
-    x, y = get_batch(d)
+    mset = MixtureDataset(dset, dset)
 
-    show_images(d, num=32, shuffle=32)
+    x, y = get_batch(dset, shuffle=False, batch_size=32)
+
+    print(' '.join(map('{}'.format, y[:10])))
+
+    # show_images(dset, num=32, shuffle=32)
 
     if sys.argv:
         input()

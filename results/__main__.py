@@ -8,7 +8,7 @@ import logging
 import pandas as pd
 import numpy as np
 from utils.save_load import fetch_models, make_dict_from_model
-from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
+from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys, MetaFilter
 from utils.tables import agg_results, results_dataframe, format_df_index, auto_remove_index
 from pydoc import locate
 import re
@@ -49,19 +49,6 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
 
     registered_models_file = 'models-' + gethostname() + '.json'
 
-    global_filters = DictOfListsOfParamFilters()
-
-    for _ in config['DEFAULT']:
-        if _ in filter_keys:
-            dest = filter_keys[_]['dest']
-            ftype = filter_keys[_]['type']
-            global_filters.add(dest, ParamFilter.from_string(arg_str=config['DEFAULT'][_],
-                                                             type=locate(ftype or 'str')))
-
-    models = fetch_models(job_dir, registered_models_file, filter=global_filters, build_module=False, flash=flash)
-
-    logging.info('Fetched {} models'.format(len(models)))
-
     dataset = default_config.get('dataset')
     kept_index = default_config.get('kept_index', '').split()
 
@@ -89,7 +76,7 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
     for k in which_from_filters:
 
         logging.info('| key %s:', k)
-        # logging.info(' '.join(['{}: {}'.format(_, config[k][_]) for _ in config[k]]))
+        logging.info(' -- '.join(['{}: {}'.format(_, config[k][_]) for _ in config[k]]))
         filters[k] = DictOfListsOfParamFilters()
 
         for _ in config[k]:
@@ -98,6 +85,13 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
                 ftype = filter_keys[_]['type']
                 filters[k].add(dest, ParamFilter.from_string(arg_str=config[k][_],
                                                              type=locate(ftype or 'str')))
+
+    global_filters = MetaFilter(operator='or', **filters)
+
+    models = fetch_models(job_dir, registered_models_file, filter=global_filters, build_module=False,
+                          flash=flash)
+
+    logging.info('Fetched {} models'.format(len(models)))
 
     for k in filters:
         logging.debug('| filters for %s', k)
@@ -153,7 +147,7 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
         removed_index[k] = auto_remove_index(df)
         #  removed_index = {}      #
         df_short = format_df_index(df.droplevel(list(removed_index[k])))
-        df_string[k] = df_short[df_short.columns[:5]].to_string(float_format='{:.1f}'.format)
+        df_string[k] = df_short[df_short.columns[:20]].to_string(float_format='{:.1f}'.format)
         df_width = len(df_string[k].split('\n')[0])
         if show_dfs:
             print('\n{k:=^{w}s}'.format(k=k, w=df_width))
@@ -192,7 +186,7 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
         raw_df[k] = df.groupby(level=df.index.names).agg('mean')
         raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
 
-    average = default_config.get('average')
+    average = default_config.get('average', '').split()
 
     kept_oods = set()
 
@@ -219,8 +213,6 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
 
         for w in what:
             df = raw_df[k]
-            # print('***Before agg of {}***'.format(k))
-            # print(df.to_string(float_format='{:2.1f}'.format), '\n\n')
             cols = df.columns
             filtered_auc_metrics = True if keep_auc else ~cols.isin(['auc'], level='metrics')
             cols = cols[cols.isin(sets[w], level='set') & filtered_auc_metrics]
@@ -228,6 +220,14 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
             cols_m = cols[cols.isin([kept_methods[k][w]], level='method')]
             agg_df[k] = pd.concat([agg_df[k],
                                    df[cols_m].rename(columns={kept_methods[k][w]: k}, level='method')])
+
+    if len(average) == 1:
+        average = {average[0]: kept_oods}
+
+    elif len(average) > 1:
+        average = {average[0]: average[1:]}
+
+    # print('*** average', average)
 
     results_df = agg_results(agg_df, kept_cols=None, kept_levels=kept_index, average=average)
 
@@ -241,6 +241,10 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
     results_df.columns = pd.MultiIndex.from_tuples(results_df.columns, names=['metrics', 'methods'])
 
     sorting_sets = {_: i for i, _ in enumerate(sum((sets[w] for w in what), []))}
+
+    for a in average:
+        sorting_sets[a] = max(sorting_sets[_] for _ in average[a]) + 0.5
+    #    print(sorting_sets)
 
     def key_(idx):
         return pd.Index([sorting_sets.get(_, 10000) for _ in idx], name='set')
@@ -346,15 +350,15 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
     no_multi_index = results_df.index.nlevels == 1
 
     last_acc_row = None
-    average_row = None
+    average_row = []
     for idx, r in results_df.iterrows():
         idx_ = (idx,) if no_multi_index else idx
         is_an_acc_row = idx_[0] == texify['metrics'][acc_row_name]
         if is_an_acc_row:
             last_acc_row = idx
 
-        if idx_[0] == average:
-            average_row = idx
+        if idx_[0] in average:
+            average_row.append(idx)
 
         for ind in idx_:
             tab.append_cell(ind, row=idx)
@@ -376,8 +380,12 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
     if last_acc_row is not None:
         tab.add_midrule(row=last_acc_row, after=True)
 
-    if average_row is not None:
-        tab.add_midrule(row=average_row, start=len(idx_), after=False)
+    for r in average_row:
+        tab.add_midrule(row=r, start=len(idx_), after=False)
+        try:
+            tab.add_midrule(row=r, after=True)
+        except IndexError:
+            pass
 
     for k in job_list:
         tab.comment('{:=^80}'.format(k.upper()))

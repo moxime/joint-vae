@@ -16,7 +16,7 @@ while :; do
 	    opt=( --exclude '*.pth' -uvP )
 	    ;;	    
 	--light )
-	    opt=( --include 'record-*.pth' --exclude '*.pth' -uvP )
+	    opt=( --include 'record-*.pth' --include 'samples-*.pth' --exclude '*.pth' -uvP )
 	    ;;
 	--full )
 	    opt=( --exclude '*/optimizer.pth' -uvP )

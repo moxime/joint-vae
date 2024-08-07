@@ -11,7 +11,8 @@ import torch
 from cvae import ClassificationVariationalNetwork as M
 from module.priors import build_prior
 
-from utils.save_load import MissingKeys, save_json, load_json, LossRecorder, fetch_models, make_dict_from_model
+from utils.save_load import MissingKeys, save_json, load_json, fetch_models, make_dict_from_model
+from utils.save_load import LossRecorder, SampleRecorder
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
 import utils.torch_load as torchdl
 from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
@@ -311,6 +312,7 @@ class WIMJob(M):
                  outputs=EpochOutput(),
                  seed=0,
                  task=None,
+                 sample_recorders={},
                  ):
 
         # logging.warning('DEBUG MODE MODEL IN MODE EVAL')
@@ -462,6 +464,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders=recorders,
+                                         sample_recorders=sample_recorders,
                                          print_result='*')
                 self.ood_results = {}
 
@@ -604,7 +607,7 @@ class WIMJob(M):
 
                 self.train()
                 with self.no_estimated_labels():
-
+                    assert not y_u_est.any()
                     o = self.evaluate(x_u.to(device), y_u_est,
                                       batch=batch,
                                       with_beta=True)
@@ -693,6 +696,8 @@ class WIMJob(M):
         with torch.no_grad():
             self.original_prior = True
             outputs.write('With original prior\n')
+            for s in sample_recorders:
+                sample_recorders[s].reset()
             with self.evaluate_on_both_priors():
                 self.ood_detection_rates(batch_size=test_batch_size,
                                          testset=testset,
@@ -701,6 +706,7 @@ class WIMJob(M):
                                          outputs=outputs,
                                          sample_dirs=sample_dirs,
                                          recorders={},
+                                         sample_recorders=sample_recorders,
                                          print_result='*')
             logging.info('Computing misclass detection rates')
             self.misclassification_detection_rates(print_result='~')

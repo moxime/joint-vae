@@ -105,8 +105,6 @@ class GaussianPrior(nn.Module):
         self._frozen_means = not learned_means or freeze_means > 0
         self.mean = Parameter(mean_tensor, requires_grad=not self._frozen_means)
 
-        logging.debug('Prior {} pseudo hash: {:.5f}'.format(self, self.mean.norm(3) - self.mean.norm(4)))
-
         if var_dim == 'scalar':
             var_param_per_class = torch.tensor(1.)
         elif var_dim == 'diag':
@@ -130,6 +128,8 @@ class GaussianPrior(nn.Module):
         if self.conditional:
             self.params.update({'learned_means': self.learned_means,
                                 'freeze_means': freeze_means})
+
+        logging.debug('Prior {} pseudo hash: {:.5f}'.format(self, self.mean.norm(3) - self.mean.norm(4)))
 
     def thaw_means(self, epoch=None):
         if not self.learned_means or not self._frozen_means:

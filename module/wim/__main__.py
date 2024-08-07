@@ -167,6 +167,7 @@ if __name__ == '__main__':
     alternate_prior_params['init_mean'] = args.prior_means
 
     alternate_prior_params['num_priors'] = 1
+    alternate_prior_params['seed'] = args.sampling_seed
 
     if args.prior:
         alternate_prior_params['distribution'] = args.prior

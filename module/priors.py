@@ -56,12 +56,19 @@ class GaussianPrior(nn.Module):
 
     def __init__(self, dim, var_dim='scalar', num_priors=1,
                  init_mean=0, mean_shift=0, learned_means=False, freeze_means=0,
-                 force_conditional=False):
+                 force_conditional=False, seed=None):
         """
         var_dim : scalar, diag or full
         num_priors: 1 for non conditional prior, else number of classes
 
         """
+
+        gen = torch.Generator()
+        gen.seed()
+
+        if seed is not None:
+            gen.manual_seed(seed)
+            logging.info('Seed for prior: {}'.format(seed))
 
         assert not learned_means or num_priors > 1
 
@@ -76,7 +83,7 @@ class GaussianPrior(nn.Module):
 
         if num_priors == 1:
             self.conditional = False or force_conditional
-            mean_tensor = init_mean * torch.randn(1, dim) + mean_shift
+            mean_tensor = init_mean * torch.randn(1, dim, generator=gen) + mean_shift
 
         else:
             self.conditional = True
@@ -87,7 +94,7 @@ class GaussianPrior(nn.Module):
                     mean_tensor[i, i] = 1
 
             else:
-                unit_mean = torch.randn(num_priors, dim).squeeze()
+                unit_mean = torch.randn(num_priors, dim, generator=gen).squeeze()
 
                 try:
                     float(init_mean)

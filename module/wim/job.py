@@ -186,27 +186,27 @@ class WIMJob(M):
 
         k_ = {'kl': -1, 'zdist': -0.5, 'iws': 1, 'elbo': 1}
 
-        if any('@' in m for m in methods):
-            losses['elbo@'] = -losses['total@']
-            k_.update({k + '@': k_[k] for k in k_})
-
         loss_ = {}
         if self.is_cvae:
             y_ = losses['y_est_already']
             logging.debug('y, [{}]'.format(', '.join(map(str, y_.shape))))
 
-            for k in losses:
-                logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
+            # for k in losses:
+            #     logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
 
             loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.unsqueeze(0)).squeeze(0) for k in k_}
-            for k in loss_['y']:
-                logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
-                logging.debug('*** {} y [{}]'.format(k, ', '.join(map(str, loss_['y'][k].shape))))
+            # for k in loss_['y']:
+            #     logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
+            #     logging.debug('*** {} y [{}]'.format(k, ', '.join(map(str, loss_['y'][k].shape))))
             loss_['soft'] = {'soft' + k: (losses[k] * k_[k]).softmax(0) for k in k_}
             loss_['soft_y'] = {k: loss_['soft'][k].gather(0, y_.unsqueeze(0)).squeeze(0)
                                for k in loss_['soft']}
             loss_['soft'] = {k: loss_['soft'][k].max(0)[0] for k in loss_['soft']}
             loss_['logsumexp'] = {k: (losses[k] * k_[k]).logsumexp(0) for k in k_}
+
+        if any('@' in m for m in methods):
+            losses['elbo@'] = -losses['total@']
+            k_.update({k + '@': k_[k] for k in k_})
 
         wim_measures = {}
         for m in wim_methods:
@@ -231,7 +231,7 @@ class WIMJob(M):
                 else:
                     w = 'logsumexp'
 
-                measures = loss_[w][m_] - loss_[w][m_ + '@']
+                measures = loss_[w][m_] - k_[m_] * losses[m_ + '@']
 
             wim_measures[m] = measures.cpu() if to_cpu else measures
             logging.debug('{}: {}'.format(m, ', '.join(map(str, measures.shape))))

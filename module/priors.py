@@ -209,7 +209,7 @@ class GaussianPrior(nn.Module):
         if self.conditional:
             means = self.mean.index_select(0, y.view(-1))
         else:
-            means = self.mean.unsqueeze(-1)
+            means = self.mean  # .unsqueeze(0)
 
         return self.whiten(x - means, y).pow(2).sum(-1)
 

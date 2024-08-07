@@ -478,7 +478,7 @@ class WIMJob(M):
             logging.debug('Train size override by epochs: {}'.format(train_size))
             self.wim_params['train_size'] = train_size
         epochs = int(np.ceil(train_size / len(moving_set)))
-        logging.debug('Epochs: {} / {} = {}'.format(train_size, len(trainset), epochs))
+        logging.info('Epochs: {} / {} = {}'.format(train_size, len(moving_set), epochs))
 
         train_iter = iter(trainloader)
 

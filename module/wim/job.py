@@ -484,6 +484,7 @@ class WIMJob(M):
 
         for epoch in range(epochs):
 
+            logging.info('Epoch {}/{}'.format(epoch, epochs))
             per_epoch = min(train_size, len(moving_set)) // batch_size
             train_size -= per_epoch * batch_size
             running_loss = {}

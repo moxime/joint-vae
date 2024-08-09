@@ -14,7 +14,7 @@ force_conditional = False
 if C > 1 or force_conditional:
     y = torch.randint(C, (N, L,))
 
-p = build_prior(K, num_priors=C, init_mean=3, force_conditional=force_conditional)
+p = build_prior(K, num_priors=C, init_mean=3, force_conditional=force_conditional, seed=1)
 
 
 z = torch.randn(N, L, K)

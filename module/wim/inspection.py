@@ -18,6 +18,8 @@ from utils.torch_load import get_dataset
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
+import pandas as pd
+
 
 def estimate_y(mu, centroids):
 
@@ -101,27 +103,30 @@ def proj2d(sample_recorders_pre, sample_recorders_ft, tset,
     centroids = sample_recorders_pre[tset]._aux['centroids'].numpy()
     alternate = sample_recorders_pre[tset]._aux['alternate'].numpy()
 
-    #    print('***', *centroids.shape, '***', *alternate.shape)
+    df = pd.DataFrame(columns=[*range(centroids.shape[1])])
+
+    # print('***', *centroids.shape, '***', *alternate.shape)
 
     mu = np.ndarray((0, centroids.shape[-1]))
     y = np.ndarray((0, 1), dtype=str)
     classes = get_dataset(tset)[1].classes
-    y_centroids = np.expand_dims(np.array(classes), 1)
+    centroids_labels = np.expand_dims(np.array(classes), 1)
     if include_alternate:
         centroids = np.vstack([centroids, alternate])
-        y_centroids = np.vstack([y_centroids, np.array([['ood']])])
+        centroids_labels = np.vstack([centroids_labels, np.array([['ood']])])
 
     for sample_recorders in (sample_recorders_pre, sample_recorders_ft):
+        averages = np.zeros()
         for _ in sample_recorders:
             _N = N if _.startswith(tset) else N // 10
             mu = np.vstack([mu, *([centroids] * N_), sample_recorders[_]['mu'][:_N]])
             if _ == tset:
                 y_batch = sample_recorders[_]['y'][:_N]
-                c_batch = np.expand_dims(y_centroids.take(y_batch), 1)
+                c_batch = np.expand_dims(centroids_labels.take(y_batch), 1)
             else:
                 c_batch = np.zeros((_N, 1), object)
                 c_batch[:] = _
-            y = np.vstack([y, *([y_centroids] * N_), c_batch])
+            y = np.vstack([y, *([centroids_labels] * N_), c_batch])
             # print(_, mu.shape)
 
     print('Mu of shape', *mu.shape)
@@ -164,10 +169,10 @@ def proj2d(sample_recorders_pre, sample_recorders_ft, tset,
                     if dset == 'centroids':
                         dist = 'ind'
                         ft = 'both'
-                    else:
-                        dset = 'alt'
-                        dist = 'ood'
-                        ft = 'both'
+                else:
+                    dset = 'alt'
+                    dist = 'ood'
+                    ft = 'both'
                 for (x1, x2), y in zip(mu_[k], y_[k]):
                     print('{x1},{x2},{y},{s},{d},{ft}'.format(x1=x1, x2=x2, y=y, s=dset, d=dist, ft=ft), file=f)
 

@@ -147,7 +147,11 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
         removed_index[k] = auto_remove_index(df)
         #  removed_index = {}      #
         df_short = format_df_index(df.droplevel(list(removed_index[k])))
-        df_string[k] = df_short[df_short.columns[:20]].to_string(float_format='{:.1f}'.format)
+        cols = df_short.columns
+        showed_cols = cols.isin(['acc'], level='metrics')
+        showed_cols |= (cols.isin(config[k]['ood'].split(), level='set')
+                        & ~cols.isin(['n', 'mean', 'std'], level='metrics'))
+        df_string[k] = df_short[cols[showed_cols]].to_string(float_format='{:.1f}'.format)
         df_width = len(df_string[k].split('\n')[0])
         if show_dfs:
             print('\n{k:=^{w}s}'.format(k=k, w=df_width))

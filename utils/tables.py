@@ -249,13 +249,16 @@ def results_dataframe(models,
     in_out_cols_set_level = set([_[0] for _ in cols if _[-1] == 'auc'])
     ood_cols_set_level = set.difference(in_out_cols_set_level, misclass_cols_set_level)
     method_cols = {_: True for _ in methods}
+    # print('***', methods)
     for _ in method_cols:
         if methods[_] is not None:
-            # print('***', _, *methods[_])
+            # print('***', _, ':', *methods[_])  #
             if 'all' in methods[_]:
                 method_cols[_] = [not _ for _ in cols.isin(['first'], level='method')]
             else:
                 method_cols[_] = cols.isin(methods[_], level='method')
+                # for c, b in zip(cols, method_cols[_]):
+                #     print('***   ', '*' if b else ' ', c)
         # print('***', _, *map(lambda s: '({})'.format(s), methods[_]), sum(method_cols[_]))
         # print('***', _, *map(lambda s: '({})'.format(s), set([c[1] for c in cols])))
     acc_cols = cols.isin(['acc'], level='metrics') & method_cols['predict']
@@ -275,8 +278,8 @@ def results_dataframe(models,
     kept_cols = cols[(metrics_cols & (acc_cols | ood_cols | misclass_cols)) | measures_cols]
 
     # DEBUG
-    # print('BEFORE:\n', *cols)
-    # print('KEPT:\n', *kept_cols)
+    # print('BEFORE:\n', *sorted(cols))
+    # print('KEPT:\n', *sorted(kept_cols))
     df = df[kept_cols]
 
     if len(methods['predict']) == 1:

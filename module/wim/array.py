@@ -20,7 +20,7 @@ class WIMArray(WIMJob):
         super().__init__(*a, **kw)
         self._fecth_dir = fetch_dir
         self._jobs = {'known': set(), 'rec': set()}
-        self._recdir = None
+        self._rec_dir = None
 
     @classmethod
     def is_wim_array(cls, d):
@@ -42,11 +42,11 @@ class WIMArray(WIMJob):
             raise FileNotFoundError
 
         if k == 'rec':
-            return os.path.join(self._recdir, JOB_FILE_NAME)
+            return os.path.join(self._rec_dir, JOB_FILE_NAME)
 
     def _add_job(self, k, job):
 
-        self._jobs[k].add(model_subdir(j))
+        self._jobs[k].add(model_subdir(job))
 
     def save(self, *a, **kw):
 
@@ -54,12 +54,12 @@ class WIMArray(WIMJob):
         kw['except_state'] = True
         dir_name = super().save(*a, **kw)
 
-        for _, fp in self.job_files.items():
-            with open(fp, 'w') as f:
+        for _, in self._jobs:
+            with open(self.job_files(_), 'w') as f:
                 for j in self._jobs[_]:
                     f.write(j)
                     f.write('\n')
-                logging.debug('{} jobs registered as {} in {}'.format(len(self._jobs[k]), k, self._recdir))
+                logging.debug('{} jobs registered as {} in {}'.format(len(self._jobs[k]), k, self._rec_dir))
         return dir_name
 
     @ classmethod
@@ -73,11 +73,15 @@ class WIMArray(WIMJob):
         if a['all_sets']['recorders']:
             model._rec_dir = a['rec_dir']
 
-        for _, fp in model._jobs.items():
+        if not hasattr(model, '_jobs'):
+            # just a Shell for printing results
+            return model
+        for _ in model._jobs:
             try:
+                fp = model.job_files(_)
                 with open(fp, 'r') as f:
                     for line in f.readlines():
-                        model.add_job(_, line)
+                        model._add_job(_, line)
             except FileNotFoundError:
                 logging.debug('Job file not found in {}'.format(fp))
 
@@ -254,6 +258,7 @@ if __name__ == '__main__':
     parser.add_argument('-J', '--wim-job-dir')
     parser.add_argument('--job-number', '-j', type=int)
     parser.add_argument('--from-job', type=int, nargs='*')
+    parser.add_argument('--re', action='store_true')
 
     parser.set_defaults(**defaults)
 
@@ -282,7 +287,10 @@ if __name__ == '__main__':
 
     logging.info('Fetched {} wim jobs from {}'.format(len(wim_jobs), args.wim_job_dir))
 
-    wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.array_job_dir)
+    if args.re:
+        wim_jobs_already_processed = []
+    else:
+        wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.array_job_dir)
 
     logging.info('{} jobs already processed'.format(len(wim_jobs_already_processed)))
 

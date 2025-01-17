@@ -6,6 +6,7 @@ from utils.save_load import fetch_models, LossRecorder, available_results, find_
 from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
 import torch
+import time
 
 JOB_FILE_NAME = 'jobs'
 
@@ -54,12 +55,12 @@ class WIMArray(WIMJob):
         kw['except_state'] = True
         dir_name = super().save(*a, **kw)
 
-        for _, in self._jobs:
+        for _ in self._jobs:
             with open(self.job_files(_), 'w') as f:
                 for j in self._jobs[_]:
                     f.write(j)
                     f.write('\n')
-                logging.debug('{} jobs registered as {} in {}'.format(len(self._jobs[k]), k, self._rec_dir))
+                logging.debug('{} jobs registered as {} in {}'.format(len(self._jobs[_]), _, self._rec_dir))
         return dir_name
 
     @ classmethod
@@ -107,13 +108,18 @@ class WIMArray(WIMJob):
         jobs_to_add = self._jobs['known'].difference(self._jobs['rec'])
 
         has_been_updated = False
+        array_recorders = {}
 
         for j in jobs_to_add:
 
+            t_ = time.time()
+
             self._add_job('rec', j)
-            a = available_results(j, where=('recorders',), min_samples_by_class=0)
+            a = available_results(WIMJob.load(j, build_module=False, load_state=False),
+                                  where=('recorders',), min_samples_by_class=0)
             epoch = max(a)
             a = a[epoch]
+            # print('****', epoch)
             if not self._rec_dir:
                 if not hasattr(self, 'saved_dir'):
                     raise FileNotFoundError('current array not saved')
@@ -123,8 +129,6 @@ class WIMArray(WIMJob):
                 except FileExistsError:
                     pass
 
-                array_recorders = {}
-
             else:
                 array_recorders = LossRecorder.loadall(self._rec_dir)
 
@@ -133,30 +137,36 @@ class WIMArray(WIMJob):
                 continue
             else:
                 logging.debug('Recorders found')
-            try:
-                job_recorders = LossRecorder.loadall(a['rec_dir'])
-                job_recorders_pre = LossRecorder.loadall(os.path.join(a['rec_dir'], 'init'))
-                for s, job_rec in job_recorders.items():
-                    job_recorders_pre[s]._tensors = {'pre-{}'.format(k): job_recorders_pre[k]._tensors[k]
-                                                     for k in job_rec}
+            job_recorders = LossRecorder.loadall(a['rec_dir'])
+            job_recorders_pre = LossRecorder.loadall(os.path.join(a['rec_dir'], 'init'))
 
-                    job_rec.merge(job_recorders_pre[s], axis='keys')
+            # print('**** loaded recs {:.3f}'.format(time.time() - t_))
+            t_ = time.time()
+            for s, job_rec in job_recorders_pre.items():
+                job_rec._tensors = {'pre-{}'.format(k): job_rec._tensors[k]
+                                    for k in job_rec}
 
-            except KeyError:
-                logging.error('Will CRASH!')
-                return a
+                job_recorders[s].merge(job_rec, axis='keys')
 
             try:
                 self.wim_params['array_size'] += 1
             except KeyError:
                 self.wim_params['array_size'] = 1
 
+            # print('**** merged init recs {:.3f}'.format(time.time() - t_))
+            t_ = time.time()
+
             for _ in job_recorders:
 
+                t__ = time.time()
                 if _ in array_recorders:
                     array_recorders[_].merge(job_recorders[_])
                 else:
                     array_recorders[_] = job_recorders[_].copy()
+                # print('**** {} {:.0f}ms'.format(_, 1000 * (time.time() - t__)))
+
+            # print('**** merged array recs {:.3f}'.format(time.time() - t_))
+            t_ = time.time()
 
             has_been_updated = True
 
@@ -321,7 +331,7 @@ if __name__ == '__main__':
             wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
 
         logging.info('Processing {} jobs alike (array {})'.format(len(wim_jobs_alike), i))
-        wim_array.register_jobs(*[WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
+        wim_array.register_jobs(*[_['dir'] for _ in wim_jobs_alike])
         wim_array.save(model_subdir(wim_array))
 
         """

@@ -182,6 +182,10 @@ class WIMArray(WIMJob):
         for s, r in array_recorders.items():
             r.save(os.path.join(self._rec_dir, 'record-{}.pth'.format(s)))
 
+            # print('***', s)
+            # for _ in r:
+            #     print(_, *r._tensors[_].shape, '--', *r[_].shape)
+
         if compute_rates and has_been_updated:
             self.ood_detection_rates(
                 recorders=array_recorders,

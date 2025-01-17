@@ -1683,8 +1683,13 @@ class ClassificationVariationalNetwork(nn.Module):
                     #                                     ' '.join(map(str, measures[m].shape)))
                     # # print('*** ood', m, *ind_measures[m].shape, ',', *measures[m].shape)
                     # logging.error(w_str)
-                    ind_measures[m] = np.concatenate([ind_measures[m],
-                                                      measures[m].cpu()])
+                    try:
+                        ind_measures[m] = np.concatenate([ind_measures[m],
+                                                          measures[m].cpu()])
+                    except ValueError as e:
+                        logging.error('For {} incompatible shapes {} {}'.format(
+                            m, ind_measures[m].shape, measures[m].shape))
+                        raise e
 
                     if update_self_ood:
                         # print('***', s)

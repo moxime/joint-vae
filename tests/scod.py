@@ -115,7 +115,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--array-dir', default='wim-arrays-inspection')
+    parser.add_argument('--array-dir', default='wim-arrays-inspection.bak')
     parser.add_argument('jobs', nargs='*', type=int)
     parser.add_argument('-g', default='elbo')
     parser.add_argument('-r', default='none')
@@ -196,4 +196,5 @@ if __name__ == '__main__':
 
         figures[j].show()
 
-    input()
+    if sys.argv[0]:
+        input()

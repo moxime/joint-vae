@@ -163,7 +163,7 @@ class Shell:
 def model_subdir(model, *subdirs):
 
     if isinstance(model, str):
-        directory = model
+        directory = model.strip()
 
     elif isinstance(model, dict):
         try:

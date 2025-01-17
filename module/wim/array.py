@@ -15,23 +15,12 @@ wim_job_filter.add('wim_from', ParamFilter(type=int, any_value=True))
 
 class WIMArray(WIMJob):
 
-    def __init__(self, *a, wanted_components=[], fetch_dir='wim-jobs', **kw):
+    def __init__(self, *a, fetch_dir='wim-jobs', **kw):
 
         super().__init__(*a, **kw)
         self._fecth_dir = fetch_dir
-        self._jobs = []
-        self._wanted_components = wanted_components
-
-    @property
-    def wanted_components(self):
-        return self._wanted_components
-
-    @wanted_components.setter
-    def wanted_components(self, *components):
-        if any(_ not in self.wanted_components for _ in components):
-            self._jobs = []
-
-        self._wanted_components = components
+        self._jobs = {'known': set(), 'rec': set()}
+        self._recdir = None
 
     @classmethod
     def is_wim_array(cls, d):
@@ -39,65 +28,102 @@ class WIMArray(WIMJob):
 
     def finetune(self, *a, **kw):
 
-        logging.warning('WIM array is no meant to be finetuned')
+        logging.warning('WIM array is no meant to be fine-tuned')
+
+    def job_files(self, k):
+
+        if not hasattr(self, 'saved_dir'):
+            raise FileNotFoundError
+
+        if k == 'known':
+            return os.path.join(self.saved_dir, JOB_FILE_NAME)
+
+        if not self._rec_dir:
+            raise FileNotFoundError
+
+        if k == 'rec':
+            return os.path.join(self._recdir, JOB_FILE_NAME)
+
+    def _add_job(self, k, job):
+
+        self._jobs[k].add(model_subdir(j))
 
     def save(self, *a, **kw):
+
         logging.debug('Saving wim array')
         kw['except_state'] = True
         dir_name = super().save(*a, **kw)
-        with open(os.path.join(dir_name, JOB_FILE_NAME), 'w') as f:
-            for j in self._jobs:
-                f.write(j)
-                f.write('\n')
-        logging.debug('Model saved in {}'.format(dir_name))
+
+        for _, fp in self.job_files.items():
+            with open(fp, 'w') as f:
+                for j in self._jobs[_]:
+                    f.write(j)
+                    f.write('\n')
+                logging.debug('{} jobs registered as {} in {}'.format(len(self._jobs[k]), k, self._recdir))
         return dir_name
 
-    @classmethod
+    @ classmethod
     def load(cls, dir_name, *a, load_state=False, **kw):
-        model = super().load(dir_name, *a, load_state=load_state, **kw)
-        model._jobs = []
-        try:
-            with open(os.path.join(dir_name, JOB_FILE_NAME), 'r') as f:
-                for line in f.readlines():
-                    model._jobs.append(line.strip())
-        except FileNotFoundError:
-            logging.debug('Job file not found in {}'.format(os.path.join(dir_name, JOB_FILE_NAME)))
 
-        logging.debug('{} jobs found'.format(len(model._jobs)))
+        model = super().load(dir_name, *a, load_state=load_state, **kw)
+
+        a = available_results(model, where=('recorders',), min_samples_by_class=0)
+        epoch = max(a)
+        a = a[epoch]
+        if a['all_sets']['recorders']:
+            model._rec_dir = a['rec_dir']
+
+        for _, fp in model._jobs.items():
+            try:
+                with open(fp, 'r') as f:
+                    for line in f.readlines():
+                        model.add_job(_, line)
+            except FileNotFoundError:
+                logging.debug('Job file not found in {}'.format(fp))
+
+            logging.debug('{} {} jobs found'.format(len(model._jobs[_]), _))
+
+        assert model._jobs['rec'].issubset(model._jobs['known']), 'some recorded jobs are not known'
+
+        if not model._jobs['rec']:
+            model.wim_params['array_size'] = 0
 
         return model
 
-    def update_records(self, *jobs_to_add, compute_rates=True):
+    def register_jobs(self, *jobs, update_records=True, **kw):
 
-        a = available_results(self, where=('recorders',), min_samples_by_class=0)
-        epoch = max(a)
-        a = a[epoch]
-        if not a['all_sets']['recorders']:
-            epoch = None
-            array_recorders = {}
-        else:
-            rec_dir = a['rec_dir']
-            array_recorders = LossRecorder.loadall(rec_dir)
+        for j in jobs:
+            self._add_job('known', j)
+
+        if update_records:
+            self._update_records(**kw)
+
+    def _update_records(self, compute_rates=True):
+
+        jobs_to_add = self._jobs['known'].difference(self._jobs['rec'])
+
+        has_been_updated = False
 
         for j in jobs_to_add:
 
-            assert model_subdir(j) not in self._jobs
-
-            # FOR TEST, TBR
-            self._jobs.append(model_subdir(j))
+            self._add_job('rec', j)
             a = available_results(j, where=('recorders',), min_samples_by_class=0)
-            if epoch is None:
-                epoch = max(a)
-                rec_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))
+            epoch = max(a)
+            a = a[epoch]
+            if not self._rec_dir:
+                if not hasattr(self, 'saved_dir'):
+                    raise FileNotFoundError('current array not saved')
+                self._rec_dir = os.path.join(self.saved_dir, 'samples', '{:04d}'.format(epoch))
                 try:
-                    os.makedirs(rec_dir)
+                    os.makedirs(self._rec_dir)
                 except FileExistsError:
                     pass
 
-            else:
-                assert epoch == max(a)
+                array_recorders = {}
 
-            a = a[epoch]
+            else:
+                array_recorders = LossRecorder.loadall(self._rec_dir)
+
             if not a['all_sets']['recorders']:
                 logging.warning('No recorders in {}'.format(model_subdir(j)))
                 continue
@@ -105,6 +131,13 @@ class WIMArray(WIMJob):
                 logging.debug('Recorders found')
             try:
                 job_recorders = LossRecorder.loadall(a['rec_dir'])
+                job_recorders_pre = LossRecorder.loadall(os.path.join(a['rec_dir'], 'init'))
+                for s, job_rec in job_recorders.items():
+                    job_recorders_pre[s]._tensors = {'pre-{}'.format(k): job_recorders_pre[k]._tensors[k]
+                                                     for k in job_rec}
+
+                    job_rec.merge(job_recorders_pre[s], axis='keys')
+
             except KeyError:
                 logging.error('Will CRASH!')
                 return a
@@ -115,13 +148,13 @@ class WIMArray(WIMJob):
                 self.wim_params['array_size'] = 1
 
             for _ in job_recorders:
-                if not all(c in job_recorders[_] for c in self.wanted_components):
-                    continue
 
                 if _ in array_recorders:
                     array_recorders[_].merge(job_recorders[_])
                 else:
                     array_recorders[_] = job_recorders[_].copy()
+
+            has_been_updated = True
 
         created_rec_str = ' -- '.join('{} of size {} for {}'.format(_,
                                                                     array_recorders[_].recorded_samples,
@@ -133,17 +166,19 @@ class WIMArray(WIMJob):
                                                                self.saved_dir[-20:]))
 
         for s, r in array_recorders.items():
-            r.save(os.path.join(rec_dir, 'record-{}.pth'.format(s)))
-        self.ood_detection_rates(
-            #  batch_size=test_batch_size,
-            #  testset=testset,
-            # oodsets=oodsets,
-            # num_batch='all',
-            # outputs=outputs,
-            # sample_dirs=sample_dirs,
-            recorders=array_recorders,
-            from_where=('recorders',),
-            print_result='*')
+            r.save(os.path.join(self._rec_dir, 'record-{}.pth'.format(s)))
+
+        if compute_rates and has_been_updated:
+            self.ood_detection_rates(
+                recorders=array_recorders,
+                from_where=('recorders',),
+                print_result='*')
+
+        elif not compute_rates:
+            logging.info('Does not compute rate')
+
+        else:
+            logging.info('Does not compute rate because not updated')
 
         return array_recorders
 
@@ -278,7 +313,7 @@ if __name__ == '__main__':
             wim_array = WIMArray.load(kept_wim_array['dir'], load_state=False)
 
         logging.info('Processing {} jobs alike (array {})'.format(len(wim_jobs_alike), i))
-        wim_array.update_records(*[WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
+        wim_array.register_jobs(*[WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs_alike])
         wim_array.save(model_subdir(wim_array))
 
         """

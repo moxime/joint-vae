@@ -276,7 +276,8 @@ if __name__ == '__main__':
         wim_jobs = [_ for _ in wim_jobs if model_subdir(_) not in wim_jobs_already_processed]
 
         logging.info('Processing {} wim jobs alike'.format(len(wim_jobs)))
-        wim_array.update_records(*[WIMJob.load(_['dir'], build_module=False) for _ in wim_jobs])
+        array_recorders = wim_array.register_jobs(*[WIMJob.load(_['dir'], build_module=False)
+                                                    for _ in wim_jobs])
 
         sdirs = [os.path.join('samples', '{:04d}'.format(wim_array.trained), _) for _ in ('', 'init')]
         wim_array.concatenate_samples(*wim_jobs, sample_subdirs=sdirs)

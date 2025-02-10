@@ -187,6 +187,41 @@ class UniformDataset(ConstantDataset):
         return image, label
 
 
+class FromNumpy(Dataset):
+
+    def __init__(self, root='data/foo', split='test', transform=None, target_transform=None, download=False):
+
+        data_dir = os.path.join(root, split)
+        files_in_root = [_ for _ in os.listdir(data_dir) if _.endswith('.npy')]
+
+        assert len(files_in_root) <= 1, '{} npy file in {}'.format(len(files_in_root), root)
+
+        self.transform = transform
+        self.target_transform = target_transform
+
+        if len(files_in_root):
+            self.data = np.load(os.path.join(data_dir, files_in_root[0]))
+
+        else:
+            self.data = np.ndarray(0)
+
+        self._len = len(self.data)
+
+    def __len__(self):
+        return self._len
+
+    def __getitem__(self, idx):
+
+        image, label = self.data[idx], 0
+
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            label = self.target_transform(label)
+
+        return image, label
+
+
 class DTDConcatTestVal(torch.utils.data.ConcatDataset):
 
     def __init__(self, *a, split='test', **kw):
@@ -200,15 +235,15 @@ class DTDConcatTestVal(torch.utils.data.ConcatDataset):
 
         super().__init__([datasets.DTD(*a, split=_, **kw) for _ in splits])
 
-    @property
+    @ property
     def transforms(self):
         return self.datasets[0].transforms
 
-    @property
+    @ property
     def transform(self):
         return self.datasets[0].transform
 
-    @property
+    @ property
     def target_transform(self):
         return self.datasets[0].target_transform
 
@@ -392,7 +427,7 @@ class SubSampledDataset(Dataset):
             raise ValueError('sampling mode {} unknown'.format(self.sampling_mode))
 
         logger.debug('Created idx for {} of size {}. Firsts: {}'.format(self.name, len(self._idx),
-                                                                        '-'.join(map(str, self._idx[:10]))))
+                                                                        '-'.join(map(str, self._idx[: 10]))))
 
     def shrink(self, length=None):
 
@@ -666,6 +701,7 @@ getters = {'const': ConstantDataset,
            'lsunc': datasets.LSUN,
            'lsunr': datasets.LSUN,
            'dtd': DTDConcatTestVal,
+           'random300k': FromNumpy,
            }
 
 

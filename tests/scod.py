@@ -8,6 +8,12 @@ from sklearn.metrics import auc
 import matplotlib.pyplot as plt
 
 
+default_scores = {}
+
+default_scores['wim'] = {'r': 'zdist', 'g': 'elbo'}
+default_scores['vib'] = {'r': 'odin-1-0.0040', 'g': 'none'}
+
+
 def scrisk(y_true, y_est, scores):
     """srisk: computation of sc(od) risk
 
@@ -36,6 +42,8 @@ def scrisk(y_true, y_est, scores):
 
     selective_risk = classif_errors / true_positives
 
+    selective_risk[selective_risk.isnan()] = 0.
+
     thr = {_: scores[i_][(tpr > _ / 100) & (y_ >= 0)].min() for _ in (0, 1, 95, 99)}
 
     thr[0] = 0.
@@ -49,20 +57,35 @@ def scrisk(y_true, y_est, scores):
     return tpr, selective_risk, fpr
 
 
-def scoring(losses, r=None, g='elbo', weight=1):
+def scoring(losses, r=None, g='elbo', weight=1, **kw):
     """
     reject if high
     """
-    y_est = losses['y_est_already']
 
-    score = scoring_r(losses, score=r, y_est=y_est)
-    score += weight * scoring_g(losses, score=g, y_est=y_est)
-    return score
+    try:
+        y_est = losses['y_est_already']
+
+        score = scoring_r(losses, score=r, y_est=y_est, **kw)
+        score += weight * scoring_g(losses, score=g, y_est=y_est, **kw)
+        return score
+    except KeyError as e:
+        logging.error('Possibles keys')
+        logging.error(' -- '.join(losses))
+        raise e
 
 
-def scoring_r(losses, score='msp', y_est=None):
+def scoring_r(losses, score='msp', y_est=None, mtype='cvae'):
     """ estimation of 1 - max P(y|x)
     """
+    if score is None:
+        score = default_scores[mtype]['r']
+
+    logging.debug('r score is {}'.format(score))
+
+    if score and score.startswith('odin'):
+
+        return 1 - losses[score]
+
     if score is None:
         return 0.
 
@@ -81,9 +104,14 @@ def scoring_r(losses, score='msp', y_est=None):
     return 0.
 
 
-def scoring_g(losses, score='elbo', y_est=None):
+def scoring_g(losses, score='elbo', y_est=None, mtype='wim'):
     """ estimation of pOut/pIn
     """
+
+    if score is None:
+        score = default_scores[mtype]['g']
+
+    logging.debug('g score is {}'.format(score))
 
     def scoring_alt(k):
 
@@ -108,29 +136,40 @@ def scoring_g(losses, score='elbo', y_est=None):
     if score == 'iws':
         sign = -1
 
-    # score has to be high for ood
-    return sign * (scoring_in(key) - scoring_alt(key))
+    if mtype == 'wim':
+        # score has to be high for ood
+        return sign * (scoring_in(key) - scoring_alt(key))
+
+    return 0.
 
 
 if __name__ == '__main__':
     import argparse
     from utils.save_load import find_by_job_number, model_subdir, SampleRecorder, LossRecorder
 
+    plt.set_loglevel(level='warning')
+
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--array-dir', default='wim-arrays-inspection.bak')
+    parser.add_argument('--job-dir', '-J', default='jobs')
     parser.add_argument('jobs', nargs='*', type=int)
-    parser.add_argument('-g', default='elbo')
-    parser.add_argument('-r', default='none')
+    parser.add_argument('-g')
+    parser.add_argument('-r')
     parser.add_argument('-w', '--weight', default=1., type=float)
     parser.add_argument('-v', action='count')
 
     jobs = [655755, 680490]
     jobs = [660655]
     jobs = [683512]
+
+    job_dir = 'wim-arrays-inspection.bak'
     jobs = [680490]
 
-    argv = [str(_) for _ in jobs]
+    job_dir = 'jobs'
+    jobs = [398529]
+    argv_j = ' '.join(str(_) for _ in jobs)
+
+    argv = '-J {} {} -v'.format(job_dir, argv_j).split()
 
     argv = None if sys.argv[0] else argv
     args = parser.parse_args(argv)
@@ -140,10 +179,9 @@ if __name__ == '__main__':
 
     logging.getLogger().setLevel(logging.ERROR)
 
-    models = find_by_job_number(*args.jobs, job_dir=args.array_dir, force_dict=True)
+    models = find_by_job_number(*args.jobs, job_dir=args.job_dir, force_dict=True)
 
-    if args.v:
-        logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.ERROR - 10 * args.v)
 
     figures = {}
 
@@ -153,25 +191,35 @@ if __name__ == '__main__':
 
         mdict = models[j]
         dset = mdict['set']
-        oodsets = mdict['wim_sets'].split('-')
-        allsets = [dset] + oodsets
+
+        mtype = mdict['type']
+
+        if mdict.get('wim_sets'):
+            mtype = 'wim'
 
         rdir = model_subdir(mdict, 'samples', '{:04}'.format(mdict['done']))
 
-        sample_recorders, loss_recorders = {}, {}
-
-        for subdir, w in zip(('.', 'init'), ('after', 'before')):
-            d = os.path.join(rdir, subdir)
-            sample_recorders[w] = SampleRecorder.loadall(d)
-            loss_recorders[w] = LossRecorder.loadall(d)
+        # sample_recorders, loss_recorders = {}, {}
+        # for subdir, w in zip(('.', 'init'), ('after', 'before')):
+        #     d = os.path.join(rdir, subdir)
+        #     sample_recorders[w] = SampleRecorder.loadall(d)
+        #     loss_recorders[w] = LossRecorder.loadall(d)
 
         # for _ in allsets:
         #     print(_, loss_recorders['after'][_]['y_true'].shape)
 
-        rec = loss_recorders['after']
+        # rec =loss_recorders['after']
+
+        rec = LossRecorder.loadall(rdir)
+
+        allsets = list(rec)
+
+        for s in allsets:
+            if 'y_est_already' not in rec[s]:
+                rec[s]._tensors['y_est_already'] = rec[s]['cross_y'].argmin(0)
 
         y_est = torch.hstack([rec[_]['y_est_already'] for _ in allsets])
-        scores = torch.hstack([scoring(rec[_], r=args.r, g=args.g, weight=args.weight)
+        scores = torch.hstack([scoring(rec[_], r=args.r, g=args.g, weight=args.weight, mtype=mtype)
                                for _ in allsets])
         y_true = torch.hstack([rec[_]['y_true'] * int(_ == dset) - int(_ != dset)
                                for _ in allsets])

@@ -44,9 +44,7 @@ if __name__ == '__main__':
 
     with open('/tmp/files', 'w') as f:
 
-        opt = dict(which_rec='none', state=True)
-
-        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec='all'):
+        for mdir, sdir in needed_remote_files(*mdirs, epoch=wanted, which_rec='all', missing_file_stream=f):
             logging.debug('{} for {}'.format(sdir[-30:], wanted))
             if mdir in mdirs:
                 mdirs.remove(mdir)
@@ -68,11 +66,11 @@ if __name__ == '__main__':
         else:
             sys.exit(1)
 
-    models = [M.load(d, load_state=True) for d in mdirs]
+    # models = [M.load(d, load_state=True) for d in mdirs]
 
-    for _ in mdirs:
+    # for _ in mdirs:
 
-        model = M.load(_, load_state=True)
-        dset = rmodels[_]['set']
-        job = rmodels[_]['job']
-        print(job)
+    #     model = M.load(_, load_state=True)
+    #     dset = rmodels[_]['set']
+    #     job = rmodels[_]['job']
+    #     print(job)

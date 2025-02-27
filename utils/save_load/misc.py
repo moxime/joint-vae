@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import time
 
 
 def get_path(dir_name, file_name, create_dir=True):
@@ -36,20 +37,24 @@ def save_json(d, dir_name, file_name, create_dir=True):
         json.dump(d, f)
 
 
-def load_json(dir_name, file_name, presumed_type=str):
+def load_json(dir_name, file_name, presumed_type=str, attempt=0, max_attempt=10, wait=0.1):
 
     p = get_path(dir_name, file_name, create_dir=False)
 
-    # logging.debug('*** %s', p)
     with open(p, 'rb') as f:
         try:
             d = json.load(f)
-            #            print(*d)
         except json.JSONDecodeError as e:
-            logging.error('Corrupted file\n%s', p)
-            with open('/tmp/corrupted', 'a') as f:
-                f.write(p + '\n')
-            raise e
+            if attempt < max_attempt:
+                logging.warning('Corrupted file, attempt {}'.format(attempt + 1))
+                time.sleep(wait)
+                return load_json(dir_name, file_name, presumed_type=presumed_type,
+                                 attempt=attempt + 1, max_attempt=10, wait=wait)
+            else:
+                logging.error('Corrupted file\n%s', p)
+                with open('/tmp/corrupted', 'a') as f:
+                    f.write(p + '\n')
+                raise e
     d_ = {}
     if isinstance(d, str):
         print(dir_name, file_name)

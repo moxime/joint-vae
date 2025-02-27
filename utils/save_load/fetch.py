@@ -39,10 +39,12 @@ def lock_models_file_in(arg):
                 locks[dir_path] = FileLock(os.path.join(dir_path, 'rmodels-lock'))
             lock = locks[dir_path]
 
-            logging.info('Acquiring lock in {}'.format(dir_path))
+            logging.debug('Acquiring lock in {}'.format(dir_path))
             with lock:
-                logging.info('Acquired lock in {}'.format(dir_path))
-                return func(*a, **kw)
+                logging.info('Acquired lock in {} by {}'.format(dir_path, os.getpid() % 200))
+                out = func(*a, **kw)
+                logging.info('Will release lock in {} by {}'.format(dir_path, os.getpid() % 200))
+                return out
 
         return modified_func
 

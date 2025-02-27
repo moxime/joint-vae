@@ -33,6 +33,8 @@ def lock_models_file_in(arg):
 
         def modified_func(*a, **kw):
             dir_path = a[arg]
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
             if dir_path not in locks:
                 locks[dir_path] = FileLock(os.path.join(dir_path, 'rmodels-lock'))
             lock = locks[dir_path]

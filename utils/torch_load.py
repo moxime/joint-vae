@@ -1097,7 +1097,7 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
 def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
 
     if isinstance(imageset, str):
-        imageset = get_dataset(imageset)[1]
+        imageset = get_dataset(imageset, splits=['test'])[1]
 
     batch_size = num
     loader = torch.utils.data.DataLoader(imageset,

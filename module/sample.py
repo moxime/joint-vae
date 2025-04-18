@@ -462,7 +462,6 @@ if __name__ == '__main__':
 
                     if z_sample and not s.endswith('correct'):
 
-                        print('****', x[s].shape, z_sample)
                         zsample(x[s][:z_sample], model, y=y[s][:z_sample],
                                 batch_size=m,
                                 root=root, bins=args.bins, directory=s)

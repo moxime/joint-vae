@@ -315,7 +315,7 @@ if __name__ == '__main__':
     bins = args.bins
     # cross_sample = args.compare
 
-    m = max(m, N, z_sample)
+    # m = max(m, N, z_sample)
 
     device = tl.choose_device()
     logging.debug(device)

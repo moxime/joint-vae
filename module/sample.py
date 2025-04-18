@@ -401,7 +401,8 @@ if __name__ == '__main__':
                 _, ood_dataset = tl.get_dataset(o, transformer=transformer, splits=['test'])
                 x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=m)
                 in_classes[o] = tl.get_classes_by_name(o, texify=True)
-            except Error:
+            except Exception:
+                logging.error('{} set will not bu used (unavailable)'.format(o))
                 pass
 
         if not L:

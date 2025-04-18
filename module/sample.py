@@ -397,9 +397,12 @@ if __name__ == '__main__':
 
         in_classes = {}
         for o in oodsets:
-            _, ood_dataset = tl.get_dataset(o, transformer=transformer, splits=['test'])
-            x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=m)
-            in_classes[o] = tl.get_classes_by_name(o, texify=True)
+            try:
+                _, ood_dataset = tl.get_dataset(o, transformer=transformer, splits=['test'])
+                x[o], y[o] = tl.get_batch(ood_dataset, device=device, batch_size=m)
+                in_classes[o] = tl.get_classes_by_name(o, texify=True)
+            except Error:
+                pass
 
         if not L:
             L = max(args.total_width // (1 + len(x)) - 3, 1)

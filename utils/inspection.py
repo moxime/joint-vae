@@ -294,7 +294,7 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.WARNING if args.v == 1 else logging.INFO)
 
     logging.info('loadind net...')
-    nets = find_by_job_number(*args.jobs, force_dict=True)
+    nets = find_by_job_number(*args.jobs, force_dict=True, build_module=True)
 
     logging.info('done, found %d nets', len(nets))
 

@@ -112,7 +112,7 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
         if per_dim:
             x_title = 'var_mu_z'
             y_title = 'mu_var_z'
-            x = mu_z.var(0).cpu()
+            x = mu_z.pow(2).mean(0).cpu()
             y = var_z.mean(0).cpu()
         else:
             x_title = 'mu_z'

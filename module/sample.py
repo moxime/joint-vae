@@ -179,6 +179,8 @@ def zsample(x, net, y=None, batch_size=128,
     var_z = torch.zeros(N, net.latent_dim)
     log_var_z = torch.zeros(N, net.latent_dim)
 
+    logging.debug('Computes mu_z var_z for {} samples'.format(N))
+
     for b in range(N // batch_size):
 
         start = b * batch_size

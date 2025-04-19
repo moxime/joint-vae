@@ -200,7 +200,7 @@ def zsample(x, net, y=None, batch_size=128,
         print('*** centroids shape', *centroids.shape)
 
     elif net.is_vae:
-        encoder_dictionary = net.encoder.latent_dictionary
+        encoder_dictionary = net.encoder.prior.mean
         print('***', encoder_dictionary.shape)
         print('***', encoder_dictionary.mean())
 

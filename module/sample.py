@@ -196,8 +196,13 @@ def zsample(x, net, y=None, batch_size=128,
     if net.is_cvae:
 
         encoder_dictionary = net.encoder.latent_dictionary
-        centroids = latent_dictionary.index_select(0, y[:N])
+        centroids = encoder_dictionary.index_select(0, y[:N])
         print('*** centroids shape', *centroids.shape)
+
+    elif net.is_vae:
+        encoder_dictionary = net.encoder.latent_dictionary
+        print('***', encoder_dictionary.shape)
+        print('***', encoder_dictionary.mean())
 
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
 

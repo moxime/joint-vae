@@ -46,6 +46,7 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
     K = net.latent_dim
 
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
+    print(net.keys())
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
     elif not os.path.isdir(dir_path):
@@ -201,9 +202,6 @@ def zsample(x, net, y=None, batch_size=128,
 
     elif net.is_vae:
         encoder_dictionary = net.encoder.prior.mean
-        print('***', encoder_dictionary.shape)
-        print('***', encoder_dictionary.mean())
-        print('***', encoder_dictionary.norm())
 
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
 

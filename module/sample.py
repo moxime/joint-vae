@@ -46,7 +46,7 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
     K = net.latent_dim
 
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
-    print(net.keys())
+    print(dir(net))
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
     elif not os.path.isdir(dir_path):

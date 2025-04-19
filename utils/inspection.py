@@ -110,21 +110,23 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
 
     if result_type == 'scatter':
         if per_dim:
-            x_title = 'var_mu_z'
-            y_title = 'mu_var_z'
-            x = mu_z.pow(2).mean(0).cpu()
-            y = var_z.mean(0).cpu()
+            print('***', mu_z.shape, var_z.shape)
+            data_ = {'mu2_mu_z': mu_z.pow(2).mean(0).cpu(),
+                     'mu_var_z': var_z.mean(0).cpu()}
+
+            data_['mu2_z'] = sum(data_[_] for _ in data_)
         else:
-            x_title = 'mu_z'
-            y_title = 'var_z'
-            x = mu_z.view(-1).cpu()
-            y = var_z.view(-1).cpu()
+            data_ = {'mu_z': mu_z.view(-1).cpu(),
+                     'var_z': var_z.view(-1).cpu()}
 
         plot, write, close = _create_output_plot(*outputs, pltf='scatter')
-        plot(x, y)
-        write(f'{x_title}   {y_title}\n')
-        for a, b in zip(x, y):
-            write(f'{a:-13.6e} {b:-12g}\n')
+
+        x, y = list(data_)[:2]
+        plot(data_[x], data_[y])
+        i = data_[x].argsort(descending=True)
+        write('    '.join(data_))
+        for _ in i:
+            write(' '.join('{:-14g}'.format(data_[__][_]) for __ in data_) + '\n')
         close()
 
 

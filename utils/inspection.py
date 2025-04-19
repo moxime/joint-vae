@@ -120,7 +120,7 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
                      'var_z': var_z.view(-1).cpu()}
 
         for _ in data_:
-            print(_, data_[_].shape)
+            print(_, type(data_[_]))
 
         plot, write, close = _create_output_plot(*outputs, pltf='scatter')
 

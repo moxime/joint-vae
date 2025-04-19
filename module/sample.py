@@ -203,6 +203,7 @@ def zsample(x, net, y=None, batch_size=128,
         encoder_dictionary = net.encoder.prior.mean
         print('***', encoder_dictionary.shape)
         print('***', encoder_dictionary.mean())
+        print('***', encoder_dictionary.norm())
 
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
 

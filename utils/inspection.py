@@ -119,12 +119,15 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
             data_ = {'mu_z': mu_z.view(-1).cpu(),
                      'var_z': var_z.view(-1).cpu()}
 
+        for _ in data_:
+            print(_, data_[_].shape)
+
         plot, write, close = _create_output_plot(*outputs, pltf='scatter')
 
         x, y = list(data_)[:2]
         plot(data_[x], data_[y])
         i = data_[x].argsort(descending=True)
-        write(' '.join(map('{:>14}'.format, data_)))
+        write(' '.join(map('{:>14}'.format, data_)) + '\n')
         for _ in i:
             write(' '.join('{:-14g}'.format(data_[__][_]) for __ in data_) + '\n')
         close()

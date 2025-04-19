@@ -399,6 +399,8 @@ if __name__ == '__main__':
         x[testset], y[testset] = tl.get_batch(test_dataset, device=device, shuffle=args.seed,
                                               batch_size=m * num_batch)
 
+        x['dset'], y['dset'] = x[testset], y[testset]
+
         oodsets = test_dataset.same_size
 
         in_classes = {}

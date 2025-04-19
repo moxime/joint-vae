@@ -65,10 +65,10 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
 
     defy = r'\def\y{{{}}}'
 
-    with open(os.path.join(dir_path, 'params.tex')) as f:
+    """    with open(os.path.join(dir_path, 'params.tex')) as f:
 
         _texdef(f, sigma=net.sigma, latentdim=net.latent_dim, dset=net.training_parameters['set'])
-
+    """
     if x is not None:
 
         (D, H, W) = net.input_shape[-3:]

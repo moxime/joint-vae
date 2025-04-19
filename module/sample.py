@@ -27,6 +27,12 @@ class DefaultClasses(object):
         return k
 
 
+def _texdef(f, **kw):
+
+    for k, v in kw.items():
+        f.write(r'\def\model{}{{{}}}'.format(k, v))
+
+
 def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'samples'), directory='test',
            in_classes=DefaultClasses(), out_classes=DefaultClasses(),
            N=20, L=10):
@@ -46,7 +52,6 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
     K = net.latent_dim
 
     dir_path = os.path.join(job_to_str(net.job_number, root), directory)
-    print(dir(net))
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
     elif not os.path.isdir(dir_path):
@@ -59,6 +64,10 @@ def sample(net, x=None, y=None, root=os.path.join(DEFAULT_RESULTS_DIR, '%j', 'sa
     """
 
     defy = r'\def\y{{{}}}'
+
+    with open(os.path.join(dir_path, 'params.tex')) as f:
+
+        _texdef(f, sigma=net.sigma, latentdim=net.latent_dim, dset=net.training_parameters['set'])
 
     if x is not None:
 
@@ -416,7 +425,7 @@ if __name__ == '__main__':
 
         logging.info('L={}'.format(L))
 
-        for n in list_of_nets:
+        for n in list_of_nets:  #
 
             logging.info('loading state of %s', n['job'])
 

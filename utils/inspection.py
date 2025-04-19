@@ -114,13 +114,10 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
                      'mu_var_z': var_z.mean(0).cpu()}
 
             data_['mu2_z'] = sum(data_[_] for _ in data_)
-            data_['mu_mu_z'] = mu_z.mean(0).cpu(),
+            data_['mu_mu_z'] = mu_z.mean(0).cpu()
         else:
             data_ = {'mu_z': mu_z.view(-1).cpu(),
                      'var_z': var_z.view(-1).cpu()}
-
-        for _ in data_:
-            print(_, type(data_[_]))
 
         plot, write, close = _create_output_plot(*outputs, pltf='scatter')
 

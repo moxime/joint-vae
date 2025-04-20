@@ -115,6 +115,8 @@ def output_latent_distribution(mu_z, var_z, *outputs, result_type='hist_of_var',
 
             data_['mu2_z'] = sum(data_[_] for _ in data_)
             data_['mu_mu_z'] = mu_z.mean(0).cpu()
+            data_['std_var_z'] = var_z.std(0).cpu()
+
         else:
             data_ = {'mu_z': mu_z.view(-1).cpu(),
                      'var_z': var_z.view(-1).cpu()}

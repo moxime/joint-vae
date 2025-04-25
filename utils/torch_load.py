@@ -285,6 +285,13 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         return classes, self.node_to_idx
 
 
+class ListofTensors(list):
+
+    def to(self, device):
+
+        return ListofTensors(_.to(device) for _ in self)
+
+
 class EstimatedLabelsDataset(Dataset):
 
     def __init__(self, dataset):
@@ -626,7 +633,7 @@ class MixtureDataset(Dataset):
 
     def __str__(self):
 
-        return '\n\n'.join('Subdataset {}: {}\n{}'.format(i, n, d)
+        return '\n\n'.join('Subdataset {}: {}\n{} \n({})'.format(i, n, d, len(d))
                            for i, (n, d) in enumerate(zip(self.classes, self._datasets)))
 
     def __repr__(self):

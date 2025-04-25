@@ -399,7 +399,8 @@ class SubSampledDataset(Dataset):
             _shifts = rng.integers(0, self._sample_every, self._length) * (self._seed != 0)
             self._idx_ = [i * self._sample_every_coarse // self.COARSE + _shifts[i]
                           for i in range(len(self))]
-            self._bar_idx_ = [_ for _ in range(len(self)) if _ not in self._idx_]
+            self._bar_idx_ = [_ for _ in range(self.maxlength) if _ not in self._idx_]
+            print('***', len(self._idx_), len(self._bar_idx_), len(self))
             self._idx = self._idx_
 
         elif self.sampling_mode == 'batch':

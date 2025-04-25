@@ -448,16 +448,17 @@ class WIMJob(M):
         self.original_prior = True
         recorders = {_: LossRecorder(test_batch_size) for _ in list(sets) + [set_name]}
 
+        logging.info('Size of moving set before bar: {}'.format(len(moving_set)))
+        logging.debug(str(moving_set))
+        moving_set.bar = True  #  FOR POSCOD
+        logging.info('Size of moving set after bar: {}'.format(len(moving_set)))
+        logging.debug(str(moving_set))
+        ood_ = moving_set.extract_subdataset('ood')
+        logging.debug('OOD set of size {}'.format(len(ood_)))
+        logging.debug(str(ood_))
+
         with self.no_estimated_labels():
             with torch.no_grad():
-                logging.info('Size of moving set before bar: {}'.format(len(moving_set)))
-                logging.debug(str(moving_set))
-                moving_set.bar = True  #  FOR POSCOD
-                logging.info('Size of moving set after bar: {}'.format(len(moving_set)))
-                logging.debug(str(moving_set))
-                ood_ = moving_set.extract_subdataset('ood')
-                logging.debug('OOD set of size {}'.format(len(ood_)))
-                logging.debug(str(ood_))
                 self.ood_detection_rates(batch_size=test_batch_size,
                                          testset=moving_set.extract_subdataset('ind', new_name=testset.name),
                                          oodsets=[ood_.extract_subdataset(_) for _ in ood_sets],
@@ -468,7 +469,7 @@ class WIMJob(M):
                                          sample_recorders=sample_recorders,
                                          print_result='*')
                 self.ood_results = {}
-                moving_set.bar = False  #  FOR POSCOD
+        moving_set.bar = False  #  FOR POSCOD
 
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=batch_size,

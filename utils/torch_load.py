@@ -285,26 +285,6 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         return classes, self.node_to_idx
 
 
-class ListofTensors(list):
-
-    def to(self, device):
-
-        return ListofTensors(_.to(device) for _ in self)
-
-
-class FooDataset(Dataset):
-
-    def __init__(self):
-        super().__init__()
-
-    def __len__(self):
-        return 10000
-
-    def __getitem__(self, i):
-
-        return ListofTensors([torch.randn(4), 0, 1])
-
-
 class EstimatedLabelsDataset(Dataset):
 
     def __init__(self, dataset):
@@ -639,45 +619,28 @@ class MixtureDataset(Dataset):
         return d
 
 
-Parent = namedtuple('parent', ['coarse', 'cum_mix', 'sample_every', 'mix', 'index_remainder'])
+class FoldedDataset(Dataset):
 
+    def __init__(self, dset, fold):
 
-class SubDataset(Dataset):
+        self._dset = dset
+        self._fold = fold
 
-    def __init__(self, mixed_dataset, i, name=None):
+        self._len = (len(dset) * len(fold)) // 3
 
-        super().__init__()
-        self._dataset = mixed_dataset.subdatasets[i]
-        self._length = mixed_dataset._lengths[i]
+        self.name = '{}/{}'.format(dset.name, ''.join(sorted(fold)))
 
-        self._parent = Parent(mix=mixed_dataset.mix[i],
-                              index_remainder=mixed_dataset._index_remainder,
-                              cum_mix=mixed_dataset._cum_mix,
-                              sample_every=mixed_dataset._sample_every[i],
-                              coarse=mixed_dataset.COARSE)
+    def complementary(self):
 
-        if name is None:
-            name = mixed_dataset.classes[i]
-
-        self.name = name
+        fold = ''.join(_ for _ in 'ABC' if _ not in self._fold)
+        return type(self)(self._dset, fold)
 
     def __len__(self):
 
-        return self._length
+        return self._len
 
-    def __getitem__(self, idx):
-
-        if idx >= len(self):
-            raise IndexError
-
-        idx_remainder = idx % self._parent.cum_mix
-
-        idx_ = idx // self._parent.cum_mix * self._parent.mix + self._parent.index_remainder[idx_remainder]
-        idx_ = idx * self._parent.sample_every // self._parent.coarse
-        # + self._parent.index_remainder[idx_remainder])
-
-        #  print('in {}: {} -> {}'.format(self.name, idx, idx_))
-        return self._dataset[idx_]
+    def __getitem__(self, i):
+        pass
 
 
 def create_image_dataset(classes_file):

@@ -78,12 +78,13 @@ def scoring_r(losses, score='msp', y_est=None, mtype='cvae'):
     """ estimation of 1 - max P(y|x)
     """
     if score is None:
-        score = default_scores[mtype]['r']
+        score = default_scores[mtype]['r']  #
 
     logging.debug('r score is {}'.format(score))
 
     if score and score.startswith('odin'):
 
+        print('***', losses[score].shape, losses[score].mean())
         return 1 - losses[score]
 
     if score is None:
@@ -167,11 +168,12 @@ if __name__ == '__main__':
 
     job_dir = 'jobs'
     jobs = [398529]
+
     argv_j = ' '.join(str(_) for _ in jobs)
 
     argv = '-J {} {} -v'.format(job_dir, argv_j).split()
 
-    argv = None if sys.argv[0] else argv
+    argv = None if len(sys.argv) > 1 else argv
     args = parser.parse_args(argv)
 
     if argv:

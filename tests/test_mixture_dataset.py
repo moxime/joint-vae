@@ -1,8 +1,29 @@
 import logging
 import torch
-from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, get_dataset, FooDataset, collate
+from torch.utils.data import Dataset
+from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, get_dataset, collate
 logging.getLogger().setLevel(logging.ERROR)
 logging.getLogger().setLevel(logging.INFO)
+
+
+class ListofTensors(list):
+
+    def to(self, device):
+
+        return ListofTensors(_.to(device) for _ in self)
+
+
+class FooDataset(Dataset):
+
+    def __init__(self):
+        super().__init__()
+
+    def __len__(self):
+        return 10000
+
+    def __getitem__(self, i):
+
+        return ListofTensors([torch.randn(4), 0, 1])
 
 
 names = ('ind__', 'ood_a', 'ood_b')

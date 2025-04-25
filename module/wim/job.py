@@ -462,6 +462,7 @@ class WIMJob(M):
 
         with self.no_estimated_labels():
             with torch.no_grad():
+                moving_set.bar = True  #  FOR POSCOD
                 ood_ = moving_set.extract_subdataset('ood')
                 logging.debug('OOD set of size {}'.format(len(ood_)))
                 self.ood_detection_rates(batch_size=test_batch_size,
@@ -474,6 +475,7 @@ class WIMJob(M):
                                          sample_recorders=sample_recorders,
                                          print_result='*')
                 self.ood_results = {}
+                moving_set.bar = False  #  FOR POSCOD
 
         printed_losses = ['zdist']
         # for s in ('ind', 'ood' 'train'):
@@ -677,6 +679,8 @@ class WIMJob(M):
         logging.info('Computing ood fprs')
 
         self.eval()
+        moving_set.bar = True  #  FOR POSCOD
+
         testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
         oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]
 
@@ -701,10 +705,10 @@ class WIMJob(M):
                     logging.debug('First labels: {}'.format(' '.join(str(_.item()) for _ in y[:10])))
 
         with torch.no_grad():
-            self.original_prior = True
             outputs.write('With original prior\n')
             for s in sample_recorders:
                 sample_recorders[s].reset()
+            moving_set.bar = True
             with self.evaluate_on_both_priors():
                 self.ood_detection_rates(batch_size=test_batch_size,
                                          testset=testset,
@@ -718,6 +722,7 @@ class WIMJob(M):
             logging.info('Computing misclass detection rates')
             self.misclassification_detection_rates(print_result='~')
             logging.info('Computing misclass detection rates: done')
+            moving_set.bar = False
 
     def fetch_jobs_alike(self, job_dir=None, models=None, flash=False):
 

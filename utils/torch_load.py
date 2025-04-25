@@ -382,6 +382,8 @@ class SubSampledDataset(Dataset):
         except AttributeError:
             pass
 
+        self._bar = False
+
     def _create_idx(self):
 
         rng = np.random.default_rng(self._seed)
@@ -399,15 +401,35 @@ class SubSampledDataset(Dataset):
             batch = self._task + self._sample_every
             while batch >= self._sample_every:
                 batch -= self._sample_every
-                self._idx = rng.permutation(self.maxlength)
+                perm_idx = rng.permutation(self.maxlength)
 
-            self._idx = self._idx[batch * len(self): (batch + 1) * len(self)]
+            self._idx_ = perm_idx[batch * len(self): (batch + 1) * len(self)]
+            self._bar_idx_ = [_ for _ in perm_idx if _ not in self._idx_]
+            self._idx = self._idx_
 
         else:
             raise ValueError('sampling mode {} unknown'.format(self.sampling_mode))
 
         logger.debug('Created idx for {} of size {}. Firsts: {}'.format(self.name, len(self._idx),
                                                                         '-'.join(map(str, self._idx[: 10]))))
+
+    @ property
+    def bar(self):
+        return self._bar
+
+    @ bar.setter
+    def bar(self, b):
+        assert isinstance(b, bool)
+        self._bar = b
+        if b and self.sampling_mode == 'slice':
+            raise NotImplementedError
+
+        if b:
+            self._idx = self._bar_idx_
+        else:
+            self._idx = self._idx_
+
+        self._length = len(self._idx)
 
     def shrink(self, length=None):
 
@@ -452,6 +474,8 @@ class MixtureDataset(Dataset):
 
         self._seed = seed
         self._task = task
+
+        self._bar = False
 
         if not dict_of_datasets:
             dict_of_datasets = {getattr(d, 'name', str(i)): d for i, d in enumerate(datasets)}
@@ -618,29 +642,22 @@ class MixtureDataset(Dataset):
         d.name = new_name
         return d
 
+    @ property
+    def bar(self):
+        return self._bar
 
-class FoldedDataset(Dataset):
+    @ bar.setter
+    def bar(self, b):
+        assert isinstance(b, bool)
+        self._bar = b
 
-    def __init__(self, dset, fold):
+        for d in self._datasets:
+            d.bar = b
 
-        self._dset = dset
-        self._fold = fold
+        self._lengths = [len(d) for d in self._datasets]
+        self._length = sum(self._lengths)
 
-        self._len = (len(dset) * len(fold)) // 3
-
-        self.name = '{}/{}'.format(dset.name, ''.join(sorted(fold)))
-
-    def complementary(self):
-
-        fold = ''.join(_ for _ in 'ABC' if _ not in self._fold)
-        return type(self)(self._dset, fold)
-
-    def __len__(self):
-
-        return self._len
-
-    def __getitem__(self, i):
-        pass
+        self._cum_lengths = [0] + list(accumulate(self._lengths))
 
 
 def create_image_dataset(classes_file):

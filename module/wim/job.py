@@ -462,10 +462,10 @@ class WIMJob(M):
 
         with self.no_estimated_labels():
             with torch.no_grad():
-                logging.info('Size of moving set before bar:', len(moving_set))
+                logging.info('Size of moving set before bar: {}'.format(len(moving_set)))
                 logging.debug(str(moving_set))
                 moving_set.bar = True  #  FOR POSCOD
-                logging.info('Size of moving set before bar:', len(moving_set))
+                logging.info('Size of moving set before bar: {}'.format(len(moving_set)))
                 logging.debug(str(moving_set))
                 ood_ = moving_set.extract_subdataset('ood')
                 logging.debug('OOD set of size {}'.format(len(ood_)))

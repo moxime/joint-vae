@@ -429,18 +429,6 @@ class WIMJob(M):
                 logging.info('All is done, will stop here')
                 raise DontDoFineTuning(False)
 
-        trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=batch_size,
-                                                  # pin_memory=True,
-                                                  shuffle=True,
-                                                  num_workers=0)
-
-        moving_loader = torch.utils.data.DataLoader(moving_set,
-                                                    drop_last=True,
-                                                    batch_size=batch_size,
-                                                    shuffle=True,
-                                                    num_workers=0)
-
         current_measures = {}
 
         device = next(self.parameters()).device
@@ -465,7 +453,7 @@ class WIMJob(M):
                 logging.info('Size of moving set before bar: {}'.format(len(moving_set)))
                 logging.debug(str(moving_set))
                 moving_set.bar = True  #  FOR POSCOD
-                logging.info('Size of moving set before bar: {}'.format(len(moving_set)))
+                logging.info('Size of moving set after bar: {}'.format(len(moving_set)))
                 logging.debug(str(moving_set))
                 ood_ = moving_set.extract_subdataset('ood')
                 logging.debug('OOD set of size {}'.format(len(ood_)))
@@ -481,6 +469,18 @@ class WIMJob(M):
                                          print_result='*')
                 self.ood_results = {}
                 moving_set.bar = False  #  FOR POSCOD
+
+        trainloader = torch.utils.data.DataLoader(trainset,
+                                                  batch_size=batch_size,
+                                                  # pin_memory=True,
+                                                  shuffle=True,
+                                                  num_workers=0)
+
+        moving_loader = torch.utils.data.DataLoader(moving_set,
+                                                    drop_last=True,
+                                                    batch_size=batch_size,
+                                                    shuffle=True,
+                                                    num_workers=0)
 
         printed_losses = ['zdist']
         # for s in ('ind', 'ood' 'train'):

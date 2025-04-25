@@ -390,8 +390,10 @@ class SubSampledDataset(Dataset):
 
         if self.sampling_mode == 'slice':
             _shifts = rng.integers(0, self._sample_every, self._length) * (self._seed != 0)
-            self._idx = [i * self._sample_every_coarse // self.COARSE + _shifts[i]
-                         for i in range(len(self))]
+            self._idx_ = [i * self._sample_every_coarse // self.COARSE + _shifts[i]
+                          for i in range(len(self))]
+            self._bar_idx_ = [_ for _ in range(len(self)) if _ not in self._idx_]
+            self._idx = self._idx_
 
         elif self.sampling_mode == 'batch':
             if self._task >= self._sample_every:
@@ -421,8 +423,6 @@ class SubSampledDataset(Dataset):
     def bar(self, b):
         assert isinstance(b, bool)
         self._bar = b
-        if b and self.sampling_mode == 'slice':
-            raise NotImplementedError
 
         if b:
             self._idx = self._bar_idx_

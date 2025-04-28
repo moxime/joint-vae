@@ -53,15 +53,15 @@ class WIMJob(FTJob):
 
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
 
-    @ classmethod
+    @classmethod
     def is_wim(cls, d):
         return os.path.exists(os.path.join(d, 'wim.json'))
 
-    @ property
+    @property
     def is_alternate_prior(self):
         return self._is_alternate_prior
 
-    @ property
+    @property
     def is_original_prior(self):
         return not self.is_alternate_prior
 
@@ -112,8 +112,8 @@ class WIMJob(FTJob):
         assert self._alternate_prior is None
         self._alternate_prior = build_prior(**p)
 
-        if not hasattr(self, 'wim_params'):
-            self.wim_params = p.copy()
+        if not hasattr(self, 'ft_params'):
+            self.ft_params = p.copy()
 
         for p in self._alternate_prior.parameters():
             p.requires_grad_(False)

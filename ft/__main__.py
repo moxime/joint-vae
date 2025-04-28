@@ -175,7 +175,7 @@ if __name__ == '__main__':
     alternate_prior_params['tau'] = args.tau
 
     model.set_alternate_prior(**alternate_prior_params)
-    model.wim_params['from'] = args.job
+    model.ft_params['from'] = args.job
 
     with model.original_prior as p1:
         with model.alternate_prior as p2:

@@ -8,7 +8,8 @@ from utils.print_log import EpochOutput, turnoff_debug
 
 from utils.save_load import model_subdir, SampleRecorder
 
-from .job import WIMJob, DontDoFineTuning
+from .job import DontDoFineTuning
+from .wimjob import WIMJob
 from .scheduler import Scheduler
 
 from .array import WIMArray

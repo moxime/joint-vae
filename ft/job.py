@@ -40,7 +40,7 @@ class FTJob(M, ABC):
 
     printed_losses = ('zdist',)
 
-    @ abstractmethod
+    @abstractmethod
     def update_loss_components(self):
         raise NotImplementedError
 
@@ -101,7 +101,7 @@ class FTJob(M, ABC):
             logging.debug('Kept {} bn layers in eval mode'.format(n))
 
     @ abstractclassmethod
-    def tranfer_from_model(cls, state):
+    def transfer_from_model(cls, state):
         raise NotImplementedError
 
     @ abstractmethod

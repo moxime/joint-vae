@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--augmentation', type=float, nargs='?', const=1.0, default=0.)
 
-    parser.add_argument('--augmentation-sets', nargs='*')
+    parser.add_argument('--augmentation-sets', nargs='*', default='')
 
     parser.add_argument('--test-batch-size', type=int)
 

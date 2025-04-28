@@ -1,7 +1,7 @@
 import os
 import logging
 from utils.print_log import turnoff_debug
-from module.wim.job import WIMJob
+from ft import WIMJob
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
 from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
@@ -63,7 +63,7 @@ class WIMArray(WIMJob):
                 logging.debug('{} jobs registered as {} in {}'.format(len(self._jobs[_]), _, self._rec_dir))
         return dir_name
 
-    @ classmethod
+    @classmethod
     def load(cls, dir_name, *a, load_state=False, **kw):
 
         model = super().load(dir_name, *a, load_state=load_state, **kw)

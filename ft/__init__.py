@@ -1,1 +1,1 @@
-from .job import WIMJob
+from .wimjob import WIMJob

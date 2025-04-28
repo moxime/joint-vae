@@ -357,7 +357,6 @@ class FTJob(M, ABC):
                     logging.debug('First labels for train: {}'.format(' '.join(str(_.item()) for _ in y_a[:10])))
                     logging.debug('First labels for unknown: {}'.format(' '.join(str(_.item()) for _ in y_u[:10])))
 
-                val_batch = not (batch % max(per_epoch * batch_size // 3000, 1))
                 if batch:
                     time_per_i = (time.time() - t0) / batch
 
@@ -385,17 +384,24 @@ class FTJob(M, ABC):
                                                                        x_a.to(device), y_a.to(device),
                                                                        x_u.to(device), **kw)
 
-                running_loss = ({'{}_{}'.format(_, k): mix_batch_loss[k][i_[_]].mean().item()
-                                 for _, k in product(i_, mix_batch_loss)})
+                running_loss = {'{}_{}'.format(_, k): mix_batch_loss[k][i_[_]].mean().item()
+                                for _, k in product(i_, mix_batch_loss) if k in self.printed_loss}
 
-                runnging_loss.update('{in_{}'.format(k): in_batch_loss[k].mean().item() for k in in_batch_loss)
-
-                running_loss = {k: running_loss[k] if k in self.printed_loss}
+                running_loss.update({'in_{}'.format(k):
+                                     in_batch_loss[k].mean().item() for k in in_batch_loss if k in self.printed_loss})
 
                 if not batch:
                     mean_loss = running_loss
                 else:
-                    pass
+                    for _, k in product(n_per_i_, self.printed_losses):
+                        k_ = _ + '_' + k
+                        if k in running_loss:
+                            mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_])
+                            mean_loss[k_] /= (n_per_i_[_] + n_[_])
+
+                for _ in n_:
+                    n_[_] += n_per_i_[_]
+
                 outputs.results(batch, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',
                                 losses=mean_loss,

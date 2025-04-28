@@ -246,13 +246,12 @@ class WIMJob(FTJob):
         logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
         with self.no_estimated_labels():
-            (_, y_est, batch_losses, _) = self.evaluate(x_in., y_in,
-                                                        batch=batch,
-                                                        with_beta=True)
+            (_, y_est, batch_loss, _) = self.evaluate(x_in, y_in,
+                                                      batch=batch,
+                                                      with_beta=True)
 
-        running_loss = {'train_' + k: batch_losses[k].mean().item() for k in printed_losses}
-
-        L = batch_losses['total'].mean()
+        L = batch_loss['total'].mean()
+        batch_loss = {'train_{}'.format(k): batch_loss[k].mean().item() for k in batch_loss}
 
         self.alternate_prior = True
         """
@@ -272,5 +271,9 @@ class WIMJob(FTJob):
                               batch=batch,
                               with_beta=True)
 
-        _, _, batch_losses, _ = o
-        L += alpha * batch_losses['total'].mean()
+        _, _, mix_batch_loss, _ = o
+        L += alpha * mix_batch_loss['total'].mean()
+
+        batch_loss.update({'mix_{}'.format(k): batch_loss[k] for k in mix_batch_loss})
+
+        return L, batch_loss

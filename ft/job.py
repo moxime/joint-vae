@@ -385,64 +385,15 @@ class FTJob(M, ABC):
                                                                 batch=batch,
                                                                 with_beta=True)
 
-                zdbg('finetune', epoch + 1, batch + 1, 'train', 'original', batch_losses['zdist'].mean())
-
-                running_loss = {'train_' + k: batch_losses[k].mean().item() for k in printed_losses}
+                running_loss = {'in_' + k: batch_losses[k].mean().item() for k in self.printed_losses}
 
                 L = batch_losses['total'].mean()
-
-                y_u_est = torch.zeros(batch_size, device=device, dtype=int)
-
-                if val_batch:  # or self.is_cvae:
-                    self.eval()
-                    with torch.no_grad():
-
-                        # Eval on unknown batch
-                        with self.no_estimated_labels():
-
-                            (_, _, batch_losses, _) = self.evaluate(x_u.to(device),
-                                                                    batch=batch,
-                                                                    with_beta=True)
-
-                        if self.is_cvae:
-                            y_u_est = torch.zeros(batch_size, device=device, dtype=int)
-                            # y_u_est = batch_losses['zdist'].min(0)[1]
-                            logging.debug('zdist shape: {}'.format(batch_losses['zdist'].shape))
-                            batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
-
-                        else:
-                            y_u_est = torch.zeros(batch_size, device=device, dtype=int)
-
-                        running_loss.update({_ + '_' + k: batch_losses[k][i_[_]].mean().item()
-                                             for _, k in product(i_, printed_losses)})
-
-                        for _ in i_:
-                            zdbg('eval', epoch + 1, batch + 1, _, 'original', batch_losses['zdist'][i_[_]].mean())
-
-                        # Eval on train batch
-                        with self.no_estimated_labels():
-                            (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
-                                                                    batch=batch,
-                                                                    with_beta=True)
-
-                        if self.is_cvae:
-                            # y_u_est = torch.zeros(batch_size, device=device, dtype=int)
-                            y_a_est = batch_losses['zdist'].min(0)[1]
-                            acc = (y_a.to(device) == y_a_est).float().mean()
-                            logging.debug('Batch train acc: {:.1%}'.format(acc))
-                            batch_losses = {k: batch_losses[k].min(0)[0] for k in printed_losses}
-
-                        else:
-                            y_a_est = torch.zeros(batch_size, device=device, dtype=int)
-
-                        # running_loss.update({_ + '_' + k: batch_losses[k][i_[_]].mean().item()
-                        #                      for _, k in product(i_, printed_losses)})
-
-                        zdbg('eval', epoch + 1, batch + 1, 'train', 'original', batch_losses['zdist'].mean())
 
                 L, batch_loss = self.finetune_batch(batch, epoch,
                                                     x_a.to(device), y_a.to(device),
                                                     x_u.to(device), **kw)
+
+                running_loss.update({'in_' + k: batch_losses[k].mean().item() for k in self.printed_losses})
 
                 outputs.results(batch, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',

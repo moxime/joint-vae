@@ -38,6 +38,8 @@ class FTJob(M, ABC):
                             'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@',
                                      'elbo', 'elbo~', 'elbo@', 'elbo~@']}
 
+    printed_losses = ('zdist',)
+
     @ abstractmethod
     def update_loss_components(self):
         raise NotImplementedError
@@ -151,7 +153,7 @@ class FTJob(M, ABC):
     @ abstractmethod
     def finetune_batch(self, x_in, y_in, x_mix, **kw):
         """
-        Has to return a tuple (L, loss) where L is the loss to retroproragate on, loss is a dict of loss
+        Has to return a tuple (L, in_loss, mix_loss) where L is the loss to retroproragate on, loss is a dict of loss
         """
         raise NotImplementedError
 
@@ -331,7 +333,6 @@ class FTJob(M, ABC):
 
             per_epoch = min(train_size, len(trainset)) // batch_size
             train_size -= per_epoch * batch_size
-            running_loss = {}
             self.eval()
 
             t0 = time.time()
@@ -380,9 +381,16 @@ class FTJob(M, ABC):
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
-                L, batch_loss = self.finetune_batch(batch, epoch,
-                                                    x_a.to(device), y_a.to(device),
-                                                    x_u.to(device), **kw)
+                L, in_batch_loss, mix_batch_loss = self.finetune_batch(batch, epoch,
+                                                                       x_a.to(device), y_a.to(device),
+                                                                       x_u.to(device), **kw)
+
+                running_loss = ({'{}_{}'.format(_, k): mix_batch_loss[k][i_[_]].mean().item()
+                                 for _, k in product(i_, mix_batch_loss)})
+
+                runnging_loss.update('{in_{}'.format(k): in_batch_loss[k].mean().item() for k in in_batch_loss)
+
+                running_loss = {k: running_loss[k] if k in self.printed_loss}
 
                 if not batch:
                     mean_loss = running_loss

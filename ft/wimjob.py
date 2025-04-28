@@ -8,8 +8,8 @@ from itertools import cycle, product
 import numpy as np
 
 import torch
-from cvae import ClassificationVariationalNetwork as M
 from module.priors import build_prior
+from ft.job import FTJob
 
 from utils.save_load import MissingKeys, save_json, load_json, fetch_models, make_dict_from_model
 from utils.save_load import LossRecorder, SampleRecorder
@@ -19,30 +19,24 @@ from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
 from utils.print_log import EpochOutput
 
 
-class DontDoFineTuning(Exception):
-
-    def __init__(self, continue_as_array):
-
-        self.continue_as_array = continue_as_array
-
-
-class WIMJob(M):
+class WIMJob(FTJob):
 
     ood_methods_per_type = {'vae': ['zdist', 'elbo', 'kl'],
                             'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@',
                                      'elbo', 'elbo~', 'elbo@', 'elbo~@']}
-    predict_methods_per_type = {'vae': [], 'cvae': ['already']}
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], }
 
-    added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': ()}
+    ft_param_file = 'wim.json'
+
+    def update_loss_components(self):
+        self.loss_components += tuple(k + '@' for k in self.loss_components)
+        self.loss_components += self.added_loss_components_per_type.get(self.type, ())
 
     def __init__(self, *a, alternate_prior=None, **kw):
 
         super().__init__(*a, **kw)
 
-        self.loss_components += tuple(k + '@' for k in self.loss_components)
-        self.loss_components += self.added_loss_components_per_type.get(self.type, ())
         self._original_prior = self.encoder.prior
         self._original_num_labels = self.num_labels
 
@@ -54,8 +48,6 @@ class WIMJob(M):
             self.set_alternate_prior(**alternate_prior)
 
         self._is_alternate_prior = False
-
-        self._with_estimated_labels = self.is_cvae
 
         self._evaluate_on_both_priors = False
 
@@ -132,19 +124,6 @@ class WIMJob(M):
         self._evaluate_on_both_priors = True
         yield
         self._evaluate_on_both_priors = state
-
-    @ contextmanager
-    def no_estimated_labels(self):
-        try:
-            self.ood_methods = [_ for _ in self.ood_methods_per_type[self.type] if _[-1] not in '@~']
-            self._with_estimated_labels = False
-            logging.debug('Without estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
-            yield
-        finally:
-            self.ood_methods = self.ood_methods_per_type[self.type].copy()
-            self._with_estimated_labels = self.is_cvae
-            if self.is_cvae:
-                logging.debug('Back to estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
 
     def evaluate(self, x, *a, **kw):
 
@@ -243,68 +222,76 @@ class WIMJob(M):
         return dist_measures
 
     @ classmethod
-    def _recurse_train(cls, module):
+    def transfer_from_model(cls, state):
+        state['_original_prior.mean'] = torch.clone(state['encoder.prior.mean'])
+        state['_original_prior._var_parameter'] = torch.clone(state['encoder.prior._var_parameter'])
 
-        if isinstance(module, torch.nn.BatchNorm2d):
-            module.eval()
-            return 1
+    def load_post_hook(self, **wim_params):
+        for k in ('sets', 'alpha', 'train_size', 'moving_size',
+                  'augmentation', 'augmentation_sets',
+                  'from', 'mix', 'hash', 'array_size'):
+            wim_params.pop(k, None)
+        self.set_alternate_prior(**wim_params)
 
-        return sum([cls._recurse_train(child) for child in module.children()])
+    def finetune_batch(self, batch, epoch, x_in, y_in, x_mix, alpha=0.1):
 
-    def train(self, *a, **kw):
+        self.alternate_prior = True
+        """
 
-        super().train(*a, **kw)
-        if self.training:
-            n = self._recurse_train(self)
-            logging.debug('Kept {} bn layers in eval mode'.format(n))
+        On alternate prior
 
-    @ classmethod
-    def load(cls, dir_name, build_module=True, **kw):
+        """
 
-        try:
-            model = super().load(dir_name, strict=False, build_module=build_module, **kw)
-        except MissingKeys as e:
-            logging.debug('Model loaded has been detected as not wim')
-            logging.debug('Missing keys: {}'.format(', '.join(e.args[-1])))
-            model = e.args[0]
-            s = e.args[1]  # state_dict
-            logging.debug('Creating fake params prior means')
-            s['_original_prior.mean'] = torch.clone(s['encoder.prior.mean'])
-            s['_original_prior._var_parameter'] = torch.clone(s['encoder.prior._var_parameter'])
+        _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
+        logging.debug(_s.format(epoch + 1, batch + 1, 'moving', 'alternate'))
 
-            model.load_state_dict(s)
+        logging.debug('x_u shape: {} y_u_est shape {}'.format(x_u.shape, y_u_est.shape))
 
-            logging.debug('Reset results')
-            model.ood_results = {}
+        self.train()
+        with self.no_estimated_labels():
+            assert not y_u_est.any()
+            o = self.evaluate(x_u.to(device), y_u_est,
+                              batch=batch,
+                              with_beta=True)
 
-        try:
+        _, _, batch_losses, _ = o
+        L += alpha * batch_losses['total'].mean()
 
-            wim_params = load_json(dir_name, 'wim.json')
-            logging.debug('Model was already a wim')
-            alternate_prior_params = wim_params.copy()
-            model.wim_params = wim_params
-            for k in ('sets', 'alpha', 'train_size', 'moving_size',
-                      'augmentation', 'augmentation_sets',
-                      'from', 'mix', 'hash', 'array_size'):
-                alternate_prior_params.pop(k, None)
-            if build_module:
-                model.set_alternate_prior(**alternate_prior_params)
+        L.backward()
+        optimizer.step()
+        optimizer.clip(self.parameters())
 
-        except FileNotFoundError:
-            logging.debug('Model loaded has been detected as not wim')
-            logging.debug('Reset results')
-            model.ood_results = {}
+        for _ in i_:
+            zdbg('finetune', epoch + 1, batch + 1, _, 'alternate', batch_losses['zdist'][i_[_]].mean())
 
-        return model
+        running_loss.update({_ + '_' + k + '*': batch_losses[k][i_[_]].mean().item()
+                             for _, k in product(i_, printed_losses)})
 
-    def save(self, *a, except_state=True, **kw):
-        logging.debug('Saving wim model')
-        kw['except_optimizer'] = True
-        with self.original_prior:
-            dir_name = super().save(*a, except_state=except_state, **kw)
-        save_json(self.wim_params, dir_name, 'wim.json')
-        logging.debug('Model saved in {}'.format(dir_name))
-        return dir_name
+        self.eval()
+        # _s = 'Val   {:2} Batch {:2} -- set {} --- prior {}'
+        # logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'alternate'))
+
+        # with torch.no_grad():
+        #     (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
+        #                                             y_a.to(device),
+        #                                             batch=batch,
+        #                                             with_beta=True)
+
+        # zdbg('eval', epoch + 1, batch + 1, 'train', 'alternate', batch_losses['zdist'].mean())
+
+        # running_loss.update({'train_' + k + '*': batch_losses[k].mean().item()
+        #                      for k in printed_losses})
+
+        if not batch:
+            mean_loss = running_loss
+        else:
+            for _, k, suf in product(n_per_i_, printed_losses, ('*', '')):
+                k_ = _ + '_' + k + suf
+                if k in running_loss:
+                    mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_]) / n_[_]
+
+        for _ in n_:
+            n_[_] += n_per_i_[_]
 
     def finetune(self, *sets,
                  train_size=100000,

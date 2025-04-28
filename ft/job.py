@@ -30,15 +30,16 @@ class DontDoFineTuning(Exception):
 class FTJob(M, ABC):
 
     predict_methods_per_type = {'vae': [], 'cvae': ['already']}
-    added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': ()}
+    added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': (), 'vib': ('y_est_already',)}
+
+    """  to be overridden by child class
+    """
+    ood_methods_per_type = {'vae': ['zdist', 'elbo', 'kl'],
+                            'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@',
+                                     'elbo', 'elbo~', 'elbo@', 'elbo~@']}
 
     @ abstractmethod
     def update_loss_components(self):
-        raise NotImplementedError
-
-    @ property
-    @ abstractmethod
-    def ood_methods_per_type(self):
         raise NotImplementedError
 
     @ property
@@ -55,7 +56,7 @@ class FTJob(M, ABC):
         self.update_loss_components()
         self._original_num_labels = self.num_labels
 
-        self._with_estimated_labels = self.is_cvae
+        self._with_estimated_labels = self.is_cvae or self.is_vib
 
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
 
@@ -97,14 +98,12 @@ class FTJob(M, ABC):
             n = self._recurse_train(self)
             logging.debug('Kept {} bn layers in eval mode'.format(n))
 
-    @property
     @ abstractclassmethod
     def tranfer_from_model(cls, state):
         raise NotImplementedError
 
-    @property
     @ abstractmethod
-    def load_post_hook(self, **kw):
+    def load_post_hook(self, **ft_params):
         raise NotImplementedError
 
     @ classmethod
@@ -141,7 +140,7 @@ class FTJob(M, ABC):
         return model
 
     def save(self, *a, except_state=True, **kw):
-        logging.debug('Saving wim model')
+        logging.debug('Saving ft model')
         kw['except_optimizer'] = True
         with self.original_prior:
             dir_name = super().save(*a, except_state=except_state, **kw)
@@ -441,66 +440,9 @@ class FTJob(M, ABC):
 
                         zdbg('eval', epoch + 1, batch + 1, 'train', 'original', batch_losses['zdist'].mean())
 
-                L, batch_loss = self.finetune_batch()
-
-                """
-
-                On alternate prior
-
-                """
-
-                self.alternate_prior = True
-
-                _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
-                logging.debug(_s.format(epoch + 1, batch + 1, 'moving', 'alternate'))
-
-                logging.debug('x_u shape: {} y_u_est shape {}'.format(x_u.shape, y_u_est.shape))
-
-                self.train()
-                with self.no_estimated_labels():
-                    assert not y_u_est.any()
-                    o = self.evaluate(x_u.to(device), y_u_est,
-                                      batch=batch,
-                                      with_beta=True)
-
-                _, _, batch_losses, _ = o
-                L += alpha * batch_losses['total'].mean()
-
-                L.backward()
-                optimizer.step()
-                optimizer.clip(self.parameters())
-
-                for _ in i_:
-                    zdbg('finetune', epoch + 1, batch + 1, _, 'alternate', batch_losses['zdist'][i_[_]].mean())
-
-                running_loss.update({_ + '_' + k + '*': batch_losses[k][i_[_]].mean().item()
-                                     for _, k in product(i_, printed_losses)})
-
-                self.eval()
-                # _s = 'Val   {:2} Batch {:2} -- set {} --- prior {}'
-                # logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'alternate'))
-
-                # with torch.no_grad():
-                #     (_, _, batch_losses, _) = self.evaluate(x_a.to(device),
-                #                                             y_a.to(device),
-                #                                             batch=batch,
-                #                                             with_beta=True)
-
-                # zdbg('eval', epoch + 1, batch + 1, 'train', 'alternate', batch_losses['zdist'].mean())
-
-                # running_loss.update({'train_' + k + '*': batch_losses[k].mean().item()
-                #                      for k in printed_losses})
-
-                if not batch:
-                    mean_loss = running_loss
-                else:
-                    for _, k, suf in product(n_per_i_, printed_losses, ('*', '')):
-                        k_ = _ + '_' + k + suf
-                        if k in running_loss:
-                            mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_]) / n_[_]
-
-                for _ in n_:
-                    n_[_] += n_per_i_[_]
+                L, batch_loss = self.finetune_batch(batch, epoch,
+                                                    x_a.to(device), y_a.to(device),
+                                                    x_u.to(device), **kw)
 
                 outputs.results(batch, per_epoch, epoch + 1, epochs,
                                 preambule='finetune',

@@ -29,7 +29,7 @@ class DontDoFineTuning(Exception):
 
 class FTJob(M, ABC):
 
-    predict_methods_per_type = {'vae': [], 'cvae': ['already']}
+    predict_methods_per_type = {'vae': [], 'cvae': ['already'], 'vib': ['already']}
     added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': (), 'vib': ('y_est_already',)}
 
     """  to be overridden by child class
@@ -39,6 +39,10 @@ class FTJob(M, ABC):
                                      'elbo', 'elbo~', 'elbo@', 'elbo~@']}
 
     printed_loss = ('zdist',)
+
+    @classmethod
+    def is_one(cls, d):
+        return os.path.exists(os.path.join(d, cls.ft_param_file))
 
     @abstractmethod
     def update_loss_components(self):

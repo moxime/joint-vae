@@ -2,6 +2,7 @@ import os
 import logging
 from utils.print_log import turnoff_debug
 from ft import WIMJob
+from ft.job import FTJob
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
 from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
@@ -14,7 +15,7 @@ wim_job_filter = DictOfListsOfParamFilters()
 wim_job_filter.add('wim_from', ParamFilter(type=int, any_value=True))
 
 
-class WIMArray(WIMJob):
+class WIMArray(FTJob):
 
     def __init__(self, *a, fetch_dir='wim-jobs', **kw):
 

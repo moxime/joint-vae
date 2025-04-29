@@ -45,13 +45,11 @@ class WIMJob(FTJob):
 
         self._alternate_prior = None
         if alternate_prior is not None:
-            self.set_alternate_prior(**alternate_prior)
+            self.set_alternate_prior(**alternate_prior)  #
 
         self._is_alternate_prior = False
 
         self._evaluate_on_both_priors = False
-
-        self.ood_methods = self.ood_methods_per_type[self.type].copy()
 
     @classmethod
     def is_wim(cls, d):

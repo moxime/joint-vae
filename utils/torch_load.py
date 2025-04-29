@@ -285,6 +285,13 @@ class ImageFolderWithClassesInFile(datasets.ImageFolder):
         return classes, self.node_to_idx
 
 
+class ListofTensors(list):
+
+    def to(self, device):
+
+        return ListofTensors(_.to(device) for _ in self)
+
+
 class EstimatedLabelsDataset(Dataset):
 
     def __init__(self, dataset):

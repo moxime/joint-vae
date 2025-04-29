@@ -38,14 +38,14 @@ class FTJob(M, ABC):
                             'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@',
                                      'elbo', 'elbo~', 'elbo@', 'elbo~@']}
 
-    printed_losses = ('zdist',)
+    printed_loss = ('zdist',)
 
     @abstractmethod
     def update_loss_components(self):
         raise NotImplementedError
 
-    @ property
-    @ abstractmethod
+    @property
+    @abstractmethod
     def misclass_methods_per_type(self):
         raise NotImplementedError
 
@@ -62,7 +62,7 @@ class FTJob(M, ABC):
 
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
 
-    @ contextmanager
+    @contextmanager
     def no_estimated_labels(self):
         prior_state = self._with_estimated_labels
         try:
@@ -76,15 +76,21 @@ class FTJob(M, ABC):
             if prior_state:
                 logging.debug('Back to estimated labels ood methods: {}'.format(','.join(self.ood_methods)))
 
-    @ abstractmethod
     def evaluate(self, x, *a, **kw):
-        raise NotImplementedError
+        if self._with_estimated_labels:
+            x, y_ = x
+            o = super().evaluate(x, *a, **kw)
+            # losses is o[2]
+            o[2].update({'y_est_already': y_})
+            return o
 
-    @ abstractmethod
+        return super().evaluate(x, *a, **kw)
+
+    @abstractmethod
     def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
-        raise NotImplementedError
+        return super().batch_dist_measures(logits, losses, methods, to_cpu=to_cpu)
 
-    @ classmethod
+    @classmethod
     def _recurse_train(cls, module):
 
         if isinstance(module, torch.nn.BatchNorm2d):
@@ -100,15 +106,15 @@ class FTJob(M, ABC):
             n = self._recurse_train(self)
             logging.debug('Kept {} bn layers in eval mode'.format(n))
 
-    @ abstractclassmethod
+    @abstractclassmethod
     def transfer_from_model(cls, state):
         raise NotImplementedError
 
-    @ abstractmethod
+    @abstractmethod
     def load_post_hook(self, **ft_params):
         raise NotImplementedError
 
-    @ classmethod
+    @classmethod
     def load(cls, dir_name, build_module=True, **kw):
 
         try:
@@ -150,7 +156,7 @@ class FTJob(M, ABC):
         logging.debug('Model saved in {}'.format(dir_name))
         return dir_name
 
-    @ abstractmethod
+    @abstractmethod
     def finetune_batch(self, x_in, y_in, x_mix, **kw):
         """
         Has to return a tuple (L, in_loss, mix_loss) where L is the loss to retroproragate on, loss is a dict of loss
@@ -387,13 +393,13 @@ class FTJob(M, ABC):
                 running_loss = {'{}_{}'.format(_, k): mix_batch_loss[k][i_[_]].mean().item()
                                 for _, k in product(i_, mix_batch_loss) if k in self.printed_loss}
 
-                running_loss.update({'in_{}'.format(k):
-                                     in_batch_loss[k].mean().item() for k in in_batch_loss if k in self.printed_loss})
+                running_loss.update({'in_{}'.format(k): in_batch_loss[k].mean().item()
+                                     for k in in_batch_loss if k in self.printed_loss})
 
                 if not batch:
                     mean_loss = running_loss
                 else:
-                    for _, k in product(n_per_i_, self.printed_losses):
+                    for _, k in product(n_per_i_, self.printed_loss):
                         k_ = _ + '_' + k
                         if k in running_loss:
                             mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_])

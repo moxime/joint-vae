@@ -80,8 +80,8 @@ class WIMJob(FTJob):
             self.num_labels = self._original_num_labels
         return self.encoder.prior
 
-    @ property
-    @ contextmanager
+    @property
+    @contextmanager
     def original_prior(self):
         state = self.is_original_prior
         try:
@@ -89,8 +89,8 @@ class WIMJob(FTJob):
         finally:
             self.original_prior = state
 
-    @ property
-    @ contextmanager
+    @property
+    @contextmanager
     def alternate_prior(self):
         state = self.is_alternate_prior
         try:
@@ -98,11 +98,11 @@ class WIMJob(FTJob):
         finally:
             self.alternate_prior = state
 
-    @ alternate_prior.setter
+    @alternate_prior.setter
     def alternate_prior(self, b):
         self._switch_to_alternate_prior(b)
 
-    @ original_prior.setter
+    @original_prior.setter
     def original_prior(self, b):
         self.alternate_prior = not b
 
@@ -118,7 +118,7 @@ class WIMJob(FTJob):
         for p in self._alternate_prior.parameters():
             p.requires_grad_(False)
 
-    @ contextmanager
+    @contextmanager
     def evaluate_on_both_priors(self):
         state = self._evaluate_on_both_priors
         self._evaluate_on_both_priors = True
@@ -128,13 +128,6 @@ class WIMJob(FTJob):
     def evaluate(self, x, *a, **kw):
 
         if not self._evaluate_on_both_priors:
-            if self._with_estimated_labels:
-                x, y_ = x
-                o = super().evaluate(x, *a, **kw)
-                # losses is o[2]
-                if self.is_cvae:
-                    o[2].update({'y_est_already': y_})
-                    return o
 
             return super().evaluate(x, *a, **kw)
 
@@ -170,8 +163,8 @@ class WIMJob(FTJob):
             y_ = losses['y_est_already']
             logging.debug('y, [{}]'.format(', '.join(map(str, y_.shape))))
 
-            # for k in losses:
-            #     logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
+            for k in losses:
+                logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
 
             loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.unsqueeze(0)).squeeze(0) for k in k_}
             # for k in loss_['y']:
@@ -221,7 +214,7 @@ class WIMJob(FTJob):
 
         return dist_measures
 
-    @ classmethod
+    @classmethod
     def transfer_from_model(cls, state):
         state['_original_prior.mean'] = torch.clone(state['encoder.prior.mean'])
         state['_original_prior._var_parameter'] = torch.clone(state['encoder.prior._var_parameter'])
@@ -251,7 +244,6 @@ class WIMJob(FTJob):
                                                          with_beta=True)
 
         L = in_batch_loss['total'].mean()
-        in_batch_loss = {'train_{}'.format(k): in_batch_loss[k] for k in in_batch_loss}
 
         self.alternate_prior = True
         """
@@ -273,7 +265,5 @@ class WIMJob(FTJob):
 
         _, _, mix_batch_loss, _ = o
         L += alpha * mix_batch_loss['total'].mean()
-
-        in_batch_loss.update({'mix_{}'.format(k): in_batch_loss[k] for k in mix_batch_loss})
 
         return L, in_batch_loss, mix_batch_loss

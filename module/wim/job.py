@@ -61,7 +61,7 @@ class WIMJob(M):
 
         self.ood_methods = self.ood_methods_per_type[self.type].copy()
 
-    @ classmethod
+    @classmethod
     def is_wim(cls, d):
         return os.path.exists(os.path.join(d, 'wim.json'))
 
@@ -191,8 +191,8 @@ class WIMJob(M):
             y_ = losses['y_est_already']
             logging.debug('y, [{}]'.format(', '.join(map(str, y_.shape))))
 
-            # for k in losses:
-            #     logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
+            for k in losses:
+                logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
 
             loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.unsqueeze(0)).squeeze(0) for k in k_}
             # for k in loss_['y']:

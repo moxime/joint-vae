@@ -156,6 +156,7 @@ class SubSampledDataset(Dataset):
     @ bar.setter
     def bar(self, b):
         assert isinstance(b, bool)
+
         self._bar = b
 
         if b:
@@ -164,6 +165,13 @@ class SubSampledDataset(Dataset):
             self._idx = self._idx_
 
         self._length = len(self._idx)
+
+    def bar_(self):
+
+        _idx_ = self._bar_idx_
+        self._bar_idx_ = self._idx_
+        self._idx_ = _idx_
+        self.bar = self._bar
 
     def shrink(self, length=None):
 
@@ -394,6 +402,15 @@ class MixtureDataset(Dataset):
 
         self._cum_lengths = [0] + list(accumulate(self._lengths))
 
+    def bar_(self):
+        for d in self._datasets:
+            d.bar_()
+
+        self._lengths = [len(d) for d in self._datasets]
+        self._length = sum(self._lengths)
+
+        self._cum_lengths = [0] + list(accumulate(self._lengths))
+
 
 def create_moving_set(ind, transformer, data_augmentation,
                       moving_size, ood_mix, oodsets,
@@ -418,18 +435,17 @@ def create_moving_set(ind, transformer, data_augmentation,
         if _ in oodsets:
             set_bar = ood_set.extract_subdataset(_)
             set_bar = SubSampledDataset(ood_sets[_], seed=seed, task=task, length=len(set_bar))
-            set_bar.bar = True
-            set_bar._bar = False
+            set_bar.bar_()
             padding_sets[_] = set_bar
 
     ind_set_bar = SubSampledDataset(testset, seed=seed, task=task, length=len(ind_set))
-    ind_set_bar.bar = True
-    ind_set_bar._bar = False
+    ind_set_bar.bar_()
 
     padding_mix = {_: (1 - padding_ind_mix) / len(padding_sets) for _ in padding_sets}
 
-    padding_sets['ind'] = ind_set_bar
-    padding_mix['ind'] = padding_ind_mix
+    if padding_ind_mix > 0:
+        padding_sets['ind'] = ind_set_bar
+        padding_mix['ind'] = padding_ind_mix
 
     padding_set = MixtureDataset(seed=seed, task=task, **padding_sets,
                                  mix=padding_mix,
@@ -502,5 +518,14 @@ if __name__ == '__main__':
 
         print(s, *u.values())
 
-    print(len(moving_set) / (1 + args.pad))
-    print(len(moving_set) // (1 + args.pad))
+    print('\n\n')
+
+    moving_set.bar = False
+
+    print(len(moving_set))
+
+    print('\n\n')
+
+    moving_set.bar = True
+
+    print(len(moving_set))

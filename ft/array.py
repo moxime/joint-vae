@@ -15,7 +15,7 @@ wim_job_filter = DictOfListsOfParamFilters()
 wim_job_filter.add('wim_from', ParamFilter(type=int, any_value=True))
 
 
-class WIMArray(FTJob):
+class FTArray(FTJob):
 
     def __init__(self, *a, fetch_dir='wim-jobs', **kw):
 
@@ -23,10 +23,6 @@ class WIMArray(FTJob):
         self._fecth_dir = fetch_dir
         self._jobs = {'known': set(), 'rec': set()}
         self._rec_dir = None
-
-    @classmethod
-    def is_wim_array(cls, d):
-        return os.path.exists(os.path.join(d, JOB_FILE_NAME))
 
     def finetune(self, *a, **kw):
 
@@ -250,6 +246,13 @@ class WIMArray(FTJob):
         logging.debug('Found {} already processed jobs'.format(len(jobs)))
 
         return jobs
+
+
+class WIMArray(FTArray, WIMJob):
+
+    @classmethod
+    def is_wim_array(cls, d):
+        return os.path.exists(os.path.join(d, JOB_FILE_NAME))
 
 
 if __name__ == '__main__':

@@ -385,6 +385,10 @@ class FTJob(M, ABC):
                                                                        x_a.to(device), y_a.to(device),
                                                                        x_u.to(device), **kw)
 
+                L.backward()
+                optimizer.step()
+                optimizer.clip(self.parameters())
+
                 running_loss = {'{}_{}'.format(_, k): mix_batch_loss[k][i_[_]].mean().item()
                                 for _, k in product(i_, mix_batch_loss) if k in self.printed_loss}
 

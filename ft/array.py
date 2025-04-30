@@ -65,8 +65,6 @@ class FTArray(FTJob):
 
         model = super().load(dir_name, *a, load_state=load_state, **kw)
 
-        print(cls, model.ood_results)
-
         a = available_results(model, where=('recorders',), min_samples_by_class=0)
         epoch = max(a)
         a = a[epoch]

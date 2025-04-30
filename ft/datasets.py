@@ -406,7 +406,9 @@ def create_moving_set(ind, transformer, data_augmentation,
     ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in oodsets}
 
     ood_set = MixtureDataset(mix=1, seed=seed, task=task, **ood_sets, length=int(ood_mix * moving_size))
-    ind_set = SubSampledDataset(testset, seed=seed, task=task, length=int((1 - ood_mix) * moving_size))
+    ind_set = SubSampledDataset(testset, seed=seed, task=task, length=moving_size - len(ood_set))
+
+    print('MIX : {:.4%}'.format(len(ood_set) / (len(ood_set) + len(ind_set))))
 
     padding_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['train'])[0]
                     for _ in padding_sets}
@@ -478,6 +480,10 @@ if __name__ == '__main__':
 
     subsets = {_: moving_set.extract_subdataset(_) for _ in moving_set.classes}
 
+    for _ in subsets:
+
+        print(_, len(subsets[_]))
+
     sets = {w: {_: subsets[w] .extract_subdataset(_) for _ in subsets[w].classes} for w in ['ood', 'pad']}
     sets['ind'] = {'ind': subsets['ind']}
 
@@ -495,3 +501,6 @@ if __name__ == '__main__':
         print(s, unique(*[sets[_][s] for _ in sets if s in sets[_]]))
 
         print(s, *u.values())
+
+    print(len(moving_set) / (1 + args.pad))
+    print(len(moving_set) // (1 + args.pad))

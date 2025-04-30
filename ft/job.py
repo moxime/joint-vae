@@ -135,6 +135,8 @@ class FTJob(M, ABC):
 
             logging.debug('Reset results')
 
+            model.ood_results = {}
+
         try:
             ft_params = load_json(dir_name, cls.ft_param_file)
             logging.debug('Model was already a ft')
@@ -146,8 +148,6 @@ class FTJob(M, ABC):
             logging.debug('Model loaded has been detected as not wim')
             logging.debug('Reset results')
             model.ood_results = {}
-
-        print(cls, model.ood_results)
 
         return model
 

@@ -293,6 +293,7 @@ class FTJob(M, ABC):
         logging.info('Size of moving set before bar: {}'.format(len(moving_set)))
         logging.debug(str(moving_set))
         moving_set.bar = self._generalize  #  FOR POSCOD
+        logging.info('Do test on set.bar: {} ({})'.format(moving_set.bar, self._generalize))
         logging.info('Size of moving set after bar: {}'.format(len(moving_set)))
         logging.debug(str(moving_set))
         ood_ = moving_set.extract_subdataset('ood')

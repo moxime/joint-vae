@@ -1,2 +1,2 @@
-from .wimjob import WIMJob
+from .wim import WIMJob
 from .poscod import PoscodJob

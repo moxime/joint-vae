@@ -1,4 +1,15 @@
+from itertools import accumulate
+
+import numpy as np
+
 from torch.utils.data import Dataset
+import torch
+
+import utils.torch_load as torchdl
+
+import logging
+
+logger = logging.getLogger('sets')
 
 
 class ListofTensors(list):
@@ -221,13 +232,14 @@ class MixtureDataset(Dataset):
 
         self._mix = mix
 
-        self.maxlength = int(min(np.ceil(d.maxlength / m) for d, m in zip(self._datasets, np.array(self._mix))))
+        self.maxlength = int(min(np.ceil(d.maxlength / m)
+                             for d, m in zip(self._datasets, np.array(self._mix)) if m > 0))
 
         self.shrink(length)
 
     def shrink(self, length=None):
 
-        unit_length = int(min(np.floor(len(d) / m) for d, m in zip(self._datasets, np.array(self._mix))))
+        unit_length = int(min(np.floor(len(d) / m) for d, m in zip(self._datasets, np.array(self._mix)) if m > 0))
         max_length = self.maxlength
 
         if length is None:
@@ -381,3 +393,105 @@ class MixtureDataset(Dataset):
         self._length = sum(self._lengths)
 
         self._cum_lengths = [0] + list(accumulate(self._lengths))
+
+
+def create_moving_set(ind, transformer, data_augmentation,
+                      moving_size, ood_mix, oodsets,
+                      padding_sets, padding=0., padding_ind_mix=0.,
+                      seed=0, task=None):
+
+    trainset, testset = torchdl.get_dataset(ind, transformer=transformer,
+                                            data_augmentation=data_augmentation)
+
+    ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in oodsets}
+
+    ood_set = MixtureDataset(mix=1, seed=seed, task=task, **ood_sets, length=int(ood_mix * moving_size))
+    ind_set = SubSampledDataset(testset, seed=seed, task=task, length=int((1 - ood_mix) * moving_size))
+
+    padding_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['train'])[0]
+                    for _ in padding_sets}
+
+    for _ in padding_sets:
+
+        if _ in oodsets:
+            set_bar = ood_set.extract_subdataset(_)
+            set_bar = SubSampledDataset(ood_sets[_], seed=seed, task=task, length=len(set_bar))
+            set_bar.bar = True
+            set_bar._bar = False
+            padding_sets[_] = set_bar
+
+    ind_set_bar = SubSampledDataset(testset, seed=seed, task=task, length=len(ind_set))
+    ind_set_bar.bar = True
+    ind_set_bar._bar = False
+
+    padding_mix = {_: (1 - padding_ind_mix) / len(padding_sets) for _ in padding_sets}
+
+    padding_sets['ind'] = ind_set_bar
+    padding_mix['ind'] = padding_ind_mix
+
+    padding_set = MixtureDataset(seed=seed, task=task, **padding_sets,
+                                 mix=padding_mix,
+                                 length=int(padding * moving_size))
+
+    moving_sets = {'ood': ood_set, 'ind': ind_set, 'pad': padding_set}
+
+    moving_set = MixtureDataset(mix={_: len(moving_sets[_]) for _ in moving_sets},
+                                seed=seed, task=task, **moving_sets)
+
+    return moving_set
+
+
+if __name__ == '__main__':
+
+    import argparse
+
+    def hash_tensor(tensor):
+        return hash(tuple(tensor.reshape(-1).tolist()))
+
+    def unique(*sets):
+
+        alls = set()
+
+        for s in sets:
+            alls = alls.union([hash_tensor(_[0]) for _ in s])
+
+        return len(alls)
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('ind')
+    parser.add_argument('--oods', nargs='*')
+    parser.add_argument('--mix', type=float, default=0.5)
+    parser.add_argument('--pad', type=float, default=0.0)
+    parser.add_argument('--pad-sets', nargs='*', default=['const32'])
+    parser.add_argument('--pad-ind', default=0.0, type=float)
+    parser.add_argument('--task', type=int)
+    parser.add_argument('--seed', type=int, default=0)
+
+    args = parser.parse_args()
+
+    moving_set = create_moving_set(args.ind, 'default', [], 512, args.mix, args.oods,
+                                   args.pad_sets, args.pad, padding_ind_mix=args.pad_ind,
+                                   seed=args.seed, task=args.task)
+
+    print(len(moving_set))
+
+    subsets = {_: moving_set.extract_subdataset(_) for _ in moving_set.classes}
+
+    sets = {w: {_: subsets[w] .extract_subdataset(_) for _ in subsets[w].classes} for w in ['ood', 'pad']}
+    sets['ind'] = {'ind': subsets['ind']}
+
+    allsets = set()
+    for _ in sets:
+        allsets = allsets.union(set(sets[_]))
+
+    for w in sets:
+        print(w, ':', ' '.join('{}: {}'.format(_, len(sets[w][_])) for _ in sets[w]))
+
+    for s in allsets:
+        u = {_: unique(sets[_][s]) for _ in sets if s in sets[_]}
+        u['sum'] = sum(u.values())
+        u['all'] = unique(*[sets[_][s] for _ in sets if s in sets[_]])
+        print(s, unique(*[sets[_][s] for _ in sets if s in sets[_]]))
+
+        print(s, *u.values())

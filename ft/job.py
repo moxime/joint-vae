@@ -10,13 +10,13 @@ import numpy as np
 
 import torch
 from cvae import ClassificationVariationalNetwork as M
-from module.priors import build_prior
 
 from utils.save_load import MissingKeys, save_json, load_json, fetch_models, make_dict_from_model
 from utils.save_load import LossRecorder
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
 import utils.torch_load as torchdl
-from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
+from utils.torch_load import collate
+from .datasets import MixtureDataset, EstimatedLabelsDataset, create_moving_set
 from utils.print_log import EpochOutput
 
 
@@ -135,8 +135,6 @@ class FTJob(M, ABC):
 
             logging.debug('Reset results')
 
-        model.ood_results = {}
-
         try:
             ft_params = load_json(dir_name, cls.ft_param_file)
             logging.debug('Model was already a ft')
@@ -148,6 +146,8 @@ class FTJob(M, ABC):
             logging.debug('Model loaded has been detected as not wim')
             logging.debug('Reset results')
             model.ood_results = {}
+
+        print(cls, model.ood_results)
 
         return model
 
@@ -171,8 +171,8 @@ class FTJob(M, ABC):
                  train_size=100000,
                  epochs=None,
                  moving_size=10000,
-                 augmentation=0.,
-                 augmentation_sets=[],
+                 padding=0.,
+                 padding_sets=[],
                  ood_mix=0.5,
                  test_batch_size=8192,
                  optimizer=None,
@@ -195,8 +195,8 @@ class FTJob(M, ABC):
         self.ft_params['train_size'] = train_size
         self.ft_params['moving_size'] = moving_size
         self.ft_params['mix'] = ood_mix
-        self.ft_params['augmentation'] = augmentation
-        self.ft_params['augmentation_sets'] = augmentation_sets
+        self.ft_params['padding'] = padding
+        self.ft_params['padding_sets'] = padding_sets
         self.ft_params.update(**kw)
 
         transformer = self.training_parameters['transformer']
@@ -220,22 +220,25 @@ class FTJob(M, ABC):
 
         set_name = self.training_parameters['set']
 
-        default_augmentation_sets = {d: [_ for _ in torchdl.get_same_size_by_name(set_name)
-                                         if _.startswith(d)][0] for d in ('const', 'uniform')}
+        default_padding_sets = {d: [_ for _ in torchdl.get_same_size_by_name(set_name)
+                                    if _.startswith(d)][0] for d in ('const', 'uniform')}
 
-        if not augmentation_sets:
-            augmentation_sets = ['uniform', 'const']
+        if not padding_sets:
+            padding_sets = ['uniform', 'const']
 
-        augmentation_sets = [default_augmentation_sets.get(_, _) for _ in augmentation_sets]
+        padding_sets = [default_padding_sets.get(_, _) for _ in padding_sets]
 
-        if not augmentation:
-            self.ft_params['augmentation_sets'] = []
-            logging.debug('Will not augment moving batch')
+        if not padding:
+            self.ft_params['padding_sets'] = []
+            logging.debug('Will not pad moving batch')
 
         else:
-            self.ft_params['augmentation_sets'] = augmentation_sets
-            tmpstr = 'Will augment moving batch with {:.0%} more of {}'
-            logging.info(tmpstr.format(augmentation, '-'.join(augmentation_sets)))
+            self.ft_params['padding_sets'] = padding_sets
+            tmpstr = 'Will pad moving batch with {:.0%} more of {}'
+            logging.info(tmpstr.format(padding, '-'.join(padding_sets)))
+
+        moving_set = create_moving_set(set_name, transformer, data_augmentation, moving_size, ood_mix, sets,
+                                       padding_sets, padding=padding, seed=subset_idx_seed, task=subset_idx_task)
 
         max_batch_sizes = self.max_batch_sizes
 
@@ -248,27 +251,14 @@ class FTJob(M, ABC):
                                                 transformer=transformer,
                                                 data_augmentation=data_augmentation)
 
-        augmentation_sets_ = {_: torchdl.get_dataset(_, transformer=transformer, splits=['train'])[0]
-                              for _ in augmentation_sets}
-
         logging.info('Will do finetune (task {}/{})'.format(task, number_of_tasks))
-
-        augmentation_set = MixtureDataset(**augmentation_sets_, mix=1, seed=subset_idx_seed,)
-
-        logging.debug('ood set with sets {}'.format(','.join(ood_set.classes)))
-
-        moving_set = MixtureDataset(ood=ood_set, ind=testset, augment=augmentation_set,
-                                    mix={'ood': ood_mix, 'ind': 1 - ood_mix, 'augment': augmentation},
-                                    seed=subset_idx_seed,
-                                    task=subset_idx_task,
-                                    length=moving_size + int(augmentation * moving_size))
 
         _s = 'Moving set of length {}, with mixture {}'
         _s = _s.format(len(moving_set), ', '.join('{}:{:.1%}'.format(n, m)
                                                   for n, m in zip(moving_set.classes, moving_set.mix)))
         logging.info(_s)
 
-        actual_moving_size = int(len(moving_set) // (1 + augmentation))
+        actual_moving_size = int(len(moving_set) // (1 + padding))
         if actual_moving_size < moving_size:
             self.ft_params['moving_size'] = actual_moving_size
             logging.warning('Moving size reduced to {} (instead of {})'.format(actual_moving_size, moving_size))

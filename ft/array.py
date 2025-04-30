@@ -65,6 +65,8 @@ class FTArray(FTJob):
 
         model = super().load(dir_name, *a, load_state=load_state, **kw)
 
+        print(cls, model.ood_results)
+
         a = available_results(model, where=('recorders',), min_samples_by_class=0)
         epoch = max(a)
         a = a[epoch]
@@ -88,7 +90,7 @@ class FTArray(FTJob):
         assert model._jobs['rec'].issubset(model._jobs['known']), 'some recorded jobs are not known'
 
         if not model._jobs['rec']:
-            model.wim_params['array_size'] = 0
+            model.ft_params['array_size'] = 0
             model._rec_dir = None
         return model
 
@@ -163,9 +165,9 @@ class FTArray(FTJob):
                 job_recorders[s].merge(job_rec, axis='keys')
 
             try:
-                self.wim_params['array_size'] += 1
+                self.ft_params['array_size'] += 1
             except KeyError:
-                self.wim_params['array_size'] = 1
+                self.ft_params['array_size'] = 1
 
             for _ in job_recorders:
 

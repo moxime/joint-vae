@@ -1,23 +1,11 @@
 import os
 from contextlib import contextmanager
 import logging
-import time
 
-from itertools import cycle, product
-
-import numpy as np
 
 import torch
 from torch.nn import Linear, Dropout, Sequential, Parameter
-from module.priors import build_prior
 from ft.job import FTJob
-
-from utils.save_load import MissingKeys, save_json, load_json, fetch_models, make_dict_from_model
-from utils.save_load import LossRecorder, SampleRecorder
-from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys
-import utils.torch_load as torchdl
-from utils.torch_load import MixtureDataset, EstimatedLabelsDataset, collate
-from utils.print_log import EpochOutput
 
 
 class PoscodJob(FTJob):
@@ -167,12 +155,12 @@ class PoscodJob(FTJob):
         state['_original_prior.mean'] = torch.clone(state['encoder.prior.mean'])
         state['_original_prior._var_parameter'] = torch.clone(state['encoder.prior._var_parameter'])
 
-    def load_post_hook(self, **wim_params):
+    def load_post_hook(self, **ft_params):
         for k in ('sets', 'alpha', 'train_size', 'moving_size',
-                  'augmentation', 'augmentation_sets',
+                  'padding', 'padding_sets',
                   'from', 'mix', 'hash', 'array_size'):
-            wim_params.pop(k, None)
-        self.set_alternate_prior(**wim_params)
+            ft_params.pop(k, None)
+        self.set_alternate_prior(**ft_params)
 
     def finetune_batch(self, batch, epoch, x_in, y_in, x_mix, alpha=0.1):
 

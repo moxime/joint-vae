@@ -1,5 +1,4 @@
 from collections import namedtuple
-from itertools import accumulate
 from torchvision import datasets, transforms
 import torchvision
 import torch

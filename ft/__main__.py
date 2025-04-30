@@ -9,7 +9,7 @@ from utils.print_log import EpochOutput, turnoff_debug
 from utils.save_load import model_subdir, SampleRecorder
 
 from .job import DontDoFineTuning
-from .wimjob import WIMJob
+from .wim import WIMJob
 from .scheduler import Scheduler
 
 from .array import WIMArray
@@ -63,9 +63,9 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--moving-size', type=int)
     parser.add_argument('--epochs', type=int)
 
-    parser.add_argument('--augmentation', type=float, nargs='?', const=1.0, default=0.)
+    parser.add_argument('--padding', type=float, nargs='?', const=1.0, default=0.)
 
-    parser.add_argument('--augmentation-sets', nargs='*', default='')
+    parser.add_argument('--padding-sets', nargs='*', default='')
 
     parser.add_argument('--test-batch-size', type=int)
 
@@ -196,7 +196,7 @@ if __name__ == '__main__':
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
-    augmentation_sets = sum((_.split('-') for _ in args.augmentation_sets), [])
+    padding_sets = sum((_.split('-') for _ in args.padding_sets), [])
 
     save_dir_root = os.path.join(args.wim_job_dir, dataset,
                                  model.print_architecture(sampling=False),
@@ -228,8 +228,8 @@ if __name__ == '__main__':
                        test_batch_size=args.test_batch_size,
                        alpha=args.alpha,
                        ood_mix=args.mix,
-                       augmentation=args.augmentation,
-                       augmentation_sets=augmentation_sets,
+                       padding=args.padding,
+                       padding_sets=padding_sets,
                        optimizer=optimizer,
                        outputs=outputs,
                        seed=args.sampling_seed,

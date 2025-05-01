@@ -161,7 +161,7 @@ class FTJob(M, ABC):
         return dir_name
 
     @abstractmethod
-    def finetune_batch(self, x_in, y_in, x_mix, **kw):
+    def finetune_batch(self, epoch, batch, x_in, y_in, x_mix, **kw):
         """
         Has to return a tuple (L, in_loss, mix_loss) where L is the loss to retroproragate on, loss is a dict of loss
         """
@@ -381,7 +381,7 @@ class FTJob(M, ABC):
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
-                L, in_batch_loss, mix_batch_loss = self.finetune_batch(batch, epoch,
+                L, in_batch_loss, mix_batch_loss = self.finetune_batch(epoch, batch,
                                                                        x_a.to(device), y_a.to(device),
                                                                        x_u.to(device), **kw)
 

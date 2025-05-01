@@ -212,10 +212,10 @@ class WIMJob(FTJob):
             ft_params.pop(k, None)
         self.set_alternate_prior(**ft_params)
 
-    def finetune_batch(self, batch, epoch, x_in, y_in, x_mix, alpha=0.1):
+    def finetune_batch(self, epoch, batch, x_in, y_in, x_mix, alpha=0.1):
 
-        if not (batch * epoch):
-            logging.info('wim alpha = {}'.format(alpha))
+        self._evaluate_on_both_priors = False
+
         self.original_prior = True
         """
 

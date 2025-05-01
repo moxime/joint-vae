@@ -336,6 +336,13 @@ class FTJob(M, ABC):
         for epoch in range(epochs):
 
             per_epoch = min(train_size, len(moving_set)) // batch_size
+
+            if not epoch:
+                logging.info('{} epochs of {} batches of size {} ({} samples)'.format(epochs,
+                                                                                      per_epoch,
+                                                                                      batch_size,
+                                                                                      epochs * per_epoch * batch_size))
+
             train_size -= per_epoch * batch_size
             self.eval()
 

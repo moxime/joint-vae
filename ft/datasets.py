@@ -414,7 +414,7 @@ class MixtureDataset(Dataset):
 
 def create_moving_set(ind, transformer, data_augmentation,
                       moving_size, ood_mix, oodsets,
-                      padding_sets, padding=0., padding_ind_mix=0.,
+                      padding_sets, padding=0., ind_padding=0.,
                       seed=0, task=None):
 
     trainset, testset = torchdl.get_dataset(ind, transformer=transformer,
@@ -441,15 +441,15 @@ def create_moving_set(ind, transformer, data_augmentation,
     ind_set_bar = SubSampledDataset(testset, seed=seed, task=task, length=len(ind_set))
     ind_set_bar.bar_()
 
-    padding_mix = {_: (1 - padding_ind_mix) / len(padding_sets) for _ in padding_sets}
+    padding_mix = {_: padding / len(padding_sets) for _ in padding_sets}
 
-    if padding_ind_mix > 0:
+    if ind_padding > 0:
         padding_sets['ind'] = ind_set_bar
-        padding_mix['ind'] = padding_ind_mix
+        padding_mix['ind'] = ind_padding
 
     padding_set = MixtureDataset(seed=seed, task=task, **padding_sets,
                                  mix=padding_mix,
-                                 length=int(padding * moving_size))
+                                 length=int((padding + ind_padding) * moving_size))
 
     moving_sets = {'ood': ood_set, 'ind': ind_set, 'pad': padding_set}
 
@@ -489,7 +489,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     moving_set = create_moving_set(args.ind, 'default', [], 512, args.mix, args.oods,
-                                   args.pad_sets, args.pad, padding_ind_mix=args.pad_ind,
+                                   args.pad_sets, args.pad, ind_padding=args.pad_ind,
                                    seed=args.seed, task=args.task)
 
     print(len(moving_set))
@@ -516,7 +516,7 @@ if __name__ == '__main__':
         u['all'] = unique(*[sets[_][s] for _ in sets if s in sets[_]])
         print(s, unique(*[sets[_][s] for _ in sets if s in sets[_]]))
 
-        print(s, *u.values())
+        print(s, ' + '.join(map(str, list(u.values())[:-2])), '= {} ({})'.format(*list(u.values())[-2:]))
 
     print('\n\n')
 

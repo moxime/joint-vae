@@ -67,6 +67,10 @@ if __name__ == '__main__':
 
     parser.add_argument('--padding-sets', nargs='*', default='')
 
+    parser.add_argument('--padding', type=float, nargs='?', const=1.0, default=0.)
+
+    parser.add_argument('--ind-padding', type=float, nargs='?', const=1.0, default=0.)
+
     parser.add_argument('--test-batch-size', type=int)
 
     parser.add_argument('--prior', choices=['gaussian', 'tilted', 'uniform'])
@@ -229,6 +233,7 @@ if __name__ == '__main__':
                        alpha=args.alpha,
                        ood_mix=args.mix,
                        padding=args.padding,
+                       ind_padding=args.ind_padding,
                        padding_sets=padding_sets,
                        optimizer=optimizer,
                        outputs=outputs,

@@ -173,6 +173,7 @@ class FTJob(M, ABC):
                  moving_size=10000,
                  padding=0.,
                  padding_sets=[],
+                 ind_padding=0.,
                  ood_mix=0.5,
                  test_batch_size=8192,
                  optimizer=None,
@@ -197,6 +198,7 @@ class FTJob(M, ABC):
         self.ft_params['mix'] = ood_mix
         self.ft_params['padding'] = padding
         self.ft_params['padding_sets'] = padding_sets
+        self.ft_params['ind_padding'] = ind_padding
         self.ft_params.update(**kw)
 
         transformer = self.training_parameters['transformer']
@@ -238,7 +240,8 @@ class FTJob(M, ABC):
             logging.info(tmpstr.format(padding, '-'.join(padding_sets)))
 
         moving_set = create_moving_set(set_name, transformer, data_augmentation, moving_size, ood_mix, sets,
-                                       padding_sets, padding=padding, seed=subset_idx_seed, task=subset_idx_task)
+                                       padding_sets, padding=padding, ind_padding=ind_padding,
+                                       seed=subset_idx_seed, task=subset_idx_task)
 
         max_batch_sizes = self.max_batch_sizes
 
@@ -258,7 +261,7 @@ class FTJob(M, ABC):
                                                   for n, m in zip(moving_set.classes, moving_set.mix)))
         logging.info(_s)
 
-        actual_moving_size = int(len(moving_set) // (1 + padding))
+        actual_moving_size = int(len(moving_set) // (1 + padding + ind_padding))
         if actual_moving_size < moving_size:
             self.ft_params['moving_size'] = actual_moving_size
             logging.warning('Moving size reduced to {} (instead of {})'.format(actual_moving_size, moving_size))
@@ -312,11 +315,11 @@ class FTJob(M, ABC):
                 self.ood_results = {}
         moving_set.bar = False
 
-        trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=batch_size,
-                                                  # pin_memory=True,
-                                                  shuffle=True,
-                                                  num_workers=0)
+        train_loader = torch.utils.data.DataLoader(trainset,
+                                                   batch_size=batch_size,
+                                                   # pin_memory=True,
+                                                   shuffle=True,
+                                                   num_workers=0)
 
         moving_loader = torch.utils.data.DataLoader(moving_set,
                                                     drop_last=True,
@@ -325,14 +328,14 @@ class FTJob(M, ABC):
                                                     num_workers=0)
 
         if epochs:
-            train_size = epochs * len(trainset)
+            train_size = epochs * len(moving_set)
             logging.debug('Train size override by epochs: {}'.format(train_size))
             self.ft_params['train_size'] = train_size
-        epochs = int(np.ceil(train_size / len(trainset)))
-        logging.debug('Epochs: {} / {} = {}'.format(train_size, len(trainset), epochs))
+        epochs = int(np.ceil(train_size / len(moving_set)))
+        logging.debug('Epochs: {} / {} = {}'.format(train_size, len(moving_set), epochs))
         for epoch in range(epochs):
 
-            per_epoch = min(train_size, len(trainset)) // batch_size
+            per_epoch = min(train_size, len(moving_set)) // batch_size
             train_size -= per_epoch * batch_size
             self.eval()
 
@@ -341,17 +344,17 @@ class FTJob(M, ABC):
 
             n_ = {'ind': 0, 'ood': 0, 'train': 0}
 
-            train_iter = iter(trainloader)
+            train_iter = iter(train_loader)
             moving_iter = iter(moving_loader)
 
             for batch in range(per_epoch):
 
-                x_a, y_a = next(train_iter)
+                x_u, y_u = next(moving_iter)
                 try:
-                    x_u, y_u = next(moving_iter)
+                    x_a, y_a = next(train_iter)
                 except StopIteration:
-                    moving_iter = iter(moving_loader)
-                    x_u, y_u = next(moving_iter)
+                    train_iter = iter(train_loader)
+                    x_a, y_a = next(train_iter)
 
                 if not batch and not epoch:
                     logging.debug('First epoch / first batch')

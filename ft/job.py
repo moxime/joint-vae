@@ -332,7 +332,7 @@ class FTJob(M, ABC):
             logging.debug('Train size override by epochs: {}'.format(train_size))
             self.ft_params['train_size'] = train_size
         epochs = int(np.ceil(train_size / len(moving_set)))
-        logging.debug('Epochs: {} / {} = {}'.format(train_size, len(moving_set), epochs))
+        logging.info('Epochs: {} / {} = {}'.format(train_size, len(moving_set), epochs))
         for epoch in range(epochs):
 
             per_epoch = min(train_size, len(moving_set)) // batch_size

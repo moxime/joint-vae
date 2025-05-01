@@ -149,8 +149,8 @@ class WIMJob(FTJob):
             y_ = losses['y_est_already']
             logging.debug('y, [{}]'.format(', '.join(map(str, y_.shape))))
 
-            for k in losses:
-                logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
+            # for k in losses:
+            #     logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
 
             loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.unsqueeze(0)).squeeze(0) for k in k_}
             # for k in loss_['y']:
@@ -214,6 +214,8 @@ class WIMJob(FTJob):
 
     def finetune_batch(self, batch, epoch, x_in, y_in, x_mix, alpha=0.1):
 
+        if not (batch * epoch):
+            logging.info('wim alpha = {}'.format(alpha))
         self.original_prior = True
         """
 
@@ -240,12 +242,12 @@ class WIMJob(FTJob):
 
         batch_size = len(x_mix)
         device = x_mix.device
-        y_u_est = torch.zeros(batch_size, device=device, dtype=int)
+        y_mix = torch.zeros(batch_size, device=device, dtype=int)
 
         self.train()
         with self.no_estimated_labels():
-            assert not y_u_est.any()
-            o = self.evaluate(x_mix, y_u_est,
+            assert not y_mix.any()
+            o = self.evaluate(x_mix, y_mix,
                               batch=batch,
                               with_beta=True)
 

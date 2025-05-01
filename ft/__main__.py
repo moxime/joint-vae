@@ -64,11 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int)
 
     parser.add_argument('--padding', type=float, nargs='?', const=1.0, default=0.)
-
     parser.add_argument('--padding-sets', nargs='*', default='')
-
-    parser.add_argument('--padding', type=float, nargs='?', const=1.0, default=0.)
-
     parser.add_argument('--ind-padding', type=float, nargs='?', const=1.0, default=0.)
 
     parser.add_argument('--test-batch-size', type=int)

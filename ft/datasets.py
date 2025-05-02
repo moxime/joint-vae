@@ -127,6 +127,7 @@ class SubSampledDataset(Dataset):
             self._idx_ = [i * self._sample_every_coarse // self.COARSE + _shifts[i]
                           for i in range(len(self))]
             self._bar_idx_ = [_ for _ in range(self.maxlength) if _ not in self._idx_]
+            # print('***', self.name, 'idx', self._idx_[:10], 'bar', self._bar_idx_[:10])
             self._idx = self._idx_
 
         elif self.sampling_mode == 'batch':
@@ -137,7 +138,7 @@ class SubSampledDataset(Dataset):
             batch = self._task + self._sample_every
             while batch >= self._sample_every:
                 batch -= self._sample_every
-                perm_idx = rng.permutation(self.maxlength)
+            perm_idx = rng.permutation(self.maxlength)
 
             self._idx_ = perm_idx[batch * len(self): (batch + 1) * len(self)]
             self._bar_idx_ = [_ for _ in perm_idx if _ not in self._idx_]
@@ -414,7 +415,7 @@ class MixtureDataset(Dataset):
 
 def create_moving_set(ind, transformer, data_augmentation,
                       moving_size, ood_mix, oodsets,
-                      padding_sets, padding=0., ind_padding=0.,
+                      padding_sets, padding=0., mix_padding=0.,
                       seed=0, task=None):
 
     trainset, testset = torchdl.get_dataset(ind, transformer=transformer,
@@ -425,33 +426,49 @@ def create_moving_set(ind, transformer, data_augmentation,
     ood_set = MixtureDataset(mix=1, seed=seed, task=task, **ood_sets, length=int(ood_mix * moving_size))
     ind_set = SubSampledDataset(testset, seed=seed, task=task, length=moving_size - len(ood_set))
 
-    print('MIX : {:.4%}'.format(len(ood_set) / (len(ood_set) + len(ind_set))))
-
     padding_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['train'])[0]
                     for _ in padding_sets}
 
     for _ in padding_sets:
-
         if _ in oodsets:
-            set_bar = ood_set.extract_subdataset(_)
-            set_bar = SubSampledDataset(ood_sets[_], seed=seed, task=task, length=len(set_bar))
-            set_bar.bar_()
-            padding_sets[_] = set_bar
 
-    ind_set_bar = SubSampledDataset(testset, seed=seed, task=task, length=len(ind_set))
-    ind_set_bar.bar_()
+            raise ValueError('{} is in ood sets and padding sets. Set padding_mix arg instead'.format(_))
+            # logging.warning('{} is in ood and '
+            # set_bar = ood_set.extract_subdataset(_)
+            # set_bar = SubSampledDataset(ood_sets[_], seed=seed, task=task, length=len(set_bar))
+            # set_bar.bar_()
+            # padding_sets[_] = set_bar
 
     padding_mix = {_: padding / len(padding_sets) for _ in padding_sets}
 
-    if ind_padding > 0:
-        padding_sets['ind'] = ind_set_bar
-        padding_mix['ind'] = ind_padding
-
     padding_set = MixtureDataset(seed=seed, task=task, **padding_sets,
                                  mix=padding_mix,
-                                 length=int((padding + ind_padding) * moving_size))
+                                 length=int(padding * moving_size))
 
     moving_sets = {'ood': ood_set, 'ind': ind_set, 'pad': padding_set}
+
+    if mix_padding:
+        padmix_sets = {}
+        padmix_mix = {}
+        ind_set_bar = SubSampledDataset(testset, seed=seed, task=task, length=len(ind_set))
+        ind_set_bar.bar_()
+
+        ood_set_bar = MixtureDataset(mix=1, seed=seed, task=task, **ood_sets, length=int(ood_mix * moving_size))
+        ood_set_bar.bar_()
+
+        padmix_sets['ood'] = ood_set_bar
+        padmix_mix['ood'] = mix_padding * ood_mix
+        padmix_sets['ind'] = ind_set_bar
+        padmix_mix['ind'] = mix_padding - padmix_mix['ood']
+
+        moving_sets['padmix'] = MixtureDataset(seed=seed, task=task, **padmix_sets,
+                                               mix=padmix_mix,
+                                               length=int(mix_padding * moving_size))
+
+        # for _ in ('ind', 'ood', 'padmix'):
+
+        #     print('***', _, len(moving_sets[_]))
+        # print('*** all', unique(*[moving_sets[_] for _ in ('ind', 'ood', 'padmix')]))
 
     moving_set = MixtureDataset(mix={_: len(moving_sets[_]) for _ in moving_sets},
                                 seed=seed, task=task, **moving_sets)
@@ -461,10 +478,11 @@ def create_moving_set(ind, transformer, data_augmentation,
 
 if __name__ == '__main__':
 
+    import sys
     import argparse
 
     def hash_tensor(tensor):
-        return hash(tuple(tensor.reshape(-1).tolist()))
+        return hash(tuple((tensor * 2**16).int().reshape(-1).tolist()))
 
     def unique(*sets):
 
@@ -478,43 +496,73 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('ind')
+    parser.add_argument('size', type=int)
     parser.add_argument('--oods', nargs='*')
     parser.add_argument('--mix', type=float, default=0.5)
     parser.add_argument('--pad', type=float, default=0.0)
     parser.add_argument('--pad-sets', nargs='*', default=['const32'])
-    parser.add_argument('--pad-ind', default=0.0, type=float)
+    parser.add_argument('--pad-mix', default=0.0, type=float)
     parser.add_argument('--task', type=int)
     parser.add_argument('--seed', type=int, default=0)
 
     args = parser.parse_args()
 
-    moving_set = create_moving_set(args.ind, 'default', [], 512, args.mix, args.oods,
-                                   args.pad_sets, args.pad, ind_padding=args.pad_ind,
+    moving_set = create_moving_set(args.ind, 'default', [], args.size, args.mix, args.oods,
+                                   args.pad_sets, args.pad, mix_padding=args.pad_mix,
                                    seed=args.seed, task=args.task)
 
-    print(len(moving_set))
+    print('total', len(moving_set))
 
     subsets = {_: moving_set.extract_subdataset(_) for _ in moving_set.classes}
 
     for _ in subsets:
 
-        print(_, len(subsets[_]))
+        print('|_', _, len(subsets[_]))
 
-    sets = {w: {_: subsets[w] .extract_subdataset(_) for _ in subsets[w].classes} for w in ['ood', 'pad']}
-    sets['ind'] = {'ind': subsets['ind']}
+    sets = {_: {} for _ in [args.ind] + args.oods + args.pad_sets}
 
-    allsets = set()
+    oodset = moving_set.extract_subdataset('ood')
+    paddingset = moving_set.extract_subdataset('pad')
+
+    if args.pad_mix:
+        padmixset = moving_set.extract_subdataset('padmix')
+
     for _ in sets:
-        allsets = allsets.union(set(sets[_]))
+        if _ == args.ind:
 
-    for w in sets:
-        print(w, ':', ' '.join('{}: {}'.format(_, len(sets[w][_])) for _ in sets[w]))
+            sets[_]['ind'] = moving_set.extract_subdataset('ind')
 
-    for s in allsets:
-        u = {_: unique(sets[_][s]) for _ in sets if s in sets[_]}
+            if args.pad_mix:
+                sets[_]['pad'] = padmixset.extract_subdataset('ind')
+
+        if _ in args.oods:
+
+            sets[_]['ood'] = oodset.extract_subdataset(_)
+            if args.pad_mix:
+                sets[_]['pad'] = padmixset.extract_subdataset('ood').extract_subdataset(_)
+
+        if _ in args.pad_sets:
+
+            sets[_]['pad'] = paddingset.extract_subdataset(_)
+
+    for s in sets:
+
+        print(s)
+
+        for _ in sets[s]:
+            print(' -', _, len(sets[s][_]))
+
+    for s, m in zip(moving_set.classes, moving_set.mix):
+        print('{:6}'.format(s), '{:.1%}'.format(m), int(m * len(moving_set)))
+
+    if args.pad_mix:
+        for s, m in zip(padmixset.classes, padmixset.mix):
+            print('|_{:6}'.format(s), '{:.1%}'.format(m), int(m * len(moving_set)))
+
+    for s in sets:
+        u = {_: unique(sets[s][_]) for _ in sets[s]}
         u['sum'] = sum(u.values())
-        u['all'] = unique(*[sets[_][s] for _ in sets if s in sets[_]])
-        print(s, unique(*[sets[_][s] for _ in sets if s in sets[_]]))
+        u['all'] = unique(*[sets[s][_] for _ in sets[s]])
 
         print(s, ' + '.join(map(str, list(u.values())[:-2])), '= {} ({})'.format(*list(u.values())[-2:]))
 

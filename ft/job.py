@@ -173,7 +173,7 @@ class FTJob(M, ABC):
                  moving_size=10000,
                  padding=0.,
                  padding_sets=[],
-                 ind_padding=0.,
+                 mix_padding=0.,
                  ood_mix=0.5,
                  test_batch_size=8192,
                  optimizer=None,
@@ -198,7 +198,7 @@ class FTJob(M, ABC):
         self.ft_params['mix'] = ood_mix
         self.ft_params['padding'] = padding
         self.ft_params['padding_sets'] = padding_sets
-        self.ft_params['ind_padding'] = ind_padding
+        self.ft_params['mix_padding'] = mix_padding
         self.ft_params.update(**kw)
 
         transformer = self.training_parameters['transformer']
@@ -240,7 +240,7 @@ class FTJob(M, ABC):
             logging.info(tmpstr.format(padding, '-'.join(padding_sets)))
 
         moving_set = create_moving_set(set_name, transformer, data_augmentation, moving_size, ood_mix, sets,
-                                       padding_sets, padding=padding, ind_padding=ind_padding,
+                                       padding_sets, padding=padding, mix_padding=mix_padding,
                                        seed=subset_idx_seed, task=subset_idx_task)
 
         max_batch_sizes = self.max_batch_sizes
@@ -261,7 +261,7 @@ class FTJob(M, ABC):
                                                   for n, m in zip(moving_set.classes, moving_set.mix)))
         logging.info(_s)
 
-        actual_moving_size = int(len(moving_set) // (1 + padding + ind_padding))
+        actual_moving_size = int(len(moving_set) // (1 + padding + mix_padding))
         if actual_moving_size < moving_size:
             self.ft_params['moving_size'] = actual_moving_size
             logging.warning('Moving size reduced to {} (instead of {})'.format(actual_moving_size, moving_size))

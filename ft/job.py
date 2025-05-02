@@ -179,7 +179,7 @@ class FTJob(M, ABC):
                  optimizer=None,
                  outputs=EpochOutput(),
                  seed=0,
-                 task=None,
+                 task=0,
                  sample_recorders={},
                  generalize=_generalize,
                  **kw
@@ -208,7 +208,7 @@ class FTJob(M, ABC):
         logging.info('Finetune batch size = {}'.format(batch_size))
 
         subset_idx_seed = seed
-        subset_idx_task = None if task == 'array' else task
+        subset_idx_task = 0 if task == 'array' else task
         if not subset_idx_seed:
             logging.warning('Will not attribute a pseudo randomization on subsets indices')
 
@@ -293,13 +293,11 @@ class FTJob(M, ABC):
         self.original_prior = True
         recorders = {_: LossRecorder(test_batch_size) for _ in list(sets) + [set_name]}
 
-        logging.info('Size of moving set before bar: {}'.format(len(moving_set)))
-        logging.debug(str(moving_set))
-        moving_set.bar = self._generalize  #  FOR POSCOD
-        logging.info('Do test on set.bar: {} ({})'.format(moving_set.bar, self._generalize))
-        logging.info('Size of moving set after bar: {}'.format(len(moving_set)))
         logging.debug(str(moving_set))
         ood_ = moving_set.extract_subdataset('ood')
+
+        if self._generalize:
+            raise NotImplementedError
 
         with self.no_estimated_labels():
             with torch.no_grad():
@@ -313,7 +311,6 @@ class FTJob(M, ABC):
                                          sample_recorders=sample_recorders,
                                          print_result='*')
                 self.ood_results = {}
-        moving_set.bar = False
 
         train_loader = torch.utils.data.DataLoader(trainset,
                                                    batch_size=batch_size,
@@ -436,7 +433,8 @@ class FTJob(M, ABC):
         logging.info('Computing ood fprs')
 
         self.eval()
-        moving_set.bar = self._generalize  #  FOR POSCOD
+        if self._generalize:
+            raise NotImplementedError
 
         testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
         oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]
@@ -464,7 +462,6 @@ class FTJob(M, ABC):
         with torch.no_grad():
             for s in sample_recorders:
                 sample_recorders[s].reset()
-            moving_set.bar = self._generalize
             self.ood_detection_rates(batch_size=test_batch_size,
                                      testset=testset,
                                      oodsets=oodsets,

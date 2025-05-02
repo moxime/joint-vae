@@ -66,9 +66,7 @@ class EstimatedLabelsDataset(Dataset):
 
 class SubSampledDataset(Dataset):
 
-    COARSE = 120
-
-    def __init__(self, dataset, length=None, seed=0, task=None):
+    def __init__(self, dataset, length=None, seed=0, task=0):
         """Args:
 
         -- dataset
@@ -95,12 +93,13 @@ class SubSampledDataset(Dataset):
         self._dataset = dataset
         self._seed = seed
         self.maxlength = len(dataset)
-        self.sampling_mode = 'slice' if task is None else 'batch'
         self._task = task
 
         self._length = self.maxlength
 
         self.name = 'sub-{}'.format(getattr(self._dataset, 'name', 'dataset'))
+
+        self._bar = False
 
         self.shrink(length)
 
@@ -109,91 +108,68 @@ class SubSampledDataset(Dataset):
         except AttributeError:
             dataset_name = 'unknown'
 
-        i_str = 'Creating dataset from {} of length {} with seed {} ({} mode {})'
-        logging.info(i_str.format(dataset_name, len(self), seed, self.sampling_mode, self._task))
+        i_str = 'Creating dataset from {} of length {} with seed {} (task {})'
+        logging.info(i_str.format(dataset_name, len(self), seed, self._task))
         try:
             self.classes = dataset.classes
         except AttributeError:
             pass
 
-        self._bar = False
+    def bar(self):
+
+        if not self._bar:
+            self._original_length = len(self)
+            self._bar = True
+            self._create_idx()
 
     def _create_idx(self):
 
         rng = np.random.default_rng(self._seed)
 
-        if self.sampling_mode == 'slice':
-            _shifts = rng.integers(0, self._sample_every, self._length) * (self._seed != 0)
-            self._idx_ = [i * self._sample_every_coarse // self.COARSE + _shifts[i]
-                          for i in range(len(self))]
-            self._bar_idx_ = [_ for _ in range(self.maxlength) if _ not in self._idx_]
-            # print('***', self.name, 'idx', self._idx_[:10], 'bar', self._bar_idx_[:10])
-            self._idx = self._idx_
+        if self._task >= self._sample_every:
+            w_str = 'Batch # {} >= {} sample_every'
+            logger.debug(w_str.format(self._task, self._sample_every))
 
-        elif self.sampling_mode == 'batch':
-            if self._task >= self._sample_every:
-                w_str = 'Batch # {} >= {} sample_every'
-                logger.debug(w_str.format(self._task, self._sample_every))
+        batch = self._task + self._sample_every
+        while batch >= self._sample_every:
+            batch -= self._sample_every
 
-            batch = self._task + self._sample_every
-            while batch >= self._sample_every:
-                batch -= self._sample_every
-            perm_idx = rng.permutation(self.maxlength)
-
-            self._idx_ = perm_idx[batch * len(self): (batch + 1) * len(self)]
-            self._bar_idx_ = [_ for _ in perm_idx if _ not in self._idx_]
-            self._idx = self._idx_
-
+        perm_idx = list(rng.permutation(self.maxlength))
+        if self._bar:
+            self._idx = perm_idx[(batch + 1) * self._original_length:] + perm_idx[:batch * self._original_length]
         else:
-            raise ValueError('sampling mode {} unknown'.format(self.sampling_mode))
+            self._idx = perm_idx[batch * len(self):]
+
+        self._idx = self._idx[:len(self)]
 
         logger.debug('Created idx for {} of size {}. Firsts: {}'.format(self.name, len(self._idx),
                                                                         '-'.join(map(str, self._idx[: 10]))))
 
-    @ property
-    def bar(self):
-        return self._bar
-
-    @ bar.setter
-    def bar(self, b):
-        assert isinstance(b, bool)
-
-        self._bar = b
-
-        if b:
-            self._idx = self._bar_idx_
-        else:
-            self._idx = self._idx_
-
-        self._length = len(self._idx)
-
-    def bar_(self):
-
-        _idx_ = self._bar_idx_
-        self._bar_idx_ = self._idx_
-        self._idx_ = _idx_
-        self.bar = self._bar
-
     def shrink(self, length=None):
 
         if length is None:
-            length = len(self._dataset)
+            if not self._bar:
+                length = len(self._dataset)
+            else:
+                length = len(self._dataset) - self._original_length
 
         if not length:
             self._length = 0
             return
 
-        length = min(length, self.maxlength)
+        if self._bar:
+            length = min(length, self.maxlength - self._original_length)
+            self._sample_every = len(self._dataset) // self._original_length
 
-        self._sample_every_coarse = self.COARSE * len(self._dataset) // length
-        self._sample_every = len(self._dataset) // length
+        else:
+            length = min(length, self.maxlength)
+            self._sample_every = len(self._dataset) // length
 
         old_length = self._length
         self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
         logging.info('Shrunk dataset {} {} to {}'.format(getattr(self, 'name', 'unknowmn'),
                                                          old_length,
                                                          len(self)))
-
         self._create_idx()
 
     def __len__(self):
@@ -242,7 +218,7 @@ class MixtureDataset(Dataset):
         self._mix = mix
 
         self.maxlength = int(min(np.ceil(d.maxlength / m)
-                             for d, m in zip(self._datasets, np.array(self._mix)) if m > 0))
+                                 for d, m in zip(self._datasets, np.array(self._mix)) if m > 0))
 
         self.shrink(length)
 
@@ -306,7 +282,7 @@ class MixtureDataset(Dataset):
         self._datasets = []
         for _, d in datasets.items():
             self._classes.append(_)
-            if isinstance(d, MixtureDataset):
+            if isinstance(d, (MixtureDataset, SubSampledDataset)):
                 self._datasets.append(d)
             else:
                 self._datasets.append(SubSampledDataset(d, seed=self._seed, task=self._task))
@@ -386,31 +362,9 @@ class MixtureDataset(Dataset):
         d.name = new_name
         return d
 
-    @ property
     def bar(self):
-        return self._bar
-
-    @ bar.setter
-    def bar(self, b):
-        assert isinstance(b, bool)
-        self._bar = b
-
         for d in self._datasets:
-            d.bar = b
-
-        self._lengths = [len(d) for d in self._datasets]
-        self._length = sum(self._lengths)
-
-        self._cum_lengths = [0] + list(accumulate(self._lengths))
-
-    def bar_(self):
-        for d in self._datasets:
-            d.bar_()
-
-        self._lengths = [len(d) for d in self._datasets]
-        self._length = sum(self._lengths)
-
-        self._cum_lengths = [0] + list(accumulate(self._lengths))
+            d.bar()
 
 
 def create_moving_set(ind, transformer, data_augmentation,
@@ -433,11 +387,6 @@ def create_moving_set(ind, transformer, data_augmentation,
         if _ in oodsets:
 
             raise ValueError('{} is in ood sets and padding sets. Set padding_mix arg instead'.format(_))
-            # logging.warning('{} is in ood and '
-            # set_bar = ood_set.extract_subdataset(_)
-            # set_bar = SubSampledDataset(ood_sets[_], seed=seed, task=task, length=len(set_bar))
-            # set_bar.bar_()
-            # padding_sets[_] = set_bar
 
     padding_mix = {_: padding / len(padding_sets) for _ in padding_sets}
 
@@ -451,10 +400,10 @@ def create_moving_set(ind, transformer, data_augmentation,
         padmix_sets = {}
         padmix_mix = {}
         ind_set_bar = SubSampledDataset(testset, seed=seed, task=task, length=len(ind_set))
-        ind_set_bar.bar_()
+        ind_set_bar.bar()
 
-        ood_set_bar = MixtureDataset(mix=1, seed=seed, task=task, **ood_sets, length=int(ood_mix * moving_size))
-        ood_set_bar.bar_()
+        ood_set_bar = MixtureDataset(mix=1, seed=seed, task=task, **ood_sets, length=len(ood_set))
+        ood_set_bar.bar()
 
         padmix_sets['ood'] = ood_set_bar
         padmix_mix['ood'] = mix_padding * ood_mix
@@ -480,6 +429,7 @@ if __name__ == '__main__':
 
     import sys
     import argparse
+    import time
 
     def hash_tensor(tensor):
         return hash(tuple((tensor * 2**16).int().reshape(-1).tolist()))
@@ -507,10 +457,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    print('Creating moving set')
+    t0 = time.time()
     moving_set = create_moving_set(args.ind, 'default', [], args.size, args.mix, args.oods,
                                    args.pad_sets, args.pad, mix_padding=args.pad_mix,
                                    seed=args.seed, task=args.task)
 
+    print('Done (in {:.0f}s)'.format(time.time() - t0))
     print('total', len(moving_set))
 
     subsets = {_: moving_set.extract_subdataset(_) for _ in moving_set.classes}
@@ -545,6 +498,10 @@ if __name__ == '__main__':
 
             sets[_]['pad'] = paddingset.extract_subdataset(_)
 
+    for _ in sets:
+        for s in sets[_]:
+            print(_, s, len(sets[_][s]))
+
     for s in sets:
 
         print(s)
@@ -565,15 +522,3 @@ if __name__ == '__main__':
         u['all'] = unique(*[sets[s][_] for _ in sets[s]])
 
         print(s, ' + '.join(map(str, list(u.values())[:-2])), '= {} ({})'.format(*list(u.values())[-2:]))
-
-    print('\n\n')
-
-    moving_set.bar = False
-
-    print(len(moving_set))
-
-    print('\n\n')
-
-    moving_set.bar = True
-
-    print(len(moving_set))

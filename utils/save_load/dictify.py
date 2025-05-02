@@ -771,6 +771,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     wim_mean = wim.get('mean_shift') or wim.get('init_mean')
     wim_mix = wim.get('mix')
     wim_padding = wim.get('padding', 0.)
+    wim_mix_padding = wim.get('padding', 0.)
     wim_padding_dataset = '-'.join(sorted(wim.get('padding_sets', []))) or None
     wim_padding_str = wim_padding_dataset and '{}+{:.0%}'.format(wim_padding_dataset,
                                                                  wim_padding)

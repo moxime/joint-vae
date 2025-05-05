@@ -776,7 +776,8 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
     wim_padding_str = wim_padding_dataset and '{}+{:.0%}'.format(wim_padding_dataset,
                                                                  wim_padding)
 
-    wim_padding_str += ('++{:.0%}'.format(wim_mix_padding) if wim_mix_padding else '')
+    if wim_mix_padding:
+        wim_padding_str = (wim_padding_str or '') + ('++{:.0%}'.format(wim_mix_padding) if wim_mix_padding else '')
 
     if isinstance(wim_mix, (list, tuple)):
         wim_mix = wim_mix[1] / sum(wim_mix)

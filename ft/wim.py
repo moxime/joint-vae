@@ -207,7 +207,7 @@ class WIMJob(FTJob):
 
     def load_post_hook(self, **ft_params):
         for k in ('sets', 'alpha', 'train_size', 'moving_size',
-                  'padding', 'wim_padding', 'padding_sets',
+                  'padding', 'mix_padding', 'padding_sets',
                   'from', 'mix', 'hash', 'array_size'):
             ft_params.pop(k, None)
         self.set_alternate_prior(**ft_params)

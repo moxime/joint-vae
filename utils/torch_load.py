@@ -226,9 +226,9 @@ class DTDConcatTestVal(torch.utils.data.ConcatDataset):
     def __init__(self, *a, split='test', **kw):
 
         if split == 'train':
-            splits = ['train', 'val']
+            splits = ['train']
         elif split == 'test':
-            splits = ['test']
+            splits = ['test', 'val']
         else:
             raise ValueError('{} unknown split for DTDConcatTestVal'.format(split))
 

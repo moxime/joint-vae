@@ -47,7 +47,8 @@ class EstimatedLabelsDataset(Dataset):
     def append_estimated(self, y_):
         if isinstance(y_, torch.Tensor):
             y_ = y_.cpu()
-        logging.info('Populating estimated laels with {} labels (dataset of length {})'.format(len(y_), len(self)))
+        tmp_s = 'Populating estimated laels with {} labels (dataset of length {})'
+        logging.info(tmp_s.format(len(y_), len(self)))
         self._estimated_labels += list(np.asarray(y_))
 
     def __len__(self):
@@ -115,32 +116,27 @@ class SubSampledDataset(Dataset):
         except AttributeError:
             pass
 
-    def bar(self):
+    def bar(self, b=True):
 
-        if not self._bar:
-            self._original_length = len(self)
-            self._bar = True
-            self._create_idx()
+        if b:
+            if not self._bar:
+                self._original_length = len(self)
+                self._bar = True
+                self.shrink()
+        else:
+            if self._bar:
+                self._bar = False
+                self.shrink(self._original_length)
 
     def _create_idx(self):
 
         rng = np.random.default_rng(self._seed)
 
-        if self._task >= self._sample_every:
+        if self._task >= self._num_batches:
             w_str = 'Batch # {} >= {} sample_every'
-            logger.debug(w_str.format(self._task, self._sample_every))
+            logger.debug(w_str.format(self._task, self._num_batches))
 
-        batch = self._task + self._sample_every
-        while batch >= self._sample_every:
-            batch -= self._sample_every
-
-        perm_idx = list(rng.permutation(self.maxlength))
-        if self._bar:
-            self._idx = perm_idx[(batch + 1) * self._original_length:] + perm_idx[:batch * self._original_length]
-        else:
-            self._idx = perm_idx[batch * len(self):]
-
-        self._idx = self._idx[:len(self)]
+        self._idx = list(rng.permutation(self.maxlength))
 
         logger.debug('Created idx for {} of size {}. Firsts: {}'.format(self.name, len(self._idx),
                                                                         '-'.join(map(str, self._idx[: 10]))))
@@ -159,14 +155,14 @@ class SubSampledDataset(Dataset):
 
         if self._bar:
             length = min(length, self.maxlength - self._original_length)
-            self._sample_every = len(self._dataset) // self._original_length
+            self._num_batches = len(self._dataset) // self._original_length
 
         else:
             length = min(length, self.maxlength)
-            self._sample_every = len(self._dataset) // length
+            self._num_batches = len(self._dataset) // length
 
         old_length = self._length
-        self._length = length  # len(self._dataset) * self.COARSE // self._sample_every
+        self._length = length
         logging.info('Shrunk dataset {} {} to {}'.format(getattr(self, 'name', 'unknowmn'),
                                                          old_length,
                                                          len(self)))
@@ -176,15 +172,19 @@ class SubSampledDataset(Dataset):
         return self._length
 
     def __getitem__(self, idx):
-        if not isinstance(idx, slice):
-            if idx >= self._length:
-                raise IndexError
-        return self._dataset[self._idx[idx]]
+        if isinstance(idx, slice):
+            # if idx.stop >= self._length:
+            #     raise IndexError
+            raise NotImplementedError('slices for subdataset')
+        if idx >= self._length:
+            raise IndexError
+
+        shift = (self._task + self._bar) * (self._original_length if self._bar else self._length)
+
+        return self._dataset[self._idx[(idx + shift) % len(self._idx)]]
 
 
 class MixtureDataset(Dataset):
-
-    COARSE = 120
 
     def __init__(self, *datasets, mix=None, length=None, seed=0, task=None, **dict_of_datasets):
 
@@ -224,11 +224,13 @@ class MixtureDataset(Dataset):
 
     def shrink(self, length=None):
 
-        unit_length = int(min(np.floor(len(d) / m) for d, m in zip(self._datasets, np.array(self._mix)) if m > 0))
+        unit_length = int(min(np.floor(len(d) / m)
+                              for d, m in zip(self._datasets, np.array(self._mix)) if m > 0))
         max_length = self.maxlength
 
         if length is None:
             length = unit_length
+            # print('***', self.name, 'unit length:', unit_length)
         else:
             unit_length = min(unit_length, length)
 
@@ -286,7 +288,8 @@ class MixtureDataset(Dataset):
                 self._datasets.append(d)
             else:
                 self._datasets.append(SubSampledDataset(d, seed=self._seed, task=self._task))
-        self.name = '-'.join(['{}:{}'.format(i, getattr(d, 'name', 'set')) for i, d in enumerate(self._datasets)])
+        self.name = '-'.join(['{}:{}'.format(i, getattr(d, 'name', 'set'))
+                              for i, d in enumerate(self._datasets)])
 
         self._classes = tuple(self._classes)
 
@@ -362,14 +365,25 @@ class MixtureDataset(Dataset):
         d.name = new_name
         return d
 
-    def bar(self):
+    def bar(self, b=True):
         for d in self._datasets:
-            d.bar()
+            # self._bar ^ b is True if switch
+            # (self._bar ^ b) ^ d._bar switches d._bar if switch
+            d.bar((self._bar ^ b) ^ d._bar)
+
+        self._bar = b
+        self._lengths = [len(d) for d in self._datasets]
+        self._length = sum(self._lengths)
+
+        self._cum_lengths = [0] + list(accumulate(self._lengths))
+
+        self._mix_ = [l / self._length for l in self._lengths]
 
 
 def create_moving_set(ind, transformer, data_augmentation,
                       moving_size, ood_mix, oodsets,
                       padding_sets, padding=0., mix_padding=0.,
+                      ood_mix_pad=0.5,
                       seed=0, task=None):
 
     trainset, testset = torchdl.get_dataset(ind, transformer=transformer,
@@ -380,7 +394,7 @@ def create_moving_set(ind, transformer, data_augmentation,
     ood_set = MixtureDataset(mix=1, seed=seed, task=task, **ood_sets, length=int(ood_mix * moving_size))
     ind_set = SubSampledDataset(testset, seed=seed, task=task, length=moving_size - len(ood_set))
 
-    padding_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['train'])[0]
+    padding_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
                     for _ in padding_sets}
 
     for _ in padding_sets:
@@ -406,7 +420,7 @@ def create_moving_set(ind, transformer, data_augmentation,
         ood_set_bar.bar()
 
         padmix_sets['ood'] = ood_set_bar
-        padmix_mix['ood'] = mix_padding * ood_mix
+        padmix_mix['ood'] = mix_padding * ood_mix_pad
         padmix_sets['ind'] = ind_set_bar
         padmix_mix['ind'] = mix_padding - padmix_mix['ood']
 
@@ -423,6 +437,18 @@ def create_moving_set(ind, transformer, data_augmentation,
                                 seed=seed, task=task, **moving_sets)
 
     return moving_set
+
+
+def inspect(dset, depth=0):
+
+    prefix = '|  ' * depth
+
+    print('{p} {b} {s}: {l}  ({ml})'.format(p=prefix, s=dset.name,
+                                            b='*' if dset._bar else ' ',
+                                            l=len(dset), ml=dset.maxlength))
+    if isinstance(dset, MixtureDataset):
+        for _ in dset._datasets:
+            inspect(_, depth=depth + 1)
 
 
 if __name__ == '__main__':
@@ -463,7 +489,24 @@ if __name__ == '__main__':
                                    args.pad_sets, args.pad, mix_padding=args.pad_mix,
                                    seed=args.seed, task=args.task)
 
+    inspect(moving_set)
+    moving_set_bar = create_moving_set(args.ind, 'default', [], args.size, args.mix, args.oods,
+                                       args.pad_sets, args.pad, mix_padding=args.pad_mix,
+                                       seed=args.seed, task=args.task)
+
     print('Done (in {:.0f}s)'.format(time.time() - t0))
+    t0 = time.time()
+
+    check_ind = moving_set.extract_subdataset('ind')
+    check_pad = moving_set.extract_subdataset('padmix')
+    assert len(check_ind) + len(check_pad) == unique(check_ind, check_pad)
+
+    print('Passed checkpoint in {:.3f}ms'.format(1000 * (time.time() - t0)))
+
+    print('\n==BAR=')
+    moving_set_bar.bar()
+    inspect(moving_set_bar)
+
     print('total', len(moving_set))
 
     subsets = {_: moving_set.extract_subdataset(_) for _ in moving_set.classes}
@@ -514,11 +557,70 @@ if __name__ == '__main__':
 
     if args.pad_mix:
         for s, m in zip(padmixset.classes, padmixset.mix):
-            print('|_{:6}'.format(s), '{:.1%}'.format(m), int(m * len(moving_set)))
+            print('|_{:6}'.format(s), '{:.1%}'.format(m), int(m * len(padmixset)))
 
     for s in sets:
         u = {_: unique(sets[s][_]) for _ in sets[s]}
         u['sum'] = sum(u.values())
         u['all'] = unique(*[sets[s][_] for _ in sets[s]])
 
-        print(s, ' + '.join(map(str, list(u.values())[:-2])), '= {} ({})'.format(*list(u.values())[-2:]))
+        print(s, ' + '.join(map(str, list(u.values())[: -2])), '= {} ({})'.format(*list(u.values())[-2:]))
+
+    print('=== IND')
+
+    ind_in_moving_set = moving_set.extract_subdataset('ind')
+    ind_in_moving_set_bar = moving_set_bar.extract_subdataset('ind')
+
+    print('_*')
+    print(len(ind_in_moving_set), len(ind_in_moving_set_bar), unique(ind_in_moving_set, ind_in_moving_set_bar))
+    moving_set.bar()
+    print('**')
+    print(len(ind_in_moving_set), len(ind_in_moving_set_bar), unique(ind_in_moving_set, ind_in_moving_set_bar))
+    moving_set_bar.bar(False)
+    print('*_')
+    print(len(ind_in_moving_set), len(ind_in_moving_set_bar), unique(ind_in_moving_set, ind_in_moving_set_bar))
+    moving_set.bar(False)
+    print('__')
+    print(len(ind_in_moving_set), len(ind_in_moving_set_bar), unique(ind_in_moving_set, ind_in_moving_set_bar))
+
+    print('=== OOD')
+
+    moving_set_bar.bar(True)
+    moving_set.bar(False)
+
+    ood_in_moving_set = moving_set.extract_subdataset('ood')
+    ood_in_moving_set_bar = moving_set_bar.extract_subdataset('ood')
+
+    inspect(ood_in_moving_set)
+    inspect(ood_in_moving_set_bar)
+
+    print('_*')
+    print(len(ood_in_moving_set), len(ood_in_moving_set_bar), unique(ood_in_moving_set, ood_in_moving_set_bar))
+    moving_set.bar()
+    print('**')
+    print(len(ood_in_moving_set), len(ood_in_moving_set_bar), unique(ood_in_moving_set, ood_in_moving_set_bar))
+    moving_set_bar.bar(False)
+    print('*_')
+    print(len(ood_in_moving_set), len(ood_in_moving_set_bar), unique(ood_in_moving_set, ood_in_moving_set_bar))
+    moving_set.bar(False)
+    print('__')
+    print(len(ood_in_moving_set), len(ood_in_moving_set_bar), unique(ood_in_moving_set, ood_in_moving_set_bar))
+
+    for s in args.oods:
+        print('===', s)
+        moving_set_bar.bar(True)
+        moving_set.bar(False)
+        sub_ood = ood_in_moving_set.extract_subdataset(s)
+        sub_ood_bar = ood_in_moving_set_bar.extract_subdataset(s)
+
+        print('_*')
+        print(len(sub_ood), len(sub_ood_bar), unique(sub_ood, sub_ood_bar))
+        moving_set.bar()
+        print('**')
+        print(len(sub_ood), len(sub_ood_bar), unique(sub_ood, sub_ood_bar))
+        moving_set_bar.bar(False)
+        print('*_')
+        print(len(sub_ood), len(sub_ood_bar), unique(sub_ood, sub_ood_bar))
+        moving_set.bar(False)
+        print('__')
+        print(len(sub_ood), len(sub_ood_bar), unique(sub_ood, sub_ood_bar))

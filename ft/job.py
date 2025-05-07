@@ -297,7 +297,7 @@ class FTJob(M, ABC):
         ood_ = moving_set.extract_subdataset('ood')
 
         if self._generalize:
-            raise NotImplementedError
+            moving_set.bar(True)
 
         with self.no_estimated_labels():
             with torch.no_grad():
@@ -312,6 +312,7 @@ class FTJob(M, ABC):
                                          print_result='*')
                 self.ood_results = {}
 
+        moving_set.bar(False)
         train_loader = torch.utils.data.DataLoader(trainset,
                                                    batch_size=batch_size,
                                                    # pin_memory=True,
@@ -335,10 +336,11 @@ class FTJob(M, ABC):
             per_epoch = min(train_size, len(moving_set)) // batch_size
 
             if not epoch:
-                logging.info('{} epochs of {} batches of size {} ({} samples)'.format(epochs,
-                                                                                      per_epoch,
-                                                                                      batch_size,
-                                                                                      epochs * per_epoch * batch_size))
+                tmp_s = '{} epochs of {} batches of size {} ({} samples)'
+                logging.info(tmp_s.format(epochs,
+                                          per_epoch,
+                                          batch_size,
+                                          epochs * per_epoch * batch_size))
 
             train_size -= per_epoch * batch_size
             self.eval()
@@ -434,7 +436,7 @@ class FTJob(M, ABC):
 
         self.eval()
         if self._generalize:
-            raise NotImplementedError
+            moving_set.bar(True)
 
         testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
         oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]

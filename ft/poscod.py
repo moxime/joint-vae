@@ -62,7 +62,7 @@ class PoscodJob(FTJob):
         if not self._train_ood_head:
             o = super().evaluate(x, *a, y=y, z_output=True, **kw)
         else:
-            # y is & if ood, 0 if not ood
+            # y is 1 if ood, 0 if not ood
             o = super().evaluate(x, *a, y=None, z_output=True, **kw)
 
         o_z = o[-3:]
@@ -152,15 +152,10 @@ class PoscodJob(FTJob):
 
     @ classmethod
     def transfer_from_model(cls, state):
-        state['_original_prior.mean'] = torch.clone(state['encoder.prior.mean'])
-        state['_original_prior._var_parameter'] = torch.clone(state['encoder.prior._var_parameter'])
+        pass
 
     def load_post_hook(self, **ft_params):
-        for k in ('sets', 'alpha', 'train_size', 'moving_size',
-                  'padding', 'padding_sets',
-                  'from', 'mix', 'hash', 'array_size'):
-            ft_params.pop(k, None)
-        self.set_alternate_prior(**ft_params)
+        pass
 
     def finetune_batch(self, batch, epoch, x_in, y_in, x_mix, alpha=0.1):
 

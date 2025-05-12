@@ -8,8 +8,9 @@ from utils.print_log import EpochOutput, turnoff_debug
 
 from utils.save_load import model_subdir, SampleRecorder
 
-from .job import DontDoFineTuning
+from .job import DontDoFineTuning, FTJob
 from .wim import WIMJob
+from .poscod import PoscodJob
 from .scheduler import Scheduler
 
 from .array import WIMArray, PoscodArray
@@ -31,19 +32,21 @@ if __name__ == '__main__':
     conf_parser.add_argument('--sampling-seed', '-S', type=int)
     conf_parser.add_argument('--sampling-task', '-T', type=int, default=0)
     conf_parser.add_argument('--sampling-task-shift', type=int, default=0)
-
     conf_parser.add_argument('--args-from-file', nargs=2)
+
+    conf_parser.add_argument('--ft', default='wim', choices=['wim', 'poscod'])
+    conf_parser.add_argument('--poscod', dest='ft', action='store_const', const='poscod')
 
     conf_args, remaining_args = conf_parser.parse_known_args()
 
     config = configparser.ConfigParser()
     config.read(conf_args.config_file)
 
-    config_params = config['wim-default']
-
     defaults = {}
 
-    defaults.update(config_params)
+    config_params_ft = config['ft-default']
+    defaults.update(config['ft-default'])
+    defaults.update(config['-default'].format(conf_args.ft))
 
     parser = argparse.ArgumentParser(parents=[conf_parser],
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -51,10 +54,10 @@ if __name__ == '__main__':
     parser.add_argument('--device')
     parser.add_argument('job', type=int)
     parser.add_argument('-J', '--source-job-dir')
-    parser.add_argument('-W', '--wim-job-dir')
+    parser.add_argument('-W', '--ft-job-dir')
     parser.add_argument('-A', '--array-job-dir')
 
-    parser.add_argument('--wim-sets', nargs='*', default=[])
+    parser.add_argument('--ft-sets', nargs='*', default=[])
     parser.add_argument('--alpha', type=float)
 
     parser.add_argument('--mix', type=float)
@@ -136,7 +139,13 @@ if __name__ == '__main__':
 
     dataset = model_dict['set']
 
-    model = WIMJob.load(model_dict['dir'], build_module=True, load_state=True)
+    classes = {'wim': {'job': WIMJob, 'array': WIMArray},
+               'poscod': {'job': PoscodArrayJob, 'array': PoscodArray}}
+
+    Job = classes[conf_args.ft]['job']
+    Array = classes[conf_args.ft]['array']
+
+    model = Job.load(model_dict['dir'], build_module=True, load_state=True)
 
     log.info('Job #{}'.format(job_number))
 
@@ -160,30 +169,33 @@ if __name__ == '__main__':
     if args.sampling_seed is None:
         args.sampling_seed = job_number + 7
 
-    model.encoder.prior.mean.requires_grad_(False)
-    alternate_prior_params = model.encoder.prior.params.copy()
-    alternate_prior_params['learned_means'] = False
+    if Job is WIMJob:
+        logging.info('Setting priors for im job')
+        model.encoder.prior.mean.requires_grad_(False)
+        alternate_prior_params = model.encoder.prior.params.copy()
+        alternate_prior_params['learned_means'] = False
 
-    alternate_prior_params['mean_shift'] = 0.
-    alternate_prior_params['init_mean'] = args.prior_means
+        alternate_prior_params['mean_shift'] = 0.
+        alternate_prior_params['init_mean'] = args.prior_means
 
-    alternate_prior_params['num_priors'] = 1
-    alternate_prior_params['seed'] = args.sampling_seed
+        alternate_prior_params['num_priors'] = 1
+        alternate_prior_params['seed'] = args.sampling_seed
 
-    if args.prior:
-        alternate_prior_params['distribution'] = args.prior
-    alternate_prior_params['tau'] = args.tau
+        if args.prior:
+            alternate_prior_params['distribution'] = args.prior
+        alternate_prior_params['tau'] = args.tau
 
-    model.set_alternate_prior(**alternate_prior_params)
+        model.set_alternate_prior(**alternate_prior_params)
+
+        with model.original_prior as p1:
+            with model.alternate_prior as p2:
+                log.info('WIM from {} to {}'.format(p1, p2))
+
+                if p1.num_priors > 1:
+                    log.info('Means from {:.3} to {:.3}'.format(p1.mean.std(0).mean(),
+                                                                p2.mean.std(0).mean()))
+
     model.ft_params['from'] = args.job
-
-    with model.original_prior as p1:
-        with model.alternate_prior as p2:
-            log.info('WIM from {} to {}'.format(p1, p2))
-
-            if p1.num_priors > 1:
-                log.info('Means from {:.3} to {:.3}'.format(p1.mean.std(0).mean(),
-                                                            p2.mean.std(0).mean()))
     try:
         model.to(device)
     except Exception:
@@ -195,12 +207,12 @@ if __name__ == '__main__':
         logging.info('New optimizer')
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
-    wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
+    ft_sets = sum((_.split('-') for _ in args.ft_sets), [])
     padding_sets = sum((_.split('-') for _ in args.padding_sets), [])
 
-    save_dir_root = os.path.join(args.wim_job_dir, dataset,
+    save_dir_root = os.path.join(args.ft_job_dir, dataset,
                                  model.print_architecture(sampling=False),
-                                 'wim')
+                                 conf_args.ft)
 
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
     model.saved_dir = save_dir
@@ -212,7 +224,7 @@ if __name__ == '__main__':
         fakes = dict(mu=fake_mu, y=fake_y)
         if model.is_cvae:
             fakes['y_nearest'] = fakes['y']
-        sample_recorders = {s: SampleRecorder(args.test_batch_size, **fakes) for s in wim_sets}
+        sample_recorders = {s: SampleRecorder(args.test_batch_size, **fakes) for s in ft_sets}
         sample_recorders[model.training_parameters['set']] = SampleRecorder(args.test_batch_size, **fakes)
 
         for _ in sample_recorders:
@@ -220,13 +232,16 @@ if __name__ == '__main__':
                 with model.alternate_prior as p2:
                     sample_recorders[_].add_auxiliary(centroids=p1.mean, alternate=p2.mean[0])
 
+    ft_params = {}
+    if conf_args.ft == 'wim':
+        ft_params['alpha'] = args.alpha,
+
     try:
-        model.finetune(*wim_sets,
+        model.finetune(*ft_sets,
                        train_size=args.train_size,
                        epochs=args.epochs,
                        moving_size=args.moving_size,
                        test_batch_size=args.test_batch_size,
-                       alpha=args.alpha,
                        ood_mix=args.mix,
                        padding=args.padding,
                        mix_padding=args.mix_padding,
@@ -235,7 +250,8 @@ if __name__ == '__main__':
                        outputs=outputs,
                        seed=args.sampling_seed,
                        task=sampling_task,
-                       sample_recorders=sample_recorders
+                       sample_recorders=sample_recorders,
+                       **ft_params
                        )
 
     except DontDoFineTuning as e:
@@ -249,7 +265,7 @@ if __name__ == '__main__':
     if is_array:
         save_dir_root = os.path.join(args.array_job_dir, dataset,
                                      model.print_architecture(sampling=False),
-                                     'wim')
+                                     conf_args.ft)
 
         save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
         model.saved_dir = save_dir
@@ -260,31 +276,31 @@ if __name__ == '__main__':
         if arrays_alike:
             logging.warning('Already {} similar arrays'.format(len(arrays_alike)))
             logging.info('Similar arrays: {}'.format(','.join(map(str, (_['job'] for _ in arrays_alike)))))
-            kept_wim_array = min(arrays_alike, key=lambda j: j['job'])
-            array_dir = kept_wim_array['dir']
-            logging.warning('Processing array {}'.format(kept_wim_array['job']))
+            kept_ft_array = min(arrays_alike, key=lambda j: j['job'])
+            array_dir = kept_ft_array['dir']
+            logging.warning('Processing array {}'.format(kept_ft_array['job']))
 
         else:
             array_dir = model.saved_dir
             model.save(model.saved_dir)
 
         with turnoff_debug():
-            wim_array = WIMArray.load(array_dir, load_state=False)
+            ft_array = Array.load(array_dir, load_state=False)
 
-        wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.array_job_dir, flash=True)
-        logging.info('{} wim jobs already processed'.format(len(wim_jobs_already_processed)))
-        wim_jobs = wim_array.fetch_jobs_alike(args.wim_job_dir)
+        ft_jobs_already_processed = Array.collect_processed_jobs(args.array_job_dir, flash=True)
+        logging.info('{} ft jobs already processed'.format(len(ft_jobs_already_processed)))
+        ft_jobs = ft_array.fetch_jobs_alike(args.ft_job_dir)
 
-        wim_jobs = [_ for _ in wim_jobs if model_subdir(_) not in wim_jobs_already_processed]
+        ft_jobs = [_ for _ in ft_jobs if model_subdir(_) not in ft_jobs_already_processed]
 
-        logging.info('Processing {} wim jobs alike'.format(len(wim_jobs)))
-        array_recorders = wim_array.register_jobs(*[WIMJob.load(_['dir'], build_module=False)
-                                                    for _ in wim_jobs])
+        logging.info('Processing {} ft jobs alike'.format(len(ft_jobs)))
+        array_recorders = ft_array.register_jobs(*[FTJob.load(_['dir'], build_module=False)
+                                                   for _ in ft_jobs])
 
-        sdirs = [os.path.join('samples', '{:04d}'.format(wim_array.trained), _) for _ in ('', 'init')]
-        wim_array.concatenate_samples(*wim_jobs, sample_subdirs=sdirs)
-        wim_array.save(array_dir)
-        logging.info('model saved in {}'.format(wim_array.saved_dir))
+        sdirs = [os.path.join('samples', '{:04d}'.format(ft_array.trained), _) for _ in ('', 'init')]
+        ft_array.concatenate_samples(*ft_jobs, sample_subdirs=sdirs)
+        ft_array.save(array_dir)
+        logging.info('model saved in {}'.format(ft_array.saved_dir))
 
         sch.stop()
         sys.exit(0)

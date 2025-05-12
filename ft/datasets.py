@@ -402,13 +402,13 @@ def create_moving_set(ind, transformer, data_augmentation,
 
             raise ValueError('{} is in ood sets and padding sets. Set padding_mix arg instead'.format(_))
 
-    padding_mix = {_: padding / len(padding_sets) for _ in padding_sets}
+    moving_sets = {'ood': ood_set, 'ind': ind_set}
 
-    padding_set = MixtureDataset(seed=seed, task=task, **padding_sets,
-                                 mix=padding_mix,
-                                 length=int(padding * moving_size))
-
-    moving_sets = {'ood': ood_set, 'ind': ind_set, 'pad': padding_set}
+    if padding:
+        padding_set = MixtureDataset(seed=seed, task=task, **padding_sets,
+                                     mix=1,
+                                     length=int(padding * moving_size))
+        moving_sets['pad'] = padding_set
 
     if mix_padding:
         padmix_sets = {}
@@ -497,11 +497,12 @@ if __name__ == '__main__':
     print('Done (in {:.0f}s)'.format(time.time() - t0))
     t0 = time.time()
 
-    check_ind = moving_set.extract_subdataset('ind')
-    check_pad = moving_set.extract_subdataset('padmix')
-    assert len(check_ind) + len(check_pad) == unique(check_ind, check_pad)
+    if args.pad_mix:
+        check_ind = moving_set.extract_subdataset('ind')
+        check_pad = moving_set.extract_subdataset('padmix')
+        assert len(check_ind) + len(check_pad) == unique(check_ind, check_pad)
 
-    print('Passed checkpoint in {:.3f}ms'.format(1000 * (time.time() - t0)))
+        print('Passed checkpoint in {:.3f}ms'.format(1000 * (time.time() - t0)))
 
     print('\n==BAR=')
     moving_set_bar.bar()
@@ -518,7 +519,9 @@ if __name__ == '__main__':
     sets = {_: {} for _ in [args.ind] + args.oods + args.pad_sets}
 
     oodset = moving_set.extract_subdataset('ood')
-    paddingset = moving_set.extract_subdataset('pad')
+
+    if args.pad:
+        paddingset = moving_set.extract_subdataset('pad')
 
     if args.pad_mix:
         padmixset = moving_set.extract_subdataset('padmix')
@@ -537,8 +540,7 @@ if __name__ == '__main__':
             if args.pad_mix:
                 sets[_]['pad'] = padmixset.extract_subdataset('ood').extract_subdataset(_)
 
-        if _ in args.pad_sets:
-
+        if args.pad and _ in args.pad_sets:
             sets[_]['pad'] = paddingset.extract_subdataset(_)
 
     for _ in sets:

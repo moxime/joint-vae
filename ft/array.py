@@ -1,7 +1,8 @@
 import os
 import logging
 from utils.print_log import turnoff_debug
-from module.wim.job import WIMJob
+from ft import WIMJob
+from ft.job import FTJob
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
 from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
@@ -14,7 +15,7 @@ wim_job_filter = DictOfListsOfParamFilters()
 wim_job_filter.add('wim_from', ParamFilter(type=int, any_value=True))
 
 
-class WIMArray(WIMJob):
+class FTArray(FTJob):
 
     def __init__(self, *a, fetch_dir='wim-jobs', **kw):
 
@@ -22,10 +23,6 @@ class WIMArray(WIMJob):
         self._fecth_dir = fetch_dir
         self._jobs = {'known': set(), 'rec': set()}
         self._rec_dir = None
-
-    @classmethod
-    def is_wim_array(cls, d):
-        return os.path.exists(os.path.join(d, JOB_FILE_NAME))
 
     def finetune(self, *a, **kw):
 
@@ -63,7 +60,7 @@ class WIMArray(WIMJob):
                 logging.debug('{} jobs registered as {} in {}'.format(len(self._jobs[_]), _, self._rec_dir))
         return dir_name
 
-    @ classmethod
+    @classmethod
     def load(cls, dir_name, *a, load_state=False, **kw):
 
         model = super().load(dir_name, *a, load_state=load_state, **kw)
@@ -91,7 +88,7 @@ class WIMArray(WIMJob):
         assert model._jobs['rec'].issubset(model._jobs['known']), 'some recorded jobs are not known'
 
         if not model._jobs['rec']:
-            model.wim_params['array_size'] = 0
+            model.ft_params['array_size'] = 0
             model._rec_dir = None
         return model
 
@@ -166,9 +163,9 @@ class WIMArray(WIMJob):
                 job_recorders[s].merge(job_rec, axis='keys')
 
             try:
-                self.wim_params['array_size'] += 1
+                self.ft_params['array_size'] += 1
             except KeyError:
-                self.wim_params['array_size'] = 1
+                self.ft_params['array_size'] = 1
 
             for _ in job_recorders:
 
@@ -249,6 +246,13 @@ class WIMArray(WIMJob):
         logging.debug('Found {} already processed jobs'.format(len(jobs)))
 
         return jobs
+
+
+class WIMArray(FTArray, WIMJob):
+
+    @classmethod
+    def is_wim_array(cls, d):
+        return os.path.exists(os.path.join(d, JOB_FILE_NAME))
 
 
 if __name__ == '__main__':

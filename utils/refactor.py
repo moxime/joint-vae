@@ -225,7 +225,7 @@ def load_and_save_json(directory,
                 print(' ->', new_key, ':',
                       t[new_key], '*' if write_json else '')
             if write_json:
-                copyfile(name, name + '.bak')
+                copyfile(name, name + '.bak.{}'.format(suffix))
                 print('w', name, '\n', t)
                 with open(name, 'w') as f:
                     json.dump(t, f)
@@ -702,6 +702,7 @@ if __name__ == '__main__':
     parser.add_argument('--feat', action='store_true')
     parser.add_argument('--upsampler', action='store_true')
     parser.add_argument('--history', action='store_true')
+    parser.add_argument('--wim', action='store_true')
 
     args = parser.parse_args()
 
@@ -739,3 +740,9 @@ if __name__ == '__main__':
         for d, _ in walk_json_files(args.job_dir, 'history'):
             print('====')
             history_from_list_to_dict(d, write_json=args.write and 'history')
+
+    elif args.wim:
+
+        load_and_save_json(args.job_dir, 'wim.json', 'augmentation', 'padding', suffix='wim', write_json=args.write)
+        load_and_save_json(args.job_dir, 'wim.json', 'augmentation_sets', 'padding_sets',
+                           suffix='wim', write_json=args.write)

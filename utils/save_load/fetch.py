@@ -114,8 +114,8 @@ def load_model(d, **kw):
     """
 
     from cvae import ClassificationVariationalNetwork as M
-    from module.wim import WIMJob as WJ
-    from module.wim.array import WIMArray as WA
+    from ft import WIMJob as WJ
+    from ft.array import WIMArray as WA
 
     if WA.is_wim_array(d):
         return WA.load(d, **kw)
@@ -128,7 +128,7 @@ def load_model(d, **kw):
 
 def _collect_models(search_dir, registered_models_file=None):
     from cvae import ClassificationVariationalNetwork as M
-    from module.wim import WIMJob as W
+    from ft import WIMJob as W
 
     if not registered_models_file:
         registered_models_file = 'models-{}.json'.format(gethostname())
@@ -234,8 +234,6 @@ def fetch_models(search_dir, registered_models_file=None, filter=None, flash=Tru
 
 
 def _gather_registered_models(mdict, filter, tpr=0.95, wanted_epoch='last', light=False, **kw):
-    from cvae import ClassificationVariationalNetwork as M
-    from module.wim import WIMJob as W
 
     mlist = []
     n = 0
@@ -323,7 +321,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
     assert not state or epoch == 'last'
 
     from cvae import ClassificationVariationalNetwork as M
-    from module.wim import WIMJob as W
+    from ft import WIMJob as W
 
     for d in mdirs:
 
@@ -351,7 +349,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
             sets.append(testset)
             if which_rec_ == 'all':
                 if is_wim:
-                    for s in m.wim_params['sets']:
+                    for s in m.ft_params['sets']:
                         sets.append(s)
                 else:
                     sets += get_same_size_by_name(testset)

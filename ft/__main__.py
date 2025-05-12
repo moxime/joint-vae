@@ -8,7 +8,8 @@ from utils.print_log import EpochOutput, turnoff_debug
 
 from utils.save_load import model_subdir, SampleRecorder
 
-from .job import WIMJob, DontDoFineTuning
+from .job import DontDoFineTuning
+from .wim import WIMJob
 from .scheduler import Scheduler
 
 from .array import WIMArray
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     conf_parser.add_argument('--config-file', default='config.ini')
     conf_parser.add_argument('--job-number', '-j', type=int)
     conf_parser.add_argument('--sampling-seed', '-S', type=int)
-    conf_parser.add_argument('--sampling-task', '-T', type=int)
+    conf_parser.add_argument('--sampling-task', '-T', type=int, default=0)
     conf_parser.add_argument('--sampling-task-shift', type=int, default=0)
 
     conf_parser.add_argument('--args-from-file', nargs=2)
@@ -62,9 +63,9 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--moving-size', type=int)
     parser.add_argument('--epochs', type=int)
 
-    parser.add_argument('--augmentation', type=float, nargs='?', const=1.0, default=0.)
-
-    parser.add_argument('--augmentation-sets', nargs='*')
+    parser.add_argument('--padding', type=float, nargs='?', const=1.0, default=0.)
+    parser.add_argument('--padding-sets', nargs='*', default='')
+    parser.add_argument('--mix-padding', type=float, nargs='?', const=1.0, default=0.)
 
     parser.add_argument('--test-batch-size', type=int)
 
@@ -96,7 +97,7 @@ if __name__ == '__main__':
     else:
         sch = Scheduler(file_path=os.path.join('grid', str(conf_args.sampling_seed))
                         if conf_args.sampling_seed is not None else None,
-                        index=conf_args.sampling_task if conf_args.sampling_task else 0)
+                        index=conf_args.sampling_task)
 
         args = parser.parse_args(remaining_args, namespace=conf_args)
 
@@ -174,7 +175,7 @@ if __name__ == '__main__':
     alternate_prior_params['tau'] = args.tau
 
     model.set_alternate_prior(**alternate_prior_params)
-    model.wim_params['from'] = args.job
+    model.ft_params['from'] = args.job
 
     with model.original_prior as p1:
         with model.alternate_prior as p2:
@@ -195,7 +196,7 @@ if __name__ == '__main__':
         optimizer = Optimizer(model.parameters(), optim_type='adam', lr=args.lr, weight_decay=args.weight_decay)
 
     wim_sets = sum((_.split('-') for _ in args.wim_sets), [])
-    augmentation_sets = sum((_.split('-') for _ in args.augmentation_sets), [])
+    padding_sets = sum((_.split('-') for _ in args.padding_sets), [])
 
     save_dir_root = os.path.join(args.wim_job_dir, dataset,
                                  model.print_architecture(sampling=False),
@@ -227,8 +228,9 @@ if __name__ == '__main__':
                        test_batch_size=args.test_batch_size,
                        alpha=args.alpha,
                        ood_mix=args.mix,
-                       augmentation=args.augmentation,
-                       augmentation_sets=augmentation_sets,
+                       padding=args.padding,
+                       mix_padding=args.mix_padding,
+                       padding_sets=padding_sets,
                        optimizer=optimizer,
                        outputs=outputs,
                        seed=args.sampling_seed,

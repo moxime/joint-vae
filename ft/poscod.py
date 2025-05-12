@@ -70,7 +70,7 @@ class PoscodJob(FTJob):
         o_z = o[-3:]
         z = o[-1]
 
-        mix_in_logit = self.ood_head(z[1:]).mean(0)
+        mix_in_logit = self.ood_head(z[1:]).squeeze(-1).mean(0)
 
         # (12) & (13) in Franc (2024)
         p_z_mix_over_p_z_in = mix_in_logit.exp() + self.param_a.abs()
@@ -93,43 +93,18 @@ class PoscodJob(FTJob):
 
     def batch_dist_measures(self, logits, losses, methods, to_cpu=False):
 
-        wim_methods = [_ for _ in methods if _[-1] in '~@']
-        dist_methods = [_ for _ in methods if _ not in wim_methods]
+        poscod_methods = ['g']
+        dist_methods = [_ for _ in methods if _ not in poscod_methods]
 
         dist_measures = super().batch_dist_measures(logits, losses, dist_methods, to_cpu=to_cpu)
 
-        if not wim_methods:
+        if not poscod_methods:
             return dist_measures
 
-        logging.debug('Compute measures for {}'.format(','.join(wim_methods)))
-        losses['elbo'] = -losses['total']
+        logging.debug('Compute measures for {}'.format(','.join(poscod_methods)))
 
-        k_ = {'kl': -1, 'zdist': -0.5, 'iws': 1, 'elbo': 1}
-
-        loss_ = {}
-        if self.is_cvae:
-            y_ = losses['y_est_already']
-            logging.debug('y, [{}]'.format(', '.join(map(str, y_.shape))))
-
-            for k in losses:
-                logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
-
-            loss_['y'] = {k: k_[k] * losses[k].gather(0, y_.unsqueeze(0)).squeeze(0) for k in k_}
-            # for k in loss_['y']:
-            #     logging.debug('*** {}: [{}]'.format(k, ', '.join(map(str, losses[k].shape))))
-            #     logging.debug('*** {} y [{}]'.format(k, ', '.join(map(str, loss_['y'][k].shape))))
-            loss_['soft'] = {'soft' + k: (losses[k] * k_[k]).softmax(0) for k in k_}
-            loss_['soft_y'] = {k: loss_['soft'][k].gather(0, y_.unsqueeze(0)).squeeze(0)
-                               for k in loss_['soft']}
-            loss_['soft'] = {k: loss_['soft'][k].max(0)[0] for k in loss_['soft']}
-            loss_['logsumexp'] = {k: (losses[k] * k_[k]).logsumexp(0) for k in k_}
-
-        if any('@' in m for m in methods):
-            losses['elbo@'] = -losses['total@']
-            k_.update({k + '@': k_[k] for k in k_})
-
-        wim_measures = {}
-        for m in wim_methods:
+        poscod_measures = {}
+        for m in poscod_methods:
             """
             -- (soft)k~: (soft)loss[k][y] on original prior with y predicted centroid
 
@@ -138,27 +113,12 @@ class PoscodJob(FTJob):
             -- k~@: loss[k][y] - loss@[k][y]
 
             """
-            if m[-1] == '~':
-                m_ = m[:-1]
-                prefix = 'soft_' if m.startswith('soft') else ''
-                measures = loss_[prefix + 'y'][m_]
+            if m == 'g':
+                measures = -losses['g']
 
-            elif m[-1] == '@':
-                m_ = m[:-1]
-                if m_[-1] == '~':
-                    m_ = m_[:-1]
-                    w = 'y'
-                else:
-                    w = 'logsumexp'
-
-                measures = loss_[w][m_] - k_[m_] * losses[m_ + '@']
-
-            wim_measures[m] = measures.cpu() if to_cpu else measures
+            poscod_measures[m] = measures.cpu() if to_cpu else measures
             logging.debug('{}: {}'.format(m, ', '.join(map(str, measures.shape))))
-        dist_measures.update(wim_measures)
-
-        losses.pop('elbo', None)
-        losses.pop('elbo@', None)
+        dist_measures.update(poscod_measures)
 
         return dist_measures
 
@@ -173,44 +133,28 @@ class PoscodJob(FTJob):
 
     def finetune_batch(self, batch, epoch, x_in, y_in, x_mix, alpha=0.1):
 
-        self.original_prior = True
-        """
-
-        On original prior
-
-        """
         self.train()
-        _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
-        logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
+        y_mix = torch.ones(len(x_in), device=x_in.device)
+
+        x_mix_in = torch.concat([x_in, x_mix])
+
+        y_mix[:len(x_in)] = 0
+
+        x = {0: x_mix_in[::2], 1: x_mix_in[1::2]}
+        y = {0: y_mix[::2], 1: y_mix[1::2]}
+        batch_losses = {}
+        L = 0
         with self.no_estimated_labels():
-            (_, y_est, in_batch_loss, _) = self.evaluate(x_in, y_in,
-                                                         batch=batch,
-                                                         with_beta=True)
+            with self.train_ood_head():
+                for w in x:
+                    (_, y_est, batch_loss, _) = self.evaluate(x[w], y=y[w],
+                                                              batch=batch,
+                                                              with_beta=True)
+                    batch_losses[_] = batch_loss
 
-        L = in_batch_loss['total'].mean()
+                    L += batch_loss['cbce'].mean()
 
-        self.alternate_prior = True
-        """
-
-        On alternate prior
-
-        """
-
-        batch_size = len(x_mix)
-        device = x_mix.device
-        y_u_est = torch.zeros(batch_size, device=device, dtype=int)
-
-        self.train()
-        with self.no_estimated_labels():
-            assert not y_u_est.any()
-            o = self.evaluate(x_mix, y_u_est,
-                              batch=batch,
-                              with_beta=True)
-
-        _, _, mix_batch_loss, _ = o
-        L += alpha * mix_batch_loss['total'].mean()
-
-        self._evaluate_on_both_priors = True
-
+        in_batch_loss = {_: torch.concat([batch_losses[w][_][y_mix == 0 for w in x]) for _ in batch_loss}
+        mix_batch_loss = {_: torch.concat([batch_losses[w][_][y_mix == 1 for w in x]) for _ in batch_loss}
         return L, in_batch_loss, mix_batch_loss

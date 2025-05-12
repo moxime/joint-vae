@@ -2678,7 +2678,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return dir_name
 
-    @ classmethod
+    @classmethod
     def load(cls, dir_name,
              build_module=True,
              load_state=True,

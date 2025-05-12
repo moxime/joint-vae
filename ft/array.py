@@ -1,7 +1,7 @@
 import os
 import logging
 from utils.print_log import turnoff_debug
-from ft import WIMJob
+from ft import WIMJob, PoscodJob
 from ft.job import FTJob
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
 from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
@@ -61,7 +61,28 @@ class FTArray(FTJob):
         return dir_name
 
     @classmethod
+    def is_one(cls, d):
+        if not os.path.exists(os.path.join(d, JOB_FILE_NAME)):
+            return False
+
+        for cls_ in cls.__bases__:
+            if hasattr(cls_, 'is_one') and not cls_.is_one(d):
+                return False
+
+        return True
+
+    @classmethod
     def load(cls, dir_name, *a, load_state=False, **kw):
+
+        if cls is FTArray:
+
+            for c in cls.__subclasses__():
+
+                if c.is_one(dir_name):
+                    return c.load(dir_name, *a, load_state=load_state, **kw)
+
+            raise ValueError('{} is neither {}'.format(dir_name,
+                                                       ', '.join([c.__name__ for c in cls.__subclasses__()])))
 
         model = super().load(dir_name, *a, load_state=load_state, **kw)
 
@@ -177,7 +198,8 @@ class FTArray(FTJob):
             has_been_updated = True
 
         if cleaned_records:
-            logging.info('Cleaned {} tensors for {}'.format(len(cleaned_records), ', '.join(set(cleaned_records))))
+            logging.info('Cleaned {} tensors for {}'.format(len(cleaned_records),
+                                                            ', '.join(set(cleaned_records))))
 
         created_rec_str = ' -- '.join('{} of size {} for {}'.format(_,
                                                                     array_recorders[_].recorded_samples,
@@ -252,7 +274,14 @@ class WIMArray(FTArray, WIMJob):
 
     @classmethod
     def is_wim_array(cls, d):
-        return os.path.exists(os.path.join(d, JOB_FILE_NAME))
+        return cls.is_one(d)
+
+
+class PoscodArray(FTArray, PoscodJob):
+
+    @classmethod
+    def is_poscod_array(cls, d):
+        return cls.is_one(d)
 
 
 if __name__ == '__main__':

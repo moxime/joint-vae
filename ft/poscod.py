@@ -4,18 +4,20 @@ import logging
 
 
 import torch
-from torch.nn import Linear, Dropout, Sequential, Parameter
+from torch.nn import Linear, Dropout, Sequential, Parameter, functional as F
 from ft.job import FTJob
 
 
 class PoscodJob(FTJob):
 
-    added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': (), 'vib': ('y_est_already', 'llr')}
+    added_loss_components_per_type = {'cvae': ('y_est_already',),
+                                      'vae': (),
+                                      'vib': ('y_est_already', 'g', 'mix_in_cbce')}
 
     ood_methods_per_type = {'vae': ['zdist', 'elbo', 'kl'],
                             'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@',
                                      'elbo', 'elbo~', 'elbo@', 'elbo~@'],
-                            'vib': ['llr'],
+                            'vib': ['g'],
                             }
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], 'vib': []}
@@ -62,21 +64,31 @@ class PoscodJob(FTJob):
         if not self._train_ood_head:
             o = super().evaluate(x, *a, y=y, z_output=True, **kw)
         else:
-            # y is 1 if ood, 0 if not ood
+            # y is 0 if in, 1 if mix
             o = super().evaluate(x, *a, y=None, z_output=True, **kw)
 
         o_z = o[-3:]
         z = o[-1]
-        ood_logit = self.ood_head(z[1:]).mean(0)
+
+        mix_in_logit = self.ood_head(z[1:]).mean(0)
+
+        # (12) & (13) in Franc (2024)
+        p_z_mix_over_p_z_in = mix_in_logit.exp() + self.param_a.abs()
+
+        p_u = 0.5
+
+        p_o_train_in_mix = 1 + self.param_a.abs() - self.param_a.abs() / p_u
 
         # loss is o[2]
-        o[2]['ood_logit'] = ood_logit
+        o[2]['g'] = p_z_mix_over_p_z_in * (1 - p_u) / (p_u * p_o_train_in_mix)
 
-        ood_sigmoid = torch.sigmoid(ood_logit)
+        if self._train_ood_head:
+            mix_in_corrected_logit = p_z_mix_over_p_z_in.log()
+            mix_in_coorected_bce = F.binary_cross_entropy_with_logits(mix_in_corrected_logit, y)
+            o[2]['mix_in_cbce'] = mix_in_coorected_bce
 
         if z_output:
             return o
-
         return o[:-3]
 
     def batch_dist_measures(self, logits, losses, methods, to_cpu=False):

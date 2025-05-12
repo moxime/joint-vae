@@ -12,7 +12,7 @@ from .job import DontDoFineTuning
 from .wim import WIMJob
 from .scheduler import Scheduler
 
-from .array import WIMArray
+from .array import WIMArray, PoscodArray
 
 if __name__ == '__main__':
 

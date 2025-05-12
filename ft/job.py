@@ -42,7 +42,11 @@ class FTJob(M, ABC):
 
     @classmethod
     def is_one(cls, d):
-        return os.path.exists(os.path.join(d, cls.ft_param_file))
+        try:
+            return os.path.exists(os.path.join(d, cls.ft_param_file))
+        except AttributeError:
+            # FTJob has no ft_param_file
+            return True
 
     @abstractmethod
     def update_loss_components(self):
@@ -120,6 +124,16 @@ class FTJob(M, ABC):
 
     @classmethod
     def load(cls, dir_name, build_module=True, **kw):
+
+        if cls is FTJob:
+
+            for c in cls.__subclasses__():
+
+                if c.is_one(dir_name):
+                    return c.load(dir_name, build_module=build_module, **kw)
+
+            raise ValueError('{} is neither {}'.format(dir_name,
+                                                       ', '.join([c.__name__ for c in cls.__subclasses__()])))
 
         try:
             model = super().load(dir_name, strict=False, build_module=build_module, **kw)

@@ -31,15 +31,15 @@ class EstimatedLabelsDataset(Dataset):
 
         self._estimated_labels = []
 
-    @ property
+    @property
     def name(self):
         return self._dataset.name
 
-    @ property
+    @property
     def return_estimated(self):
         return self._return_estimated
 
-    @ return_estimated.setter
+    @return_estimated.setter
     def return_estimated(self, b):
         assert not b or len(self) == len(self._estimated_labels), 'You did not collect etimated labels'
         self._return_estimated = b
@@ -293,7 +293,7 @@ class MixtureDataset(Dataset):
 
         self._classes = tuple(self._classes)
 
-    @ property
+    @property
     def classes(self):
         return self._classes
 
@@ -315,11 +315,11 @@ class MixtureDataset(Dataset):
             else:
                 yield self.classes[_]
 
-    @ property
+    @property
     def subdatasets(self):
         return self._datasets
 
-    @ property
+    @property
     def mix(self):
         return self._mix_
 
@@ -497,11 +497,13 @@ if __name__ == '__main__':
     print('Done (in {:.0f}s)'.format(time.time() - t0))
     t0 = time.time()
 
-    check_ind = moving_set.extract_subdataset('ind')
-    check_pad = moving_set.extract_subdataset('padmix')
-    assert len(check_ind) + len(check_pad) == unique(check_ind, check_pad)
+    if args.pad_mix > 0:
+        check_ind = moving_set.extract_subdataset('ind')
+        check_pad = moving_set.extract_subdataset('padmix')
 
-    print('Passed checkpoint in {:.3f}ms'.format(1000 * (time.time() - t0)))
+        assert len(check_ind) + len(check_pad) == unique(check_ind, check_pad)
+
+        print('Passed checkpoint in {:.3f}ms'.format(1000 * (time.time() - t0)))
 
     print('\n==BAR=')
     moving_set_bar.bar()

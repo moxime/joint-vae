@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     config_params_ft = config['ft-default']
     defaults.update(config['ft-default'])
-    defaults.update(config['-default'].format(conf_args.ft))
+    defaults.update(config['{}-default'.format(conf_args.ft)])
 
     parser = argparse.ArgumentParser(parents=[conf_parser],
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     dataset = model_dict['set']
 
     classes = {'wim': {'job': WIMJob, 'array': WIMArray},
-               'poscod': {'job': PoscodArrayJob, 'array': PoscodArray}}
+               'poscod': {'job': PoscodJob, 'array': PoscodArray}}
 
     Job = classes[conf_args.ft]['job']
     Array = classes[conf_args.ft]['array']

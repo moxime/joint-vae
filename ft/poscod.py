@@ -27,7 +27,6 @@ class PoscodJob(FTJob):
     _generalize = True
 
     def update_loss_components(self):
-        self.loss_components += tuple(k + '@' for k in self.loss_components)
         self.loss_components += self.added_loss_components_per_type.get(self.type, ())
 
     def __init__(self, *a, **kw):

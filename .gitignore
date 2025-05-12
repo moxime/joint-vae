@@ -6,6 +6,7 @@ tests
 *_data/
 jobs/
 job*/
+*jobs
 fake*/
 *-jobs*/
 test-jobs/
@@ -25,4 +26,4 @@ _cache*
 module/rst
 wim*-arrays*
 wim-tasks*
-*-array
+*-array*

@@ -218,7 +218,9 @@ class FTArray(FTJob):
             #     print(_, *r._tensors[_].shape, '--', *r[_].shape)
 
         if compute_rates and has_been_updated:
+            oodsets = [_ for _ in array_recorders if _ != self.training_parameters['set']]
             self.ood_detection_rates(
+                oodsets,
                 recorders=array_recorders,
                 from_where=('recorders',),
                 print_result='*')
@@ -250,7 +252,7 @@ class FTArray(FTJob):
                 spth = os.path.join(array_sdir, 'samples-{}.pth'.format(_))
                 array_sample_rec[_].save(spth, append=True)
 
-    @ classmethod
+    @classmethod
     def collect_processed_jobs(cls, job_dir, flash=False):
 
         logging.info('Collect processed jobs in {}'.format(job_dir))

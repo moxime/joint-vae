@@ -30,7 +30,7 @@ class PoscodJob(FTJob):
         self.loss_components += tuple(k + '@' for k in self.loss_components)
         self.loss_components += self.added_loss_components_per_type.get(self.type, ())
 
-    def __init__(self, *a, alternate_prior=None, **kw):
+    def __init__(self, *a, **kw):
 
         super().__init__(*a, **kw)
 
@@ -41,12 +41,13 @@ class PoscodJob(FTJob):
                                    Linear(in_features=self.latent_dim,
                                           out_features=1, bias=True))
 
-        self.param_a = Parameter(torch.tensor(
-            torch.rand(1), requires_grad=True))
+        self.param_a = Parameter(torch.rand(1), requires_grad=True)
 
         self._train_ood_head = False
 
-    @ classmethod
+        self.ft_params = {}
+
+    @classmethod
     def is_poscod(cls, d):
         return os.path.exists(os.path.join(d, 'poscod.json'))
 
@@ -162,12 +163,14 @@ class PoscodJob(FTJob):
 
         return dist_measures
 
-    @ classmethod
-    def transfer_from_model(cls, state):
-        pass
+    def transfer_from_model(self, state):
+
+        state['param_a'] = self.param_a
+        state['ood_head.1.weight'] = self.ood_head[1].weight
+        state['ood_head.1.bias'] = self.ood_head[1].bias
 
     def load_post_hook(self, **ft_params):
-        pass
+        self.ft_params = {}
 
     def finetune_batch(self, batch, epoch, x_in, y_in, x_mix, alpha=0.1):
 

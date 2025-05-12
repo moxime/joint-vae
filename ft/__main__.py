@@ -39,12 +39,11 @@ if __name__ == '__main__':
 
     conf_args, remaining_args = conf_parser.parse_known_args()
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(default_section=None)
     config.read(conf_args.config_file)
 
     defaults = {}
 
-    config_params_ft = config['ft-default']
     defaults.update(config['ft-default'])
     defaults.update(config['{}-default'.format(conf_args.ft)])
 
@@ -234,7 +233,7 @@ if __name__ == '__main__':
 
     ft_params = {}
     if conf_args.ft == 'wim':
-        ft_params['alpha'] = args.alpha,
+        ft_params['alpha'] = args.alpha
 
     try:
         model.finetune(*ft_sets,
@@ -290,7 +289,7 @@ if __name__ == '__main__':
         ft_jobs_already_processed = Array.collect_processed_jobs(args.array_job_dir, flash=True)
         logging.info('{} ft jobs already processed'.format(len(ft_jobs_already_processed)))
         ft_jobs = ft_array.fetch_jobs_alike(args.ft_job_dir)
-
+        logging.info('Found {} jobs like the array in {}'.format(len(ft_jobs), args.ft_job_dir))
         ft_jobs = [_ for _ in ft_jobs if model_subdir(_) not in ft_jobs_already_processed]
 
         logging.info('Processing {} ft jobs alike'.format(len(ft_jobs)))

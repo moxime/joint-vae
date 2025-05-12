@@ -114,8 +114,8 @@ class FTJob(M, ABC):
             n = self._recurse_train(self)
             logging.debug('Kept {} bn layers in eval mode'.format(n))
 
-    @abstractclassmethod
-    def transfer_from_model(cls, state):
+    @abstractmethod
+    def transfer_from_model(self, state):
         raise NotImplementedError
 
     @abstractmethod
@@ -143,7 +143,7 @@ class FTJob(M, ABC):
             model = e.args[0]
             s = e.args[1]  # state_dict
             logging.debug('Creating fake params from original state')
-            cls.transfer_from_model(s)
+            model.transfer_from_model(s)
 
             model.load_state_dict(s)
 
@@ -159,7 +159,7 @@ class FTJob(M, ABC):
                 model.load_post_hook(**ft_params)
 
         except FileNotFoundError:
-            logging.debug('Model loaded has been detected as not wim')
+            logging.debug('Model loaded has been detected as not ft job')
             logging.debug('Reset results')
             model.ood_results = {}
 
@@ -257,6 +257,11 @@ class FTJob(M, ABC):
                                        padding_sets, padding=padding, mix_padding=mix_padding,
                                        seed=subset_idx_seed, task=subset_idx_task)
 
+        if epochs:
+            train_size = epochs * len(moving_set)
+            logging.debug('Train size override by epochs: {}'.format(train_size))
+            self.ft_params['train_size'] = train_size
+
         max_batch_sizes = self.max_batch_sizes
 
         test_batch_size = min(max_batch_sizes['test'], test_batch_size)
@@ -304,7 +309,6 @@ class FTJob(M, ABC):
         Compute ood fprs before wim tuning
 
         """
-        self.original_prior = True
         recorders = {_: LossRecorder(test_batch_size) for _ in list(sets) + [set_name]}
 
         logging.debug(str(moving_set))
@@ -339,10 +343,6 @@ class FTJob(M, ABC):
                                                     shuffle=True,
                                                     num_workers=0)
 
-        if epochs:
-            train_size = epochs * len(moving_set)
-            logging.debug('Train size override by epochs: {}'.format(train_size))
-            self.ft_params['train_size'] = train_size
         epochs = int(np.ceil(train_size / len(moving_set)))
         logging.info('Epochs: {} / {} = {}'.format(train_size, len(moving_set), epochs))
         for epoch in range(epochs):

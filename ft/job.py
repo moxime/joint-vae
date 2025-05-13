@@ -403,7 +403,7 @@ class FTJob(M, ABC):
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
-                L, in_batch_loss, mix_batch_loss = self.finetune_batch(epoch, batch,
+                L, in_batch_loss, mix_batch_loss = self.finetune_batch(batch, epoch,
                                                                        x_a.to(device), y_a.to(device),
                                                                        x_u.to(device), **kw)
 
@@ -421,8 +421,8 @@ class FTJob(M, ABC):
                 running_loss.update({'in_{}'.format(k): in_batch_loss[k].mean().item()
                                      for k in in_batch_loss if k in self.printed_loss})
 
-                running_loss.update({'mix_{}'.format(k): in_batch_loss[k].mean().item()
-                                     for k in in_batch_loss if k in self.printed_loss})
+                running_loss.update({'mix_{}'.format(k): mix_batch_loss[k].mean().item()
+                                     for k in mix_batch_loss if k in self.printed_loss})
 
                 if not batch:
                     mean_loss = {k: 0. for k in running_loss}

@@ -61,7 +61,7 @@ class PoscodJob(FTJob):
         o_z = o[-3:]
         z = o[-1]
 
-        mix_in_logit = self.ood_head(z[1:]).squeeze(-1).mean(0)
+        mix_in_logit = self.ood_head(z[0]).squeeze(-1)
 
         # (12) & (13) in Franc (2024)
         p_z_mix_over_p_z_in = mix_in_logit.exp() + self.param_a.abs()
@@ -127,28 +127,20 @@ class PoscodJob(FTJob):
         self.train()
 
         y_mix_in = torch.ones(len(x_in) + len(x_mix), device=x_in.device)
-
-        x_mix_in = torch.concat([x_in, x_mix])
-
         y_mix_in[:len(x_in)] = 0
 
-        x = {0: x_mix_in[::2], 1: x_mix_in[1::2]}
-        y = {0: y_mix_in[::2], 1: y_mix_in[1::2]}
-        batch_losses = {}
         L = 0
         with self.no_estimated_labels():
-            for w in x:
-                (_, y_est, batch_loss, _) = self.evaluate(x[w], y=y[w],
+            (_, y_est, in_batch_loss, _) = self.evaluate(x_in, y=torch.zeros(len(x_in), device=x_in.device),
+                                                         batch=batch,
+                                                         with_beta=True)
+            (_, y_est, mix_batch_loss, _) = self.evaluate(x_mix, y=torch.ones(len(x_mix), device=x_mix.device),
                                                           batch=batch,
                                                           with_beta=True)
-                batch_losses[w] = batch_loss
 
-                L += batch_loss['cbce'].mean()
+            L = len(x_in) * in_batch_loss['cbce'].mean() + len(x_mix) * mix_batch_loss['cbce'].mean()
 
-        in_batch_loss = {_: torch.concat([batch_losses[w][_][..., y_mix_in[w::2] == 0] for w in x])
-                         for _ in batch_loss}
-        mix_batch_loss = {_: torch.concat([batch_losses[w][_][..., y_mix_in[w::2] == 1] for w in x])
-                          for _ in batch_loss}
+            L /= (len(x_in) + len(x_mix))
 
         self.eval()
         return L, in_batch_loss, mix_batch_loss

@@ -168,8 +168,7 @@ class FTJob(M, ABC):
     def save(self, *a, except_state=True, **kw):
         logging.debug('Saving ft model')
         kw['except_optimizer'] = True
-        with self.original_prior:
-            dir_name = super().save(*a, except_state=except_state, **kw)
+        dir_name = super().save(*a, except_state=except_state, **kw)
         save_json(self.ft_params, dir_name, self.ft_param_file)
         logging.debug('Model saved in {}'.format(dir_name))
         return dir_name
@@ -232,7 +231,7 @@ class FTJob(M, ABC):
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
         ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed, task=subset_idx_task)
 
-        number_of_tasks = len(ood_set) // (ood_mix * moving_size)
+        number_of_tasks = int(len(ood_set) // (ood_mix * moving_size))
 
         set_name = self.training_parameters['set']
 
@@ -409,6 +408,10 @@ class FTJob(M, ABC):
                                                                        x_u.to(device), **kw)
 
                 L.backward()
+                # if not batch:
+                #     for p in self.parameters():
+                #         if p.grad is not None:
+                #             print(p.shape, p.grad.shape, p.grad.norm())
                 optimizer.step()
                 optimizer.clip(self.parameters())
 
@@ -418,14 +421,13 @@ class FTJob(M, ABC):
                 running_loss.update({'in_{}'.format(k): in_batch_loss[k].mean().item()
                                      for k in in_batch_loss if k in self.printed_loss})
 
+                running_loss.update({'mix_{}'.format(k): in_batch_loss[k].mean().item()
+                                     for k in in_batch_loss if k in self.printed_loss})
+
                 if not batch:
-                    mean_loss = running_loss
-                else:
-                    for _, k in product(n_per_i_, self.printed_loss):
-                        k_ = _ + '_' + k
-                        if k in running_loss:
-                            mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_])
-                            mean_loss[k_] /= (n_per_i_[_] + n_[_])
+                    mean_loss = {k: 0. for k in running_loss}
+                mean_loss = {k: (mean_loss[k] * batch + running_loss[k])/(batch + 1)
+                             for k in running_loss}
 
                 for _ in n_:
                     n_[_] += n_per_i_[_]
@@ -456,15 +458,15 @@ class FTJob(M, ABC):
         oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]
 
         _s = 'Collecting loss for {} with {} of size {}'
-        logging.debug(_s.format(testset.name, recorders[testset.name], len(recorders[testset.name])))
-        if self.is_cvae:
-            y_est = recorders[testset.name]['kl'].argmin(0)
-            testset.append_estimated(y_est)
-            testset.return_estimated = True
-            for s in oodsets:
+        if self._with_estimated_labels:
+            for s in [testset, *oodsets]:
                 if not s:
                     continue
-                y_est = recorders[s.name]['kl'].argmin(0)
+                logging.info(_s.format(s.name, recorders[s.name], len(recorders[s.name])))
+                if self.is_cvae:
+                    y_est = recorders[s.name]['kl'].argmin(0)
+                elif self.is_vib:
+                    y_est = recorders[s.name]['cross_y'].argmin(0)
                 s.append_estimated(y_est)
                 s.return_estimated = True
 

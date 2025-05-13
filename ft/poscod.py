@@ -12,7 +12,7 @@ class PoscodJob(FTJob):
 
     added_loss_components_per_type = {'cvae': ('y_est_already',),
                                       'vae': (),
-                                      'vib': ('y_est_already', 'g', 'mix_in_cbce')}
+                                      'vib': ('y_est_already', 'g', 'cbce')}
 
     ood_methods_per_type = {'vae': ['zdist', 'elbo', 'kl'],
                             'cvae': ['zdist', 'zdist~', 'zdist@', 'zdist~@',
@@ -21,6 +21,8 @@ class PoscodJob(FTJob):
                             }
     misclass_methods_per_type = {'cvae': ['softzdist~', 'zdist~'],
                                  'vae': [], 'vib': []}
+
+    printed_loss = ('g', 'cbce')
 
     ft_param_file = 'poscod.json'
 
@@ -42,30 +44,19 @@ class PoscodJob(FTJob):
 
         self.param_a = Parameter(torch.rand(1), requires_grad=True)
 
-        self._train_ood_head = False
-
         self.ft_params = {}
 
     @classmethod
     def is_poscod(cls, d):
         return os.path.exists(os.path.join(d, 'poscod.json'))
 
-    @property
-    @contextmanager
-    def train_ood_head(self):
-        self._train_ood_head = True
-        try:
-            yield
-        finally:
-            self._train_ood_head = False
-
     def evaluate(self, x, *a, y=None, z_output=False, **kw):
 
-        if not self._train_ood_head:
-            o = super().evaluate(x, *a, y=y, z_output=True, **kw)
-        else:
+        if self.training:
             # y is 0 if in, 1 if mix
             o = super().evaluate(x, *a, y=None, z_output=True, **kw)
+        else:
+            o = super().evaluate(x, *a, y=y, z_output=True, **kw)
 
         o_z = o[-3:]
         z = o[-1]
@@ -82,10 +73,10 @@ class PoscodJob(FTJob):
         # loss is o[2]
         o[2]['g'] = p_z_mix_over_p_z_in * (1 - p_u) / (p_u * p_o_train_in_mix)
 
-        if self._train_ood_head:
+        if self.training:
             mix_in_corrected_logit = p_z_mix_over_p_z_in.log()
-            mix_in_coorected_bce = F.binary_cross_entropy_with_logits(mix_in_corrected_logit, y)
-            o[2]['mix_in_cbce'] = mix_in_coorected_bce
+            mix_in_coorected_bce = F.binary_cross_entropy_with_logits(mix_in_corrected_logit, y, reduction='none')
+            o[2]['cbce'] = mix_in_coorected_bce
 
         if z_output:
             return o
@@ -101,7 +92,7 @@ class PoscodJob(FTJob):
         if not poscod_methods:
             return dist_measures
 
-        logging.debug('Compute measures for {}'.format(','.join(poscod_methods)))
+        # logging.debug('Compute measures for {}'.format(','.join(poscod_methods)))
 
         poscod_measures = {}
         for m in poscod_methods:
@@ -117,7 +108,7 @@ class PoscodJob(FTJob):
                 measures = -losses['g']
 
             poscod_measures[m] = measures.cpu() if to_cpu else measures
-            logging.debug('{}: {}'.format(m, ', '.join(map(str, measures.shape))))
+            #  logging.debug('{}: {}'.format(m, ', '.join(map(str, measures.shape))))
         dist_measures.update(poscod_measures)
 
         return dist_measures
@@ -135,26 +126,29 @@ class PoscodJob(FTJob):
 
         self.train()
 
-        y_mix = torch.ones(len(x_in), device=x_in.device)
+        y_mix_in = torch.ones(len(x_in) + len(x_mix), device=x_in.device)
 
         x_mix_in = torch.concat([x_in, x_mix])
 
-        y_mix[:len(x_in)] = 0
+        y_mix_in[:len(x_in)] = 0
 
         x = {0: x_mix_in[::2], 1: x_mix_in[1::2]}
-        y = {0: y_mix[::2], 1: y_mix[1::2]}
+        y = {0: y_mix_in[::2], 1: y_mix_in[1::2]}
         batch_losses = {}
         L = 0
         with self.no_estimated_labels():
-            with self.train_ood_head():
-                for w in x:
-                    (_, y_est, batch_loss, _) = self.evaluate(x[w], y=y[w],
-                                                              batch=batch,
-                                                              with_beta=True)
-                    batch_losses[_] = batch_loss
+            for w in x:
+                (_, y_est, batch_loss, _) = self.evaluate(x[w], y=y[w],
+                                                          batch=batch,
+                                                          with_beta=True)
+                batch_losses[w] = batch_loss
 
-                    L += batch_loss['cbce'].mean()
+                L += batch_loss['cbce'].mean()
 
-        in_batch_loss = {_: torch.concat([batch_losses[w][_][y_mix == 0 for w in x]) for _ in batch_loss}
-        mix_batch_loss = {_: torch.concat([batch_losses[w][_][y_mix == 1 for w in x]) for _ in batch_loss}
+        in_batch_loss = {_: torch.concat([batch_losses[w][_][..., y_mix_in[w::2] == 0] for w in x])
+                         for _ in batch_loss}
+        mix_batch_loss = {_: torch.concat([batch_losses[w][_][..., y_mix_in[w::2] == 1] for w in x])
+                          for _ in batch_loss}
+
+        self.eval()
         return L, in_batch_loss, mix_batch_loss

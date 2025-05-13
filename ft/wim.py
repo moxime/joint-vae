@@ -254,6 +254,7 @@ class WIMJob(FTJob):
 
         L += alpha * mix_batch_loss['total'].mean()
 
+        self.original_prior = True
         self._evaluate_on_both_priors = True
 
         return L, in_batch_loss, mix_batch_loss

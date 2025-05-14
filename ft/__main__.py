@@ -281,6 +281,7 @@ if __name__ == '__main__':
 
         else:
             array_dir = model.saved_dir
+            print(model.ft_params)
             model.save(model.saved_dir)
 
         with turnoff_debug():

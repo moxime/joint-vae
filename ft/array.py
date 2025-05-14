@@ -26,7 +26,7 @@ class FTArray(FTJob):
 
     def finetune(self, *a, **kw):
 
-        logging.warning('WIM array is no meant to be fine-tuned')
+        logging.warning('FT array is no meant to be fine-tuned')
 
     def job_files(self, k):
 
@@ -150,7 +150,7 @@ class FTArray(FTJob):
         for j in jobs_to_add:
 
             self._add_job('rec', j)
-            a = available_results(WIMJob.load(j, build_module=False, load_state=False),
+            a = available_results(FTJob.load(j, build_module=False, load_state=False),
                                   where=('recorders',), min_samples_by_class=0)
             epoch = max(a)
             a = a[epoch]
@@ -292,6 +292,8 @@ class PoscodArray(FTArray, PoscodJob):
 
 if __name__ == '__main__':
 
+    raise DeprecationWarning()
+
     import sys
     import argparse
     import configparser
@@ -355,7 +357,7 @@ if __name__ == '__main__':
     if args.re:
         wim_jobs_already_processed = []
     else:
-        wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.array_job_dir)
+        wim_jobs_already_processed = FTArray.collect_processed_jobs(args.array_job_dir)
 
     logging.info('{} jobs already processed'.format(len(wim_jobs_already_processed)))
 

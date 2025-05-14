@@ -179,6 +179,7 @@ class FTJob(M, ABC):
 
     def save(self, *a, except_state=True, **kw):
         logging.debug('Saving ft model')
+        # print('*** saving', type(self).__name__, self.ft_params, self.ft_param_file)
         kw['except_optimizer'] = True
         dir_name = super().save(*a, except_state=except_state, **kw)
         save_json(self.ft_params, dir_name, self.ft_param_file)

@@ -120,7 +120,7 @@ class PoscodJob(FTJob):
         state['ood_head.1.bias'] = self.ood_head[1].bias
 
     def load_post_hook(self, **ft_params):
-        self.ft_params = {}
+        pass
 
     def finetune_batch(self, batch, epoch, x_in, y_in, x_mix, alpha=0.1):
 

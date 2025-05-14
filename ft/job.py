@@ -467,25 +467,38 @@ class FTJob(M, ABC):
         if self._generalize:
             moving_set.bar(True)
 
+        oodsets = [ood_.extract_subdataset(_) for _ in ood_sets]
+        if not task and self._generalize:
+            #  add others oodsets
+            logging.info('Since task=0 and generalize, adding others ood sets')
+            oodsets.extend([torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
+                            for _ in torchdl.get_same_size_by_name(testset.name) if _ not in recorders])
+
         testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
-        oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]
+        oodsets = [EstimatedLabelsDataset(s) for s in oodsets]
 
         _s = 'Collecting loss for {} with {} of size {}'
         if self._with_estimated_labels:
             for s in [testset, *oodsets]:
                 if not s:
                     continue
+
+                if s.name not in recorders:
+                    s.append_estimated(torch.zeros(len(s)).int())
+                    s.return_estimated = True
+                    continue
+
                 logging.info(_s.format(s.name, recorders[s.name], len(recorders[s.name])))
                 if self.is_cvae:
                     y_est = recorders[s.name]['kl'].argmin(0)
                 elif self.is_vib:
                     y_est = recorders[s.name]['cross_y'].argmin(0)
                 s.append_estimated(y_est)
-                s.return_estimated = True
+                s.return_estimated=True
 
-            loader = torch.utils.data.DataLoader(testset, collate_fn=collate, batch_size=100)
+            loader=torch.utils.data.DataLoader(testset, collate_fn = collate, batch_size = 100)
             for i, batch in enumerate(loader):
-                (x, y_), y = batch
+                (x, y_), y=batch
                 logging.debug('y = y_ with {:.1%}'.format((y == y_).float().mean()))
                 if not i:
                     logging.debug('First labels: {}'.format(' '.join(str(_.item()) for _ in y[:10])))
@@ -493,42 +506,42 @@ class FTJob(M, ABC):
         with torch.no_grad():
             for s in sample_recorders:
                 sample_recorders[s].reset()
-            self.ood_detection_rates(batch_size=test_batch_size,
-                                     testset=testset,
-                                     oodsets=oodsets,
-                                     num_batch='all',
-                                     outputs=outputs,
-                                     sample_dirs=sample_dirs,
-                                     recorders={},
-                                     sample_recorders=sample_recorders,
-                                     print_result='*')
+            self.ood_detection_rates(batch_size = test_batch_size,
+                                     testset = testset,
+                                     oodsets = oodsets,
+                                     num_batch = 'all',
+                                     outputs = outputs,
+                                     sample_dirs = sample_dirs,
+                                     recorders = {},
+                                     sample_recorders = sample_recorders,
+                                     print_result = '*')
             logging.info('Computing misclass detection rates')
-            self.misclassification_detection_rates(print_result='~')
+            self.misclassification_detection_rates(print_result = '~')
             logging.info('Computing misclass detection rates: done')
 
-    def fetch_jobs_alike(self, job_dir=None, models=None, flash=False):
+    def fetch_jobs_alike(self, job_dir = None, models = None, flash = False):
 
         assert (job_dir is None) ^ (models is None), 'Either job_dir or models is None'
 
-        wim_filter_keys = get_filter_keys()
-        wim_filter_keys = {_: wim_filter_keys[_] for _ in wim_filter_keys if _.startswith('wim')}
+        wim_filter_keys=get_filter_keys()
+        wim_filter_keys={_: wim_filter_keys[_] for _ in wim_filter_keys if _.startswith('wim')}
         wim_filter_keys.pop('wim_array_size', None)
 
-        filter = DictOfListsOfParamFilters()
+        filter=DictOfListsOfParamFilters()
 
-        self_dict = make_dict_from_model(self, '')
+        self_dict=make_dict_from_model(self, '')
 
         for k, f in wim_filter_keys.items():
             filter.add(k, ParamFilter(type=f['type'], values=[self_dict[k]]))
 
         logging.debug('Fetch jobs in {} alike {}'.format(job_dir, filter))
         if job_dir:
-            fetched_jobs = fetch_models(job_dir, flash=flash,
-                                        build_module=False, filter=filter,
-                                        load_state=False, show_debug=False)
+            fetched_jobs=fetch_models(job_dir, flash = flash,
+                                        build_module = False, filter = filter,
+                                        load_state = False, show_debug = False)
         else:
             logging.debug('Looking jobs alike in a list of models of size {}'.format(len(models)))
-            fetched_jobs = [m for m in models if filter.filter(m)]
+            fetched_jobs=[m for m in models if filter.filter(m)]
 
         logging.debug('Fetched {} models with filters'.format(len(fetched_jobs)))
 

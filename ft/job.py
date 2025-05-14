@@ -521,6 +521,7 @@ class FTJob(M, ABC):
         for k, f in wim_filter_keys.items():
             filter.add(k, ParamFilter(type=f['type'], values=[self_dict[k]]))
 
+        logging.debug('Fetch jobs in {} alike {}'.format(job_dir, filter))
         if job_dir:
             fetched_jobs = fetch_models(job_dir, flash=flash,
                                         build_module=False, filter=filter,

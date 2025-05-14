@@ -72,7 +72,7 @@ class FTArray(FTJob):
         return True
 
     @classmethod
-    def load(cls, dir_name, *a, load_state=False, **kw):
+    def load(cls, dir_name, *a, load_state=False, even_if_no_array=False, **kw):
 
         if cls is FTArray:
 
@@ -85,9 +85,10 @@ class FTArray(FTJob):
                                                          ', '.join([c.__name__ for c in cls.__subclasses__()])))
 
         if not cls.is_one(dir_name):
-            raise JobTypeError('{} is no {}'.format(dir_name, cls.__name__))
+            if not even_if_no_array:
+                raise JobTypeError('{} is no {}'.format(dir_name, cls.__name__))
 
-        model = super().load(dir_name, *a, load_state=load_state, **kw)
+        model = super().load(dir_name, *a, load_state=load_state, even_if_no_job=even_if_no_array, **kw)
 
         a = available_results(model, where=('recorders',), min_samples_by_class=0)
         epoch = max(a)

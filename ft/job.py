@@ -127,7 +127,11 @@ class FTJob(M, ABC):
         raise NotImplementedError
 
     @classmethod
-    def load(cls, dir_name, build_module=True, **kw):
+    def load(cls, dir_name, build_module=True, even_if_no_job=False, **kw):
+        """
+
+        even_if_no_job: load as Job even if original job (to launch fine tuning)
+        """
 
         if cls is FTJob:
 
@@ -140,7 +144,8 @@ class FTJob(M, ABC):
                                                          ', '.join([c.__name__ for c in cls.__subclasses__()])))
 
         if not cls.is_one(dir_name):
-            raise JobTypeError('{} is no {}'.format(dir_name, cls.__name__))
+            if not even_if_no_job:
+                raise JobTypeError('{} is no {}'.format(dir_name, cls.__name__))
 
         try:
             model = super().load(dir_name, strict=False, build_module=build_module, **kw)

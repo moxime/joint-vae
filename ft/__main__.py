@@ -144,7 +144,7 @@ if __name__ == '__main__':
     Job = classes[conf_args.ft]['job']
     Array = classes[conf_args.ft]['array']
 
-    model = Job.load(model_dict['dir'], build_module=True, load_state=True)
+    model = Job.load(model_dict['dir'], build_module=True, load_state=True, even_if_no_job=True)
 
     log.info('Job #{}'.format(job_number))
 
@@ -284,7 +284,7 @@ if __name__ == '__main__':
             model.save(model.saved_dir)
 
         with turnoff_debug():
-            ft_array = Array.load(array_dir, load_state=False)
+            ft_array = Array.load(array_dir, load_state=False, even_if_no_array=True)
 
         ft_jobs_already_processed = Array.collect_processed_jobs(args.array_job_dir, flash=True)
         logging.info('{} ft jobs already processed'.format(len(ft_jobs_already_processed)))

@@ -114,16 +114,13 @@ def load_model(d, **kw):
     """
 
     from cvae import ClassificationVariationalNetwork as M
-    from ft import WIMJob as WJ
-    from ft.array import WIMArray as WA
+    from ft import FTJob as J, FTArray as A, JobTypeError
 
-    if WA.is_wim_array(d):
-        return WA.load(d, **kw)
-
-    if WJ.is_wim(d):
-        return WJ.load(d, **kw)
-
-    return M.load(d, **kw)
+    for C in (A, J, M):
+        try:
+            return C.load(d, **kw)
+        except JobTypeError:
+            pass
 
 
 def _collect_models(search_dir, registered_models_file=None):
@@ -153,10 +150,7 @@ def _collect_models(search_dir, registered_models_file=None):
                 models_to_be_deleted.remove(directory)
             else:
                 logging.debug(f'Loading net in: {directory}')
-                if W.is_wim(directory):
-                    model = W.load(directory, build_module=False, load_state=False)
-                else:
-                    model = M.load(directory, build_module=False, load_state=False)
+                model = load_model(directory, build_module=False, load_state=False)
 
                 models_to_be_registered.append(make_dict_from_model(model, directory))
 
@@ -177,7 +171,7 @@ def _collect_models(search_dir, registered_models_file=None):
     return rmodels
 
 
-@lock_models_file_in(0)
+@ lock_models_file_in(0)
 def fetch_models(search_dir, registered_models_file=None, filter=None, flash=True,
                  light=False,
                  tpr=0.95,

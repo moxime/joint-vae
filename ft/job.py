@@ -20,6 +20,10 @@ from .datasets import MixtureDataset, EstimatedLabelsDataset, create_moving_set
 from utils.print_log import EpochOutput
 
 
+class JobTypeError(TypeError):
+    pass
+
+
 class DontDoFineTuning(Exception):
 
     def __init__(self, continue_as_array):
@@ -132,8 +136,11 @@ class FTJob(M, ABC):
                 if c.is_one(dir_name):
                     return c.load(dir_name, build_module=build_module, **kw)
 
-            raise ValueError('{} is neither {}'.format(dir_name,
-                                                       ', '.join([c.__name__ for c in cls.__subclasses__()])))
+            raise JobTypeError('{} is neither {}'.format(dir_name,
+                                                         ', '.join([c.__name__ for c in cls.__subclasses__()])))
+
+        if not cls.is_one(dir_name):
+            raise JobTypeError('{} is no {}'.format(dir_name, cls.__name__))
 
         try:
             model = super().load(dir_name, strict=False, build_module=build_module, **kw)
@@ -426,7 +433,7 @@ class FTJob(M, ABC):
 
                 if not batch:
                     mean_loss = {k: 0. for k in running_loss}
-                mean_loss = {k: (mean_loss[k] * batch + running_loss[k])/(batch + 1)
+                mean_loss = {k: (mean_loss[k] * batch + running_loss[k]) / (batch + 1)
                              for k in running_loss}
 
                 for _ in n_:

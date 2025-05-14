@@ -2,7 +2,7 @@ import os
 import logging
 from utils.print_log import turnoff_debug
 from ft import WIMJob, PoscodJob
-from ft.job import FTJob
+from ft.job import FTJob, JobTypeError
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
 from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
@@ -81,8 +81,11 @@ class FTArray(FTJob):
                 if c.is_one(dir_name):
                     return c.load(dir_name, *a, load_state=load_state, **kw)
 
-            raise ValueError('{} is neither {}'.format(dir_name,
-                                                       ', '.join([c.__name__ for c in cls.__subclasses__()])))
+            raise JobTypeError('{} is neither {}'.format(dir_name,
+                                                         ', '.join([c.__name__ for c in cls.__subclasses__()])))
+
+        if not cls.is_one(dir_name):
+            raise JobTypeError('{} is no {}'.format(dir_name, cls.__name__))
 
         model = super().load(dir_name, *a, load_state=load_state, **kw)
 

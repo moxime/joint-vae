@@ -20,6 +20,10 @@ from .datasets import MixtureDataset, EstimatedLabelsDataset, create_moving_set
 from utils.print_log import EpochOutput
 
 
+class JobTypeError(TypeError):
+    pass
+
+
 class DontDoFineTuning(Exception):
 
     def __init__(self, continue_as_array):
@@ -42,7 +46,11 @@ class FTJob(M, ABC):
 
     @classmethod
     def is_one(cls, d):
-        return os.path.exists(os.path.join(d, cls.ft_param_file))
+        try:
+            return os.path.exists(os.path.join(d, cls.ft_param_file))
+        except AttributeError:
+            # FTJob has no ft_param_file
+            return True
 
     @abstractmethod
     def update_loss_components(self):
@@ -110,8 +118,8 @@ class FTJob(M, ABC):
             n = self._recurse_train(self)
             logging.debug('Kept {} bn layers in eval mode'.format(n))
 
-    @abstractclassmethod
-    def transfer_from_model(cls, state):
+    @abstractmethod
+    def transfer_from_model(self, state):
         raise NotImplementedError
 
     @abstractmethod
@@ -119,7 +127,25 @@ class FTJob(M, ABC):
         raise NotImplementedError
 
     @classmethod
-    def load(cls, dir_name, build_module=True, **kw):
+    def load(cls, dir_name, build_module=True, even_if_no_job=False, **kw):
+        """
+
+        even_if_no_job: load as Job even if original job (to launch fine tuning)
+        """
+
+        if cls is FTJob:
+
+            for c in cls.__subclasses__():
+
+                if c.is_one(dir_name):
+                    return c.load(dir_name, build_module=build_module, **kw)
+
+            raise JobTypeError('{} is neither {}'.format(dir_name,
+                                                         ', '.join([c.__name__ for c in cls.__subclasses__()])))
+
+        if not cls.is_one(dir_name):
+            if not even_if_no_job:
+                raise JobTypeError('{} is no {}'.format(dir_name, cls.__name__))
 
         try:
             model = super().load(dir_name, strict=False, build_module=build_module, **kw)
@@ -129,7 +155,7 @@ class FTJob(M, ABC):
             model = e.args[0]
             s = e.args[1]  # state_dict
             logging.debug('Creating fake params from original state')
-            cls.transfer_from_model(s)
+            model.transfer_from_model(s)
 
             model.load_state_dict(s)
 
@@ -145,7 +171,7 @@ class FTJob(M, ABC):
                 model.load_post_hook(**ft_params)
 
         except FileNotFoundError:
-            logging.debug('Model loaded has been detected as not wim')
+            logging.debug('Model loaded has been detected as not ft job')
             logging.debug('Reset results')
             model.ood_results = {}
 
@@ -153,9 +179,9 @@ class FTJob(M, ABC):
 
     def save(self, *a, except_state=True, **kw):
         logging.debug('Saving ft model')
+        # print('*** saving', type(self).__name__, self.ft_params, self.ft_param_file)
         kw['except_optimizer'] = True
-        with self.original_prior:
-            dir_name = super().save(*a, except_state=except_state, **kw)
+        dir_name = super().save(*a, except_state=except_state, **kw)
         save_json(self.ft_params, dir_name, self.ft_param_file)
         logging.debug('Model saved in {}'.format(dir_name))
         return dir_name
@@ -218,7 +244,7 @@ class FTJob(M, ABC):
         ood_sets = {_: torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1] for _ in sets}
         ood_set = MixtureDataset(**ood_sets, mix=1, seed=subset_idx_seed, task=subset_idx_task)
 
-        number_of_tasks = len(ood_set) // (ood_mix * moving_size)
+        number_of_tasks = int(len(ood_set) // (ood_mix * moving_size))
 
         set_name = self.training_parameters['set']
 
@@ -242,6 +268,11 @@ class FTJob(M, ABC):
         moving_set = create_moving_set(set_name, transformer, data_augmentation, moving_size, ood_mix, sets,
                                        padding_sets, padding=padding, mix_padding=mix_padding,
                                        seed=subset_idx_seed, task=subset_idx_task)
+
+        if epochs:
+            train_size = epochs * len(moving_set)
+            logging.debug('Train size override by epochs: {}'.format(train_size))
+            self.ft_params['train_size'] = train_size
 
         max_batch_sizes = self.max_batch_sizes
 
@@ -290,7 +321,6 @@ class FTJob(M, ABC):
         Compute ood fprs before wim tuning
 
         """
-        self.original_prior = True
         recorders = {_: LossRecorder(test_batch_size) for _ in list(sets) + [set_name]}
 
         logging.debug(str(moving_set))
@@ -325,10 +355,6 @@ class FTJob(M, ABC):
                                                     shuffle=True,
                                                     num_workers=0)
 
-        if epochs:
-            train_size = epochs * len(moving_set)
-            logging.debug('Train size override by epochs: {}'.format(train_size))
-            self.ft_params['train_size'] = train_size
         epochs = int(np.ceil(train_size / len(moving_set)))
         logging.info('Epochs: {} / {} = {}'.format(train_size, len(moving_set), epochs))
         for epoch in range(epochs):
@@ -390,11 +416,15 @@ class FTJob(M, ABC):
                 _s = 'Epoch {:2} Batch {:2} -- set {} --- prior {}'
                 logging.debug(_s.format(epoch + 1, batch + 1, 'train', 'original'))
 
-                L, in_batch_loss, mix_batch_loss = self.finetune_batch(epoch, batch,
+                L, in_batch_loss, mix_batch_loss = self.finetune_batch(batch, epoch,
                                                                        x_a.to(device), y_a.to(device),
                                                                        x_u.to(device), **kw)
 
                 L.backward()
+                # if not batch:
+                #     for p in self.parameters():
+                #         if p.grad is not None:
+                #             print(p.shape, p.grad.shape, p.grad.norm())
                 optimizer.step()
                 optimizer.clip(self.parameters())
 
@@ -404,14 +434,13 @@ class FTJob(M, ABC):
                 running_loss.update({'in_{}'.format(k): in_batch_loss[k].mean().item()
                                      for k in in_batch_loss if k in self.printed_loss})
 
+                running_loss.update({'mix_{}'.format(k): mix_batch_loss[k].mean().item()
+                                     for k in mix_batch_loss if k in self.printed_loss})
+
                 if not batch:
-                    mean_loss = running_loss
-                else:
-                    for _, k in product(n_per_i_, self.printed_loss):
-                        k_ = _ + '_' + k
-                        if k in running_loss:
-                            mean_loss[k_] = (mean_loss[k_] * n_[_] + running_loss[k_] * n_per_i_[_])
-                            mean_loss[k_] /= (n_per_i_[_] + n_[_])
+                    mean_loss = {k: 0. for k in running_loss}
+                mean_loss = {k: (mean_loss[k] * batch + running_loss[k]) / (batch + 1)
+                             for k in running_loss}
 
                 for _ in n_:
                     n_[_] += n_per_i_[_]
@@ -438,19 +467,33 @@ class FTJob(M, ABC):
         if self._generalize:
             moving_set.bar(True)
 
+        oodsets = [ood_.extract_subdataset(_) for _ in ood_sets]
+        if not task and self._generalize:
+            #  add others oodsets
+            logging.info('Since task=0 and generalize, adding others ood sets')
+            oodsets.extend([torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
+                            for _ in torchdl.get_same_size_by_name(testset.name)
+                            if _ not in sets and _ not in padding_sets])
+
         testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
-        oodsets = [EstimatedLabelsDataset(ood_.extract_subdataset(_)) for _ in ood_sets]
+        oodsets = [EstimatedLabelsDataset(s) for s in oodsets]
 
         _s = 'Collecting loss for {} with {} of size {}'
-        logging.debug(_s.format(testset.name, recorders[testset.name], len(recorders[testset.name])))
-        if self.is_cvae:
-            y_est = recorders[testset.name]['kl'].argmin(0)
-            testset.append_estimated(y_est)
-            testset.return_estimated = True
-            for s in oodsets:
+        if self._with_estimated_labels:
+            for s in [testset, *oodsets]:
                 if not s:
                     continue
-                y_est = recorders[s.name]['kl'].argmin(0)
+
+                if s.name not in recorders:
+                    s.append_estimated(torch.zeros(len(s)).int())
+                    s.return_estimated = True
+                    continue
+
+                logging.info(_s.format(s.name, recorders[s.name], len(recorders[s.name])))
+                if self.is_cvae:
+                    y_est = recorders[s.name]['kl'].argmin(0)
+                elif self.is_vib:
+                    y_est = recorders[s.name]['cross_y'].argmin(0)
                 s.append_estimated(y_est)
                 s.return_estimated = True
 
@@ -492,6 +535,7 @@ class FTJob(M, ABC):
         for k, f in wim_filter_keys.items():
             filter.add(k, ParamFilter(type=f['type'], values=[self_dict[k]]))
 
+        logging.debug('Fetch jobs in {} alike {}'.format(job_dir, filter))
         if job_dir:
             fetched_jobs = fetch_models(job_dir, flash=flash,
                                         build_module=False, filter=filter,

@@ -1142,7 +1142,7 @@ class ClassificationVariationalNetwork(nn.Module):
                 else:
                     raise (e)
 
-    @ property
+    @property
     def max_batch_sizes(self):
         return {'train': 32, 'test': 32}
         logging.debug('Calling max batch size')
@@ -1152,17 +1152,17 @@ class ClassificationVariationalNetwork(nn.Module):
         self.compute_max_batch_size()
         return self.max_batch_sizes
 
-    @ max_batch_sizes.setter
+    @max_batch_sizes.setter
     def max_batch_sizes(self, v):
         assert 'train' in v
         assert 'test' in v
         self.training_parameters['max_batch_sizes'] = v
 
-    @ property
+    @property
     def test_losses(self):
         return self._test_losses
 
-    @ test_losses.setter
+    @test_losses.setter
     def test_losses(self, d):
         # if not d:
         #     print('*** test losses reset')
@@ -1172,11 +1172,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self._test_losses = d
 
-    @ property
+    @property
     def test_measures(self):
         return self._test_measures
 
-    @ test_measures.setter
+    @test_measures.setter
     def test_measures(self, d):
         # if not d:
         #     print('*** test measures reset')
@@ -1486,8 +1486,12 @@ class ClassificationVariationalNetwork(nn.Module):
         if oodsets is None:
             oodsets = [torchdl.get_dataset(n, transformer=testset.transformer, splits=['test'])[1]
                        for n in testset.same_size]
-            logging.debug('Oodsets loaded: ' +
-                          ' ; '.join(s.name for s in oodsets))
+
+        if oodsets and isinstance(oodsets[0], str):
+            oodsets = [torchdl.get_dataset(n, transformer=testset.transformer, splits=['test'])[1]
+                       for n in oodsets]
+
+        logging.debug('Oodsets loaded: {}'.format(' ; '.join(s.name for s in oodsets)))
 
         _s = 'Will compute ood fprs and aucs with ind of length {} and oods {}'
         _l = ', '.join('{}:{}'.format(_.name, len(_)) for _ in oodsets)
@@ -2550,11 +2554,11 @@ class ClassificationVariationalNetwork(nn.Module):
 
         logging.warning('SUMMARY FUNCTION NOT IMPLEMENTED')
 
-    @ property
+    @property
     def device(self):
         return next(self.parameters()).device
 
-    @ device.setter
+    @device.setter
     def device(self, d):
         self.to(d)
 
@@ -2562,15 +2566,15 @@ class ClassificationVariationalNetwork(nn.Module):
         super().to(d)
         self.optimizer.to(d)
 
-    @ property
+    @property
     def nparams(self):
         return sum(p.nelement() for p in self.parameters())
 
-    @ property
+    @property
     def latent_sampling(self):
         return self._latent_sampling
 
-    @ latent_sampling.setter
+    @latent_sampling.setter
     def latent_sampling(self, v):
         self._latent_sampling = v
         self.encoder.sampling_size = v
@@ -2674,7 +2678,7 @@ class ClassificationVariationalNetwork(nn.Module):
 
         return dir_name
 
-    @ classmethod
+    @classmethod
     def load(cls, dir_name,
              build_module=True,
              load_state=True,
@@ -2833,6 +2837,13 @@ class ClassificationVariationalNetwork(nn.Module):
                     errno.ENOENT, os.strerror(errno.ENOENT), e.filename)
             except RuntimeError as e:
                 raise e
+
+            # RETROCOMP
+            prior_mean_k = 'encoder.prior.mean'
+            if prior_mean_k in state_dict and not state_dict[prior_mean_k].shape:
+                prior_mean = state_dict[prior_mean_k]
+                logging.warning('encoder prior mean was a scalar of value {}'.format(prior_mean))
+                state_dict[prior_mean_k] = prior_mean * torch.ones_like(model.encoder.prior.mean)
             try:
                 keys = model.load_state_dict(state_dict, strict=strict).missing_keys
 

@@ -1,8 +1,8 @@
 import os
 import logging
 from utils.print_log import turnoff_debug
-from ft import WIMJob
-from ft.job import FTJob
+from ft import WIMJob, PoscodJob
+from ft.job import FTJob, JobTypeError
 from utils.save_load import fetch_models, LossRecorder, available_results, find_by_job_number
 from utils.save_load import make_dict_from_model, model_subdir, save_json, SampleRecorder
 from utils.filters import ParamFilter, DictOfListsOfParamFilters, get_filter_keys
@@ -26,7 +26,7 @@ class FTArray(FTJob):
 
     def finetune(self, *a, **kw):
 
-        logging.warning('WIM array is no meant to be fine-tuned')
+        logging.warning('FT array is no meant to be fine-tuned')
 
     def job_files(self, k):
 
@@ -61,9 +61,34 @@ class FTArray(FTJob):
         return dir_name
 
     @classmethod
-    def load(cls, dir_name, *a, load_state=False, **kw):
+    def is_one(cls, d):
+        if not os.path.exists(os.path.join(d, JOB_FILE_NAME)):
+            return False
 
-        model = super().load(dir_name, *a, load_state=load_state, **kw)
+        for cls_ in cls.__bases__:
+            if hasattr(cls_, 'is_one') and not cls_.is_one(d):
+                return False
+
+        return True
+
+    @classmethod
+    def load(cls, dir_name, *a, load_state=False, even_if_no_array=False, **kw):
+
+        if cls is FTArray:
+
+            for c in cls.__subclasses__():
+
+                if c.is_one(dir_name):
+                    return c.load(dir_name, *a, load_state=load_state, **kw)
+
+            raise JobTypeError('{} is neither {}'.format(dir_name,
+                                                         ', '.join([c.__name__ for c in cls.__subclasses__()])))
+
+        if not cls.is_one(dir_name):
+            if not even_if_no_array:
+                raise JobTypeError('{} is no {}'.format(dir_name, cls.__name__))
+
+        model = super().load(dir_name, *a, load_state=load_state, even_if_no_job=even_if_no_array, **kw)
 
         a = available_results(model, where=('recorders',), min_samples_by_class=0)
         epoch = max(a)
@@ -125,7 +150,7 @@ class FTArray(FTJob):
         for j in jobs_to_add:
 
             self._add_job('rec', j)
-            a = available_results(WIMJob.load(j, build_module=False, load_state=False),
+            a = available_results(FTJob.load(j, build_module=False, load_state=False),
                                   where=('recorders',), min_samples_by_class=0)
             epoch = max(a)
             a = a[epoch]
@@ -177,7 +202,8 @@ class FTArray(FTJob):
             has_been_updated = True
 
         if cleaned_records:
-            logging.info('Cleaned {} tensors for {}'.format(len(cleaned_records), ', '.join(set(cleaned_records))))
+            logging.info('Cleaned {} tensors for {}'.format(len(cleaned_records),
+                                                            ', '.join(set(cleaned_records))))
 
         created_rec_str = ' -- '.join('{} of size {} for {}'.format(_,
                                                                     array_recorders[_].recorded_samples,
@@ -196,7 +222,9 @@ class FTArray(FTJob):
             #     print(_, *r._tensors[_].shape, '--', *r[_].shape)
 
         if compute_rates and has_been_updated:
+            oodsets = [_ for _ in array_recorders if _ != self.training_parameters['set']]
             self.ood_detection_rates(
+                oodsets,
                 recorders=array_recorders,
                 from_where=('recorders',),
                 print_result='*')
@@ -228,7 +256,7 @@ class FTArray(FTJob):
                 spth = os.path.join(array_sdir, 'samples-{}.pth'.format(_))
                 array_sample_rec[_].save(spth, append=True)
 
-    @ classmethod
+    @classmethod
     def collect_processed_jobs(cls, job_dir, flash=False):
 
         logging.info('Collect processed jobs in {}'.format(job_dir))
@@ -252,10 +280,19 @@ class WIMArray(FTArray, WIMJob):
 
     @classmethod
     def is_wim_array(cls, d):
-        return os.path.exists(os.path.join(d, JOB_FILE_NAME))
+        return cls.is_one(d)
+
+
+class PoscodArray(FTArray, PoscodJob):
+
+    @classmethod
+    def is_poscod_array(cls, d):
+        return cls.is_one(d)
 
 
 if __name__ == '__main__':
+
+    raise DeprecationWarning()
 
     import sys
     import argparse
@@ -320,7 +357,7 @@ if __name__ == '__main__':
     if args.re:
         wim_jobs_already_processed = []
     else:
-        wim_jobs_already_processed = WIMArray.collect_processed_jobs(args.array_job_dir)
+        wim_jobs_already_processed = FTArray.collect_processed_jobs(args.array_job_dir)
 
     logging.info('{} jobs already processed'.format(len(wim_jobs_already_processed)))
 

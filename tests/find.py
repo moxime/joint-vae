@@ -1,5 +1,7 @@
 from utils.save_load import find_by_job_number, LossRecorder, available_results
 import torch
+import sys
+
 
 j = 367028
 j = 369332
@@ -7,6 +9,7 @@ j = 381599
 j = 381986
 j = 367028
 j = 317032
+j = 399438
 
 job_dir = '.test-wim-jobs'
 job_dir = '.test-wim-arrays'
@@ -15,7 +18,9 @@ job_dir = 'jobs'
 
 dset = 'cifar10'
 
-m = find_by_job_number(j, build_module=True, load_state=False, job_dir=job_dir)
+m = find_by_job_number(j, build_module=True, load_state=True, job_dir=job_dir)
+
+sys.exit(0)
 
 a = available_results(m)
 

@@ -760,6 +760,7 @@ def make_dict_from_model(model, directory, tpr=0.95, wanted_epoch='last', miscla
 
     try:
         wim = model.ft_params
+        # print('***', directory[-10:], type(model), list(model.ft_params))
     except AttributeError:
         wim = {}
 

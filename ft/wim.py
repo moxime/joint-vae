@@ -200,8 +200,7 @@ class WIMJob(FTJob):
 
         return dist_measures
 
-    @classmethod
-    def transfer_from_model(cls, state):
+    def transfer_from_model(self, state):
         state['_original_prior.mean'] = torch.clone(state['encoder.prior.mean'])
         state['_original_prior._var_parameter'] = torch.clone(state['encoder.prior._var_parameter'])
 
@@ -252,8 +251,10 @@ class WIMJob(FTJob):
                               with_beta=True)
 
         _, _, mix_batch_loss, _ = o
+
         L += alpha * mix_batch_loss['total'].mean()
 
+        self.original_prior = True
         self._evaluate_on_both_priors = True
 
         return L, in_batch_loss, mix_batch_loss

@@ -84,7 +84,7 @@ def scoring_r(losses, score='msp', y_est=None, mtype='cvae'):
 
     if score and score.startswith('odin'):
 
-        print('***', losses[score].shape, losses[score].mean())
+        # print('***', losses[score].shape, losses[score].mean())
         return 1 - losses[score]
 
     if score is None:

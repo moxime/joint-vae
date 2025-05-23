@@ -1,16 +1,20 @@
 #!/bin/bash
-remote=lab-ia
+source=lab-ia
 jobdir=jobs
-push=
+to=
 opt=( --exclude '*.pth' -uvP --exclude '*.out' )
 while :; do
     case $1 in
+	--dry-run )
+	    dry_run=True
+	    ;;
 	-j )
 	    shift
 	    jobdir="$1"
 	    ;;
-	--push )
-	    push=True
+	--to )
+	    shift
+	    target="$1:"
 	    ;;
 	--flash )
 	    opt=( --exclude '*.pth' -uvP )
@@ -32,39 +36,26 @@ while :; do
 done
 if [ $1 ]
 then
-    remote=$1
+    source="$1"
 fi
 shift
 
-target=$(dirname $0)/../$jobdir
+to="$HOME/joint-vae/$jobdir"
 
-source="~/joint-vae/$jobdir"
+from="$source:joint-vae/$jobdir"
 
-if [ -z $push ]
-then
-   from=$remote:$source/
-   to=$target/
-else
-   to=$remote:$source/
-   from=$target/
-fi
 
 echo rsync  "${opt[@]}" $@ $from $to
 
-# exit 0
-SECONDS=0
-# rsync -vaP lab-ia:/mnt/beegfs/home/ossonce/joint-vae/jobs/ jobs/
-# ssh lab-ia '. mirror-jobs.sh'
+if [ $dry_run ]
+   then
+       exit 0
+fi
 
-rsync -a "${opt[@]}" --exclude "log/*" --exclude "out/*" $@ $from $to | tee /tmp/downloaded-$remote
-grep architecture.json /tmp/downloaded-$remote
+SECONDS=0
+
+rsync -a "${opt[@]}" --exclude "log/*" --exclude "out/*" $@ $from $to | tee /tmp/downloaded-$source-$target
+grep architecture.json /tmp/downloaded-$source-$target
 duration=$SECONDS
 echo "Files retrieved in $(($duration / 60))m$(($duration % 60))s"
-
-if [ -z $push ] ;
-then
-    date > "$target"/synced
-    #     echo deteling models-\*.json files
-    #     rm "$target"/models-*.json
-fi
 

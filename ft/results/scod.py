@@ -147,8 +147,30 @@ def scoring_g(losses, score='elbo', y_est=None, mtype='wim'):
 if __name__ == '__main__':
     import argparse
     from utils.save_load import find_by_job_number, model_subdir, SampleRecorder, LossRecorder
+    import configparser
 
     plt.set_loglevel(level='warning')
+
+    def parse_config(config_file='ft/results/scod.ini'):
+        config = configparser.ConfigParser()
+        config.read(config_file)
+
+        jobs_by_dir = {}
+        for model in config['jobs']:
+            job_ = config.get('jobs', model)
+            jobs_by_dir[model] = dict(j=int(job_.split()[0]), dir=job_.split()[1])
+        jobs = {_: find_by_job_number(d['j'], job_dir=d['dir']) for _, d in jobs_by_dir.items()}
+
+        scores = config['scores']
+
+        return jobs
+
+    jobs = parse_config()
+
+    for _ in jobs:
+        print(_, type(jobs[_]))
+
+    sys.exit(0)
 
     parser = argparse.ArgumentParser()
 

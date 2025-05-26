@@ -14,7 +14,7 @@ default_scores['wim'] = {'r': 'zdist', 'g': 'elbo'}
 default_scores['vib'] = {'r': 'odin-1-0.0040', 'g': 'none'}
 
 
-def scrisk(y_true, y_est, r_scores, g_scores, weight=1):
+def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5):
     """srisk: computation of sc(od) risk
 
     -- y_true : class for indist , -1 for ood
@@ -24,6 +24,46 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=1):
     -- scores: the HIGHer the more likely to REJECT
 
     """
+
+    n_samples = len(y_true)
+    n_tpr = 1001
+    checked_tpr = torch.linspace(0, 1, n_tpr)
+
+    # g_ shape: n_samples x n_tpr
+    g_ = g_scores.unsqueeze(-1) * checked_tpr.unsqueeze(0)
+
+    scores = weight * g_ + (1 - weight) * r_scores.unsqueeze(-1)
+
+    in_scores = scores[y_true >= 0]
+
+    in_samples = in_scores.shape[0]
+
+    out_scores = scores[y_true < 0]
+
+    thresholds = torch.zeros(n_tpr)
+
+    for i in range(n_tpr):
+
+        thresholds[i] = in_scores[:, i].sort()[0][max(int(i / (n_tpr - 1) * in_samples) - 1, 0)]
+
+    # i_pos n_samples x n_tpr
+    i_pos = scores <= thresholds.unsqueeze(0)
+
+    i_true_pos = (i_pos & (y_true >= 0).unsqueeze(-1))
+
+    true_pos = i_true_pos.sum(0)
+
+    print(true_pos / in_samples)
+    print(checked_tpr)
+    raise Exception
+
+    selective_risk = torch.zeros_like(checked_tpr)
+    fpr = torch.zeros_like(checked_tpr)
+
+    for tpr in checked_tpr:
+
+        scores = ((1 - weight) * r_scores + weight * tpr * g_scores)
+        i_
 
     if g_scores is None:
         scores = r_scores
@@ -207,7 +247,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-w', '--weight', default=1., type=float)
+    parser.add_argument('-w', '--weight', default=0.5, type=float)
     parser.add_argument('-v', action='count', default=0)
 
     args = parser.parse_args()

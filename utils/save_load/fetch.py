@@ -359,7 +359,7 @@ def needed_remote_files(*mdirs, epoch='last', which_rec='all',
                 if not os.path.exists(sfile):
                     if missing_file_stream:
                         missing_file_stream.write(sfile + '\n')
-                        yield d, sfile
+                    yield d, sfile
 
         if state:
             sfile = os.path.join(d, 'state.pth')

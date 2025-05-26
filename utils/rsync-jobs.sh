@@ -1,7 +1,7 @@
 #!/bin/bash
-source=lab-ia
+source=lab-ia:
 jobdir=jobs
-to=
+target=$HOME/
 opt=( --exclude '*.pth' -uvP --exclude '*.out' )
 while :; do
     case $1 in
@@ -14,7 +14,7 @@ while :; do
 	    ;;
 	--to )
 	    shift
-	    target="$1:"
+	    target="$1"
 	    ;;
 	--flash )
 	    opt=( --exclude '*.pth' -uvP )
@@ -40,10 +40,9 @@ then
 fi
 shift
 
-to="$HOME/joint-vae/$jobdir"
+to="${target}joint-vae/$jobdir"
 
-from="$source:joint-vae/$jobdir"
-
+from="${source}joint-vae/$jobdir/"
 
 echo rsync  "${opt[@]}" $@ $from $to
 
@@ -54,8 +53,8 @@ fi
 
 SECONDS=0
 
-rsync -a "${opt[@]}" --exclude "log/*" --exclude "out/*" $@ $from $to | tee /tmp/downloaded-$source-$target
-grep architecture.json /tmp/downloaded-$source-$target
+rsync -a "${opt[@]}" --exclude "log/*" --exclude "out/*" $@ $from $to #| tee /tmp/downloaded-$source-$target
+# grep architecture.json /tmp/downloaded-$source-$target
 duration=$SECONDS
 echo "Files retrieved in $(($duration / 60))m$(($duration % 60))s"
 

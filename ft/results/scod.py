@@ -1,3 +1,4 @@
+from utils.texify import TexTab
 import sys
 import os
 
@@ -8,13 +9,41 @@ from sklearn.metrics import auc
 import matplotlib.pyplot as plt
 from utils.save_load import needed_remote_files
 
+
 default_scores = {}
 
 default_scores['wim'] = {'r': 'zdist', 'g': 'elbo'}
 default_scores['vib'] = {'r': 'odin-1-0.0040', 'g': 'none'}
 
 
-def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5):
+def grid_search_odin(in_rec, *out_rec):
+
+    params = set([_ for _ in in_rec if _.startswith('odin')])
+
+    for r in out_rec:
+        params = params & set(r)
+
+    logging.debug('ODIN Params: {}'.format(', '.join(params)))
+
+    old_fpr = 1.0
+    for p in params:
+        in_scores = in_rec[p]
+        out_scores = torch.hstack([rec[p] for rec in out_rec])
+
+        thr = in_scores.sort()[0][int(0.05 * len(in_scores)) - 1]
+
+        fpr = (out_scores >= thr).float().mean()
+
+        if fpr < old_fpr:
+            best_p = p
+            old_fpr = fpr
+
+    logging.info('Best odin param: {} with fpr@95={:.1%}'.format(best_p, fpr))
+
+    return best_p
+
+
+def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, n_tpr=1000):
     """srisk: computation of sc(od) risk
 
     -- y_true : class for indist , -1 for ood
@@ -25,100 +54,51 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5):
 
     """
 
+    assert not (r_scores is None and g_scores is None)
+
+    if r_scores is None:
+        r_scores = torch.zeros_like(g_scores)
+
+    if g_scores is None:
+        g_scores = torch.zeros_like(r_scores)
+
     n_samples = len(y_true)
-    n_tpr = 1001
-    checked_tpr = torch.linspace(0, 1, n_tpr)
+
+    checked_tpr = torch.linspace(1 / n_tpr, 1, n_tpr)
+
+    if n_tpr == 1:
+        checked_tpr = torch.tensor([0.95])
 
     # g_ shape: n_samples x n_tpr
     g_ = g_scores.unsqueeze(-1) * checked_tpr.unsqueeze(0)
 
     scores = weight * g_ + (1 - weight) * r_scores.unsqueeze(-1)
 
-    in_scores = scores[y_true >= 0]
-
-    in_samples = in_scores.shape[0]
-
-    out_scores = scores[y_true < 0]
+    in_samples = (y_true >= 0).sum()
+    out_samples = len(y_true) - in_samples
 
     thresholds = torch.zeros(n_tpr)
 
     for i in range(n_tpr):
 
-        thresholds[i] = in_scores[:, i].sort()[0][max(int(i / (n_tpr - 1) * in_samples) - 1, 0)]
+        i_thr = max(-int(-(checked_tpr[i] * in_samples - 1)), 0)
+        thresholds[i] = scores[y_true >= 0, i].sort()[0][i_thr]
 
     # i_pos n_samples x n_tpr
+    # pos : s(x) <= threshold
     i_pos = scores <= thresholds.unsqueeze(0)
 
     i_true_pos = (i_pos & (y_true >= 0).unsqueeze(-1))
 
-    true_pos = i_true_pos.sum(0)
+    i_false_pos = (i_pos & (y_true < 0).unsqueeze(-1))
 
-    print(true_pos / in_samples)
-    print(checked_tpr)
-    raise Exception
+    classif_errors = i_pos & ((y_true >= 0) & (y_true != y_est)).unsqueeze(-1)
 
-    selective_risk = torch.zeros_like(checked_tpr)
-    fpr = torch.zeros_like(checked_tpr)
-
-    for tpr in checked_tpr:
-
-        scores = ((1 - weight) * r_scores + weight * tpr * g_scores)
-        i_
-
-    if g_scores is None:
-        scores = r_scores
-    else:
-        scores = r_scores + weight * g_scores
-
-    i_ = scores.sort()[1]
-
-    y_ = y_true[i_]
-
-    y_est_ = y_est[i_]
-
-    classif_errors = ((y_ != y_est_) & (y_ >= 0)).cumsum(0).squeeze()
-    false_positives = (y_ < 0).cumsum(0).squeeze()
-    fpr = false_positives / (y_true < 0).sum()
-    true_positives = (y_ >= 0).cumsum(0).squeeze()
-    tpr = true_positives / (y_true >= 0).sum()
-
-    # print(tpr)
-    # print(scores[i_])
-
-    selective_risk = classif_errors / true_positives
-
-    selective_risk[selective_risk.isnan()] = 0.
-
-    thr = {_: scores[i_][(tpr > _ / 100) & (y_ >= 0)].min() for _ in (0, 1, 95, 99)}
-
-    thr[0] = 0.
-
-    for _ in thr:
-        tpr_at_thr = ((scores <= thr[_]) & (y_true >= 0)).sum() / (y_true >= 0).sum()
-        fpr_at_thr = ((scores <= thr[_]) & (y_true < 0)).sum() / (y_true < 0).sum()
-        logging.info('thr@{:2} = {:+.1e} ({:5.1%}/{:5.1%})'.format(_, thr[_],
-                                                                   tpr_at_thr, fpr_at_thr))
+    tpr = i_true_pos.sum(0) / in_samples
+    fpr = i_false_pos.sum(0) / out_samples
+    selective_risk = classif_errors.sum(0) / tpr / in_samples
 
     return tpr, selective_risk, fpr
-
-
-def scoring(losses, r=None, g=None, weight=1, **kw):
-    """
-    reject if high
-    """
-
-    assert r is not None or g is not None
-
-    try:
-        y_est = losses['y_est_already']
-
-        score = scoring_r(losses, score=r, y_est=y_est, **kw)
-        score += weight * scoring_g(losses, score=g, y_est=y_est, **kw)
-        return score
-    except KeyError as e:
-        logging.error('Possibles keys')
-        logging.error(' -- '.join(losses))
-        raise e
 
 
 def scoring_r(losses, score='msp', y_est=None, mtype='cvae'):
@@ -128,6 +108,10 @@ def scoring_r(losses, score='msp', y_est=None, mtype='cvae'):
         score = default_scores[mtype]['r']  #
 
     logging.debug('r score is {}'.format(score))
+
+    # for _ in losses:
+    #     if _.startswith('odin'):
+    #         print('{} {:.2f}--{:.2f}'.format(_, losses[_].min(), losses[_].max()), *losses[_].shape)
 
     if score and score.startswith('odin'):
 
@@ -150,7 +134,7 @@ def scoring_r(losses, score='msp', y_est=None, mtype='cvae'):
         return scoring_r(losses, 'dist', y_est=y_est) - (-0.5 * losses['zdist']).logsumexp(0)
 
     if score == 'msp':
-        return losses['logits'].softmax(dim=0).max(dim=0)[0]
+        return 1 - losses['logits'].softmax(dim=0).max(dim=0)[0]
 
     raise ValueError('{} is unknwon for r(x)'.format(score))
 
@@ -219,6 +203,7 @@ if __name__ == '__main__':
     from utils.save_load import find_by_job_number, model_subdir, SampleRecorder, LossRecorder
     import configparser
     from itertools import product
+    from utils.texify import TexTab
 
     plt.set_loglevel(level='warning')
 
@@ -243,16 +228,24 @@ if __name__ == '__main__':
 
         options = dict(config['options'])
 
-        return jobs, options
+        def texify(s):
+
+            s_ = s.split('-')
+
+            return '-'.join([config['texify'].get(_, _) for _ in s_])
+
+        return jobs, options, texify
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-w', '--weight', default=0.5, type=float)
     parser.add_argument('-v', action='count', default=0)
+    parser.add_argument('-f', action='store_true')
+    parser.add_argument('--tab', nargs='?', const='/dev/stdout')
 
     args = parser.parse_args()
 
-    jobs, opt = parse_config()
+    jobs, opt, texify = parse_config()
 
     """ ^^ CONFIG ^^
     """
@@ -287,6 +280,16 @@ if __name__ == '__main__':
 
     logging.info('OOD: {}'.format(' '.join(oodsets)))
 
+    col_headers = ['fpr', 'rs', 'auroc', 'aust', 'ausccodt']
+    cols = ['s3.1'] * len(col_headers)
+    tex_tab = TexTab('l', *cols, float_format='{:.1f}')
+
+    tab_row = 'header'
+
+    tex_tab.append_cell('', row='header')
+    for _ in col_headers:
+        tex_tab.append_cell(texify(_), multicol_format='c', row='header')
+
     for j in jobs:
 
         print('\n{:=^80}'.format(j))
@@ -295,6 +298,9 @@ if __name__ == '__main__':
 
             if not (r or g):
                 continue
+
+            tab_row = '{}-{}-{}'.format(j, r, g)
+            tex_tab.append_cell(texify(tab_row), row=tab_row)
 
             print('\n{:=^80}'.format('r:{} g:{}'.format(r, g)))
 
@@ -333,6 +339,12 @@ if __name__ == '__main__':
                     rec[s]._tensors['y_est_already'] = rec[s]['cross_y'].argmin(0)
 
             y_est = torch.hstack([rec[_]['y_est_already'] for _ in allsets])
+
+            if r == 'odin':
+
+                r = grid_search_odin(rec[dset], *[rec[_] for _ in oodsets])
+
+            logging.warning('r={}'.format(r))
             r_scores = torch.hstack([scoring_r(rec[_], score=r, mtype=mtype)
                                      for _ in allsets])
             if g:
@@ -347,7 +359,7 @@ if __name__ == '__main__':
 
             fpr95 = fpr[tpr >= 0.95].min()
             sr95 = sr[tpr >= 0.95].min()
-            auroc = auc(fpr, tpr)
+            auroc = 1 - auc(tpr, fpr)
             auscodrt = auc(tpr, 0.5 * sr + 0.5 * fpr)
             ausrt = auc(tpr, sr)
 
@@ -358,14 +370,26 @@ if __name__ == '__main__':
 
             print(_s)
 
-            figures[j] = plt.figure('{}'.format(j))
+            #  col_headers = ['FPR', 'Rs', 'AUROC', 'AuST', 'AuSCODT']
 
-            a = figures[j].gca()
-            a.plot(tpr, sr)
-            a.plot(tpr, fpr)
-            a.set_title('{}'.format(j))
+            for val in (fpr95, sr95, auroc, ausrt, auscodrt):
+                tex_tab.append_cell(100 * val, row=tab_row)
 
-            figures[j].show()
+            fig_name = '{} - {} - {}'.format(j, r, g)
+            if args.f:
+                figures[fig_name] = plt.figure(fig_name)
 
-    if sys.argv[0]:
+                a = figures[j].gca()
+                a.set_xlabel('TPR')
+                a.plot(tpr, sr, label='Rs')
+                a.plot(tpr, fpr, label='FPR')
+                a.set_title(fig_name)
+                a.legend()
+
+                figures[j].show()
+
+    with open(args.tab, 'w') as f:
+        tex_tab.render(f)
+
+    if sys.argv[0] and args.f:
         input()

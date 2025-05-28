@@ -16,29 +16,43 @@ default_scores['wim'] = {'r': 'zdist', 'g': 'elbo'}
 default_scores['vib'] = {'r': 'odin-1-0.0040', 'g': 'none'}
 
 
-def grid_search_odin(in_rec, *out_rec):
+def grid_search_odin(in_rec, *out_rec, metrics='scod', tpr=0.95):
+
+    assert metrics in ('fpr', 'sel', 'scod')
 
     params = set([_ for _ in in_rec if _.startswith('odin')])
 
-    for r in out_rec:
-        params = params & set(r)
+    if metrics == 'fpr':
+        for r in out_rec:
+            params = params & set(r)
 
     logging.debug('ODIN Params: {}'.format(', '.join(params)))
 
-    old_fpr = 1.0
+    old_rate = 1.0
+
+    y_est = in_rec['y_est_already']
+    y_true = in_rec['y_true']
+
     for p in params:
+        risk = 0.
+
         in_scores = in_rec[p]
-        out_scores = torch.hstack([rec[p] for rec in out_rec])
+        thr = in_scores.sort()[0][int((1 - tpr) * len(in_scores)) - 1]
 
-        thr = in_scores.sort()[0][int(0.05 * len(in_scores)) - 1]
+        if metrics in ('fpr', 'scod'):
+            out_scores = torch.hstack([rec[p] for rec in out_rec])
+            risk += (out_scores >= thr).float().mean()
 
-        fpr = (out_scores >= thr).float().mean()
+        if metrics in ('sel', 'scod'):
 
-        if fpr < old_fpr:
+            out_scores = in_rec[p][y_est != y_true]
+            risk += (out_scores >= thr).float().sum() / len(y_est) / tpr
+
+        if risk < old_rate:
             best_p = p
-            old_fpr = fpr
+            old_rate = risk
 
-    logging.info('Best odin param: {} with fpr@95={:.1%}'.format(best_p, fpr))
+    logging.info('Best odin param: {} with {}@95={:.1%}'.format(best_p, metrics, risk))
 
     return best_p
 
@@ -260,8 +274,8 @@ if __name__ == '__main__':
     mdirs = [jobs[_]['mdict']['dir'] for _ in jobs]
 
     with open('/tmp/files', 'w') as f:
-        for d, _ in needed_remote_files(*mdirs, missing_file_stream=f):
-            logging.debug(_[-20:])
+        for d, s in needed_remote_files(*mdirs, missing_file_stream=f):
+            logging.debug(s[-20:])
 
     # for _ in jobs:
     #     print(_, type(jobs[_]['mdict']['net']).__name__)
@@ -280,15 +294,15 @@ if __name__ == '__main__':
 
     logging.info('OOD: {}'.format(' '.join(oodsets)))
 
-    col_headers = ['fpr', 'rs', 'auroc', 'aust', 'ausccodt']
+    col_headers = ['fpr', 'rs', 'auroc', 'aust', 'auscodt']
     cols = ['s3.1'] * len(col_headers)
     tex_tab = TexTab('l', *cols, float_format='{:.1f}')
 
     tab_row = 'header'
 
     tex_tab.append_cell('', row='header')
-    for _ in col_headers:
-        tex_tab.append_cell(texify(_), multicol_format='c', row='header')
+    for s in col_headers:
+        tex_tab.append_cell(texify(s), multicol_format='c', row='header')
 
     for j in jobs:
 
@@ -338,11 +352,15 @@ if __name__ == '__main__':
                 if 'y_est_already' not in rec[s]:
                     rec[s]._tensors['y_est_already'] = rec[s]['cross_y'].argmin(0)
 
+            # for s in allsets:
+            #     print('{:=^20}'.format(s))
+            #     print('\n'.join([_ for _ in rec[s] if _.startswith('pre-')]))
+
             y_est = torch.hstack([rec[_]['y_est_already'] for _ in allsets])
 
             if r == 'odin':
 
-                r = grid_search_odin(rec[dset], *[rec[_] for _ in oodsets])
+                r = grid_search_odin(rec[dset], *[rec[_] for _ in oodsets], metrics='sel')
 
             logging.warning('r={}'.format(r))
             r_scores = torch.hstack([scoring_r(rec[_], score=r, mtype=mtype)

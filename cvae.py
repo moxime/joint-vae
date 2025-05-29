@@ -889,7 +889,7 @@ class ClassificationVariationalNetwork(nn.Module):
                     cross_y_weight * batch_losses['cross_y']
 
         if self.is_vib:
-            beta = self.beta if with_beta else 1.
+            beta = self.beta
             if not batch:
                 logging.debug(f'KL coef={beta} / {self.gamma}')
             # print('*** 612: T:', *batch_losses['total'].shape, 'kl', *batch_losses['kl'].shape)

@@ -8,12 +8,6 @@ from module.priors import build_prior
 from module.vae_layers.misc import activation_layers, _no_activation
 
 
-activation_F = {'linear': lambda x: x,
-                'sigmoid': F.sigmoid,
-                'relu': F.relu,
-                'leaky': F.leaky_relu}
-
-
 class Rgb2hsv(nn.Module):
 
     def __init__(self, input_dims, epsilon=1e-10, hmax=1.):
@@ -223,18 +217,14 @@ class Sampling(nn.Module):
     """Uses (z_mean, z_log_var) to sample z, the latent vector.
     - z_mean and a_log_var have the same dimensions N1xN2x...xNgxK
     - the output z has dimensions LxN1x...xNgxK where L is the samoling size.
-    -- if no sampling, will output activation of z_mean
     """
 
-    def __init__(self, latent_dim, sampling_size=1, sampling=True, distribution='gaussian',
-                 activation='relu',
-                 **kwargs):
+    def __init__(self, latent_dim, sampling_size=1, sampling=True, distribution='gaussian', **kwargs):
 
         assert distribution in ('gaussian', 'uniform'), '{} for sampling unknown'.format(distribution)
         self.distribution = distribution
         self.sampling_size = sampling_size
         self.is_sampled = sampling
-        self._activation = activation
         super().__init__(**kwargs)
 
     def forward(self, z_mean, z_log_var):
@@ -250,15 +240,13 @@ class Sampling(nn.Module):
         #        f'z_mean: {z_mean.size()} ' +
         #        f'epsilon: {epsilon.size()}'))
         # print('vl:136', self.is_sampled)
-        if self.is_sampled:
-            return (z_mean + torch.exp(0.5 * z_log_var) * epsilon,
-                    epsilon[1:])
-        return activation_F[self._activation](z_mean), epsilon[0:]
+        return (z_mean + torch.exp(0.5 * z_log_var) * epsilon * self.is_sampled,
+                epsilon[1:])
 
     def __repr__(self):
 
         if not self.is_sampled:
-            return 'Deactivated, returns {} of mean'.format(self._activation)
+            return 'Deactivated, returns mean'
         return 'Sampling({}, L={})'.format(self.distribution, self.sampling_size)
 
 
@@ -312,9 +300,8 @@ class Encoder(nn.Module):
         output_distribution = {'tilted': 'gaussian',
                                'gaussian': 'gaussian',
                                'uniform': 'uniform'}.get(prior.get('distribution', 'gaussian'))
-
         self.sampling = Sampling(latent_dim, sampling_size, sampling,
-                                 distribution=output_distribution, activation=activation)
+                                 distribution=output_distribution)
 
         prior['dim'] = latent_dim
         self.prior = build_prior(**prior)

@@ -273,7 +273,11 @@ class ClassificationVariationalNetwork(nn.Module):
         if self.type in ('cvae', 'xvae'):
             prior['num_priors'] = num_labels
 
-        sampling = latent_sampling > 1 or beta > 0
+        sampling = latent_sampling > 0 and beta > 0
+        if not sampling:
+            latent_sampling = 0
+            test_latent_sampling = 0
+            beta = 0
 
         self.encoder = Encoder(encoder_input_shape, num_labels,
                                intermediate_dims=encoder,

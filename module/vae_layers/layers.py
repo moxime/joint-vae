@@ -300,8 +300,12 @@ class Encoder(nn.Module):
         output_distribution = {'tilted': 'gaussian',
                                'gaussian': 'gaussian',
                                'uniform': 'uniform'}.get(prior.get('distribution', 'gaussian'))
-        self.sampling = Sampling(latent_dim, sampling_size, sampling,
-                                 distribution=output_distribution)
+
+        if sampling:
+            self.sampling = Sampling(latent_dim, sampling_size, sampling,
+                                     distribution=output_distribution)
+        else:
+            self.sampling = activation_layers[activation]()
 
         prior['dim'] = latent_dim
         self.prior = build_prior(**prior)

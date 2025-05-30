@@ -253,7 +253,7 @@ class Sampling(nn.Module):
         if self.is_sampled:
             return (z_mean + torch.exp(0.5 * z_log_var) * epsilon,
                     epsilon[1:])
-        return activation_F[self._activation](z_mean)
+        return activation_F[self._activation](z_mean), epsilon[0:]
 
     def __repr__(self):
 

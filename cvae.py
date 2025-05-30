@@ -376,7 +376,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         self.width = (sum(encoder)
                       + sum(decoder)
-                      + sum(classifier) if self.classifier_type == 'linear' else 0)
+                      + sum(_ for _ in classifier if isinstance(_, int))
+                      if self.classifier_type == 'linear' else 0)
 
         if features:
             self.architecture['features'] = self.features.name

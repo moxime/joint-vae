@@ -473,9 +473,12 @@ class Classifier(nn.Sequential):
         layers = []
         input_dim = latent_dim
         for d in intermediate_dims:
-            layers.append(nn.Linear(input_dim, d))
-            layers.append(activation_layer)
-            input_dim = d
+            if d == 'a':
+                layers.append(activation_layer)
+            else:
+                layers.append(nn.Linear(input_dim, d))
+                layers.append(activation_layer)
+                input_dim = d
 
         layers.append(nn.Linear(input_dim, num_labels))
         # layers.append(nn.Softmax(dim=-1))

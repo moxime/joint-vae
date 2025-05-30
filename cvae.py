@@ -275,8 +275,8 @@ class ClassificationVariationalNetwork(nn.Module):
 
         sampling = latent_sampling > 0 and beta > 0
         if not sampling:
-            latent_sampling = 0
-            test_latent_sampling = 0
+            latent_sampling = 1
+            test_latent_sampling = 1
             beta = 0
 
         self.encoder = Encoder(encoder_input_shape, num_labels,

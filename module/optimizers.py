@@ -15,6 +15,7 @@ class Optimizer:
 
     def __init__(self, parameters, optim_type='adam', lr=0,
                  lr_decay=0, weight_decay=0, grad_clipping=None,
+                 momentum=0,
                  epoch=0, **kw):
 
         self.kind = optim_type
@@ -26,7 +27,8 @@ class Optimizer:
                        'lr': lr,
                        'lr_decay': lr_decay,
                        'weight_decay': weight_decay,
-                       'grad_clipping': grad_clipping
+                       'grad_clipping': grad_clipping,
+                       'momentum': momentum,
                        }
 
         self.grad_clipping = grad_clipping
@@ -49,7 +51,7 @@ class Optimizer:
         self.lr_decay = lr_decay
         if lr_decay:
             self._lr_scheduler = optim.lr_scheduler.ExponentialLR(self._opt,
-                                                                  gamma=1-lr_decay,
+                                                                  gamma=1 - lr_decay,
                                                                   last_epoch=-1)
 
     @property

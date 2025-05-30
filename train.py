@@ -128,7 +128,8 @@ if __name__ == '__main__':
             'lr': args.lr,
             'lr_decay': args.lr_decay,
             'weight_decay': args.weight_decay,
-            'grad_clipping': args.grad_clipping
+            'grad_clipping': args.grad_clipping,
+            'momentum': args.momentum
         }
 
         input_shape, num_labels = torchdl.get_shape_by_name(args.dataset, args.transformer)

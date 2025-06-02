@@ -1,4 +1,3 @@
-from functools import partial
 import hashlib
 import argparse
 import configparser
@@ -6,15 +5,15 @@ import sys
 import os
 import logging
 import pandas as pd
-import numpy as np
 from utils.save_load import fetch_models, make_dict_from_model
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, get_filter_keys, MetaFilter
 from utils.tables import agg_results, results_dataframe, format_df_index, auto_remove_index
 from pydoc import locate
-import re
 from utils.print_log import turnoff_debug
 from utils.parameters import gethostname, DEFAULT_RESULTS_DIR, DEFAULT_JOBS_DIR
 from utils.texify import TexTab
+from .utils import process_csv
+
 
 root = DEFAULT_RESULTS_DIR
 job_dir = DEFAULT_JOBS_DIR
@@ -179,10 +178,10 @@ def process_config_file(config_file, filter_keys, which=['all'], keep_auc=True,
             csv_file = os.path.join(config_dir, csv_file)
             logging.info('Loaded {}'.format(csv_file))
         logging.info('results for {} from csv file {}'.format(k, csv_file))
-        index_col = [int(_) for _ in config[k]['index_col'].split()]
-        header = [int(_) for _ in config[k]['header'].split()]
+        index_col = int(config[k]['index_col'])
+        header = int(config[k]['header'])
 
-        df = pd.read_csv(csv_file, index_col=index_col, header=header)
+        df = process_csv(csv_file, index_col=index_col, header=header)
 
         df.rename(columns={'fpr': 'rate', 'acc': 'rate', 'accuracy': 'rate'}, inplace=True)
         if df.index.nlevels > 1:

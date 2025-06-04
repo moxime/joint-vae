@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import pandas as pd
 import logging
 import configparser
@@ -6,11 +7,12 @@ from utils.print_log import turnoff_debug
 from utils.parameters import gethostname, DEFAULT_RESULTS_DIR, DEFAULT_JOBS_DIR
 from utils.filters import DictOfListsOfParamFilters, ParamFilter, MetaFilter
 from utils.save_load import fetch_models, make_dict_from_model
-from utils.tables import results_dataframe, format_df_index, auto_remove_index, agg_results
+from utils.tables import results_dataframe, format_df_index, auto_remove_index
 from pydoc import locate
+from utils.texify import TexTab
 
 
-def process_csv(csv_file, header=2, index_col=1):
+def _process_csv(csv_file, header=2, index_col=1):
 
     df = pd.read_csv(csv_file, header=[*range(header)], index_col=[*range(index_col)])
 
@@ -29,39 +31,51 @@ def process_csv(csv_file, header=2, index_col=1):
     return df
 
 
-def process_config_file(config_file, filter_keys, which=['all'],
-                        acc_metrics=['acc'],
-                        ood_metrics=['fpr', 'auc'],
-                        keep_auc=True,
-                        root=DEFAULT_RESULTS_DIR, show_dfs=True, flash=True):
+def parse_config(config_file, which=['all'], root=DEFAULT_RESULTS_DIR, texify_file=None):
 
     config_dir = os.path.dirname(config_file)
-    config = configparser.ConfigParser()
-    config.read(config_file)
+    raw_config = configparser.ConfigParser()
+    raw_config.read(config_file)
+
+    texify = {'conf': raw_config.pop('texify', {}), 'file': {}}
+
+    if texify_file:
+        texify_conf = configparser.ConfigParser()
+        texify_conf.read(texify_file)
+        texify['file'] = texify_conf
 
     if 'all' in which:
-        which = list(config.keys())
+        which = list(raw_config.keys())
         if 'DEFAULT' in which:
             which.remove('DEFAULT')
     else:
-        which = [w for w in which if w in config]
+        which = [w for w in which if w in raw_config]
 
-    default_config = config['DEFAULT']
+    default_config = raw_config['DEFAULT']
 
-    job_dir = default_config.get('jobs', DEFAULT_JOBS_DIR)
+    config = {'texify': texify}
 
-    registered_models_file = 'models-' + gethostname() + '.json'
+    config['config_dir'] = config_dir
+    config['job_dir'] = default_config.get('jobs', DEFAULT_JOBS_DIR)
 
-    dataset = default_config.get('dataset')
-    oodsets = default_config.get('ood').split()
+    config['dataset'] = default_config.get('dataset')
+    config['oodsets'] = default_config.get('ood').split()
+
+    config['tpr'] = default_config.get('tpr', 95)
+
+    config['ood_metrics'] = default_config.get('ood_metrics', '').split()
+    config['acc_metrics'] = default_config.get('acc_metrics', '').split()
+
     kept_index = default_config.get('kept_index', '').split()
 
     average = default_config.get('average', '').split()
     if len(average) == 1:
-        average = {average[0]: oodsets}
+        average = {average[0]: raw_config['oodsets']}
 
     elif len(average) > 1:
         average = {average[0]: average[1:]}
+
+    config['average'] = average
 
     kept_index_ = [_.split(':') for _ in kept_index]
     kept_index = [_[0] for _ in kept_index_]
@@ -69,37 +83,87 @@ def process_config_file(config_file, filter_keys, which=['all'],
 
     ini_file_name = os.path.splitext(os.path.split(config_file)[-1])[0]
 
-    _auc = '-auc' if keep_auc else ''
-    tex_file = default_config.get('file', ini_file_name + _auc + '-tab.tex')
-    tex_file = os.path.join(root, tex_file)
-    tab_file = default_config.get('file', ini_file_name + _auc + '-tab.tab')
-    tab_file = os.path.join(root, tab_file)
+    _suf = '{}'
 
-    logging.info('Tab for {} will be saved in file {}'.format(dataset, tex_file))
-
-    filters = {}
+    tex_file = default_config.get('file', ini_file_name + _suf + '-tab.tex')
+    config['tex_file'] = os.path.join(root, tex_file)
+    tab_file = default_config.get('file', ini_file_name + _suf + '-tab.tab')
+    config['tab_file'] = os.path.join(root, tab_file)
 
     logging.info('Keys in config file: %s', ' '.join(which))
 
-    which_from_filters = [k for k in which if not config[k].get('from_csv')]
-    which_from_csv = [k for k in which if config[k].get('from_csv')]
+    config['from_filters'] = [k for k in which if not raw_config[k].get('from_csv')]
+    config['from_csv'] = [k for k in which if raw_config[k].get('from_csv')]
+
+    config['tabs'] = {k: raw_config[k] for k in which}
+
+    return config
+
+
+def _concat_df(df_dict, col_names=['set', 'metrics'], index_rename={}, return_best=False):
+
+    df = pd.concat(df_dict, axis=1, names='method')
+
+    s = df.stack()  # series with index = ['set', 'metrics', 'method']
+
+    if not return_best:
+        return s.rename(index=index_rename).unstack(col_names, sort=True)
+
+    higher_is_better = ['auc', 'acc']
+
+    df = s.unstack(['set', 'metrics'])
+
+    s_best = df.min()
+    s_max = df.max()
+
+    max_i = s_best.index.isin(higher_is_better, level='metrics')
+
+    s_best[max_i] = s_max[max_i]
+
+    return s_best.rename(index=index_rename)
+
+
+def make_tables(config, filter_keys,
+                acc_metrics=['acc'],
+                ood_metrics=['fpr', 'auc'],
+                show_dfs=True, flash=True):
+
+    config_dir = config['config_dir']
+    job_dir = config['job_dir']
+    dataset = config['dataset']
+    oodsets = config['oodsets']
+    which_from_filters = config['from_filters']
+    which_from_csv = config['from_csv']
+    average = config['average']
+
+    tab_comments = ''
+
+    acc_metrics = config['acc_metrics'] or acc_metrics
+    ood_metrics = config['ood_metrics'] or ood_metrics
+
+    registered_models_file = 'models-' + gethostname() + '.json'
+
+    filters = {}
+
+    tab_config = config['tabs']
 
     for k in which_from_filters:
 
         logging.info('| key %s:', k)
-        logging.info(' -- '.join(['{}: {}'.format(_, config[k][_]) for _ in config[k]]))
+        logging.info(' -- '.join(['{}: {}'.format(_, tab_config[k][_]) for _ in tab_config[k]]))
         filters[k] = DictOfListsOfParamFilters()
 
-        for _ in config[k]:
+        for _ in tab_config[k]:
             if _ in filter_keys:
                 dest = filter_keys[_]['dest']
                 ftype = filter_keys[_]['type']
-                filters[k].add(dest, ParamFilter.from_string(arg_str=config[k][_],
+                filters[k].add(dest, ParamFilter.from_string(arg_str=tab_config[k][_],
                                                              type=locate(ftype or 'str')))
 
     global_filters = MetaFilter(operator='or', **filters)
 
-    models = fetch_models(job_dir, registered_models_file, filter=global_filters, build_module=False,
+    models = fetch_models(job_dir, registered_models_file,
+                          filter=global_filters, build_module=False,
                           flash=flash)
 
     logging.info('Fetched {} models'.format(len(models)))
@@ -121,7 +185,7 @@ def process_config_file(config_file, filter_keys, which=['all'],
             to_be_kept = to_be_kept and not os.path.exists(derailed)
 
             if to_be_kept:
-                epoch_to_fetch = config[k].get('epoch', 'last')
+                epoch_to_fetch = tab_config[k].get('epoch', 'last')
                 if epoch_to_fetch == 'min-loss':
                     epoch_to_fetch = 'early-min-loss'
                 epoch = n['net'].training_parameters.get(epoch_to_fetch, 'last')
@@ -131,12 +195,20 @@ def process_config_file(config_file, filter_keys, which=['all'],
                 models_by_type[k].append(n)
                 archs_by_type[k].add(n['arch'])
 
-    tpr_ = default_config['tpr']
+    tpr_ = config['tpr']
     try:
         i_fpr = ood_metrics.index('fpr')
         ood_metrics[i_fpr] = 'fpr@{}'.format(tpr_)
     except ValueError:
         pass
+
+    sorting_index = {}
+    sorting_index['set'] = {_: i for i, _ in enumerate([dataset, *oodsets])}
+    sorting_index['metrics'] = {_: i for i, _ in enumerate(['rate', *acc_metrics, *ood_metrics])}
+    sorting_index['method'] = {_: i for i, _ in enumerate(tab_config)}
+
+    for a in average:
+        sorting_index['set'][a] = max([sorting_index['set'][_] for _ in average[a]]) + 0.5
 
     tpr = float(tpr_) / 100
     raw_df = {}
@@ -152,10 +224,10 @@ def process_config_file(config_file, filter_keys, which=['all'],
         if not models_by_type[k]:
             logging.warning('Skipping {}'.format(k))
             continue
-        ood_methods[k] = config[k].get('ood_method', '')
-        acc_methods[k] = config[k].get('acc_method', '')
+        ood_methods[k] = tab_config[k].get('ood_method', '')
+        acc_methods[k] = tab_config[k].get('acc_method', '')
         df_ = results_dataframe(models_by_type[k],
-                                predict_methods=config[k].get('acc_method', '').split(),
+                                predict_methods=tab_config[k].get('acc_method', '').split(),
                                 ood_methods=[ood_methods[k]],
                                 tpr=[tpr])
         df = next(iter(df_.values()))
@@ -170,75 +242,214 @@ def process_config_file(config_file, filter_keys, which=['all'],
         df_short = format_df_index(df.droplevel(list(removed_index[k])))
         cols = df_short.columns
         showed_cols = cols.isin(['acc'], level='metrics')
-        showed_cols |= (cols.isin(config[k]['ood'].split(), level='set')
+        showed_cols |= (cols.isin(tab_config[k]['ood'].split(), level='set')
                         & ~cols.isin(['n', 'mean', 'std'], level='metrics'))
         df_string[k] = df_short[cols[showed_cols]].to_string(float_format='{:.1f}'.format)
         df_width = len(df_string[k].split('\n')[0])
-        if show_dfs:
-            print('\n{k:=^{w}s}'.format(k=k, w=df_width))
-            print(df_string[k])
-            print('{k:=^{w}s}\n'.format(k='', w=df_width))
-            print('Common values')
-            nans = []
-            for _, v in format_df_index(removed_index[k]).items():
-                if not _.startswith('drop'):
-                    if v != 'NaN':
-                        print('{:8}: {}'.format(_, v))
-                    else:
-                        nans.append(_)
-            if nans:
-                print('{:8}:'.format('NaNs'), ', '.join(nans))
+
+        """ tab comments """
+        tab_comments += '\n{k:=^{w}s}\n'.format(k=k, w=df_width)
+        tab_comments += df_string[k]
+        tab_comments += '\n{k:=^{w}s}\n'.format(k='', w=df_width)
+        tab_comments += '\nCommon values\n'
+        nans = []
+        for _, v in format_df_index(removed_index[k]).items():
+            if not _.startswith('drop'):
+                if v != 'NaN':
+                    tab_comments += '\n{:8}: {}'.format(_, v)
+                else:
+                    nans.append(_)
+        if nans:
+            tab_comments += '\n{:8}: '.format('NaNs') + ', '.join(nans)
+        """ """
 
         raw_df[k] = df.groupby(level=idx).agg('mean')
         # print('****', k, raw_df[k].index.names)
         raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
-        raw_df[k].rename(columns={tpr: 'rate'}, level='metrics', inplace=True)
 
     for k in which_from_csv:
-        csv_file = config[k]['from_csv']
+        csv_file = tab_config[k]['from_csv']
         if not os.path.exists(csv_file):
             csv_file = os.path.join(config_dir, csv_file)
             logging.info('Loaded {}'.format(csv_file))
         logging.info('results for {} from csv file {}'.format(k, csv_file))
-        index_col = int(config[k]['index_col'])
-        header = int(config[k]['header'])
+        index_col = int(tab_config[k]['index_col'])
+        header = int(tab_config[k]['header'])
 
-        df = process_csv(csv_file, index_col=index_col, header=header)
+        df = _process_csv(csv_file, index_col=index_col, header=header)
 
         df.rename(columns={'fpr': 'fpr@95', 'accuracy': 'acc'}, inplace=True)
-        ood_methods[k] = config[k].get('ood_method', '')
-        acc_methods[k] = config[k].get('acc_method', '')
+        ood_methods[k] = tab_config[k].get('ood_method', '')
+        acc_methods[k] = tab_config[k].get('acc_method', '')
 
-        # if df.index.nlevels > 1:
-        #    df.index = df.index.set_levels([_.astype(str) for _ in df.index.levels])
         raw_df[k] = df.groupby(level=df.index.names).agg('mean')
-        # raw_df[k].columns.rename(['set', 'method', 'metrics'], inplace=True)
+
+        """ tab_comments """
+        c = raw_df[k].columns
+        c_ood = c.isin(oodsets, level='set') & c.isin([ood_methods[k]], level='method')
+        c_acc = c.isin([dataset], level='set') & c.isin([acc_methods[k]], level='method')
+        tab_comments += '\n{k:=^{w}s} {f}\n'.format(k=k, w=20, f=csv_file)
+        tab_comments += raw_df[k][c[c_ood | c_acc]].to_string(float_format='{:.1f}'.format)
+        tab_comments += '\n'
+        """ """
+
+    if show_dfs:
+        print(tab_comments)
+
+    config['tab_comments'] = tab_comments
 
     for k in raw_df:
         df = raw_df[k]
         c = df.columns
-        ood_cols = c.isin(oodsets, level='set') & \
-            c.isin(ood_metrics, level='metrics') & \
-            c.isin([ood_methods[k]], level='method')
+        ood_cols = (c.isin(oodsets, level='set') &
+                    c.isin(ood_metrics, level='metrics') &
+                    c.isin([ood_methods[k]], level='method'))
 
-        acc_cols = c.isin([dataset], level='set') & \
-            c.isin(acc_metrics, level='metrics') & \
-            c.isin([acc_methods[k]], level='method')
+        acc_cols = (c.isin([dataset], level='set') &
+                    c.isin(acc_metrics, level='metrics') &
+                    c.isin([acc_methods[k]], level='method'))
 
-        raw_df[k] = df[c[ood_cols | acc_cols]]
+        series = df[c[ood_cols | acc_cols]].mean()
 
-        raw_df[k].columns = raw_df[k].columns.droplevel('method')
+        series.index = series.index.droplevel('method')
 
-        c = raw_df[k].columns
+        """ average computation """
+        avg_rows = {}
+        for a in average:
+            # print(series)
+            i = series.index.isin(average[a], level='set')
+            avg_rows[a] = series[i].groupby('metrics').agg('mean')
+            # print('***', a, '***')
+            # print(avg_rows[a])
+            avg_rows[a].index = pd.MultiIndex.from_product([[a], avg_rows[a].index],
+                                                           names=['set', 'metrics'])
+            series = pd.concat([series, avg_rows[a]])
+            # print(series)
 
-        raw_df[k] = raw_df[k].squeeze()
+        def sorter(s):
+            if s.name in sorting_index:
+                return s.map({k: v for k, v in sorting_index[s.name].items()})
+            return s
 
-    return pd.concat(raw_df, axis=1).T
+        raw_df[k] = series.sort_index(key=sorter)
+
+    best_values_t = _concat_df(raw_df, return_best=True)
+    result_df_t = _concat_df(raw_df)
+    best_values = _concat_df(raw_df, col_names=['metrics', 'method'],
+                             index_rename={'acc': 'rate', 'fpr@95': 'rate'},
+                             return_best=True)
+
+    result_df = _concat_df(raw_df, col_names=['metrics', 'method'],
+                           index_rename={'acc': 'rate', 'fpr@95': 'rate'})
+
+    result_df = result_df.sort_index(key=sorter)
+    result_df = result_df.T.sort_index(key=sorter).T
+
+    result_df.rename(index={dataset: 'acc'}, inplace=True)
+    best_values.rename(index={dataset: 'acc'}, inplace=True)
+
+    _suf = ['']
+    if 'auc' in ood_metrics:
+        _suf.append('auc')
+    result_df.to_csv(config['tab_file'].format('-'.join(_suf)))
+
+    return result_df, result_df_t, best_values, best_values_t
 
 
-def format_df(df):
+def change_default(func, **defaults):
+    def wrapped(*a, **kw):
+        for k, v in defaults.items():
+            if k not in kw:
+                kw[k] = v
 
-    return df
+        return func(*a, **kw)
+    return wrapped
+
+
+def make_tex(config, df, best=None):
+
+    texify_dict = config['texify']
+
+    def texify_text(v, where=None):
+        if where == 'set':
+            return r'\dset{{{}}}'.format(v)
+        if v in texify_dict['conf']:
+            return texify_dict['conf'][v]
+
+        if where in texify_dict['file'] and v in texify_dict['file'][where]:
+            return texify_dict['file'].get(where, v)
+        return '{}:{}'.format(where, v)
+
+    def header_row(tab, name, *cols, index_length=1):
+        tab.append_cell('', width=index_length)
+        unique_cols_period = {v: np.diff([i for i, _ in enumerate(cols) if _ == v])
+                              for v in set(cols)}
+        # print(unique_cols_period)
+        is_periodic = False
+        period = 0
+        for v in unique_cols_period:
+            if not len(np.unique(unique_cols_period[v]) == 1):
+                break
+            if unique_cols_period[v][0] <= 1:
+                break
+            if period and unique_cols_period[v][0] != period:
+                break
+            period = unique_cols_period[v][0]
+        else:
+            is_periodic = True
+
+        if is_periodic:
+            cell_content = '/'.join([texify_text(c, where=name) for c in cols])
+            tab.append_cell(texify_text(cell_content), row=name,
+                            width=len(cols), multicol_format='c')
+        else:
+            previous_col = None
+            multicol = 0
+            for c in cols:
+                if c == previous_col:
+                    multicol += 1
+                else:
+                    if multicol:
+                        tab.append_cell(texify_text(previous_col, where=name), row=header,
+                                        width=multicol, multicol_format='c')
+                    multicol = 1
+                    previous_col = c
+            tab.append_cell(texify_text(previous_col, where=name), row=header,
+                            width=multicol, multicol_format='c')
+
+    def val_row(tab, name, row, best_val=None, what='set'):
+        tab.append_cell(texify_text(name, where=what))
+        for val in row:
+            tab.append_cell(val, row=name)
+
+    col_fmt = ['l'] * df.index.nlevels + ['s2.1'] * df.shape[1]
+    tab = TexTab(*col_fmt, float_format='{:2.1f}', na_rep='--')
+
+    for row, header in enumerate(df.columns.names):
+        cols = [_[row] for _ in df.columns]
+        header_row(tab, header, *cols, index_length=df.index.nlevels)
+
+    for i in df.index:
+        what = df.index.name
+        if i == 'acc' and what == 'set':
+            what = 'metrics'
+        val_row(tab, i, df.loc[i], what=what)
+    tab.add_midrule(row=header, after=True)
+
+    tab.render()
+
+    transpose = True
+    dataset = config['dataset']
+    tex_file = config['tex_file']
+    _suf = ['']
+    if 'auc' in config['ood_metrics']:
+        _suf.append('auc')
+
+    if transpose:
+        _suf.append('t')
+
+    tex_file = tex_file.format('-'.join(_suf))
+    logging.info('Tab for {} will be saved in file {}'.format(dataset, tex_file))
 
 
 if __name__ == '__main__':
@@ -247,9 +458,23 @@ if __name__ == '__main__':
 
     filter_keys = get_filter_keys('./utils/filters.ini', by='key')
 
-    logging.getLogger().setLevel(200)
+    logging.getLogger().setLevel(20)
 
-    raw_df = process_config_file('/tmp/tab.ini', filter_keys, root='/tmp')
+    config_file = '/tmp/tab.ini'
+    texify_file = '/tmp/texify.ini'
 
-    for k in raw_df:
-        print(raw_df[k])
+    config = parse_config(config_file, root='/tmp', texify_file=texify_file)
+    df, df_t, best_vals, best_vals_t = make_tables(config, filter_keys,
+                                                   ood_metrics=['fpr', 'auc'], show_dfs=True)
+
+    make_tex(config, df, best=best_vals)
+    make_tex(config, df_t, best=best_vals_t)
+
+    # df1 = concat_df(raw_df)
+
+    # print(df1.to_string(float_format='{:.1f}'.format))
+
+    # df2 = concat_df(raw_df, col_names=['metrics', 'method'],
+    #                 index_rename={'acc': 'rate', 'fpr@95': 'rate'})
+    # print('\n====\n')
+    # print(df2.to_string(float_format='{:.1f}'.format))

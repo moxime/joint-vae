@@ -56,7 +56,7 @@ def parse_config(config_file, which=['all'], root=DEFAULT_RESULTS_DIR, texify_fi
     config = {'texify': texify}
 
     config['config_dir'] = config_dir
-    config['job_dir'] = default_config.get('jobs', DEFAULT_JOBS_DIR)
+    config['job_dir'] = {k: raw_config[k].get('jobs') or DEFAULT_JOBS_DIR for k in which}
 
     config['dataset'] = default_config.get('dataset')
     config['oodsets'] = default_config.get('ood').split()
@@ -70,7 +70,7 @@ def parse_config(config_file, which=['all'], root=DEFAULT_RESULTS_DIR, texify_fi
 
     average = default_config.get('average', '').split()
     if len(average) == 1:
-        average = {average[0]: raw_config['oodsets']}
+        average = {average[0]: config['oodsets']}
 
     elif len(average) > 1:
         average = {average[0]: average[1:]}
@@ -136,7 +136,7 @@ def make_tables(config, filter_keys,
     which_from_csv = config['from_csv']
     average = config['average']
 
-    tab_comments = ''
+    tab_comments = []
 
     acc_metrics = config['acc_metrics'] or acc_metrics
     ood_metrics = config['ood_metrics'] or ood_metrics
@@ -152,7 +152,7 @@ def make_tables(config, filter_keys,
         logging.info('| key %s:', k)
         logging.info(' -- '.join(['{}: {}'.format(_, tab_config[k][_]) for _ in tab_config[k]]))
         filters[k] = DictOfListsOfParamFilters()
-
+        print(k, filters[k])
         for _ in tab_config[k]:
             if _ in filter_keys:
                 dest = filter_keys[_]['dest']
@@ -162,9 +162,9 @@ def make_tables(config, filter_keys,
 
     global_filters = MetaFilter(operator='or', **filters)
 
-    models = fetch_models(job_dir, registered_models_file,
-                          filter=global_filters, build_module=False,
-                          flash=flash)
+    models = {k: fetch_models(job_dir[k], registered_models_file,
+                              filter=filters[k], build_module=False,
+                              flash=flash) for k in filters}
 
     logging.info('Fetched {} models'.format(len(models)))
 
@@ -177,8 +177,8 @@ def make_tables(config, filter_keys,
     models_by_type = {k: [] for k in filters}
     archs_by_type = {k: set() for k in filters}
 
-    for n in models:
-        for k, filter in filters.items():
+    for k, filter in filters.items():
+        for n in models[k]:
             to_be_kept = filter.filter(n)
             d = n['dir']
             derailed = os.path.join(d, 'derailed')
@@ -220,7 +220,9 @@ def make_tables(config, filter_keys,
     for k in which_from_filters:
         job_list[k] = [_['job'] for _ in models_by_type[k]]
         job_list_str = ' '.join(str(_) for _ in job_list[k])
-        logging.info('{} models for {}: {}'.format(len(models_by_type[k]), k, job_list_str))
+        _s = '{} models for {}: {}'.format(len(models_by_type[k]), k, job_list_str)
+        tab_comments.append(_s)
+        logging.info(_s)
         if not models_by_type[k]:
             logging.warning('Skipping {}'.format(k))
             continue
@@ -248,19 +250,23 @@ def make_tables(config, filter_keys,
         df_width = len(df_string[k].split('\n')[0])
 
         """ tab comments """
-        tab_comments += '\n{k:=^{w}s}\n'.format(k=k, w=df_width)
-        tab_comments += df_string[k]
-        tab_comments += '\n{k:=^{w}s}\n'.format(k='', w=df_width)
-        tab_comments += '\nCommon values\n'
+        tab_comments.append('{k:=^{w}s}\n'.format(k=k, w=df_width))
+        _s = '{:2} models for {:12}: {}'
+        tab_comments.append(_s.format(len(job_list[k]), k,
+                                      ' '.join(str(_) for _ in job_list[k])))
+
+        tab_comments.extend(df_string[k].split('\n'))
+        tab_comments.append('{k:=^{w}s}'.format(k='', w=df_width))
+        tab_comments.append('Common values')
         nans = []
         for _, v in format_df_index(removed_index[k]).items():
             if not _.startswith('drop'):
                 if v != 'NaN':
-                    tab_comments += '\n{:8}: {}'.format(_, v)
+                    tab_comments.append('{:8}: {}'.format(_, v))
                 else:
                     nans.append(_)
         if nans:
-            tab_comments += '\n{:8}: '.format('NaNs') + ', '.join(nans)
+            tab_comments.append('{:8}: '.format('NaNs') + ', '.join(nans))
         """ """
 
         raw_df[k] = df.groupby(level=idx).agg('mean')
@@ -288,13 +294,13 @@ def make_tables(config, filter_keys,
         c = raw_df[k].columns
         c_ood = c.isin(oodsets, level='set') & c.isin([ood_methods[k]], level='method')
         c_acc = c.isin([dataset], level='set') & c.isin([acc_methods[k]], level='method')
-        tab_comments += '\n{k:=^{w}s} {f}\n'.format(k=k, w=20, f=csv_file)
-        tab_comments += raw_df[k][c[c_ood | c_acc]].to_string(float_format='{:.1f}'.format)
-        tab_comments += '\n'
+        tab_comments.append('{k:=^{w}s} {f}\n'.format(k=k, w=20, f=csv_file))
+        _df_s = raw_df[k][c[c_ood | c_acc]].to_string(float_format='{:.1f}'.format)
+        tab_comments.extend(_df_s.split('\n'))
         """ """
 
     if show_dfs:
-        print(tab_comments)
+        print('\n'.join(tab_comments))
 
     config['tab_comments'] = tab_comments
 
@@ -356,16 +362,6 @@ def make_tables(config, filter_keys,
     return result_df, result_df_t, best_values, best_values_t
 
 
-def change_default(func, **defaults):
-    def wrapped(*a, **kw):
-        for k, v in defaults.items():
-            if k not in kw:
-                kw[k] = v
-
-        return func(*a, **kw)
-    return wrapped
-
-
 def make_tex(config, df, best=None):
 
     texify_dict = config['texify']
@@ -378,10 +374,10 @@ def make_tex(config, df, best=None):
 
         if where in texify_dict['file'] and v in texify_dict['file'][where]:
             return texify_dict['file'].get(where, v)
-        return '{}:{}'.format(where, v)
+        return '{}'.format(v)
 
     def header_row(tab, name, *cols, index_length=1):
-        tab.append_cell('', width=index_length)
+        tab.append_cell('', width=index_length, row=name)
         unique_cols_period = {v: np.diff([i for i, _ in enumerate(cols) if _ == v])
                               for v in set(cols)}
         # print(unique_cols_period)
@@ -417,13 +413,36 @@ def make_tex(config, df, best=None):
             tab.append_cell(texify_text(previous_col, where=name), row=header,
                             width=multicol, multicol_format='c')
 
-    def val_row(tab, name, row, best_val=None, what='set'):
-        tab.append_cell(texify_text(name, where=what))
-        for val in row:
-            tab.append_cell(val, row=name)
+    def val_row(tab, name, row, columns, what='set'):
+        tab.append_cell(texify_text(name, where=what), row=name)
+        for val, col in zip(row, columns):
+            best_val = None
+            if best is not None:
+                current = {}
+                for k in ('set', 'metrics'):
+                    if k not in columns.names:
+                        current[k] = name
+                    else:
+                        current[k] = col[columns.names.index(k)]
+                # print(current)
+                try:
+                    best_val = best.loc[(current['set'], current['metrics'])]
+                except KeyError:
+                    pass
+                # print(best_val)
+            face = None
+            if best_val is not None:
+                face = 'bf' if abs(best_val - val) < 0.05 else None
+            if val > 99.95:
+                tab.append_cell(val, row=name, face=face, multicol_format='l', formatter='{:.0f}')
+            else:
+                tab.append_cell(val, row=name, face=face)
 
     col_fmt = ['l'] * df.index.nlevels + ['s2.1'] * df.shape[1]
     tab = TexTab(*col_fmt, float_format='{:2.1f}', na_rep='--')
+
+    for comment in config['tab_comments']:
+        tab.comment(comment)
 
     for row, header in enumerate(df.columns.names):
         cols = [_[row] for _ in df.columns]
@@ -433,12 +452,13 @@ def make_tex(config, df, best=None):
         what = df.index.name
         if i == 'acc' and what == 'set':
             what = 'metrics'
-        val_row(tab, i, df.loc[i], what=what)
+        val_row(tab, i, df.loc[i], df.columns, what=what)
     tab.add_midrule(row=header, after=True)
 
-    tab.render()
+    if 'acc' in tab:
+        tab.add_midrule(row='acc', after=True)
 
-    transpose = True
+    transpose = df.index.name == 'method'
     dataset = config['dataset']
     tex_file = config['tex_file']
     _suf = ['']
@@ -450,6 +470,10 @@ def make_tex(config, df, best=None):
 
     tex_file = tex_file.format('-'.join(_suf))
     logging.info('Tab for {} will be saved in file {}'.format(dataset, tex_file))
+    with open(tex_file, 'w') as f:
+        tab.render(f, robustify=True)
+
+    return tab
 
 
 if __name__ == '__main__':
@@ -467,8 +491,8 @@ if __name__ == '__main__':
     df, df_t, best_vals, best_vals_t = make_tables(config, filter_keys,
                                                    ood_metrics=['fpr', 'auc'], show_dfs=True)
 
-    make_tex(config, df, best=best_vals)
-    make_tex(config, df_t, best=best_vals_t)
+    tab = make_tex(config, df, best=best_vals)
+    tab_t = make_tex(config, df_t, best=best_vals_t)
 
     # df1 = concat_df(raw_df)
 

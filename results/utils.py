@@ -413,6 +413,7 @@ def make_tex(config, df, best=None):
                     multicol = 1
                     previous_col = c
             tab.append_cell(texify_text(previous_col, where=name), row=header,
+                            face=face,
                             width=multicol, multicol_format='c@{}')
 
     def val_row(tab, name, row, columns, what='set'):

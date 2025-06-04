@@ -376,7 +376,7 @@ def make_tex(config, df, best=None):
             return texify_dict['file'].get(where, v)
         return '{}'.format(v)
 
-    def header_row(tab, name, *cols, index_length=1):
+    def header_row(tab, name, *cols, index_length=1, face=None):
         tab.append_cell('', width=index_length, row=name)
         unique_cols_period = {v: np.diff([i for i, _ in enumerate(cols) if _ == v])
                               for v in set(cols)}
@@ -395,8 +395,9 @@ def make_tex(config, df, best=None):
             is_periodic = True
 
         if is_periodic:
-            cell_content = '/'.join([texify_text(c, where=name) for c in cols])
+            cell_content = '/'.join([texify_text(c, where=name) for c in cols[:period]])
             tab.append_cell(texify_text(cell_content), row=name,
+                            face=face,
                             width=len(cols), multicol_format='c')
         else:
             previous_col = None
@@ -407,11 +408,12 @@ def make_tex(config, df, best=None):
                 else:
                     if multicol:
                         tab.append_cell(texify_text(previous_col, where=name), row=header,
+                                        face=face,
                                         width=multicol, multicol_format='c')
                     multicol = 1
                     previous_col = c
             tab.append_cell(texify_text(previous_col, where=name), row=header,
-                            width=multicol, multicol_format='c')
+                            width=multicol, multicol_format='c@{}')
 
     def val_row(tab, name, row, columns, what='set'):
         tab.append_cell(texify_text(name, where=what), row=name)
@@ -446,7 +448,8 @@ def make_tex(config, df, best=None):
 
     for row, header in enumerate(df.columns.names):
         cols = [_[row] for _ in df.columns]
-        header_row(tab, header, *cols, index_length=df.index.nlevels)
+        header_row(tab, header, *cols, index_length=df.index.nlevels,
+                   face='sm' if row == 1 else None)
 
     for i in df.index:
         what = df.index.name

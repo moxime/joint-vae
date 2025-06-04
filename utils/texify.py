@@ -344,7 +344,7 @@ def pgfplotstable_preambule(df, dataset, file, mode='a'):
                            'name': ' '.join(w_)}
 
 
-tex_faces = {'it': r'\itshape ', 'bf': r'\bfseries '}
+tex_faces = {'it': r'\itshape ', 'bf': r'\bfseries ', 'sm': r'\smaller'}
 
 
 def tex_command(command, *args):

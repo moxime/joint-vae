@@ -306,6 +306,7 @@ getters = {'const': ConstantDataset,
            'lsunr': datasets.LSUN,
            'dtd': DTDConcatTestVal,
            'random300k': FromNumpy,
+           'places365': datasets.Places365
            }
 
 
@@ -467,60 +468,53 @@ def get_dataset(dataset='mnist',
         test_kw['download'] = True and download
 
     with suppress_stdout(log=False):
+        dsets = {'train': None, 'test': None}
         if 'train' in splits:
-            trainset = getter(**train_kw,
-                              target_transform=target_transform,
-                              transform=transforms.Compose(pre_transforms + train_transforms + post_transforms))
-        else:
-            trainset = None
-
+            dsets['train'] = getter(**train_kw,
+                                    target_transform=target_transform,
+                                    transform=transforms.Compose(pre_transforms + train_transforms + post_transforms))
         if 'test' in splits:
-            testset = getter(**test_kw,
-                             target_transform=target_transform,
-                             transform=transforms.Compose(pre_transforms + post_transforms))
-        else:
-            testset = None
-        returned_sets = (trainset, testset)
+            dsets['test'] = getter(**test_kw,
+                                   target_transform=target_transform,
+                                   transform=transforms.Compose(pre_transforms + post_transforms))
 
     if set_props.get('classes_from_file'):
-        for s in returned_sets:
-            if s is not None:
-                s.classes_file = set_props['classes_from_file']
+        for s in splits:
+            dsets[s].classes_file = set_props['classes_from_file']
 
-    for s in returned_sets:
-        if s is not None:
-            s.name = dataset + ('90' if rotated else '')
-            s.same_size = same_size
-            s.transformer = transformer
+    for s in splits:
+        dsets[s].name = dataset + ('90' if rotated else '')
+        dsets[s].same_size = same_size
+        dsets[s].transformer = transformer
 
-            # if not hasattr(s, 'classes'):
-            C = set_props['labels']
-            s.classes = set_props.get('classes', [str(i) for i in range(C)])
+        # if not hasattr(s, 'classes'):
+        C = set_props['labels']
+        dsets[s].classes = set_props.get('classes', [str(i) for i in range(C)])
 
-            s.heldout = []
-            if heldout_classes:
-                s.heldout = heldout_classes
-                s.classes = [c for (i, c) in enumerate(s.classes) if i not in heldout_classes]
-                if len(heldout_classes) < C / 2:
-                    s.name = s.name + '-' + '-'.join(str(_) for _ in heldout_classes)
-                else:
-                    s.name = s.name + '+' + '+'.join(str(_) for _ in range(C) if _ not in heldout_classes)
+        dsets[s].heldout = []
+        if heldout_classes:
+            dsets[s].heldout = heldout_classes
+            dsets[s].classes = [c for (i, c) in enumerate(dsets[s].classes) if i not in heldout_classes]
+            if len(heldout_classes) < C / 2:
+                dsets[s].name = dsets[s].name + '-' + '-'.join(str(_) for _ in heldout_classes)
+            else:
+                dsets[s].name = dsets[s].name + '+' + '+'.join(str(_) for _ in range(C) if _ not in heldout_classes)
 
-            if s.target_transform:
-                for attr in ('targets', 'labels'):
-                    if hasattr(s, attr):
-                        labels = getattr(s, attr)
-                        y = torch.tensor([s.target_transform(int(_)) for _ in labels], dtype=int)
-                        s.data = s.data[y >= 0]
+        if dsets[s].target_transform:
+            for attr in ('targets', 'labels'):
+                if hasattr(s, attr):
+                    labels = getattr(s, attr)
+                    y = torch.tensor([dsets[s].target_transform(int(_)) for _ in labels], dtype=int)
+                    dsets[s].data = dsets[s].data[y >= 0]
 
-                        if isinstance(labels, (torch.Tensor, np.ndarray)):
-                            setattr(s, attr, labels[y >= 0])
-                        elif isinstance(labels, list):
-                            setattr(s, attr, [_ for _ in labels if s.target_transform(_) >= 0])
-                        else:
-                            raise TypeError
+                    if isinstance(labels, (torch.Tensor, np.ndarray)):
+                        setattr(s, attr, labels[y >= 0])
+                    elif isinstance(labels, list):
+                        setattr(s, attr, [_ for _ in labels if dsets[s].target_transform(_) >= 0])
+                    else:
+                        raise TypeError
 
-    return returned_sets
+    return dsets['train'], dsets['test']
 
 
 def get_mnist(**kw):

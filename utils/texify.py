@@ -364,13 +364,7 @@ def tabular_env(formats, col_seps, env='tabular', reduce_space=True):
     """
     formats is a list of (n, f), n is int, f is str (eg l, S[table-format=2.1])...
     """
-    col_seps_tex = [''] * (len(formats) + 1)
-
-    for i in range(len(formats) + 1):
-        col_seps_tex[i] = '@{' + col_seps[i] + '}' if col_seps[i] else ''
-
-    for i in (0, -1):
-        col_seps_tex[i] = '@{' + col_seps[i] + '}'
+    col_seps_tex = ['{:x}'.format(_) for _ in col_seps]
 
     col_formats = '%\n'
     for f, s in zip(formats, col_seps_tex):
@@ -404,11 +398,6 @@ def tabular_rule(where, start=0, end=-1, tab_width=None):
             border += 'r'
         border = '({})'.format(border)
         return r'\cmidrule{}{{{}-{}}}'.format(border, start + 1, end + 1) + '\n'
-
-
-def tabular_row(*a, end='\n'):
-
-    return ' & '.join(str(_) for _ in a) + r'\\' + end
 
 
 def tabular_multicol(width, cell_format, s):
@@ -457,12 +446,6 @@ class TexCell(object):
 
     def __str__(self):
 
-        # try:
-        #     is_nan = np.isnan(self._value)
-        #     if is_nan:
-        #         return self.na_rep
-        # except TypeError:
-        #     pass
         if self._value is None:
             return self.na_rep
 
@@ -477,7 +460,8 @@ class TexCell(object):
             spec = spec[:-1]
 
         if self._multicol and tex:
-            s += r'\multicolumn{{{}}}{{{}}}'.format(self.width, self._multicol)
+            if self.width > 1:
+                s += r'\multicolumn{{{}}}{{{}}}'.format(self.width, self._multicol)
             s += '{'
 
         if tex and self.face:
@@ -493,12 +477,82 @@ class TexCell(object):
         return s
 
 
+class ColSep:
+
+    def __init__(self, v, tight=None):
+
+        self._str = v.strip()
+
+        # '/': tight is None (=> true later)
+        # ' / ': tight is False
+        # '|': tight is None (=> false later)
+        # '': tight is None (=> true later)
+        # ' ': tight is False
+
+        if len(self._str) < len(v):
+            tight = False
+
+        self.tight = tight
+
+    @property
+    def tight(self):
+        return self._tight
+
+    @tight.setter
+    def tight(self, t):
+        tight = bool(t is None and self._str not in ['|'] or t)
+        self._tight = tight
+
+    def __bool__(self):
+        return bool(self._str)
+
+    def __format__(self, spec):
+
+        if spec.startswith('x') and self.tight:
+            _s = '@{{{}}}'
+        else:
+            _s = '{}'
+            if not self.tight and not self._str:
+                _s += ' '
+
+        return _s.format(self._str)
+
+    def __str__(self):
+
+        return '{}'.format(self)
+
+    def __repr__(self):
+
+        return '\'{}\''.format(self)
+
+
+class Colseps(list):
+
+    def __init__(self, *a):
+
+        a = a[0] if a else []
+        super().__init__([_ if isinstance(_, ColSep) else ColSep(_) for _ in a])
+
+    def __getitem__(self, i):
+        return super().__getitem__(i)
+
+    def __setitem__(self, i, val):
+        super().__setitem__(i, val if isinstance(val, ColSep) else ColSep(val))
+
+    def __get__(self, obj, objtype=None):
+        return obj._col_sep
+
+    def __set__(self, obj, vals):
+        obj._col_sep = type(self)(vals)
+
+
 class TexRow(list):
 
-    def __init__(self, *a, col_format=[]):
+    def __init__(self, *a):
+
+        assert all(isinstance(_, TexCell) for _ in a)
 
         super().__init__(*a)
-        self._col_formats = col_format
 
     def __len__(self):
 
@@ -538,6 +592,8 @@ class TexRow(list):
 
 class TexTab(object):
 
+    col_sep = Colseps()
+
     def __init__(self, *col_format, environment='tabular', float_format='{}',
                  sparse_index_width=0,
                  na_rep='--',
@@ -551,11 +607,10 @@ class TexTab(object):
         self._env = environment
         self._col_format = col_format
 
-        self._col_sep = ['' for _ in col_format] + ['']
+        self.col_sep = [' ' for _ in col_format] + ['']
+        self.col_sep[0] = ''
 
         self._has_to_be_float = [_.startswith('s') for _ in col_format]
-
-        self.width = len(col_format)
 
         self._rows = OrderedDict()
         self._rules = {'top': True, 'bottom': True, 'mid': {}}
@@ -567,6 +622,10 @@ class TexTab(object):
         self.default_multicol_format = multicol_format
 
         self._sparse_index_witdth = sparse_index_width
+
+    @property
+    def width(self):
+        return len(self._col_format)
 
     def __repr__(self):
 
@@ -617,11 +676,11 @@ class TexTab(object):
             return self._new_row(self._next_row(row_id))
 
         else:
-            self._rows[row_id] = TexRow(col_format=self._col_format)
+            self._rows[row_id] = TexRow()
             return row_id
 
     def _make_cell(self, a, width=1, multicol_format=None,
-                   formatter=None, has_to_be_float=None, face=None, seps=('', '')):
+                   formatter=None, has_to_be_float=None, face=None, seps=(ColSep(''), ColSep(''))):
 
         try:
             float(a)
@@ -631,12 +690,14 @@ class TexTab(object):
         except (ValueError, TypeError):
             is_float = False
 
-        is_multicol = width > 1 or multicol_format or (has_to_be_float and not is_float) or a is None
+        is_multicol = (width > 1 or multicol_format or
+                       (has_to_be_float and not is_float) or a is None)
+
         multicol_format = multicol_format or self.default_multicol_format
 
-        multicol_format = (('@{}' if seps[0] else '') +
+        multicol_format = (('@{}' if seps[0].tight else '') +
                            multicol_format +
-                           ('@{{{}}}'.format(seps[1]) if seps[1] else ''))
+                           '{:x}'.format(seps[1]))
 
         return TexCell(a, width=width,
                        multicol_format=multicol_format if is_multicol else None,
@@ -647,10 +708,6 @@ class TexTab(object):
     def get(self, *a, **kw):
 
         return self._rows.get(*a, **kw)
-
-    def add_col_sep(self, before_col, sep=''):
-
-        self._col_sep[before_col] = sep
 
     def render(self, io=sys.stdout, robustify=True):
 
@@ -772,7 +829,7 @@ if __name__ == '__main__':
     from numpy import nan
 
     tab = TexTab('l', 'r', 's3.1', 's3.1', float_format='{:.3f}', sparse_index_width=1, na_rep='BOGUS')
-    tab.add_col_sep(2, '/')
+    tab.col_sep[2] = '/'
     tab.append_cell('', row=0)
     tab.append_cell(None, row=0)
     tab.append_cell('fg', row=0)

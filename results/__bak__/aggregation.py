@@ -610,7 +610,7 @@ if __name__ == '__main__':
             if len(agg_[r]) > 1:
                 for i_l, _ in enumerate(combo_l_[r]):
                     for i_agg, _ in enumerate(agg_[r][:-1]):
-                        tab.add_col_sep(1 + i_l * len(agg_[r]) + i_agg + 1, '/')
+                        tab.set_col_sep(1 + i_l * len(agg_[r]) + i_agg + 1, '/')
 
             tab.render()
             tex_file = 'ood-agg-{}-{}--{}--{}.tex'.format(testset,
@@ -671,7 +671,7 @@ if __name__ == '__main__':
             if len(aggs) > 1:
                 for i_l, _ in enumerate(combo_l_[r]):
                     for i_agg, _ in enumerate(aggs[:-1]):
-                        tab.add_col_sep(i_l * len(aggs) + i_agg + 2, '/')
+                        tab.set_col_sep(i_l * len(aggs) + i_agg + 2, '/')
 
             tab.add_midrule('subheader')
             tab.add_midrule(temps[0])

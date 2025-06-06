@@ -101,7 +101,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
         beta = np.prod(get_shape_by_name(s)[0]) / 1e-3
         t['loss'] = t['kl'] + beta * t['mse'][i_mse].unsqueeze(-2)
-        
+
         y_pred = kl.argmin(1)
         y_pred_[s] = y_pred
 
@@ -146,7 +146,7 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
                 i_tpr = int(len(y_true) * tpr)
                 thr[k] = t_y[k].sort()[0][..., i_tpr]
-                for w in ('correct', 'incorrect'):                    
+                for w in ('correct', 'incorrect'):
                     pr[w][k] = torch.zeros(len(thr[k]))
 
                 for i, w in zip((i_true, ~i_true), ['correct', 'incorrect']):
@@ -321,8 +321,8 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
 
         for m in range(len(model)):
             c = 3 * m + 1 + (m == 0)
-            tab.add_col_sep(c, ' (')
-            tab.add_col_sep(c + 1, '\\%) ')
+            tab.set_col_sep(c, ' (')
+            tab.set_col_sep(c + 1, '\\%) ')
 
         for _ in output:
             header = _.capitalize() if _.endswith('correct') else tex_command('makecommand', _)
@@ -383,8 +383,8 @@ def do_what_you_gotta_do(dir_name, result_dir, n_images=10, png=True, tex=['mean
             col_format = ['l'] + ['s{}.3'.format(swidth), 's2.1'] * len(cols)
             tab = TexTab(*col_format)
             for m in range(len(cols)):
-                tab.add_col_sep(2 + 2 * m, ' (')
-                tab.add_col_sep(3 + 2 * m, '\\%)' + ' ' * (m < len(cols) - 1))
+                tab.set_col_sep(2 + 2 * m, ' (')
+                tab.set_col_sep(3 + 2 * m, '\\%)' + ' ' * (m < len(cols) - 1))
 
             tab.append_cell('', row='header')
             for j in cols:
@@ -470,7 +470,7 @@ if __name__ == '__main__':
 
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
-            
+
         output = do_what_you_gotta_do(model_dir, result_dir, n_images=n_images, png=args.png, tex=args.tex)
 
         if args.plot:

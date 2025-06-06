@@ -341,6 +341,8 @@ def make_tables(config, filter_keys,
 
     best_values_t = _concat_df(raw_df, return_best=True)
     result_df_t = _concat_df(raw_df)
+    result_df_t = result_df_t.sort_index(key=sorter)
+    result_df_t = result_df_t.T.sort_index(key=sorter).T
     best_values = _concat_df(raw_df, col_names=['metrics', 'method'],
                              index_rename={'acc': 'rate', 'fpr@95': 'rate'},
                              return_best=True)
@@ -488,7 +490,7 @@ if __name__ == '__main__':
 
     logging.getLogger().setLevel(20)
 
-    config_file = '/tmp/tab.ini'
+    config_file = '/tmp/tab2.ini'
     texify_file = '/tmp/texify.ini'
 
     config = parse_config(config_file, root='/tmp', texify_file=texify_file)

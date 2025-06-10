@@ -407,9 +407,11 @@ def get_dataset(dataset='mnist',
         else:
             data_attr = None
 
-        assert data_attr and label_attr, "You have to find out the attrs of {}".format(dataset)
+        # assert data_attr and label_attr, "You have to find out the attrs of {}".format(dataset)
+        if not (data_attr and label_attr):
+            logging.warning('Does not konw label/data attr of {}'.format(dataset))
 
-        if dsets[s].target_transform:
+        elif dsets[s].target_transform:
             labels = getattr(dsets[s], label_attr)
             y = torch.tensor([dsets[s].target_transform(int(_)) for _ in labels], dtype=int)
             if (y >= 0).sum() < len(y):

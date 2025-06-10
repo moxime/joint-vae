@@ -169,3 +169,5 @@ if __name__ == '__main__':
     c = ImageListDataset('data/openood/cifar100')
     c_ = ImageListDataset('data/openood/cifar100', split='train')
     t = ImageListDataset('data/openood/tin', split='val')
+
+    p = ImageListDataset('data/openood/places365')

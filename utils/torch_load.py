@@ -741,7 +741,7 @@ if __name__ == '__main__':
 
     #     for k, v in zip(('mean', 'std'), (mean, std)):
     #         print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))
-    trainset, testset = get_dataset('o_tin', splits=['test'], data_augmentation=['flip'])
+    trainset, testset = get_dataset('o_places365', splits=['test'])
 
     # dset = SubSampledDataset(trainset, length=200, seed=10, task=1)
 
@@ -751,7 +751,7 @@ if __name__ == '__main__':
 
     # print(' '.join(map('{}'.format, y[:10])))
 
-    show_images(testset, num=64, shuffle=True)
+    show_images(testset, num=16, shuffle=True)
 
     if sys.argv:
         input()

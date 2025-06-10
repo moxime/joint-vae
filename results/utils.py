@@ -495,7 +495,8 @@ if __name__ == '__main__':
 
     config = parse_config(config_file, root='/tmp', texify_file=texify_file)
     df, df_t, best_vals, best_vals_t = make_tables(config, filter_keys,
-                                                   ood_metrics=['fpr', 'auc'], show_dfs=True)
+                                                   ood_metrics=['fpr', 'auc'],
+                                                   show_dfs=True)
 
     tab = make_tex(config, df, best=best_vals)
     tab_t = make_tex(config, df_t, best=best_vals_t)

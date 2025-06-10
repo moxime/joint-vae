@@ -51,7 +51,9 @@ if __name__ == '__main__':
         show_dfs = args.show_dfs
         config = parse_config(config_file, root=root, texify_file=args.texify)
         df, df_t, best_vals, best_vals_t = make_tables(config, filter_keys,
-                                                       ood_metrics=['fpr', 'auc'], show_dfs=True)
+                                                       ood_metrics=['fpr', 'auc'],
+                                                       flash=args.flash,
+                                                       show_dfs=True)
 
         tab = make_tex(config, df, best=best_vals)
         tab_t = make_tex(config, df_t, best=best_vals_t)

@@ -33,7 +33,7 @@ class DontDoFineTuning(Exception):
 
 class FTJob(M, ABC):
 
-    predict_methods_per_type = {'vae': [], 'cvae': ['already'], 'vib': ['already']}
+    predict_methods_per_type = {'vae': [], 'cvae': ['already', 'closest'], 'vib': ['already']}
     added_loss_components_per_type = {'cvae': ('y_est_already',), 'vae': (), 'vib': ('y_est_already',)}
 
     """  to be overridden by child class

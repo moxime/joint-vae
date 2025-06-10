@@ -17,7 +17,9 @@ from torch.utils.data import Dataset
 import configparser
 from matplotlib import pyplot as plt
 # from torch.utils.data._utils import collate
-import time
+
+from utils.custom_sets import UniformDataset, ConstantDataset, FromNumpy
+from utils.custom_sets import ImageFolderWithClassesInFile, ImageListDataset
 
 CONF_FILE = 'data/sets.ini'
 
@@ -131,94 +133,7 @@ def choose_device(device=None):
     return device
 
 
-def letters_getter(**kw):
-
-    s = datasets.EMNIST(split='letters', **kw)
-    # st0 = np.random.get_state()
-    # np.random.seed(0)
-    # i = np.random.permutation(len(s))
-    # print(*i[:10])
-    # s.targets = s.targets[i]
-    # s.data = s.data[i]
-    # np.random.set_state(st0)
-    return s
-
-
 target_transforms = {'y-1': lambda y: y - 1}
-
-
-class ConstantDataset(Dataset):
-
-    def __init__(self, shape, n=10000, transform=None, target_transform=None, download=False):
-
-        self._shape = shape
-        self._len = n
-        self.transform = transform
-        self.target_transform = target_transform
-
-    def __len__(self):
-        return self._len
-
-    def _create_image(self, idx):
-        color = torch.rand(self._shape[0], 1, 1)
-        image = color.expand(self._shape)
-        label = 0
-        return image, label
-
-    def __getitem__(self, idx):
-
-        image, label = self._create_image(idx)
-        if self.transform:
-            image = self.transform(image)
-        if self.target_transform:
-            label = self.target_transform(label)
-
-        return image, label
-
-
-class UniformDataset(ConstantDataset):
-
-    def _create_image(self, idx):
-
-        label = 0
-        image = torch.rand(self._shape)
-
-        return image, label
-
-
-class FromNumpy(Dataset):
-
-    def __init__(self, root='data/foo', split='test', transform=None, target_transform=None, download=False):
-
-        data_dir = os.path.join(root, split)
-        files_in_root = [_ for _ in os.listdir(data_dir) if _.endswith('.npy')]
-
-        assert len(files_in_root) <= 1, '{} npy file in {}'.format(len(files_in_root), root)
-
-        self.transform = transform
-        self.target_transform = target_transform
-
-        if len(files_in_root):
-            self.data = np.load(os.path.join(data_dir, files_in_root[0]))
-
-        else:
-            self.data = np.ndarray(0)
-
-        self._len = len(self.data)
-
-    def __len__(self):
-        return self._len
-
-    def __getitem__(self, idx):
-
-        image, label = self.data[idx], 0
-
-        if self.transform:
-            image = self.transform(image)
-        if self.target_transform:
-            label = self.target_transform(label)
-
-        return image, label
 
 
 class DTDConcatTestVal(torch.utils.data.ConcatDataset):
@@ -247,58 +162,37 @@ class DTDConcatTestVal(torch.utils.data.ConcatDataset):
         return self.datasets[0].target_transform
 
 
-class ImageFolderWithClassesInFile(datasets.ImageFolder):
+def create_folder_dataset(folder, classes_file):
 
-    def __init__(self, root, classes_file, *a, **kw):
+    if classes_file:
+        class Dataset(ImageFolderWithClassesInFile):
 
-        logging.debug('Creating dataset in folder {} based on classes listed in {}'.format(root, classes_file))
-        self.root = root
-        self._classes_file = classes_file
-        self._compile_dict()
+            def __init__(self, root, *a, **kw):
+                super().__init__(root, classes_file, *a, **kw)
 
-        super().__init__(root, *a, **kw)
+    else:
+        class Dataset(ImageListDataset):
 
-    def _compile_dict(self):
-        self.node_to_idx = {}
-        self.idx_to_class = {}
-        self.idx_to_node = {}
-
-        with open(self._classes_file) as f:
-            i = 0
-            for line in f:
-                if not line.startswith('#'):
-                    splitted_line = line.split()
-                    node = splitted_line[0]
-                    classi = ' '.join(splitted_line[1:])
-                    self.node_to_idx[node] = i
-                    self.idx_to_class[i] = classi
-                    self.idx_to_node[i] = node
-                    i += 1
-
-            self.classes = [self.idx_to_class[i] for i in range(len(self.idx_to_class))]
-            self.nodes = [self.idx_to_node[i] for i in range(len(self.idx_to_class))]
-
-    def find_classes(self, directory):
-
-        classes = self.nodes
-        return classes, self.node_to_idx
-
-
-def create_image_dataset(classes_file):
-
-    class Dataset(ImageFolderWithClassesInFile):
-
-        def __init__(self, root, *a, **kw):
-            super().__init__(root, classes_file, *a, **kw)
+            def __init__(self, *a, **kw):
+                super().__init__(folder, *a, **kw)
 
     return Dataset
+
+
+def modify_const(cls, **added_kw):
+
+    def const(*a, **kw):
+
+        return cls(*a, **added_kw, **kw)
+
+    return const
 
 
 getters = {'const': ConstantDataset,
            'uniform': UniformDataset,
            'mnist': datasets.MNIST,
            'fashion': datasets.FashionMNIST,
-           'letters': letters_getter,
+           'letters': modify_const(datasets.EMNIST, split='letters'),
            'cifar10': datasets.CIFAR10,
            'cifar100': datasets.CIFAR100,
            'svhn': datasets.SVHN,
@@ -306,7 +200,7 @@ getters = {'const': ConstantDataset,
            'lsunr': datasets.LSUN,
            'dtd': DTDConcatTestVal,
            'random300k': FromNumpy,
-           'places365': datasets.Places365
+           'places365': modify_const(datasets.Places365, small=True)
            }
 
 
@@ -427,7 +321,7 @@ def get_dataset(dataset='mnist',
         post_transforms.append(transforms.ToTensor())
 
     if set_props.get('folder'):
-        getter = create_image_dataset(set_props['classes_from_file'])
+        getter = create_folder_dataset(set_props.get('folder'), set_props.get('classes_from_file'))
     else:
         i = len(dataset)
         while dataset[:i] not in getters:
@@ -467,7 +361,7 @@ def get_dataset(dataset='mnist',
         train_kw['download'] = True and download
         test_kw['download'] = True and download
 
-    with suppress_stdout(log=False):
+    with suppress_stdout(log=True):
         dsets = {'train': None, 'test': None}
         if 'train' in splits:
             dsets['train'] = getter(**train_kw,
@@ -489,7 +383,8 @@ def get_dataset(dataset='mnist',
 
         # if not hasattr(s, 'classes'):
         C = set_props['labels']
-        dsets[s].classes = set_props.get('classes', [str(i) for i in range(C)])
+        if set_props.get('classes') or not hasattr(dsets[s], 'classes'):
+            dsets[s].classes = set_props.get('classes', [str(i) for i in range(C)])
 
         dsets[s].heldout = []
         if heldout_classes:
@@ -500,19 +395,33 @@ def get_dataset(dataset='mnist',
             else:
                 dsets[s].name = dsets[s].name + '+' + '+'.join(str(_) for _ in range(C) if _ not in heldout_classes)
 
-        if dsets[s].target_transform:
-            for attr in ('targets', 'labels'):
-                if hasattr(s, attr):
-                    labels = getattr(s, attr)
-                    y = torch.tensor([dsets[s].target_transform(int(_)) for _ in labels], dtype=int)
-                    dsets[s].data = dsets[s].data[y >= 0]
+        for label_attr in ('targets', 'labels'):
+            if hasattr(dsets[s], label_attr):
+                break
+        else:
+            label_attr = None
 
-                    if isinstance(labels, (torch.Tensor, np.ndarray)):
-                        setattr(s, attr, labels[y >= 0])
-                    elif isinstance(labels, list):
-                        setattr(s, attr, [_ for _ in labels if dsets[s].target_transform(_) >= 0])
-                    else:
-                        raise TypeError
+        for data_attr in ('data', 'imgs', 'samples'):
+            if hasattr(dsets[s], data_attr):
+                break
+        else:
+            data_attr = None
+
+        assert data_attr and label_attr, "You have to find out the attrs of {}".format(dataset)
+
+        if dsets[s].target_transform:
+            labels = getattr(dsets[s], label_attr)
+            y = torch.tensor([dsets[s].target_transform(int(_)) for _ in labels], dtype=int)
+            if (y >= 0).sum() < len(y):
+                setattr(dsets[s], data_attr, getattr(dsets[s], data_attr)[y >= 0])
+
+            if isinstance(labels, (torch.Tensor, np.ndarray)):
+                setattr(dsets[s], label_attr, labels[y >= 0])
+            elif isinstance(labels, list):
+                setattr(dsets[s], label_attr,
+                        [_ for _ in labels if dsets[s].target_transform(_) >= 0])
+            else:
+                raise TypeError
 
     return dsets['train'], dsets['test']
 
@@ -830,7 +739,7 @@ if __name__ == '__main__':
 
     #     for k, v in zip(('mean', 'std'), (mean, std)):
     #         print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))
-    trainset, testset = get_dataset('cifar100')
+    trainset, testset = get_dataset('o_tin', splits=['test'], data_augmentation=['flip'])
 
     # dset = SubSampledDataset(trainset, length=200, seed=10, task=1)
 
@@ -840,7 +749,7 @@ if __name__ == '__main__':
 
     # print(' '.join(map('{}'.format, y[:10])))
 
-    show_images(testset, num=32, shuffle=32)
+    show_images(testset, num=64, shuffle=True)
 
     if sys.argv:
         input()

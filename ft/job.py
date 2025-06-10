@@ -471,9 +471,13 @@ class FTJob(M, ABC):
         if not task and self._generalize:
             #  add others oodsets
             logging.info('Since task=0 and generalize, adding others ood sets')
-            oodsets.extend([torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
-                            for _ in torchdl.get_same_size_by_name(testset.name)
-                            if _ not in sets and _ not in padding_sets])
+            other_oodsets = [torchdl.get_dataset(_, transformer=transformer, splits=['test'])[1]
+                             for _ in torchdl.get_same_size_by_name(testset.name)
+                             if _ not in sets and _ not in padding_sets]
+            for _ in other_oodsets:
+                _.name += '*'
+
+            oodsets.extend(other_oodsets)
 
         testset = EstimatedLabelsDataset(moving_set.extract_subdataset('ind', new_name=testset.name))
         oodsets = [EstimatedLabelsDataset(s) for s in oodsets]

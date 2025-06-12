@@ -211,7 +211,7 @@ if __name__ == '__main__':
 
     save_dir_root = os.path.join(args.ft_job_dir, dataset,
                                  model.print_architecture(sampling=False),
-                                 conf_args.ft)
+                                 conf_args.ft, '-'.join(ft_sets))
 
     save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
     model.saved_dir = save_dir

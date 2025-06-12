@@ -166,8 +166,5 @@ def create_file(root, txt_file, prefix='cifar100/test/'):
 
 if __name__ == '__main__':
 
-    c = ImageListDataset('data/openood/cifar100')
-    c_ = ImageListDataset('data/openood/cifar100', split='train')
     t = ImageListDataset('data/openood/tin', split='val')
-
-    p = ImageListDataset('data/openood/places365')
+    t_ = ImageListDataset('data/openood/tin', img_file='none', split='val')

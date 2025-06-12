@@ -603,7 +603,7 @@ def get_dataset_from_dict(dict_of_sets, set_name, transformer):
     return sets
 
 
-def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
+def show_images(imageset, shuffle=True, num=4, ncols=4, show_labels=True, **kw):
 
     if isinstance(imageset, str):
         imageset = get_dataset(imageset, splits=['test'])[1]
@@ -617,7 +617,7 @@ def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
 
     nrows = int(np.ceil(num / ncols))
 
-    fix, axs = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False)
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False)
 
     for i, image in enumerate(x):
         r = i // ncols
@@ -631,8 +631,12 @@ def show_images(imageset, shuffle=True, num=4, ncols=4, **kw):
             label = str(y[i].numpy())
         except IndexError:
             label = i
+        if not show_labels:
+            label = None
         axs[r, c].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[], title=label)
-    fix.show()
+
+    fig.suptitle(imageset.name)
+    fig.show()
 
     nrows = int(np.ceil(num / ncols))
 
@@ -723,6 +727,18 @@ if __name__ == '__main__':
 
     import sys
 
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('sets', default=['cifar10'], nargs='*')
+    parser.add_argument('-n', default=32, type=int)
+    parser.add_argument('-c', default=4, type=int)
+    parser.add_argument('-r', action='store_true')
+    parser.add_argument('-q', action='store_false', dest='labels')
+
+    args = parser.parse_args()
+
     # plt.set_loglevel(level='warning')
     # import time
 
@@ -741,17 +757,13 @@ if __name__ == '__main__':
 
     #     for k, v in zip(('mean', 'std'), (mean, std)):
     #         print('{:4}: {}'.format(k, ', '.join('{:.4f}'.format(_) for _ in v)))
-    trainset, testset = get_dataset('o_places365', splits=['test'])
+    dsets = {}
 
-    # dset = SubSampledDataset(trainset, length=200, seed=10, task=1)
+    for s in args.sets:
+        trainset, dsets[s] = get_dataset(s, splits=['test'])
 
-    # mset = MixtureDataset(dset, dset)
-
-    # x, y = get_batch(dset, shuffle=False, batch_size=32)
-
-    # print(' '.join(map('{}'.format, y[:10])))
-
-    show_images(testset, num=16, shuffle=True)
+    for s in dsets:
+        show_images(dsets[s], num=args.n, ncols=args.c, shuffle=args.r, show_labels=args.labels)
 
     if sys.argv:
         input()

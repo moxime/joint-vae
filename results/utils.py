@@ -68,14 +68,17 @@ def parse_config(config_file, which=['all'], root=DEFAULT_RESULTS_DIR, texify_fi
 
     kept_index = default_config.get('kept_index', '').split()
 
-    average = default_config.get('average', '').split()
-    if len(average) == 1:
-        average = {average[0]: config['oodsets']}
+    config['average'] = {}
 
-    elif len(average) > 1:
-        average = {average[0]: average[1:]}
+    for k in default_config:
+        if k.startswith('average'):
+            average = default_config.get(k).split()
+            if len(average) == 1:
+                average = {average[0]: config['oodsets']}
+            elif len(average) > 1:
+                average = {average[0]: average[1:]}
 
-    config['average'] = average
+            config['average'].update(average)
 
     kept_index_ = [_.split(':') for _ in kept_index]
     kept_index = [_[0] for _ in kept_index_]
@@ -208,7 +211,8 @@ def make_tables(config, filter_keys,
     sorting_index['method'] = {_: i for i, _ in enumerate(tab_config)}
 
     for a in average:
-        sorting_index['set'][a] = max([sorting_index['set'][_] for _ in average[a]]) + 0.5
+        sorting_index['set'][a] = max([sorting_index['set'][_] for _ in average[a]])
+        sorting_index['set'][a] += 0.5 * len(average[a]) / len(oodsets)
 
     tpr = float(tpr_) / 100
     raw_df = {}

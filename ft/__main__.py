@@ -264,7 +264,7 @@ if __name__ == '__main__':
     if is_array:
         save_dir_root = os.path.join(args.array_job_dir, dataset,
                                      model.print_architecture(sampling=False),
-                                     conf_args.ft)
+                                     conf_args.ft, '-'.join(ft_sets))
 
         save_dir = os.path.join(save_dir_root, f'{job_number:06d}')
         model.saved_dir = save_dir

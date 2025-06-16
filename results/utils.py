@@ -20,7 +20,7 @@ def _process_csv(csv_file, header=2, index_col=1):
     i_names = set(df.columns.names) | set(df.index.names)
 
     col_names = ['set', 'method', 'metrics']
-    assert set(col_names) <= i_names
+    assert set(col_names) <= i_names, 'col_names: {} i_names: {}'.format(col_names, i_names)
     assert set(df.columns.names) <= set(col_names)
 
     for _ in df.index.names:

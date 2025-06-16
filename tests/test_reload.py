@@ -77,6 +77,8 @@ if __name__ == '__main__':
         model = M.load(_, load_state=True)
         model.to(device)
 
+        print(model.features)
+
         dset = rmodels[_]['set']
 
         all_sets = tl.get_same_size_by_name(dset)

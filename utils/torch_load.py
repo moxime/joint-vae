@@ -761,6 +761,9 @@ if __name__ == '__main__':
 
     for s in args.sets:
         trainset, dsets[s] = get_dataset(s, splits=['test'])
+        x = batch = get_batch(dsets[s])[0]
+        print('{s:} {m:.1f}--{M:.1f} {mu:.2f}+/-{std:.2f}'.format(s=s, m=x.min(),
+                                                                  M=x.max(), mu=x.mean(), std=x.std()))
 
     for s in dsets:
         show_images(dsets[s], num=args.n, ncols=args.c, shuffle=args.r, show_labels=args.labels)

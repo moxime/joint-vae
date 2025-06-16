@@ -501,7 +501,7 @@ class ClassificationVariationalNetwork(nn.Module):
             # y_output = self.classifier(z_mean.unsqueeze(0))  # for classification on the means
             y_output = self.classifier(z)  # for classification on z
         elif self.classifier_type == 'softmax':
-            y_output = F.linear(z, self.encoder.prior.mean, self.encoder.prior.mean.pow(2).sum(-1) / 2)
+            y_output = F.linear(z, self.encoder.prior.mean, -self.encoder.prior.mean.pow(2).sum(-1) / 2)
 
         # y_output of size LxN1x...xKgxC
         # print('**** y_out', y_output.shape)

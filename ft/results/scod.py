@@ -120,7 +120,7 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
         tpr = (i_in & i_pos).sum() / i_in.sum()
         selective_risk = (~i_ok & i_in & i_pos).sum() / (i_in & i_pos).sum()
 
-        print('TPR = {:.1%} FPR = {:.1%} SR = {:.1%}'.format(tpr, fpr, selective_risk))
+        # print('TPR = {:.1%} FPR = {:.1%} SR = {:.1%}'.format(tpr, fpr, selective_risk))
 
         if weight == 0.5:
 
@@ -132,7 +132,7 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
                     _score = k_s_[k_s][k_i_[k_i]]
                     _q = _score.quantile(torch.tensor([0.05, 0.25, 0.5, 0.75, 0.95]))
                     __q = '--'.join(map('{: .2e}'.format, _q))
-                    print('{}[{:3}]: [{}] {: .2e} +/-{:.1e}'.format(s, i, __q,  _score.mean(),
+                    print('{}[{:3}]: [{}] {: .2e} +/-{:.1e}'.format(k_s, k_i, __q,  _score.mean(),
                                                                     _score.std()))
 
     tpr = i_in[i_].cumsum(0) / i_in.sum()
@@ -144,7 +144,7 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
         selective_risk = selective_risk[tpr >= target_tpr].min()
         tpr = tpr[tpr >= target_tpr].min()
 
-    return tpr, selective_risk, fpr, acc
+    return tpr, selective_risk, fpr
 
 
 @printstat

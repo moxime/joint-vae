@@ -104,7 +104,7 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
     if g_scores is None:
         g_scores = torch.zeros_like(r_scores)
 
-    scores = weight / (1 - weight) * g_scores + r_scores if weight < 1. else g_scores
+    scores = weight * g_scores + (1 - weight) * r_scores
 
     i_ = scores.argsort()
 
@@ -122,7 +122,7 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
 
         # print('TPR = {:.1%} FPR = {:.1%} SR = {:.1%}'.format(tpr, fpr, selective_risk))
 
-        if weight == 0.5:
+        if weight == 1:
 
             k_i_ = {'in': i_in, 'out': ~i_in, 'ok': i_in & i_ok, 'ko': ~i_ok & i_in}
             k_s_ = {'g': g_scores, 'r': r_scores}
@@ -430,7 +430,7 @@ if __name__ == '__main__':
 
             if g and r:
                 min_scod_risk = 1.0
-                for weight in np.linspace(0, 1, 21):
+                for weight in np.logspace(-5, 0, 21):
                     tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores, weight=weight, target_tpr=0.95)
                     print('gamma:{:.2f} fpr: {:.1%} sr: {:.1%}'.format(weight, fpr, sr))
                     scod_risk = 0.5 * fpr + 0.5 * sr

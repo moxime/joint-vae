@@ -16,6 +16,34 @@ default_scores['wim'] = {'r': 'zdist', 'g': 'elbo'}
 default_scores['vib'] = {'r': 'odin-1-0.0040', 'g': 'none'}
 
 
+PRINTSTAT = True
+PRINTSTAT = False
+
+
+def printstat(func):
+
+    def wrapped(*a, **kw):
+
+        scores = func(*a, **kw)
+
+        score = kw.get('score', '--')
+        T = kw.get('T', 1.)
+
+        try:
+            smin = scores.min()
+            smax = scores.max()
+            smean = scores.mean()
+            sstd = scores.std()
+            if PRINTSTAT:  # 'msp' in score and 'log' not in score:
+                print('*** {}-{} [{:.2g}--{:.2g}] {:.2g}+/-{:.2g}'.format(score, T, smin, smax, smean, sstd))
+        except AttributeError:
+            pass
+
+        return scores
+
+    return wrapped
+
+
 def grid_search_odin(in_rec, *out_rec, metrics='scod', tpr=0.95):
 
     assert metrics in ('fpr', 'sel', 'scod')
@@ -101,7 +129,11 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
 
             for k_s in k_s_:
                 for k_i in k_i_:
-                    print('{:s}[{:i}]: [{} -- {}}')
+                    _score = k_s_[k_s][k_i_[k_i]]
+                    _q = _score.quantile(torch.tensor([0.05, 0.25, 0.5, 0.75, 0.95]))
+                    __q = '--'.join(map('{: .2e}'.format, _q))
+                    print('{}[{:3}]: [{}] {: .2e} +/-{:.1e}'.format(s, i, __q,  _score.mean(),
+                                                                    _score.std()))
 
     tpr = i_in[i_].cumsum(0) / i_in.sum()
     fpr = (~i_in)[i_].cumsum(0) / (~i_in).sum()
@@ -112,43 +144,52 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
         selective_risk = selective_risk[tpr >= target_tpr].min()
         tpr = tpr[tpr >= target_tpr].min()
 
-    return tpr, selective_risk, fpr
+    return tpr, selective_risk, fpr, acc
 
 
-def scoring_r(losses, score='msp', y_est=None, mtype='cvae'):
+@printstat
+def scoring_r(losses, score='msp', y_est=None, mtype='cvae', T=1.):
     """ estimation of 1 - max P(y|x)
     """
+
+    # print('*** r', score, mtype)
+
     if score == 'default':
         score = default_scores[mtype]['r']  #
 
     logging.debug('r score is {}'.format(score))
 
-    # for _ in losses:
-    #     if _.startswith('odin'):
-    #         print('{} {:.2f}--{:.2f}'.format(_, losses[_].min(), losses[_].max()), *losses[_].shape)
-
     if score and score.startswith('odin'):
 
-        # print('***', losses[score].shape, losses[score].mean())
         return 1 - losses[score]
 
     if score is None:
-        return 0.
+        return None
 
     if y_est is None:
         y_est = losses['y_est_already']
 
     if score == 'predist':
-        return 0.5 * losses['pre-zdist'].gather(0, y_est.unsqueeze(0)).squeeze()
+        return 0.5 * losses['pre-zdist'].gather(0, y_est.unsqueeze(0)).squeeze() / T
 
-    if score == 'zdist':
-        return 0.5 * losses['zdist'].gather(0, y_est.unsqueeze(0)).squeeze()
+    if score == 'dist':
+        return 0.5 * losses['zdist'].gather(0, y_est.unsqueeze(0)).squeeze() / T
 
     if score == 'logmsp':
-        return scoring_r(losses, 'dist', y_est=y_est) - (-0.5 * losses['zdist']).logsumexp(0)
+        return scoring_r(losses, score='dist', y_est=y_est, T=T) + (-0.5 * losses['zdist'] / T).logsumexp(0)
+
+    if score == 'prelogmsp':
+        return (scoring_r(losses, score='predist', y_est=y_est, T=T)
+                + (-0.5 * losses['pre-zdist'] / T).logsumexp(0))
 
     if score == 'msp':
         return 1 - losses['logits'].softmax(dim=0).max(dim=0)[0]
+
+    if 'msp-' in score:
+        T = float(score.split('-')[1])
+        score = score.split('-')[0].replace('msp', 'logmsp')
+        # print('***', score, T)
+        return 1 - (-scoring_r(losses, score=score, y_est=y_est, mtype=mtype, T=T)).exp()
 
     raise ValueError('{} is unknwon for r(x)'.format(score))
 
@@ -156,6 +197,7 @@ def scoring_r(losses, score='msp', y_est=None, mtype='cvae'):
 def scoring_g(losses, score='elbo', y_est=None, mtype='wim'):
     """ estimation of pOut/pIn
     """
+    # print('*** g', score, mtype)
 
     if score == 'default':
         score = default_scores[mtype]['g']
@@ -163,7 +205,7 @@ def scoring_g(losses, score='elbo', y_est=None, mtype='wim'):
     logging.debug('g score is {}'.format(score))
 
     if score is None:
-        return 0.
+        return None
 
     def scoring_alt(k):
 
@@ -184,7 +226,7 @@ def scoring_g(losses, score='elbo', y_est=None, mtype='wim'):
     """ sign has to be >0 if the score is higher for ood
     """
     sign = 1
-    if score == 'elbo':
+    if score.startswith('elbo'):
         key = 'total'
         sign = 1
 
@@ -194,7 +236,7 @@ def scoring_g(losses, score='elbo', y_est=None, mtype='wim'):
     if score == 'g':
         sign = 1
 
-    if 'wim' in mtype and key.endswith('~@'):
+    if 'wim' in mtype and score.endswith('~@'):
         # score has to be high for ood
         return sign * (scoring_in(key) - scoring_alt(key))
 
@@ -255,7 +297,7 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--weight', default=0.5, type=float)
     parser.add_argument('-v', action='count', default=0)
     parser.add_argument('-f', action='store_true')
-    parser.add_argument('--tab', nargs='?', const='/dev/stdout')
+    parser.add_argument('--tab', nargs='?', const='/dev/stdout', default='/dev/null')
 
     args = parser.parse_args()
 
@@ -263,6 +305,11 @@ if __name__ == '__main__':
 
     """ ^^ CONFIG ^^
     """
+
+    for j in jobs:
+
+        if jobs[j]['mdict'] is None:
+            logging.error('{} not found'.format(j))
 
     for j in jobs:
         print(j, jobs[j]['r'], jobs[j]['g'])
@@ -306,9 +353,40 @@ if __name__ == '__main__':
 
     for j in jobs:
 
-        print('\n{:=^80}'.format(j))
+        mdict = jobs[j]['mdict']
+        dset = mdict['set']
+
+        model = mdict['net']
+
+        mtype = ''
+        if type(model).__name__.lower().endswith('array'):
+            mtype = type(model).__name__.lower()[:-5] + '-'
+
+        rdir = model_subdir(mdict, 'samples', '{:04}'.format(mdict['done']))
+
+        files = os.listdir(rdir)
+
+        logging.debug('{}: {}'.format(rdir[-20:], ' - '.join(files)))
+        rec = LossRecorder.loadall(rdir, device='cpu')
+
+        allsets_ = list(rec)
+
+        allsets = [dset] + oodsets
+
+        mtype += mdict['type']
+
+        if not set(allsets) <= set(allsets_):
+            logging.error('Sets missing: {}'.format(' '.join(set(allsets) - set(allsets_))))
+            continue
+
+        print('\n{:=^70}{:>30}'.format(j, ' '.join(allsets)))
 
         for r, g in product(jobs[j]['r'], jobs[j]['g']):
+
+            if r and r.lower() == 'none':
+                r = None
+            if g and g.lower() == 'none':
+                g = None
 
             if not (r or g):
                 continue
@@ -316,45 +394,19 @@ if __name__ == '__main__':
             tab_row = '{}-{}-{}'.format(j, r, g)
             tex_tab.append_cell(texify(tab_row), row=tab_row)
 
-            print('\n{:=^80}'.format('r:{} g:{}'.format(r, g)))
+            print('\n{:_^100}'.format('r:{} g:{}'.format(r, g)))
 
             logging.info('Scores r:{} g:{}'.format(r, g))
-
-            mdict = jobs[j]['mdict']
-            dset = mdict['set']
-
-            model = mdict['net']
-
-            mtype = ''
-            if type(model).__name__.lower().endswith('array'):
-                mtype = type(model).__name__.lower()[:-5] + '-'
-
-            mtype += mdict['type']
-
-            rdir = model_subdir(mdict, 'samples', '{:04}'.format(mdict['done']))
-
-            files = os.listdir(rdir)
-
-            logging.debug('{}: {}'.format(rdir[-20:], ' - '.join(files)))
-            rec = LossRecorder.loadall(rdir)
-
-            allsets_ = list(rec)
-
-            allsets = [dset] + oodsets
-
-            if not set(allsets) <= set(allsets_):
-                logging.error('Sets missing: {}'.format(' '.join(set(allsets) - set(allsets_))))
-                continue
 
             logging.info('Sets: {}'.format('/'.join(allsets)))
 
             for s in allsets_:
-                if 'y_est_already' not in rec[s]:
-                    rec[s]._tensors['y_est_already'] = rec[s]['cross_y'].argmin(0)
-
-            # for s in allsets:
-            #     print('{:=^20}'.format(s))
-            #     print('\n'.join([_ for _ in rec[s] if _.startswith('pre-')]))
+                if 'cvae' in mtype:
+                    if 'pre-zdist' in rec[s]:
+                        rec[s]._tensors['y_est_already'] = rec[s]['pre-zdist'].argmin(0)
+                    else:
+                        rec[s]._tensors['y_est_already'] = rec[s]['pre-zdist'].argmin(0)
+                assert 'y_est_already' in rec[s]
 
             y_est = torch.hstack([rec[_]['y_est_already'] for _ in allsets])
 
@@ -362,13 +414,17 @@ if __name__ == '__main__':
                 r = grid_search_odin(rec[dset], *[rec[_] for _ in oodsets], metrics='sel')
 
             logging.warning('r={}'.format(r))
-            r_scores = torch.hstack([scoring_r(rec[_], score=r, mtype=mtype)
-                                     for _ in allsets])
+
+            r_scores = None
+            g_scores = None
+
+            if r:
+                r_scores = torch.hstack([scoring_r(rec[_], score=r, mtype=mtype)
+                                         for _ in allsets])
             if g:
                 g_scores = torch.hstack([scoring_g(rec[_], score=g, mtype=mtype)
                                          for _ in allsets])
-            else:
-                g_scores = None
+
             y_true = torch.hstack([rec[_]['y_true'] * int(_ == dset) - int(_ != dset)
                                    for _ in allsets])
 
@@ -376,7 +432,6 @@ if __name__ == '__main__':
                 min_scod_risk = 1.0
                 for weight in np.linspace(0, 1, 21):
                     tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores, weight=weight, target_tpr=0.95)
-
                     print('gamma:{:.2f} fpr: {:.1%} sr: {:.1%}'.format(weight, fpr, sr))
                     scod_risk = 0.5 * fpr + 0.5 * sr
                     if scod_risk < min_scod_risk:

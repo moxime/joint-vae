@@ -5,10 +5,10 @@ import os
 import logging
 
 import torch
-from sklearn.metrics import auc
+from sklearn.metrics import auc, roc_curve
 import matplotlib.pyplot as plt
 from utils.save_load import needed_remote_files
-
+import numpy as np
 
 default_scores = {}
 
@@ -57,7 +57,7 @@ def grid_search_odin(in_rec, *out_rec, metrics='scod', tpr=0.95):
     return best_p
 
 
-def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, n_tpr=1000):
+def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
     """srisk: computation of sc(od) risk
 
     -- y_true : class for indist , -1 for ood
@@ -76,41 +76,41 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, n_tpr=1000):
     if g_scores is None:
         g_scores = torch.zeros_like(r_scores)
 
-    n_samples = len(y_true)
+    scores = weight / (1 - weight) * g_scores + r_scores if weight < 1. else g_scores
 
-    checked_tpr = torch.linspace(1 / n_tpr, 1, n_tpr)
+    i_ = scores.argsort()
 
-    if n_tpr == 1:
-        checked_tpr = torch.tensor([0.95])
+    i_in = y_true >= 0
+    i_ok = y_true == y_est
 
-    # g_ shape: n_samples x n_tpr
-    g_ = g_scores.unsqueeze(-1) * checked_tpr.unsqueeze(0)
+    if target_tpr is not None:
 
-    scores = weight * g_ + (1 - weight) * r_scores.unsqueeze(-1)
+        thr = scores[i_in].sort()[0][int(target_tpr * i_in.sum())]
+        i_pos = scores <= thr
 
-    in_samples = (y_true >= 0).sum()
-    out_samples = len(y_true) - in_samples
+        fpr = ((~i_in) & i_pos).sum() / (~i_in).sum()
+        tpr = (i_in & i_pos).sum() / i_in.sum()
+        selective_risk = (~i_ok & i_in & i_pos).sum() / (i_in & i_pos).sum()
 
-    thresholds = torch.zeros(n_tpr)
+        print('TPR = {:.1%} FPR = {:.1%} SR = {:.1%}'.format(tpr, fpr, selective_risk))
 
-    for i in range(n_tpr):
+        if weight == 0.5:
 
-        i_thr = max(-int(-(checked_tpr[i] * in_samples - 1)), 0)
-        thresholds[i] = scores[y_true >= 0, i].sort()[0][i_thr]
+            k_i_ = {'in': i_in, 'out': ~i_in, 'ok': i_in & i_ok, 'ko': ~i_ok & i_in}
+            k_s_ = {'g': g_scores, 'r': r_scores}
 
-    # i_pos n_samples x n_tpr
-    # pos : s(x) <= threshold
-    i_pos = scores <= thresholds.unsqueeze(0)
+            for k_s in k_s_:
+                for k_i in k_i_:
+                    print('{:s}[{:i}]: [{} -- {}}')
 
-    i_true_pos = (i_pos & (y_true >= 0).unsqueeze(-1))
+    tpr = i_in[i_].cumsum(0) / i_in.sum()
+    fpr = (~i_in)[i_].cumsum(0) / (~i_in).sum()
+    selective_risk = (i_in & (~i_ok))[i_].cumsum(0) / i_in[i_].cumsum(0)
 
-    i_false_pos = (i_pos & (y_true < 0).unsqueeze(-1))
-
-    classif_errors = i_pos & ((y_true >= 0) & (y_true != y_est)).unsqueeze(-1)
-
-    tpr = i_true_pos.sum(0) / in_samples
-    fpr = i_false_pos.sum(0) / out_samples
-    selective_risk = classif_errors.sum(0) / tpr / in_samples
+    if target_tpr is not None:
+        fpr = fpr[tpr >= target_tpr].min()
+        selective_risk = selective_risk[tpr >= target_tpr].min()
+        tpr = tpr[tpr >= target_tpr].min()
 
     return tpr, selective_risk, fpr
 
@@ -359,7 +359,6 @@ if __name__ == '__main__':
             y_est = torch.hstack([rec[_]['y_est_already'] for _ in allsets])
 
             if r == 'odin':
-
                 r = grid_search_odin(rec[dset], *[rec[_] for _ in oodsets], metrics='sel')
 
             logging.warning('r={}'.format(r))
@@ -373,15 +372,26 @@ if __name__ == '__main__':
             y_true = torch.hstack([rec[_]['y_true'] * int(_ == dset) - int(_ != dset)
                                    for _ in allsets])
 
-            tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores)
+            if g and r:
+                min_scod_risk = 1.0
+                for weight in np.linspace(0, 1, 21):
+                    tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores, weight=weight, target_tpr=0.95)
 
-            fpr95 = fpr[tpr >= 0.95].min()
-            sr95 = sr[tpr >= 0.95].min()
-            auroc = 1 - auc(tpr, fpr)
-            auscodrt = auc(tpr, 0.5 * sr + 0.5 * fpr)
-            ausrt = auc(tpr, sr)
+                    print('gamma:{:.2f} fpr: {:.1%} sr: {:.1%}'.format(weight, fpr, sr))
+                    scod_risk = 0.5 * fpr + 0.5 * sr
+                    if scod_risk < min_scod_risk:
+                        weight_opt = weight
 
-            _s = f'FPR@95 = {fpr95:.1%} -- SR95 = {sr95:.1%} -- '
+                tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores, weight=weight_opt)
+                fpr95 = fpr[tpr >= 0.95].min()
+                sr95 = sr[tpr >= 0.95].min()
+
+                auroc = 1 - auc(tpr, fpr)
+                auscodrt = auc(tpr, 0.5 * sr + 0.5 * fpr)
+                ausrt = auc(tpr, sr)
+
+            _s = f'gamma={weight_opt:.2f}: '
+            _s += f'FPR@95 = {fpr95:.1%} -- SR95 = {sr95:.1%} -- '
             _s += f'AuROC = {auroc: .1%} '
             _s += f'-- AuST = {ausrt: .1%}'
             _s += f'-- AuSCODT = {auscodrt: .1%}'
@@ -405,9 +415,9 @@ if __name__ == '__main__':
                 a.legend()
 
                 figures[j].show()
-
-    with open(args.tab, 'w') as f:
-        tex_tab.render(f)
+    if args.tab:
+        with open(args.tab, 'w') as f:
+            tex_tab.render(f)
 
     if sys.argv[0] and args.f:
         input()

@@ -122,7 +122,7 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
 
         # print('TPR = {:.1%} FPR = {:.1%} SR = {:.1%}'.format(tpr, fpr, selective_risk))
 
-        if weight == 1:
+        if weight == 0.5:
 
             k_i_ = {'in': i_in, 'out': ~i_in, 'ok': i_in & i_ok, 'ko': ~i_ok & i_in}
             k_s_ = {'g': g_scores, 'r': r_scores}
@@ -134,6 +134,7 @@ def scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=None):
                     __q = '--'.join(map('{: .2e}'.format, _q))
                     print('{}[{:3}]: [{}] {: .2e} +/-{:.1e}'.format(k_s, k_i, __q,  _score.mean(),
                                                                     _score.std()))
+                print()
 
     tpr = i_in[i_].cumsum(0) / i_in.sum()
     fpr = (~i_in)[i_].cumsum(0) / (~i_in).sum()
@@ -182,13 +183,11 @@ def scoring_r(losses, score='msp', y_est=None, mtype='cvae', T=1.):
         return (scoring_r(losses, score='predist', y_est=y_est, T=T)
                 + (-0.5 * losses['pre-zdist'] / T).logsumexp(0))
 
-    if score == 'msp':
-        return 1 - losses['logits'].softmax(dim=0).max(dim=0)[0]
+    if score == 'msp' and 'vib' in mtype:
+        return 1 - (losses['logits'] / T).softmax(dim=0).max(dim=0)[0]
 
-    if 'msp-' in score:
-        T = float(score.split('-')[1])
+    if score == 'msp' and 'cvae' in mtype:
         score = score.split('-')[0].replace('msp', 'logmsp')
-        # print('***', score, T)
         return 1 - (-scoring_r(losses, score=score, y_est=y_est, mtype=mtype, T=T)).exp()
 
     raise ValueError('{} is unknwon for r(x)'.format(score))
@@ -393,8 +392,17 @@ if __name__ == '__main__':
 
             tab_row = '{}-{}-{}'.format(j, r, g)
             tex_tab.append_cell(texify(tab_row), row=tab_row)
+            fig_name = '{} - {} - {}'.format(j, r, g)
 
-            print('\n{:_^100}'.format('r:{} g:{}'.format(r, g)))
+            T = 1.
+            if r:
+                try:
+                    T = float(r.split('-')[1])
+                except IndexError:
+                    pass
+                r = r.split('-')[0]
+
+            print('\n{:_^100}'.format('g:{} r:{}{}'.format(g, r, '' if T == 1. else ' (T={})'.format(T))))
 
             logging.info('Scores r:{} g:{}'.format(r, g))
 
@@ -419,7 +427,7 @@ if __name__ == '__main__':
             g_scores = None
 
             if r:
-                r_scores = torch.hstack([scoring_r(rec[_], score=r, mtype=mtype)
+                r_scores = torch.hstack([scoring_r(rec[_], score=r, mtype=mtype, T=T)
                                          for _ in allsets])
             if g:
                 g_scores = torch.hstack([scoring_g(rec[_], score=g, mtype=mtype)
@@ -429,13 +437,18 @@ if __name__ == '__main__':
                                    for _ in allsets])
 
             if g and r:
-                min_scod_risk = 1.0
-                for weight in np.logspace(-5, 0, 21):
-                    tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores, weight=weight, target_tpr=0.95)
-                    print('gamma:{:.2f} fpr: {:.1%} sr: {:.1%}'.format(weight, fpr, sr))
-                    scod_risk = 0.5 * fpr + 0.5 * sr
-                    if scod_risk < min_scod_risk:
+                min_auscodt = 1.0
+
+                # to print stats
+                tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores, weight=0.5, target_tpr=0.95)
+
+                for weight in np.logspace(-20, 0, 201):
+                    tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores, weight=weight)
+                    _weight = 0.5
+                    auscodt = auc(tpr, _weight * fpr + (1 - _weight) * sr)
+                    if auscodt < min_auscodt:
                         weight_opt = weight
+                        min_auscodt = auscodt
 
                 tpr, sr, fpr = scrisk(y_true, y_est, r_scores, g_scores, weight=weight_opt)
                 fpr95 = fpr[tpr >= 0.95].min()
@@ -445,7 +458,7 @@ if __name__ == '__main__':
                 auscodrt = auc(tpr, 0.5 * sr + 0.5 * fpr)
                 ausrt = auc(tpr, sr)
 
-            _s = f'gamma={weight_opt:.2f}: '
+            _s = f'gamma={weight_opt:.2e}: '
             _s += f'FPR@95 = {fpr95:.1%} -- SR95 = {sr95:.1%} -- '
             _s += f'AuROC = {auroc: .1%} '
             _s += f'-- AuST = {ausrt: .1%}'
@@ -458,7 +471,6 @@ if __name__ == '__main__':
             for val in (fpr95, sr95, auroc, ausrt, auscodrt):
                 tex_tab.append_cell(100 * val, row=tab_row)
 
-            fig_name = '{} - {} - {}'.format(j, r, g)
             if args.f:
                 figures[fig_name] = plt.figure(fig_name)
 
